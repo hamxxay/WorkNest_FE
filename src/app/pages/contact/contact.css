@@ -1,0 +1,76 @@
+.page-hero {
+  padding: 120px 0 40px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-hero h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 16px;
+}
+
+.hero-sub {
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  max-width: 540px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+.contact-layout {
+  max-width: 540px;
+  margin: 0 auto 40px;
+}
+
+.contact-form-wrapper {
+  padding: 32px;
+}
+
+.form-row .form-group {
+  margin-bottom: 18px;
+}
+
+.success-msg {
+  text-align: center;
+  padding: 36px 0;
+}
+
+.success-msg svg {
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.success-msg h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.success-msg p {
+  color: var(--text-secondary);
+}
+
+.tour-cta {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.tour-cta h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.tour-cta p {
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .contact-form-wrapper { padding: 24px; }
+  .page-hero h1 { font-size: 2rem; }
+}

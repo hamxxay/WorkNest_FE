@@ -1,0 +1,84 @@
+<!-- Hero -->
+<section class="page-hero">
+  <div class="container text-center">
+    <h1>About WorkNest</h1>
+    <p class="hero-sub">We are on a mission to transform how professionals work by providing flexible, inspiring workspaces that foster productivity, collaboration, and growth.</p>
+  </div>
+</section>
+
+<!-- Our Story + Stats -->
+<section class="section">
+  <div class="container">
+    <div class="story-grid">
+      <div class="story-content">
+        <h2 class="section-title">Our Story</h2>
+        <p>Founded in 2020, WorkNest began with a simple idea: work should happen in spaces that inspire. What started as a single shared office space has grown into a network of premium workspaces across major cities.</p>
+        <p>We noticed that traditional office spaces were no longer meeting the needs of modern professionals. Freelancers, startups, and remote workers needed flexibility, community, and environments designed for focus and creativity.</p>
+        <p>Today, we serve thousands of members who rely on WorkNest for their daily productivity, important meetings, and professional growth.</p>
+      </div>
+      <div class="stats-grid">
+        @for (stat of stats; track stat.label) {
+          <div class="stat-item">
+            <div class="stat-icon">
+              @if (stat.icon === 'location') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+              } @else if (stat.icon === 'members') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              } @else if (stat.icon === 'globe') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+              }
+            </div>
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Values -->
+<section class="section values-section">
+  <div class="container">
+    <h2 class="section-title text-center">Our Values</h2>
+    <p class="section-subtitle text-center">These core principles guide everything we do at WorkNest.</p>
+    <div class="values-grid">
+      @for (value of values; track value.title) {
+        <div class="card value-card">
+          <div class="value-icon">
+            @if (value.icon === 'star') {
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            } @else if (value.icon === 'users') {
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            }
+          </div>
+          <h3>{{ value.title }}</h3>
+          <p>{{ value.description }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Team -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title text-center">Leadership Team</h2>
+    <p class="section-subtitle text-center">Meet the people driving our vision forward.</p>
+    <div class="team-grid">
+      @for (member of team; track member.name) {
+        <div class="card team-card text-center">
+          <div class="team-avatar">
+            <span>{{ member.initials }}</span>
+          </div>
+          <h3>{{ member.name }}</h3>
+          <p>{{ member.role }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>

@@ -1,0 +1,161 @@
+.my-payments-section {
+  padding: 120px 0 60px;
+  min-height: 100vh;
+  background: var(--bg-page);
+}
+
+.container { max-width: var(--container-max); margin: 0 auto; padding: 0 24px; }
+
+.section-header { margin-bottom: 28px; }
+.section-header h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
+.section-header p { font-size: 0.95rem; color: var(--text-muted); margin-top: 4px; }
+
+/* Loading */
+.loading-spinner { display: flex; flex-direction: column; align-items: center; padding: 60px 0; gap: 12px; color: var(--text-muted); }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Empty */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+.empty-state svg { margin-bottom: 16px; color: var(--border-color); }
+.empty-state h3 { font-size: 1.2rem; color: var(--text-primary); margin-bottom: 8px; }
+.empty-state p { margin-bottom: 20px; }
+
+.btn-action {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 22px; background: var(--accent); color: #fff;
+  border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+  text-decoration: none; transition: background 0.2s;
+}
+.btn-action:hover { background: var(--accent-dark); }
+
+/* Summary */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.summary-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.summary-value.paid { color: #16a34a; }
+.summary-value.pending { color: #d97706; }
+
+/* Table */
+.payments-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.payments-table th {
+  text-align: left;
+  padding: 12px 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(248,250,252,0.5);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.payments-table td {
+  padding: 14px 18px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.payments-table tr:last-child td { border-bottom: none; }
+.payments-table tr:hover td { background: rgba(248,250,252,0.5); }
+
+.cell-id { font-weight: 600; color: var(--text-muted); }
+.cell-amount { font-weight: 700; color: var(--text-primary); }
+.cell-ref { font-size: 0.82rem; color: var(--text-muted); font-family: monospace; }
+.cell-date { color: var(--text-muted); }
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-pending { background: rgba(245,158,11,0.1); color: #d97706; }
+.status-paid { background: rgba(34,197,94,0.1); color: #16a34a; }
+.status-failed { background: rgba(239,68,68,0.1); color: #ef4444; }
+.status-refunded { background: rgba(168,85,247,0.1); color: #a855f7; }
+
+/* Mobile cards (hidden on desktop) */
+.payments-mobile { display: none; }
+
+.payment-card-mobile {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.payment-mobile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.payment-mobile-id { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+.payment-mobile-amount { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+
+.payment-mobile-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.payment-mobile-ref {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+@media (max-width: 768px) {
+  .summary-cards { grid-template-columns: 1fr; }
+  .payments-card { display: none; }
+  .payments-mobile { display: block; }
+  .section-header h1 { font-size: 1.4rem; }
+}

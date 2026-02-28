@@ -1,0 +1,62 @@
+<!-- Hero -->
+<section class="page-hero">
+  <div class="container text-center">
+    <h1>Contact Us</h1>
+    <p class="hero-sub">Need a custom plan or have questions? Our team is here to help you choose the perfect workspace.</p>
+  </div>
+</section>
+
+<!-- Contact Form -->
+<section class="section">
+  <div class="container">
+    <div class="contact-layout">
+      <div class="contact-form-wrapper card">
+        @if (submitted()) {
+          <div class="success-msg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <h3>Message Sent!</h3>
+            <p>Thank you for reaching out. We'll get back to you soon.</p>
+          </div>
+        } @else {
+          @if (error()) {
+            <div class="alert alert-error">{{ error() }}</div>
+          }
+          <form (ngSubmit)="onSubmit()">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" class="form-input" placeholder="Your full name" [(ngModel)]="form.fullName" name="fullName" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-input" placeholder="you@example.com" [(ngModel)]="form.email" name="email" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Phone Number</label>
+                <input type="tel" class="form-input" placeholder="+92 300 1234567" [(ngModel)]="form.phone" name="phone" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Message</label>
+                <textarea class="form-input" rows="5" placeholder="Tell us how we can help..." [(ngModel)]="form.message" name="message" required></textarea>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-lg">Send Message</button>
+          </form>
+        }
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="tour-cta card text-center">
+      <h3>Want to visit before deciding?</h3>
+      <p>Book a free tour and experience our workspace in person.</p>
+      <a routerLink="/booking" class="btn btn-primary">Book a Tour</a>
+    </div>
+  </div>
+</section>

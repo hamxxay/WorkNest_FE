@@ -1,0 +1,148 @@
+<!-- Hero -->
+<section class="page-hero">
+  <div class="container text-center">
+    <h1>Book Your Workspace</h1>
+  </div>
+</section>
+
+<!-- Search & Filter -->
+<section class="section">
+  <div class="container">
+    <div class="search-card">
+      <h3>Search & Filter Workspaces</h3>
+      <div class="search-form">
+        <div class="input-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" class="form-input" placeholder="Enter location or workspace name"
+            [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+        </div>
+        <select class="form-input" [ngModel]="workspaceType()" (ngModelChange)="workspaceType.set($event)">
+          <option value="">All Types</option>
+          <option value="Private Office">Private Office</option>
+          <option value="Hot Desk">Hot Desk</option>
+          <option value="Meeting Room">Meeting Room</option>
+          <option value="Dedicated Desk">Dedicated Desk</option>
+        </select>
+        <button class="btn btn-primary search-btn" (click)="filterWorkspaces()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          Search
+        </button>
+      </div>
+      <p class="form-hint">Filter by name, location, or workspace type</p>
+    </div>
+
+    @if (bookingSuccess()) {
+      <div class="alert alert-success" style="margin-top: 16px;">{{ bookingSuccess() }}</div>
+    }
+
+    <!-- Workspace Gallery -->
+    <div class="workspace-section">
+      <h2 class="section-title">Workspace Gallery</h2>
+      <p class="section-sub">Browse available workspaces and find your perfect fit</p>
+
+      @if (loading()) {
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p>Loading workspaces...</p>
+        </div>
+      } @else if (filteredWorkspaces().length === 0) {
+        <div class="empty-state">
+          <p>No workspaces found. Try adjusting your search filters.</p>
+        </div>
+      } @else {
+        <div class="workspace-grid">
+          @for (ws of filteredWorkspaces(); track ws.id) {
+            <div class="workspace-card card">
+              <div class="ws-image">
+                <img [src]="ws.imageUrl" [alt]="ws.name" />
+                <span class="badge" [class.badge-success]="ws.status === 'Available'" [class.badge-danger]="ws.status !== 'Available'">
+                  {{ ws.status }}
+                </span>
+              </div>
+              <div class="ws-content">
+                <h3>{{ ws.name }}</h3>
+                <p class="ws-location">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  {{ ws.locationName }}
+                </p>
+                <p class="ws-capacity">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  {{ ws.spaceTypeName }} · Floor: {{ ws.floor }}
+                </p>
+                <div class="ws-amenities">
+                  @for (a of getAmenities(ws.amenities); track a) {
+                    <span class="amenity-tag">{{ a }}</span>
+                  }
+                </div>
+                <div class="ws-footer">
+                  <span class="ws-price">
+                    ${{ ws.pricePerHour }}<small>/hr</small> · ${{ ws.pricePerDay }}<small>/day</small>
+                  </span>
+                  @if (ws.status === 'Available') {
+                    <button class="btn btn-primary btn-sm" (click)="openBookingModal(ws)">Book Now</button>
+                  } @else {
+                    <button class="btn btn-outline btn-sm" disabled>Unavailable</button>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Booking Modal -->
+@if (showBookingModal && selectedSpace) {
+  <div class="modal-overlay" (click)="closeBookingModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeBookingModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Book: {{ selectedSpace.name }}</h2>
+      <p class="modal-sub">{{ selectedSpace.locationName }} · {{ selectedSpace.spaceTypeName }}</p>
+
+      @if (bookingError()) {
+        <div class="alert alert-error">{{ bookingError() }}</div>
+      }
+      @if (bookingSuccess()) {
+        <div class="alert alert-success">{{ bookingSuccess() }}</div>
+      }
+
+      <form (ngSubmit)="submitBooking()">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" class="form-input" [(ngModel)]="bookingStartDate" name="startDate" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <input type="time" class="form-input" [(ngModel)]="bookingStartTime" name="startTime" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input type="date" class="form-input" [(ngModel)]="bookingEndDate" name="endDate" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Time</label>
+            <input type="time" class="form-input" [(ngModel)]="bookingEndTime" name="endTime" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <textarea class="form-input" rows="3" placeholder="Any special requirements..." [(ngModel)]="bookingNotes" name="notes"></textarea>
+        </div>
+        <div class="modal-price">
+          <span>Hourly: ${{ selectedSpace.pricePerHour }}/hr</span>
+          <span>Daily: ${{ selectedSpace.pricePerDay }}/day</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="bookingInProgress()">
+          {{ bookingInProgress() ? 'Booking...' : 'Confirm Booking' }}
+        </button>
+      </form>
+    </div>
+  </div>
+}

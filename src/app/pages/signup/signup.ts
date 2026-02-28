@@ -1,0 +1,64 @@
+import { Component, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+
+@Component({
+  selector: 'app-signup',
+  imports: [FormsModule, RouterLink],
+  templateUrl: './signup.html',
+  styleUrl: './signup.css'
+})
+export class Signup {
+  fullName = '';
+  email = '';
+  password = '';
+  confirmPassword = '';
+  showPassword = false;
+  showConfirm = false;
+  loading = signal(false);
+  error = signal('');
+  success = signal('');
+
+  constructor(private authService: AuthService, private router: Router) {}
+
+  onSubmit() {
+    this.error.set('');
+    this.success.set('');
+
+    if (!this.fullName || !this.email || !this.password || !this.confirmPassword) {
+      this.error.set('Please fill in all fields.');
+      return;
+    }
+    if (this.password !== this.confirmPassword) {
+      this.error.set('Passwords do not match.');
+      return;
+    }
+    if (this.password.length < 8) {
+      this.error.set('Password must be at least 8 characters.');
+      return;
+    }
+
+    this.loading.set(true);
+
+    const nameParts = this.fullName.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || undefined;
+
+    this.authService.register(this.email, this.password, firstName, lastName).subscribe({
+      next: (res) => {
+        this.loading.set(false);
+        if (res.isSuccessful) {
+          this.success.set('Account created successfully! Redirecting to login...');
+          setTimeout(() => this.router.navigate(['/login']), 2000);
+        } else {
+          this.error.set(res.message || 'Registration failed.');
+        }
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message || 'Registration failed. Please try again.');
+      }
+    });
+  }
+}

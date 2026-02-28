@@ -1,0 +1,85 @@
+<section class="my-payments-section">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <h1>My Payments</h1>
+        <p>View your payment history and details</p>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-spinner"><div class="spinner"></div><p>Loading your payments...</p></div>
+    } @else if (payments().length === 0) {
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <h3>No Payments Yet</h3>
+        <p>Your payment history will appear here once you make a booking.</p>
+        <a routerLink="/booking" class="btn-action">Browse Spaces</a>
+      </div>
+    } @else {
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <div class="summary-card">
+          <span class="summary-label">Total Paid</span>
+          <span class="summary-value paid">${{ totalPaid() | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Pending</span>
+          <span class="summary-value pending">${{ totalPending() | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Transactions</span>
+          <span class="summary-value">{{ payments().length }}</span>
+        </div>
+      </div>
+
+      <!-- Payments Table -->
+      <div class="payments-card">
+        <table class="payments-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Reference</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of payments(); track p.id) {
+              <tr>
+                <td class="cell-id">#{{ p.id }}</td>
+                <td class="cell-amount">${{ p.amount | number:'1.2-2' }}</td>
+                <td>{{ p.paymentMethod || '—' }}</td>
+                <td><span class="status-badge" [class]="getStatusClass(p.paymentStatus)">{{ p.paymentStatus }}</span></td>
+                <td class="cell-ref">{{ p.transactionRef || '—' }}</td>
+                <td class="cell-date">{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards view -->
+      <div class="payments-mobile">
+        @for (p of payments(); track p.id) {
+          <div class="payment-card-mobile">
+            <div class="payment-mobile-header">
+              <span class="payment-mobile-id">#{{ p.id }}</span>
+              <span class="status-badge" [class]="getStatusClass(p.paymentStatus)">{{ p.paymentStatus }}</span>
+            </div>
+            <div class="payment-mobile-amount">${{ p.amount | number:'1.2-2' }}</div>
+            <div class="payment-mobile-details">
+              <span>{{ p.paymentMethod || 'N/A' }}</span>
+              <span>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</span>
+            </div>
+            @if (p.transactionRef) {
+              <div class="payment-mobile-ref">Ref: {{ p.transactionRef }}</div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</section>

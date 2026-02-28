@@ -1,0 +1,151 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div>
+      <h1>{{ config?.title }}</h1>
+      <p>Manage all {{ config?.title?.toLowerCase() }}</p>
+    </div>
+    <div class="header-actions">
+      @if (config?.createFn || (entity === 'users' && config?.fields)) {
+        <button class="btn-admin btn-primary-admin" (click)="openCreate()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+          Add New
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (success) {
+    <div class="alert-admin alert-success-admin">{{ success }}</div>
+  }
+
+  <div class="admin-card">
+    <div class="card-toolbar">
+      <div class="search-box">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input
+          type="text"
+          placeholder="Search..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+      <span class="item-count">{{ totalItems() }} items</span>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
+    } @else if (items().length === 0) {
+      <div class="empty-state"><p>No records found.</p></div>
+    } @else {
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              @for (col of config.columns; track col.key) {
+                <th>{{ col.label }}</th>
+              }
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of items(); track item.id || $index) {
+              <tr>
+                @for (col of config.columns; track col.key) {
+                  <td>
+                    @if (col.type === 'image') {
+                      <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
+                    } @else if (col.type === 'status') {
+                      <span class="status-badge" [class]="'status-' + (item[col.key] || '').toLowerCase()">{{ item[col.key] }}</span>
+                    } @else if (col.type === 'boolean') {
+                      <span class="bool-badge" [class.active]="item[col.key]">{{ item[col.key] ? 'Yes' : 'No' }}</span>
+                    } @else if (col.type === 'date') {
+                      {{ item[col.key] | date:'short' }}
+                    } @else if (col.type === 'currency') {
+                      ${{ item[col.key] | number:'1.2-2' }}
+                    } @else if (col.type === 'roles') {
+                      @for (r of item[col.key]; track r) {
+                        <span class="role-tag">{{ r }}</span>
+                      }
+                    } @else {
+                      {{ getCellValue(item, col) }}
+                    }
+                  </td>
+                }
+                <td class="actions-cell">
+                  @if (config.statusFn && config.statusOptions) {
+                    <select class="status-select" (change)="changeStatus(item, $any($event.target).value)">
+                      <option value="" disabled selected>Status</option>
+                      @for (s of config.statusOptions; track s) {
+                        <option [value]="s">{{ s }}</option>
+                      }
+                    </select>
+                  }
+                  @if (config.updateFn && config.fields) {
+                    <button class="action-btn edit" (click)="openEdit(item)" title="Edit">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                  }
+                  @if (entity === 'users') {
+                    <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive" (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
+                      {{ item.isActive ? '🔒' : '🔓' }}
+                    </button>
+                  }
+                  @if (config.deleteFn) {
+                    <button class="action-btn delete" (click)="deleteItem(item)" title="Delete">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Create/Edit Modal -->
+@if (showModal && config.fields) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>{{ editItem ? 'Edit' : 'Create' }} {{ config.title }}</h2>
+      @if (error) {
+        <div class="alert-admin alert-error-admin">{{ error }}</div>
+      }
+      <form (ngSubmit)="save()">
+        @for (field of config.fields; track field.key) {
+          <div class="form-group-admin">
+            <label>{{ field.label }}</label>
+            @if (field.type === 'textarea') {
+              <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
+            } @else if (field.type === 'select') {
+              <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
+                <option value="">Select...</option>
+                @for (opt of field.options; track opt.v) {
+                  <option [value]="opt.v">{{ opt.l }}</option>
+                }
+              </select>
+            } @else if (field.type === 'checkbox') {
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="formData[field.key]" [name]="field.key" />
+                {{ field.label }}
+              </label>
+            } @else {
+              <input class="form-input-admin" [type]="field.type" [(ngModel)]="formData[field.key]" [name]="field.key" />
+            }
+          </div>
+        }
+        <div class="modal-actions">
+          <button type="button" class="btn-admin btn-outline-admin" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="saving">
+            {{ saving ? 'Saving...' : (editItem ? 'Update' : 'Create') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
