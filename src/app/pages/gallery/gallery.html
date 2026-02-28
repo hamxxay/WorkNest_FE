@@ -1,0 +1,65 @@
+<!-- Hero -->
+<section class="page-hero">
+  <div class="container text-center">
+    <h1>Our Workspace Gallery</h1>
+    <p class="hero-sub">Take a virtual tour of our premium workspaces. Every corner is designed for productivity and comfort.</p>
+  </div>
+</section>
+
+<!-- Gallery -->
+<section class="section">
+  <div class="container">
+    <!-- Category Filter -->
+    <div class="filter-bar">
+      @for (cat of categories; track cat) {
+        <button
+          class="filter-btn"
+          [class.active]="activeCategory() === cat"
+          (click)="setCategory(cat)">
+          {{ cat }}
+        </button>
+      }
+    </div>
+
+    <!-- Image Grid -->
+    @if (loading()) {
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading gallery...</p>
+      </div>
+    }
+    <div class="gallery-grid">
+      @for (img of filteredImages(); track img.title) {
+        <div class="gallery-item" (click)="openLightbox(img)">
+          <img [src]="img.imageUrl" [alt]="img.title" loading="lazy" />
+          <div class="gallery-overlay">
+            <span class="gallery-title">{{ img.title }}</span>
+            <span class="gallery-cat">{{ img.category }}</span>
+          </div>
+        </div>
+      }
+    </div>
+
+    @if (filteredImages().length === 0) {
+      <div class="empty-state text-center">
+        <p>No images found in this category.</p>
+      </div>
+    }
+  </div>
+</section>
+
+<!-- Lightbox -->
+@if (lightboxImage) {
+  <div class="lightbox" (click)="closeLightbox()">
+    <button class="lightbox-close" (click)="closeLightbox()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <div class="lightbox-content" (click)="$event.stopPropagation()">
+      <img [src]="lightboxImage.imageUrl" [alt]="lightboxImage.title" />
+      <div class="lightbox-info">
+        <h3>{{ lightboxImage.title }}</h3>
+        <span>{{ lightboxImage.category }}</span>
+      </div>
+    </div>
+  </div>
+}

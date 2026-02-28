@@ -1,0 +1,83 @@
+<!-- Hero -->
+<section class="page-hero">
+  <div class="container text-center">
+    <h1>Simple, Transparent Pricing</h1>
+    <p class="hero-sub">Choose the plan that fits your work style. All plans include access to our premium workspace amenities and supportive community.</p>
+  </div>
+</section>
+
+<!-- Plans -->
+<section class="section">
+  <div class="container">
+    @if (loading) {
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading plans...</p>
+      </div>
+    }
+    <div class="pricing-grid">
+      @for (plan of plans; track plan.name; let i = $index) {
+        <div class="card pricing-card" [class.popular]="plan.popular">
+          @if (plan.popular) {
+            <span class="popular-badge">Most Popular</span>
+          }
+          <h3>{{ plan.name }}</h3>
+          <div class="price">
+            <span class="amount">${{ plan.price }}</span>
+            <span class="period">/month</span>
+          </div>
+          <p class="plan-desc">{{ plan.description }}</p>
+          <ul class="plan-features">
+            @for (f of plan.features; track f) {
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                {{ f }}
+              </li>
+            }
+          </ul>
+          <a routerLink="/signup" class="btn btn-block" [class.btn-primary]="plan.popular" [class.btn-outline]="!plan.popular">
+            {{ plan.cta }}
+          </a>
+        </div>
+      }
+    </div>
+
+    <div class="custom-plan text-center">
+      <a routerLink="/contact" class="btn btn-outline">Contact Us for Custom Plans</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section faq-section">
+  <div class="container">
+    <h2 class="section-title text-center">Frequently Asked Questions</h2>
+    <div class="faq-list">
+      @for (faq of faqs; track faq.question; let i = $index) {
+        <div class="faq-item" [class.open]="faq.open" (click)="toggleFaq(i)">
+          <div class="faq-question">
+            <span>{{ faq.question }}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="faq-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          @if (faq.open) {
+            <div class="faq-answer">
+              <p>{{ faq.answer }}</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section cta-section">
+  <div class="container text-center">
+    <h2 class="section-title">Not sure which plan is right for you?</h2>
+    <p class="section-subtitle">Book a free tour of our workspace and speak with our team to find the perfect plan for your needs.</p>
+    <div class="cta-actions">
+      <a routerLink="/booking" class="btn btn-primary btn-lg">Book a Tour</a>
+      <a routerLink="/about" class="btn btn-outline btn-lg">Learn More</a>
+    </div>
+  </div>
+</section>
