@@ -6,5 +6,5 @@ const appEnv = ((import.meta as AppEnv).env ?? {}) as Record<string, string | un
 
 export const environment = {
   production: appEnv['NG_APP_PRODUCTION'] === 'true',
-  apiUrl: appEnv['NG_APP_API_URL'] ?? 'http://localhost:5000/api',
+  apiUrl: appEnv['NG_APP_API_URL'] ?? '/api',
 };
