@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { AdminService } from '../../services/admin.service';
+import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage } from '../../models/admin.model';
 
 interface Column { key: string; label: string; type?: string; }
 interface EntityConfig {
@@ -20,25 +21,6 @@ interface EntityConfig {
   updateFn?: string;
   statusFn?: string;
 }
-
-// models returned by the admin API
-export interface ApiResponse<T> {
-  isSuccessful: boolean;
-  data?: T;
-  message?: string;
-  total?: number;
-}
-
-export interface User { id: string; email: string; firstName?: string; lastName?: string; roles?: string[]; isActive?: boolean; createdAt?: string; }
-export interface Location { id: number; name: string; address: string; city: string; openingTime?: string; closingTime?: string; isActive?: boolean; }
-export interface SpaceType { id: number; name: string; capacity?: number; hourlyAllowed?: boolean; isActive?: boolean; }
-export interface Space { id: number; name: string; locationName?: string; spaceTypeName?: string; code?: string; pricePerHour?: number; pricePerDay?: number; status?: string; }
-export interface Booking { id: number; userEmail?: string; spaceName?: string; startDateTime?: string; endDateTime?: string; totalAmount?: number; bookingStatus?: string; }
-export interface PricingPlan { id: number; name: string; price?: number; billingCycle?: string; includesHours?: number; isActive?: boolean; }
-export interface Membership { id: number; userEmail?: string; planName?: string; startDate?: string; endDate?: string; status?: string; }
-export interface Payment { id: number; userEmail?: string; amount?: number; paymentMethod?: string; paymentStatus?: string; paidAt?: string; }
-export interface Contact { id: number; fullName?: string; email?: string; phone?: string; message?: string; status?: string; createdAt?: string; }
-export interface GalleryImage { id: number; title?: string; imageUrl?: string; sortOrder?: number; isActive?: boolean; createdAt?: string; }
 
 // typed handler signatures used by the component
 // generic <T> corresponds to the item type returned by the load call
@@ -63,6 +45,7 @@ export class AdminManage implements OnInit {
   loading = signal(true);
   showModal = false;
   editItem: unknown = null;
+  fullEditItem: unknown = null; // Store full entity details for spaces with relation IDs
   formData: Record<string, unknown> = {};
   saving = false;
   error = '';
@@ -433,14 +416,42 @@ export class AdminManage implements OnInit {
 
   openEdit(item: any) {
     this.editItem = item;
-    this.formData = { ...item };
     this.error = '';
-    this.showModal = true;
+
+    // For spaces, load full entity details to ensure we have relation IDs
+    // (locationId, spaceTypeId) which are not exposed in the list view
+    if (this.entity === 'spaces') {
+      this.saving = true;
+      this.admin.getSpaceById(item.id).subscribe({
+        next: (res: any) => {
+          this.saving = false;
+          if (res.data) {
+            // Store full details and populate form with complete data
+            this.fullEditItem = res.data;
+            this.formData = { ...res.data };
+            this.showModal = true;
+          } else {
+            this.error = 'Failed to load space details';
+          }
+        },
+        error: (err: any) => {
+          this.saving = false;
+          this.error = 'Failed to load space details';
+          console.error('Failed to load space details:', err);
+        }
+      });
+    } else {
+      // For other entities, use row data directly
+      this.fullEditItem = item;
+      this.formData = { ...item };
+      this.showModal = true;
+    }
   }
 
   closeModal() {
     this.showModal = false;
     this.editItem = null;
+    this.fullEditItem = null;
     this.formData = {};
     this.error = '';
   }
@@ -449,9 +460,29 @@ export class AdminManage implements OnInit {
     this.saving = true;
     this.error = '';
     const id = (this.editItem as any)?.id;
+    
+    // For spaces, build strict payload with required relation IDs
+    let payload = this.formData;
+    if (this.entity === 'spaces' && this.editItem) {
+      const fullItem = this.fullEditItem as any || this.editItem as any;
+      payload = {
+        name: this.formData['name'],
+        code: this.formData['code'],
+        description: this.formData['description'],
+        floor: this.formData['floor'],
+        pricePerHour: this.formData['pricePerHour'],
+        pricePerDay: this.formData['pricePerDay'],
+        imageUrl: this.formData['imageUrl'],
+        amenities: this.formData['amenities'],
+        // Include relation IDs from full entity details
+        locationId: fullItem.locationId,
+        spaceTypeId: fullItem.spaceTypeId
+      };
+    }
+
     const call = this.editItem
-      ? this.handlers.update!(id, this.formData)
-      : this.handlers.create!(this.formData);
+      ? this.handlers.update!(id, payload)
+      : this.handlers.create!(payload);
 
     call.subscribe({
       next: (res: any) => {
@@ -501,5 +532,41 @@ export class AdminManage implements OnInit {
   private flashSuccess(msg: string) {
     this.success = msg;
     setTimeout(() => this.success = '', 3000);
+  }
+
+  /**
+   * Navigate to the next page if not already at the last page.
+   * Updating currentPage will trigger the page effect, which calls load().
+   */
+  nextPage() {
+    const next = this.currentPage() + 1;
+    if (next <= this.totalPages()) {
+      this.currentPage.set(next);
+    }
+  }
+
+  /**
+   * Navigate to the previous page if not already at the first page.
+   * Updating currentPage will trigger the page effect, which calls load().
+   */
+  prevPage() {
+    const prev = this.currentPage() - 1;
+    if (prev >= 1) {
+      this.currentPage.set(prev);
+    }
+  }
+
+  /**
+   * Check if we are at the first page.
+   */
+  isFirstPage(): boolean {
+    return this.currentPage() === 1;
+  }
+
+  /**
+   * Check if we are at the last page.
+   */
+  isLastPage(): boolean {
+    return this.currentPage() >= this.totalPages();
   }
 }

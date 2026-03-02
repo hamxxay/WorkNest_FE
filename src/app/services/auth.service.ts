@@ -28,6 +28,8 @@ export interface UserInfo {
 export class AuthService {
   // Base API URL for authentication endpoints
   private apiUrl = `${environment.apiUrl}/auth`;
+  private readonly tokenKey = 'wn_token';
+  private readonly userKey = 'wn_user';
 
   // Reactive signal that holds the current user info. Components can
   // bind to `authService.user()` or consume the signal directly. Because
@@ -51,6 +53,17 @@ export class AuthService {
    * resolve without forcing a navigation.
    */
   loadSession(): Observable<any> {
+    // Prefer local cache first so apps using bearer tokens (without /auth/me)
+    // still restore session on refresh.
+    const cachedUser = localStorage.getItem(this.userKey);
+    if (cachedUser) {
+      try {
+        this.user.set(JSON.parse(cachedUser) as UserInfo);
+      } catch {
+        this.user.set(null);
+      }
+    }
+
     // add a timeout so probe cannot hang indefinitely
     return this.http.get<any>(`${this.apiUrl}/me`).pipe(
       tap(response => {
@@ -69,7 +82,10 @@ export class AuthService {
       timeout(5000),
       catchError(err => {
         console.warn('Session probe failed or timed out', err);
-        this.user.set(null);
+        // Keep cached session when /auth/me is unavailable (older bearer APIs).
+        if (!this.getToken() && !localStorage.getItem(this.userKey)) {
+          this.user.set(null);
+        }
         return of(null);
       })
     );
@@ -88,7 +104,7 @@ export class AuthService {
     // metadata returned in the response body and updates the local signal.
     return this.http.post<any>(`${this.apiUrl}/login`, { email, password }).pipe(
       tap(response => {
-        if (response.data) {
+        if (response?.data) {
           const userInfo: UserInfo = {
             email: response.data.email,
             userId: response.data.userId,
@@ -96,6 +112,17 @@ export class AuthService {
           };
           // update reactive state only
           this.user.set(userInfo);
+          localStorage.setItem(this.userKey, JSON.stringify(userInfo));
+
+          // Support both common token payload shapes.
+          const token =
+            response.data.token ||
+            response.data.accessToken ||
+            response.token ||
+            response.accessToken;
+          if (token) {
+            localStorage.setItem(this.tokenKey, token);
+          }
         }
       })
     );
@@ -122,18 +149,26 @@ export class AuthService {
    * reactive state.
    */
   /**
+   * Clear user signal locally without making an HTTP call.
+   * Used by the HTTP interceptor to avoid recursive logout requests
+   * when a 401 is encountered on /auth/* endpoints.
+   */
+  clearUserOnly(): void {
+    this.user.set(null);
+  }
+
+  /**
    * Perform a server-side sign-out then clear client state.
    * Returns observable so callers can wait for completion.
    */
   logout$(): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/logout`, {}).pipe(
       tap(() => {
-        // clear reactive state only after server has acknowledged
-        this.user.set(null);
+        this.clearSession();
       }),
       catchError(err => {
         // even if the request fails, wipe client state
-        this.user.set(null);
+        this.clearSession();
         return of(null);
       })
     );
@@ -147,7 +182,7 @@ export class AuthService {
   // token is no longer stored on the client; authentication happens via
   // HttpOnly cookie automatically sent with requests.
   getToken(): string | null {
-    return null;
+    return localStorage.getItem(this.tokenKey);
   }
 
   /**
@@ -155,7 +190,7 @@ export class AuthService {
    * @returns true if user info exists, false otherwise
    */
   isAuthenticated(): boolean {
-    return !!this.user();
+    return !!this.user() || !!this.getToken();
   }
 
   /**
@@ -174,7 +209,8 @@ export class AuthService {
     const u = this.user();
     if (!u) return false;
     if (!role) return true;
-    return u.roles.includes(role);
+    const target = role.toLowerCase();
+    return (u.roles || []).some(r => String(r).toLowerCase() === target);
   }
 
   /**
@@ -184,5 +220,11 @@ export class AuthService {
    */
   getUserFromToken(): any {
     return null;
+  }
+
+  clearSession(): void {
+    this.user.set(null);
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.userKey);
   }
 }

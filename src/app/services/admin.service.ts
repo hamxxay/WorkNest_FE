@@ -17,26 +17,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-
-// Reusable API response wrapper
-export interface ApiResponse<T> {
-  isSuccessful: boolean;
-  data?: T;
-  message?: string;
-  total?: number;
-}
-
-// Entity models returned by admin endpoints
-export interface User { id: string; email: string; firstName?: string; lastName?: string; roles?: string[]; isActive?: boolean; createdAt?: string; }
-export interface Location { id: number; name: string; address: string; city: string; openingTime?: string; closingTime?: string; isActive?: boolean; }
-export interface SpaceType { id: number; name: string; capacity?: number; hourlyAllowed?: boolean; isActive?: boolean; }
-export interface Space { id: number; name: string; locationName?: string; spaceTypeName?: string; code?: string; pricePerHour?: number; pricePerDay?: number; status?: string; }
-export interface Booking { id: number; userEmail?: string; spaceName?: string; startDateTime?: string; endDateTime?: string; totalAmount?: number; bookingStatus?: string; }
-export interface PricingPlan { id: number; name: string; price?: number; billingCycle?: string; includesHours?: number; isActive?: boolean; }
-export interface Membership { id: number; userEmail?: string; planName?: string; startDate?: string; endDate?: string; status?: string; }
-export interface Payment { id: number; userEmail?: string; amount?: number; paymentMethod?: string; paymentStatus?: string; paidAt?: string; }
-export interface Contact { id: number; fullName?: string; email?: string; phone?: string; message?: string; status?: string; createdAt?: string; }
-export interface GalleryImage { id: number; title?: string; imageUrl?: string; sortOrder?: number; isActive?: boolean; createdAt?: string; }
+import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
 @Injectable({ providedIn: 'root' })
@@ -162,6 +143,11 @@ export class AdminService {
     if (search) params.set('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Space[]>>(`${this.api}/space${qs}`);
+  }
+
+  /** Get a specific space by ID (full details with relation IDs) */
+  getSpaceById(id: number): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/space/${id}`);
   }
   
   /** Create a new space (desk, office, etc.) */
