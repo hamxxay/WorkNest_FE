@@ -55,7 +55,7 @@ export class Navbar {
 
   email = computed(() => this.user()?.email || '');
   roles = computed(() => this.user()?.roles || []);
-  isAdmin = computed(() => this.roles().includes('Admin'));
+  isAdmin = computed(() => this.authService.hasRole('Admin'));
   loggedIn = computed(() => !!this.user());
 
   constructor(

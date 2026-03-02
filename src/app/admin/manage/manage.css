@@ -93,3 +93,34 @@ select.form-input-admin { appearance: none; cursor: pointer; }
   .page-header { flex-direction: column; gap: 12px; }
   .search-box input { width: 140px; }
 }
+
+/* Pagination */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.page-indicator {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #475569;
+  min-width: 120px;
+  text-align: center;
+}
+
+.btn-outline-admin:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f8fafc;
+  color: #cbd5e1;
+}
+
+.btn-outline-admin:not([disabled]):hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+

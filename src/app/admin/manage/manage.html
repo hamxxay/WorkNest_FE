@@ -101,6 +101,27 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination Controls -->
+      <div class="pagination-controls">
+        <button
+          class="btn-admin btn-outline-admin"
+          (click)="prevPage()"
+          [disabled]="isFirstPage()"
+          title="Previous page">
+          ← Previous
+        </button>
+        <span class="page-indicator">
+          Page {{ currentPage() }} of {{ totalPages() }}
+        </span>
+        <button
+          class="btn-admin btn-outline-admin"
+          (click)="nextPage()"
+          [disabled]="isLastPage()"
+          title="Next page">
+          Next →
+        </button>
+      </div>
     }
   </div>
 </div>
