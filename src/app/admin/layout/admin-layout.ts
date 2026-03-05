@@ -86,5 +86,6 @@ export class AdminLayout implements OnInit, OnDestroy {
     { label: 'Payments', icon: 'payments', route: '/admin/payments' },
     { label: 'Contacts', icon: 'contacts', route: '/admin/contacts' },
     { label: 'Gallery', icon: 'gallery', route: '/admin/gallery' },
+    { label : 'home', icon: 'home', route: '/' }
   ];
 }
