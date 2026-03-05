@@ -50,7 +50,7 @@ export class AdminManage implements OnInit {
   saving = false;
   error = '';
   success = '';
-  // reactive search and pagination state
+  // reactive search and  state
   searchQuery = signal('');
   currentPage = signal(1);
   readonly pageSize = 20;
