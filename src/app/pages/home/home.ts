@@ -48,7 +48,14 @@ export class Home implements AfterViewInit, OnDestroy, OnInit {
     this.pricingService.getActivePlans().subscribe({
       next: (res) => {
         if (res.isSuccessful && res.data) {
-          this.plans = res.data.map((plan: any) => ({
+          const plans = Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data?.items)
+              ? res.data.items
+              : Array.isArray(res.data?.results)
+                ? res.data.results
+                : [];
+          this.plans = plans.map((plan: any) => ({
             name: plan.name,
             price: plan.price,
             description: plan.description,
@@ -63,7 +70,14 @@ export class Home implements AfterViewInit, OnDestroy, OnInit {
     this.galleryService.getAll().subscribe({
       next: (res) => {
         if (res.isSuccessful && res.data) {
-          this.galleryImages = res.data.slice(0, 4).map((img: any) => ({
+          const images = Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data?.items)
+              ? res.data.items
+              : Array.isArray(res.data?.results)
+                ? res.data.results
+                : [];
+          this.galleryImages = images.slice(0, 4).map((img: any) => ({
             title: img.title,
             url: img.imageUrl
           }));

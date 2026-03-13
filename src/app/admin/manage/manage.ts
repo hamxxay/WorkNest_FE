@@ -317,6 +317,14 @@ export class AdminManage implements OnInit {
     }
   }
 
+  private normalizeList(data: any): any[] {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.results)) return data.results;
+    if (Array.isArray(data?.rows)) return data.rows;
+    return [];
+  }
+
   constructor(private route: ActivatedRoute, public admin: AdminService) {
     // flag to prevent the first debounced search from firing before the
     // initial page-triggered load completes.
@@ -376,9 +384,11 @@ export class AdminManage implements OnInit {
     const search = this.searchQuery();
     this.handlers.load(page, limit, search).subscribe({
       next: (res: any) => {
-        this.items.set(res.data || []);
+        const list = this.normalizeList(res?.data);
+        this.items.set(list);
         // expect server to send total count in response (e.g. res.total)
-        this.totalItems.set(res.total ?? this.items().length);
+        const total = res?.total ?? res?.data?.total ?? res?.data?.count ?? list.length;
+        this.totalItems.set(total);
         this.loading.set(false);
       },
       error: () => {
