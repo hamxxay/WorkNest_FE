@@ -72,9 +72,7 @@ export class Booking implements OnInit {
     this.loading.set(true);
     this.spaceService.getAll().subscribe({
       next: (res) => {
-        if (res.isSuccessful && res.data) {
-          this.workspaces.set(res.data);
-        }
+        this.workspaces.set(this.normalizeWorkspaces(res));
         this.loading.set(false);
       },
       error: () => {
@@ -93,6 +91,39 @@ export class Booking implements OnInit {
   getAmenities(amenities: string): string[] {
     if (!amenities) return [];
     return amenities.split(',').map(a => a.trim());
+  }
+
+  private normalizeWorkspaces(res: any): Workspace[] {
+    const source = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.data?.items)
+        ? res.data.items
+        : Array.isArray(res?.data?.results)
+          ? res.data.results
+          : Array.isArray(res?.items)
+            ? res.items
+            : Array.isArray(res?.results)
+              ? res.results
+              : [];
+
+    return source.map((ws: any, index: number) => ({
+      id: Number(ws.id ?? index + 1),
+      name: ws.name || ws.title || `Workspace ${index + 1}`,
+      locationName: ws.locationName || ws.location?.name || ws.city || 'Unknown Location',
+      spaceTypeName: ws.spaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
+      capacity: Number(ws.capacity ?? 0),
+      amenities: typeof ws.amenities === 'string'
+        ? ws.amenities
+        : Array.isArray(ws.amenities)
+          ? ws.amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
+          : '',
+      pricePerDay: Number(ws.pricePerDay ?? ws.dailyPrice ?? 0),
+      pricePerHour: Number(ws.pricePerHour ?? ws.hourlyPrice ?? 0),
+      status: ws.status || (ws.isAvailable ? 'Available' : 'Unavailable'),
+      imageUrl: ws.imageUrl || ws.image || ws.url || 'images/spaces/modern-office.jpg',
+      floor: ws.floor || ws.floorName || '-',
+      code: ws.code || ''
+    }));
   }
 
   openBookingModal(ws: Workspace) {
