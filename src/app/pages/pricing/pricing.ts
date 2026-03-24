@@ -56,17 +56,16 @@ export class Pricing implements OnInit {
   ngOnInit() {
     this.pricingService.getActivePlans().subscribe({
       next: (res) => {
-        if (res.isSuccessful && res.data) {
-          this.plans = res.data.map((plan: any) => ({
-            id: plan.id,
-            name: plan.name,
-            price: plan.price,
-            description: plan.description,
-            features: plan.features?.map((f: any) => f.featureName) || [],
-            popular: plan.name === 'Premium',
-            cta: plan.name === 'Premium' ? 'Start Free Trial' : plan.name === 'Executive' ? 'Contact Sales' : 'Get Started'
-          }));
-        }
+        const plans = this.normalizePlans(res);
+        this.plans = plans.map((plan: any) => ({
+          id: plan.id,
+          name: plan.name,
+          price: plan.price,
+          description: plan.description,
+          features: this.normalizeFeatures(plan),
+          popular: plan.name === 'Premium',
+          cta: plan.name === 'Premium' ? 'Start Free Trial' : plan.name === 'Executive' ? 'Contact Sales' : 'Get Started'
+        }));
         this.loading = false;
       },
       error: () => {
@@ -77,5 +76,24 @@ export class Pricing implements OnInit {
 
   toggleFaq(index: number) {
     this.faqs[index].open = !this.faqs[index].open;
+  }
+
+  private normalizePlans(res: any): any[] {
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.data?.items)) return res.data.items;
+    if (Array.isArray(res?.data?.results)) return res.data.results;
+    if (Array.isArray(res?.items)) return res.items;
+    if (Array.isArray(res?.results)) return res.results;
+    return [];
+  }
+
+  private normalizeFeatures(plan: any): string[] {
+    if (Array.isArray(plan?.features)) {
+      return plan.features
+        .map((feature: any) => feature?.featureName || feature?.name || feature)
+        .filter((feature: unknown): feature is string => typeof feature === 'string' && feature.trim().length > 0);
+    }
+
+    return [];
   }
 }
