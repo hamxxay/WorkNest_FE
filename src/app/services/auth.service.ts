@@ -11,7 +11,7 @@
 
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, timeout, catchError, of } from 'rxjs';
+import { Observable, tap, timeout, catchError, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 // Interface representing logged-in user information
@@ -102,7 +102,21 @@ export class AuthService {
     // Backend is expected to set an HttpOnly, SameSite cookie containing the
     // session token. This client method only captures non-sensitive user
     // metadata returned in the response body and updates the local signal.
-    return this.http.post<any>(`${this.apiUrl}/login`, { email, password }).pipe(
+    const credentials = { email, password };
+
+    return this.http.post<any>(`${this.apiUrl}/login`, credentials).pipe(
+      catchError(err => {
+        // Some backend deployments bind login DTOs from a `request` wrapper.
+        // Retry once with that shape when the API explicitly reports it.
+        const requestFieldRequired = err?.status === 400 &&
+          JSON.stringify(err?.error ?? {}).toLowerCase().includes('request field is required');
+
+        if (!requestFieldRequired) {
+          return throwError(() => err);
+        }
+
+        return this.http.post<any>(`${this.apiUrl}/login`, { request: credentials });
+      }),
       tap(response => {
         if (response?.data) {
           const userInfo: UserInfo = {
