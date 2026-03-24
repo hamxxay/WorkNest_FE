@@ -40,10 +40,15 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular/build:application",
+          
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "browser": "src/main.ts",
+            "outputPath": "dist/work-nest",
+      
             "tsConfig": "tsconfig.app.json",
+            "index": "src/index.html",
+            "main": "src/main.ts",
+
             "assets": [
               {
                 "glob": "**/*",
@@ -79,7 +84,7 @@
           "defaultConfiguration": "production"
         },
         "serve": {
-          "builder": "@angular/build:dev-server",
+          "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "proxyConfig": "proxy.conf.json"
           },
