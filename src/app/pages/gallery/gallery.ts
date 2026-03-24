@@ -37,12 +37,8 @@ export class Gallery implements OnInit {
   ngOnInit() {
     this.galleryService.getAll().subscribe({
       next: (res) => {
-        if (res.isSuccessful && res.data) {
-          this.images.set(res.data.map((img: any) => ({
-            ...img,
-            category: this.assignCategory(img.title)
-          })));
-        }
+        const images = this.normalizeImages(res);
+        this.images.set(images);
         this.loading.set(false);
       },
       error: () => {
@@ -58,6 +54,38 @@ export class Gallery implements OnInit {
     if (t.includes('co-working') || t.includes('hot desk') || t.includes('creative') || t.includes('collaboration') || t.includes('team')) return 'Co-Working';
     if (t.includes('lounge') || t.includes('cafe') || t.includes('terrace') || t.includes('break')) return 'Lounges';
     return 'Offices';
+  }
+
+  private normalizeImages(res: any): GalleryItem[] {
+    const source = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.data?.items)
+        ? res.data.items
+        : Array.isArray(res?.data?.results)
+          ? res.data.results
+          : Array.isArray(res?.items)
+            ? res.items
+            : Array.isArray(res?.results)
+              ? res.results
+              : [];
+
+    return source
+      .map((img: any, index: number) => {
+        const imageUrl = img.imageUrl || img.url || img.image || img.path || img.imagePath;
+        if (!imageUrl) return null;
+
+        const title = img.title || img.name || `Gallery Image ${index + 1}`;
+
+        return {
+          id: Number(img.id ?? index + 1),
+          title,
+          description: img.description || '',
+          imageUrl,
+          locationName: img.locationName || img.location?.name || '',
+          category: this.assignCategory(title)
+        };
+      })
+      .filter((img: GalleryItem | null): img is GalleryItem => img !== null);
   }
 
 
