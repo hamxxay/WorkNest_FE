@@ -178,6 +178,8 @@
 
 .admin-shell.collapsed .admin-main { margin-left: 68px; }
 
+.mobile-menu-btn { display: none; }
+
 /* Scrollbar inside sidebar */
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
 .sidebar-nav::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }

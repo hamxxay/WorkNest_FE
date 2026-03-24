@@ -14,7 +14,7 @@
     <nav class="sidebar-nav">
       <span class="nav-label">MENU</span>
       @for (item of menuItems; track item.route) {
-        <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/admin'}" class="nav-item" (click)="closeMobileSidebar()">
+        <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.route === '/admin' || item.route === '/' }" class="nav-item" (click)="closeMobileSidebar()">
           <span class="nav-icon">
             @switch (item.icon) {
               @case ('dashboard') {
