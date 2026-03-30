@@ -73,14 +73,14 @@ export class AdminManage implements OnInit {
         { key: 'isActive', label: 'Status', type: 'boolean' },
         { key: 'createdAt', label: 'Created', type: 'date' }
       ],
-      loadFn: 'getUsers', deleteFn: 'deleteUser',
+      loadFn: 'getUsers', deleteFn: 'deleteUser', createFn: 'createUser', updateFn: 'updateUser',
       statusOptions: ['Activate', 'Deactivate'],
       fields: [
         { key: 'email', label: 'Email', type: 'email' },
         { key: 'firstName', label: 'First Name', type: 'text' },
         { key: 'lastName', label: 'Last Name', type: 'text' },
         { key: 'password', label: 'Password', type: 'password' },
-        { key: 'role', label: 'Role', type: 'select', options: [{v:'Admin',l:'Admin'},{v:'Public',l:'Public'}] }
+        { key: 'role', label: 'Role', type: 'select', options: [{v:'Admin',l:'Admin'},{v:'User',l:'User'}] }
       ]
     },
     locations: {
@@ -124,8 +124,8 @@ export class AdminManage implements OnInit {
         { key: 'locationName', label: 'Location' },
         { key: 'spaceTypeName', label: 'Type' },
         { key: 'code', label: 'Code' },
-        { key: 'pricePerHour', label: '$/hr', type: 'currency' },
-        { key: 'pricePerDay', label: '$/day', type: 'currency' },
+        { key: 'pricePerHour', label: 'Rs /hr', type: 'currency' },
+        { key: 'pricePerDay', label: 'Rs /day', type: 'currency' },
         { key: 'status', label: 'Status', type: 'status' }
       ],
       loadFn: 'getSpaces', deleteFn: 'deleteSpace', createFn: 'createSpace', updateFn: 'updateSpace',
@@ -387,7 +387,7 @@ export class AdminManage implements OnInit {
         const list = this.normalizeList(res?.data);
         this.items.set(list);
         // expect server to send total count in response (e.g. res.total)
-        const total = res?.total ?? res?.data?.total ?? res?.data?.count ?? list.length;
+        const total = res?.total ?? res?.data?.total ?? res?.data?.count ?? res?.data?.totalCount ?? list.length;
         this.totalItems.set(total);
         this.loading.set(false);
       },
@@ -406,7 +406,7 @@ export class AdminManage implements OnInit {
     const val = item[col.key];
     if (val == null) return '—';
     if (col.type === 'date') return val;
-    if (col.type === 'currency') return '$' + Number(val).toFixed(2);
+    if (col.type === 'currency') return 'Rs ' + Number(val).toFixed(2);
     if (col.type === 'boolean') return val ? 'Yes' : 'No';
     if (col.type === 'roles') return Array.isArray(val) ? val.join(', ') : val;
     return String(val);
@@ -454,6 +454,11 @@ export class AdminManage implements OnInit {
       // For other entities, use row data directly
       this.fullEditItem = item;
       this.formData = { ...item };
+      if (this.entity === 'users') {
+        const roles = Array.isArray(item.roles) ? item.roles : [];
+        this.formData['role'] = roles[0] || 'User';
+        this.formData['password'] = '';
+      }
       this.showModal = true;
     }
   }
@@ -488,6 +493,22 @@ export class AdminManage implements OnInit {
         locationId: fullItem.locationId,
         spaceTypeId: fullItem.spaceTypeId
       };
+    } else if (this.entity === 'users') {
+      const selectedRole = String(this.formData['role'] || 'User');
+      payload = {
+        email: this.formData['email'],
+        firstName: this.formData['firstName'],
+        lastName: this.formData['lastName'],
+        role: selectedRole
+      };
+
+      const password = String(this.formData['password'] || '').trim();
+      if (!this.editItem && password) {
+        payload = {
+          ...payload,
+          password
+        };
+      }
     }
 
     const call = this.editItem

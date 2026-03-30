@@ -1,187 +1,181 @@
-// ============================================================
-// Authentication Service
-// ============================================================
-// This service handles all authentication-related operations:
-// - User login and registration
-// - Token management (storage and retrieval)
-// - User information management
-// - Logout functionality
-//
-// All authentication data is persisted in browser localStorage.
-
-import { Injectable, signal, WritableSignal } from '@angular/core';
+import { Injectable, WritableSignal, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, timeout, catchError, of, throwError } from 'rxjs';
+import { Observable, from, of, throwError } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
+import {
+  AuthError,
+  AuthProvider,
+  GoogleAuthProvider,
+  User,
+  UserCredential,
+  createUserWithEmailAndPassword,
+  getIdTokenResult,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
+import {
+  firebaseAuth,
+  githubProvider,
+  googleProvider,
+  isFirebaseConfigured,
+} from './firebase';
 import { environment } from '../../environments/environment';
 
-// Interface representing logged-in user information
 export interface UserInfo {
   email: string;
   userId: string;
-  roles: string[]; // Array of user roles (e.g., 'User', 'Admin')
+  roles: string[];
+  displayName?: string;
+  photoURL?: string;
 }
 
-// Injectable service provided at the root level (singleton)
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  // Base API URL for authentication endpoints
-  private apiUrl = `${environment.apiUrl}/auth`;
+  user: WritableSignal<UserInfo | null> = signal<UserInfo | null>(null);
   private readonly tokenKey = 'wn_token';
   private readonly userKey = 'wn_user';
 
-  // Reactive signal that holds the current user info. Components can
-  // bind to `authService.user()` or consume the signal directly. Because
-  // authentication is handled via secure cookies, we no longer persist
-  // tokens or profile data in localStorage. The signal is initially null
-  // and must be seeded by a successful login or an explicit profile
-  // fetch (not implemented here).
-  user: WritableSignal<UserInfo | null> = signal<UserInfo | null>(null);
-
   constructor(private http: HttpClient) {}
 
-  /**
-   * Attempt to rehydrate session state from server-side cookie.
-   * The backend should expose an endpoint (e.g. /auth/me or /auth/profile)
-   * that returns the currently logged‑in user's metadata when a valid
-   * HttpOnly cookie is present. This method updates the `user` signal
-   * accordingly; callers may subscribe to know when bootstrap is complete.
-   *
-   * NOTE: the global HTTP interceptor will clear auth state on 401 but
-   * will not redirect during this probe, allowing the initializer to
-   * resolve without forcing a navigation.
-   */
-  loadSession(): Observable<any> {
-    // Prefer local cache first so apps using bearer tokens (without /auth/me)
-    // still restore session on refresh.
+  loadSession(): Observable<UserInfo | null> {
     const cachedUser = localStorage.getItem(this.userKey);
+    let parsedCachedUser: UserInfo | null = null;
+
     if (cachedUser) {
       try {
-        this.user.set(JSON.parse(cachedUser) as UserInfo);
+        parsedCachedUser = JSON.parse(cachedUser) as UserInfo;
+        this.user.set(parsedCachedUser);
       } catch {
         this.user.set(null);
       }
     }
 
-    // add a timeout so probe cannot hang indefinitely
-    return this.http.get<any>(`${this.apiUrl}/me`).pipe(
-      tap(response => {
-        if (response?.data) {
-          const userInfo: UserInfo = {
-            email: response.data.email,
-            userId: response.data.userId,
-            roles: response.data.roles || []
-          };
-          this.user.set(userInfo);
-        } else {
+    if (!isFirebaseConfigured) {
+      return this.hydrateBackendSession$(parsedCachedUser);
+    }
+
+    return new Observable<UserInfo | null>(subscriber => {
+      const unsubscribe = onAuthStateChanged(
+        firebaseAuth,
+        async currentUser => {
+          const firebaseUser = await this.mapFirebaseUser(currentUser);
+          const mergedUser = this.mergeUserInfo(firebaseUser, parsedCachedUser);
+
+          this.user.set(mergedUser);
+          localStorage.setItem(this.userKey, JSON.stringify(mergedUser));
+
+          this.hydrateBackendSession$(mergedUser).subscribe({
+            next: userInfo => {
+              subscriber.next(userInfo);
+              subscriber.complete();
+            },
+            error: error => subscriber.error(error)
+          });
+
+          return;
+        },
+        error => {
           this.user.set(null);
+          subscriber.error(error);
         }
-      }),
-      // any error or timeout will propagate, caller should handle
-      timeout(5000),
-      catchError(err => {
-        console.warn('Session probe failed or timed out', err);
-        // Keep cached session when /auth/me is unavailable (older bearer APIs).
-        if (!this.getToken() && !localStorage.getItem(this.userKey)) {
-          this.user.set(null);
-        }
-        return of(null);
-      })
+      );
+
+      return unsubscribe;
+    }).pipe(catchError(() => of(null)));
+  }
+
+  login(email: string, password: string): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    return this.ensureConfigured().pipe(
+      switchMap(() => from(signInWithEmailAndPassword(firebaseAuth, email, password))),
+      switchMap(credential => this.syncLoginOrProvisionApi$(credential.user, email, password).pipe(
+        map(response => ({ credential, response }))
+      )),
+      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response))
     );
   }
 
-  /**
-   * Login user with email and password
-   * Stores JWT token and user info in localStorage on successful login
-   * @param email - User email address
-   * @param password - User password
-   * @returns Observable of API response containing token and user data
-   */
-  login(email: string, password: string): Observable<any> {
-    // Backend is expected to set an HttpOnly, SameSite cookie containing the
-    // session token. This client method only captures non-sensitive user
-    // metadata returned in the response body and updates the local signal.
-    const credentials = { email, password };
+  register(email: string, password: string, firstName?: string, lastName?: string): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    const displayName = [firstName, lastName].filter(Boolean).join(' ').trim();
 
-    return this.http.post<any>(`${this.apiUrl}/login`, credentials).pipe(
-      catchError(err => {
-        // Some backend deployments bind login DTOs from a `request` wrapper.
-        // Retry once with that shape when the API explicitly reports it.
-        const requestFieldRequired = err?.status === 400 &&
-          JSON.stringify(err?.error ?? {}).toLowerCase().includes('request field is required');
-
-        if (!requestFieldRequired) {
-          return throwError(() => err);
+    return this.ensureConfigured().pipe(
+      switchMap(() => from(createUserWithEmailAndPassword(firebaseAuth, email, password))),
+      switchMap(async credential => {
+        if (displayName) {
+          await updateProfile(credential.user, { displayName });
         }
-
-        return this.http.post<any>(`${this.apiUrl}/login`, { request: credentials });
+        return credential;
       }),
-      tap(response => {
-        if (response?.data) {
-          const userInfo: UserInfo = {
-            email: response.data.email,
-            userId: response.data.userId,
-            roles: response.data.roles || []
-          };
-          // update reactive state only
-          this.user.set(userInfo);
-          localStorage.setItem(this.userKey, JSON.stringify(userInfo));
-
-          // Support both common token payload shapes.
-          const token =
-            response.data.token ||
-            response.data.accessToken ||
-            response.token ||
-            response.accessToken;
-          if (token) {
-            localStorage.setItem(this.tokenKey, token);
-          }
-        }
-      })
+      switchMap(credential => this.syncRegisterToApi$(email, password, firstName, lastName).pipe(
+        map(response => ({ credential, response }))
+      )),
+      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response))
     );
   }
 
-  /**
-   * Register a new user account
-   * @param email - Email address for the new account
-   * @param password - Password for the account
-   * @param firstName - (Optional) User's first name
-   * @param lastName - (Optional) User's last name
-   * @returns Observable of API response
-   */
-  register(email: string, password: string, firstName?: string, lastName?: string): Observable<any> {
-    const body: any = { email, password };
-    if (firstName) body.firstName = firstName;
-    if (lastName) body.lastName = lastName;
-    return this.http.post<any>(`${this.apiUrl}/register`, body);
+  loginWithGoogle(): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    return this.ensureConfigured().pipe(
+      switchMap(() => from(signInWithPopup(firebaseAuth, googleProvider))),
+      switchMap(credential => {
+        const googleCredential = GoogleAuthProvider.credentialFromResult(credential);
+        const idToken = googleCredential?.idToken;
+
+        if (!idToken) {
+          return throwError(() => ({
+            error: {
+              message: 'Google sign-in succeeded, but no Google ID token was returned.'
+            }
+          }));
+        }
+
+        return this.syncGoogleLoginToApi$(credential.user, idToken).pipe(
+          map(response => ({ credential, response }))
+        );
+      }),
+      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response))
+    );
   }
 
-  /**
-   * Logout the current user
-   * Clears token and user info from localStorage and updates the cached
-   * reactive state.
-   */
-  /**
-   * Clear user signal locally without making an HTTP call.
-   * Used by the HTTP interceptor to avoid recursive logout requests
-   * when a 401 is encountered on /auth/* endpoints.
-   */
+  loginWithGithub(): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    return this.signInWithProvider(githubProvider);
+  }
+
   clearUserOnly(): void {
     this.user.set(null);
   }
 
-  /**
-   * Perform a server-side sign-out then clear client state.
-   * Returns observable so callers can wait for completion.
-   */
   logout$(): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/logout`, {}).pipe(
-      tap(() => {
+    if (!isFirebaseConfigured) {
+      this.clearSession();
+      return of(null);
+    }
+
+    return from(signOut(firebaseAuth)).pipe(
+      map(() => {
         this.clearSession();
+        return { isSuccessful: true };
       }),
-      catchError(err => {
-        // even if the request fails, wipe client state
+      catchError(() => {
         this.clearSession();
         return of(null);
       })
@@ -189,49 +183,33 @@ export class AuthService {
   }
 
   logout(): void {
-    // convenience wrapper for components that don't need to wait
     this.logout$().subscribe();
   }
 
-  // token is no longer stored on the client; authentication happens via
-  // HttpOnly cookie automatically sent with requests.
   getToken(): string | null {
     return localStorage.getItem(this.tokenKey);
   }
 
-  /**
-   * Check if a user is currently logged in (based on reactive state).
-   * @returns true if user info exists, false otherwise
-   */
+  getAccessToken$(): Observable<string | null> {
+    return of(this.getToken());
+  }
+
   isAuthenticated(): boolean {
     return !!this.user() || !!this.getToken();
   }
 
-  /**
-   * Get the current user's information (from reactive cache).
-   * @returns UserInfo object or null if user not found
-   */
   getUser(): UserInfo | null {
     return this.user();
   }
 
-  /**
-   * Check whether the current session includes a specific role.
-   * If no role is provided, simply return whether the user is authenticated.
-   */
   hasRole(role?: string): boolean {
-    const u = this.user();
-    if (!u) return false;
+    const currentUser = this.user();
+    if (!currentUser) return false;
     if (!role) return true;
     const target = role.toLowerCase();
-    return (u.roles || []).some(r => String(r).toLowerCase() === target);
+    return (currentUser.roles || []).some(item => String(item).toLowerCase() === target);
   }
 
-  /**
-   * Placeholder removed: token is not available client-side when using
-   * secure cookies. If the app needs decoded claims, the server should
-   * return them as part of the profile response.
-   */
   getUserFromToken(): any {
     return null;
   }
@@ -240,5 +218,289 @@ export class AuthService {
     this.user.set(null);
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
+  }
+
+  private hydrateBackendSession$(fallbackUser: UserInfo | null): Observable<UserInfo | null> {
+    return of(fallbackUser);
+  }
+
+  private signInWithProvider(provider: AuthProvider): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    return this.ensureConfigured().pipe(
+      switchMap(() => from(signInWithPopup(firebaseAuth, provider))),
+      switchMap(credential => this.toAuthSuccess(credential, null))
+    );
+  }
+
+  private toAuthSuccess(credential: UserCredential): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }>;
+  private toAuthSuccess(credential: UserCredential, apiResponse: any): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }>;
+  private toAuthSuccess(credential: UserCredential, apiResponse?: any): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    return from(this.mapFirebaseUser(credential.user)).pipe(
+      map(userInfo => {
+        const apiPayload = this.extractApiPayload(apiResponse);
+        const hydratedUser = userInfo
+          ? {
+              ...userInfo,
+              email: apiPayload?.email || userInfo.email,
+              userId: apiPayload?.userId || apiPayload?.id || userInfo.userId,
+              roles: this.extractRoles(apiPayload, userInfo.roles)
+            }
+          : null;
+
+        const token = this.extractToken(apiResponse);
+        if (token) {
+          localStorage.setItem(this.tokenKey, token);
+        }
+        if (hydratedUser) {
+          localStorage.setItem(this.userKey, JSON.stringify(hydratedUser));
+        }
+
+        this.user.set(hydratedUser);
+        return {
+          isSuccessful: true,
+          message: apiResponse?.message || 'Authentication successful.',
+          data: hydratedUser
+        };
+      }),
+      catchError(error => throwError(() => this.normalizeAuthError(error)))
+    );
+  }
+
+  private async mapFirebaseUser(user: User | null): Promise<UserInfo | null> {
+    if (!user) {
+      return null;
+    }
+
+    const tokenResult = await getIdTokenResult(user);
+    const rawRoles = tokenResult.claims['roles'];
+    const roles = Array.isArray(rawRoles)
+      ? rawRoles.map(role => String(role))
+      : typeof rawRoles === 'string'
+        ? [rawRoles]
+        : [];
+
+    return {
+      email: user.email ?? '',
+      userId: user.uid,
+      roles,
+      displayName: user.displayName ?? undefined,
+      photoURL: user.photoURL ?? undefined
+    };
+  }
+
+  private mergeUserInfo(primary: UserInfo | null, fallback: UserInfo | null): UserInfo | null {
+    if (!primary) {
+      return fallback;
+    }
+
+    if (!fallback) {
+      return primary;
+    }
+
+    const sameUser =
+      (primary.userId && fallback.userId && primary.userId === fallback.userId) ||
+      (primary.email && fallback.email && primary.email === fallback.email);
+
+    if (!sameUser) {
+      return primary;
+    }
+
+    return {
+      ...fallback,
+      ...primary,
+      roles: primary.roles?.length ? primary.roles : fallback.roles
+    };
+  }
+
+  private mergeApiUser(apiData: any, fallback: UserInfo | null): UserInfo | null {
+    if (!apiData && !fallback) {
+      return null;
+    }
+
+    return {
+      email: apiData?.email || fallback?.email || '',
+      userId: apiData?.userId || fallback?.userId || '',
+      roles: Array.isArray(apiData?.roles) && apiData.roles.length ? apiData.roles : (fallback?.roles || []),
+      displayName: fallback?.displayName,
+      photoURL: fallback?.photoURL
+    };
+  }
+
+  private extractApiPayload(response: any): any {
+    return response?.data?.user ?? response?.data ?? response?.user ?? response ?? null;
+  }
+
+  private extractToken(response: any): string | null {
+    return response?.data?.token
+      || response?.data?.accessToken
+      || response?.data?.jwt
+      || response?.token
+      || response?.accessToken
+      || response?.jwt
+      || null;
+  }
+
+  private extractRoles(payload: any, fallbackRoles: string[] = []): string[] {
+    const rawRoles = payload?.roles ?? payload?.role;
+
+    if (Array.isArray(rawRoles) && rawRoles.length) {
+      return rawRoles.map(role => String(role));
+    }
+
+    if (typeof rawRoles === 'string' && rawRoles.trim()) {
+      return [rawRoles];
+    }
+
+    return fallbackRoles;
+  }
+
+  private ensureConfigured(): Observable<void> {
+    if (isFirebaseConfigured) {
+      return of(void 0);
+    }
+
+    return throwError(() => ({
+      error: {
+        message: 'Firebase is not configured. Set the NG_APP_FIREBASE_* environment variables.'
+      }
+    }));
+  }
+
+  private syncRegisterToApi$(email: string, password: string, firstName?: string, lastName?: string): Observable<any> {
+    const payload = {
+      email,
+      password,
+      firstName,
+      lastName
+    };
+
+    return this.http.post<any>(`${environment.apiUrl}/auth/register`, payload).pipe(
+      catchError(error => {
+        if (this.requiresRequestWrapper(error)) {
+          return this.http.post<any>(`${environment.apiUrl}/auth/register`, {
+            request: payload
+          });
+        }
+
+        return throwError(() => error);
+      }),
+      catchError(error => {
+        const message = String(error?.error?.message ?? '').toLowerCase();
+        const alreadyExists =
+          error?.status === 409 ||
+          (error?.status === 400 && message.includes('already')) ||
+          message.includes('already exists') ||
+          message.includes('duplicate');
+
+        if (alreadyExists) {
+          return of(null);
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private syncGoogleLoginToApi$(firebaseUser: User, idToken: string): Observable<any> {
+    const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
+    const lastName = rest.join(' ') || undefined;
+    const payload = {
+      idToken,
+      email: firebaseUser.email ?? undefined,
+      firstName: firstName || undefined,
+      lastName
+    };
+
+    return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, payload).pipe(
+      catchError(error => {
+        if (this.requiresRequestWrapper(error)) {
+          return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, {
+            request: payload
+          });
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private syncLoginToApi$(email: string, password: string): Observable<any> {
+    const payload = { email, password };
+
+    return this.http.post<any>(`${environment.apiUrl}/auth/login`, payload).pipe(
+      catchError(error => {
+        if (this.requiresRequestWrapper(error)) {
+          return this.http.post<any>(`${environment.apiUrl}/auth/login`, {
+            request: payload
+          });
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private syncLoginOrProvisionApi$(firebaseUser: User, email: string, password: string): Observable<any> {
+    const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
+    const lastName = rest.join(' ') || undefined;
+
+    return this.syncLoginToApi$(email, password).pipe(
+      catchError(error => {
+        const message = String(error?.error?.message ?? '').toLowerCase();
+        const missingBackendUser =
+          error?.status === 401 ||
+          error?.status === 404 ||
+          (error?.status === 400 && (message.includes('not found') || message.includes('invalid')));
+
+        if (!missingBackendUser) {
+          return throwError(() => error);
+        }
+
+        return this.syncRegisterToApi$(email, password, firstName || undefined, lastName);
+      })
+    );
+  }
+
+  private normalizeAuthError(error: unknown) {
+    const authError = error as AuthError;
+    const messageMap: Record<string, string> = {
+      'auth/account-exists-with-different-credential': 'An account already exists with a different sign-in method.',
+      'auth/email-already-in-use': 'That email is already in use.',
+      'auth/invalid-credential': 'That sign-in attempt was rejected. Please try again.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/network-request-failed': 'Network error while contacting Firebase. Please try again.',
+      'auth/popup-blocked': 'Your browser blocked the sign-in popup. Please allow popups and try again.',
+      'auth/popup-closed-by-user': 'The sign-in popup was closed before completing authentication.',
+      'auth/user-not-found': 'No account was found for that email address.',
+      'auth/weak-password': 'Password should be at least 6 characters.',
+      'auth/wrong-password': 'Invalid email or password.',
+    };
+
+    return {
+      ...authError,
+      error: {
+        message: messageMap[authError?.code ?? ''] ?? authError?.message ?? 'Authentication failed. Please try again.'
+      }
+    };
+  }
+
+  private requiresRequestWrapper(error: any): boolean {
+    return error?.status === 400 &&
+      JSON.stringify(error?.error ?? {}).toLowerCase().includes('request field is required');
   }
 }

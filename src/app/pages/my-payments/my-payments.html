@@ -21,11 +21,11 @@
       <div class="summary-cards">
         <div class="summary-card">
           <span class="summary-label">Total Paid</span>
-          <span class="summary-value paid">${{ totalPaid() | number:'1.2-2' }}</span>
+          <span class="summary-value paid">Rs {{ totalPaid() | number:'1.2-2' }}</span>
         </div>
         <div class="summary-card">
           <span class="summary-label">Pending</span>
-          <span class="summary-value pending">${{ totalPending() | number:'1.2-2' }}</span>
+          <span class="summary-value pending">Rs {{ totalPending() | number:'1.2-2' }}</span>
         </div>
         <div class="summary-card">
           <span class="summary-label">Transactions</span>
@@ -50,7 +50,7 @@
             @for (p of payments(); track p.id) {
               <tr>
                 <td class="cell-id">#{{ p.id }}</td>
-                <td class="cell-amount">${{ p.amount | number:'1.2-2' }}</td>
+                <td class="cell-amount">Rs {{ p.amount | number:'1.2-2' }}</td>
                 <td>{{ p.paymentMethod || '—' }}</td>
                 <td><span class="status-badge" [class]="getStatusClass(p.paymentStatus)">{{ p.paymentStatus }}</span></td>
                 <td class="cell-ref">{{ p.transactionRef || '—' }}</td>
@@ -69,7 +69,7 @@
               <span class="payment-mobile-id">#{{ p.id }}</span>
               <span class="status-badge" [class]="getStatusClass(p.paymentStatus)">{{ p.paymentStatus }}</span>
             </div>
-            <div class="payment-mobile-amount">${{ p.amount | number:'1.2-2' }}</div>
+            <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.2-2' }}</div>
             <div class="payment-mobile-details">
               <span>{{ p.paymentMethod || 'N/A' }}</span>
               <span>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</span>

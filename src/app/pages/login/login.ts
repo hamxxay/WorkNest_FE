@@ -9,7 +9,7 @@
 
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -34,8 +34,14 @@ export class Login {
   
   // Signal for error messages to display to user
   error = signal('');
+  socialLoading = signal<'google' | 'github' | null>(null);
+  private readonly fallbackRedirect = '/';
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {}
 
   /**
    * Handle form submission on login
@@ -61,8 +67,7 @@ export class Login {
         this.loading.set(false);
         // Check if backend returned success status
         if (res.isSuccessful) {
-          // Navigate to home page on successful login
-          this.router.navigate(['/']);
+          this.router.navigateByUrl(this.getRedirectUrl());
         } else {
           // Display error message from backend
           this.error.set(res.message || 'Login failed.');
@@ -75,5 +80,37 @@ export class Login {
         this.error.set(err.error?.message || 'Invalid email or password.');
       }
     });
+  }
+
+  signInWithGoogle() {
+    this.signInWithSocial('google');
+  }
+
+  signInWithGithub() {
+    this.signInWithSocial('github');
+  }
+
+  private signInWithSocial(provider: 'google' | 'github') {
+    this.error.set('');
+    this.socialLoading.set(provider);
+
+    const request$ = provider === 'google'
+      ? this.authService.loginWithGoogle()
+      : this.authService.loginWithGithub();
+
+    request$.subscribe({
+      next: () => {
+        this.socialLoading.set(null);
+        this.router.navigateByUrl(this.getRedirectUrl());
+      },
+      error: (err) => {
+        this.socialLoading.set(null);
+        this.error.set(err.error?.message || 'Social sign-in failed. Please try again.');
+      }
+    });
+  }
+
+  private getRedirectUrl(): string {
+    return this.route.snapshot.queryParamMap.get('redirect') || this.fallbackRedirect;
   }
 }
