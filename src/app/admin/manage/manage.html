@@ -87,7 +87,7 @@
                   }
                   @if (entity === 'users') {
                     <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive" (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
-                      {{ item.isActive ? '🔒' : '🔓' }}
+                      {{ item.isActive ? '🔓' : '🔒' }}
                     </button>
                   }
                   @if (config.deleteFn) {

@@ -16,10 +16,10 @@ export const authGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
   const authService = inject(AuthService);
 
-  // rely on authService's session check (cookie-based)
   if (!authService.isAuthenticated()) {
-    router.navigate(['/login']);
-    return false;
+    return router.createUrlTree(['/login'], {
+      queryParams: { redirect: state.url }
+    });
   }
 
   return true;

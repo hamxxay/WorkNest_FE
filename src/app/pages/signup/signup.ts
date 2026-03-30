@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -19,8 +19,14 @@ export class Signup {
   loading = signal(false);
   error = signal('');
   success = signal('');
+  socialLoading = signal<'google' | 'github' | null>(null);
+  private readonly fallbackRedirect = '/';
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {}
 
   onSubmit() {
     this.error.set('');
@@ -60,5 +66,38 @@ export class Signup {
         this.error.set(err.error?.message || 'Registration failed. Please try again.');
       }
     });
+  }
+
+  signUpWithGoogle() {
+    this.signInWithSocial('google');
+  }
+
+  signUpWithGithub() {
+    this.signInWithSocial('github');
+  }
+
+  private signInWithSocial(provider: 'google' | 'github') {
+    this.error.set('');
+    this.success.set('');
+    this.socialLoading.set(provider);
+
+    const request$ = provider === 'google'
+      ? this.authService.loginWithGoogle()
+      : this.authService.loginWithGithub();
+
+    request$.subscribe({
+      next: () => {
+        this.socialLoading.set(null);
+        this.router.navigateByUrl(this.getRedirectUrl());
+      },
+      error: (err) => {
+        this.socialLoading.set(null);
+        this.error.set(err.error?.message || 'Social sign-up failed. Please try again.');
+      }
+    });
+  }
+
+  private getRedirectUrl(): string {
+    return this.route.snapshot.queryParamMap.get('redirect') || this.fallbackRedirect;
   }
 }

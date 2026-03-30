@@ -76,7 +76,7 @@
                 </div>
                 <div class="ws-footer">
                   <span class="ws-price">
-                    ${{ ws.pricePerHour }}<small>/hr</small> · ${{ ws.pricePerDay }}<small>/day</small>
+                    Rs {{ ws.pricePerHour }}<small>/hr</small> · Rs {{ ws.pricePerDay }}<small>/day</small>
                   </span>
                   @if (ws.status === 'Available') {
                     <button class="btn btn-primary btn-sm" (click)="openBookingModal(ws)">Book Now</button>
@@ -136,8 +136,8 @@
           <textarea class="form-input" rows="3" placeholder="Any special requirements..." [(ngModel)]="bookingNotes" name="notes"></textarea>
         </div>
         <div class="modal-price">
-          <span>Hourly: ${{ selectedSpace.pricePerHour }}/hr</span>
-          <span>Daily: ${{ selectedSpace.pricePerDay }}/day</span>
+          <span>Hourly: Rs {{ selectedSpace.pricePerHour }}/hr</span>
+          <span>Daily: Rs {{ selectedSpace.pricePerDay }}/day</span>
         </div>
         <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="bookingInProgress()">
           {{ bookingInProgress() ? 'Booking...' : 'Confirm Booking' }}
