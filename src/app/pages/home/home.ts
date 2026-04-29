@@ -13,7 +13,6 @@ import { GalleryService } from '../../services/gallery.service';
 export class Home implements AfterViewInit, OnDestroy, OnInit {
   @ViewChild('waveCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
 
-  public readonly heroSlideOffset = signal(0);
   public readonly activeHeroSlide = signal(0);
 
   private animId = 0;
@@ -31,14 +30,13 @@ export class Home implements AfterViewInit, OnDestroy, OnInit {
     const nextIndex = index % slideCount;
 
     this.activeHeroSlide.set(nextIndex);
-    this.heroSlideOffset.set(nextIndex * -100);
   }
 
   private startHeroSlideshow() {
     window.clearInterval(this.heroSlideIntervalId);
     this.heroSlideIntervalId = window.setInterval(() => {
       this.setHeroSlide(this.activeHeroSlide() + 1);
-    }, 3000);
+    }, 6000);
   }
 
   ngOnInit() {
