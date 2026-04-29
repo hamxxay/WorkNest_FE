@@ -1,26 +1,32 @@
 <!-- Hero Section -->
 <section class="hero">
+  <div class="hero-slides" [style.transform]="'translate3d(' + heroSlideOffset() + '%, 0, 0)'">
+    @for (img of galleryImages; track img.title) {
+      <div class="hero-slide">
+        <img [src]="img.url" [alt]="img.title" />
+      </div>
+    }
+  </div>
+  <div class="hero-shade"></div>
+
   <div class="container hero-grid">
     <div class="hero-content">
+      <span class="hero-kicker">WorkNest Coworking</span>
       <h1>Welcome to Your <span class="text-accent">Perfect Workspace.</span></h1>
       <p class="hero-text">
         A place where productivity meets community. Our co-working spaces are designed to inspire focus,
-        collaboration, and creativity. Say goodbye to distractions and hello to an environment that fuels
-        your success. Whether you're a freelancer, startup, or growing team, our flexible workspaces provide
-        everything you need &ndash; high-speed internet, private meeting rooms, and a vibrant community of professionals
+        collaboration, and creativity with high-speed internet, private meeting rooms, and a vibrant community
+        of professionals.
       </p>
       <div class="hero-actions">
         <a routerLink="/booking" class="btn btn-primary btn-lg">Book Now</a>
         <a routerLink="/contact" class="btn btn-outline btn-lg">Contact us</a>
       </div>
     </div>
-    <div class="hero-image" [style.opacity]="frameOpacity()">
-      <!-- Rotating frame behind the image -->
-      <div class="image-frame" [style.transform]="'rotate(' + frameRotation() + 'deg)'"></div>
-      <!-- Image stays on top, always horizontal -->
-      <div class="image-content">
-        <img src="images/happy-team.png" alt="Happy team workspace" />
-      </div>
+    <div class="hero-progress" aria-hidden="true">
+      @for (img of galleryImages; track img.title; let i = $index) {
+        <span [class.active]="i === activeHeroSlide()"></span>
+      }
     </div>
   </div>
 </section>
