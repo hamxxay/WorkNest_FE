@@ -63,11 +63,22 @@ export class AuthService {
       const unsubscribe = onAuthStateChanged(
         firebaseAuth,
         async currentUser => {
+          if (!currentUser) {
+            this.clearSession();
+            subscriber.next(null);
+            subscriber.complete();
+            return;
+          }
+
           const firebaseUser = await this.mapFirebaseUser(currentUser);
           const mergedUser = this.mergeUserInfo(firebaseUser, parsedCachedUser);
 
           this.user.set(mergedUser);
-          localStorage.setItem(this.userKey, JSON.stringify(mergedUser));
+          if (mergedUser) {
+            localStorage.setItem(this.userKey, JSON.stringify(mergedUser));
+          } else {
+            this.clearSession();
+          }
 
           this.hydrateBackendSession$(mergedUser).subscribe({
             next: userInfo => {
