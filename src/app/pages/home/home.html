@@ -1,8 +1,8 @@
 <!-- Hero Section -->
 <section class="hero">
-  <div class="hero-slides" [style.transform]="'translate3d(' + heroSlideOffset() + '%, 0, 0)'">
-    @for (img of galleryImages; track img.title) {
-      <div class="hero-slide">
+  <div class="hero-slides">
+    @for (img of galleryImages; track img.title; let i = $index) {
+      <div class="hero-slide" [class.active]="i === activeHeroSlide()">
         <img [src]="img.url" [alt]="img.title" />
       </div>
     }
