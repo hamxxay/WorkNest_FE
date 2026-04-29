@@ -19,7 +19,7 @@ export class Signup {
   loading = signal(false);
   error = signal('');
   success = signal('');
-  socialLoading = signal<'google' | 'github' | null>(null);
+  socialLoading = signal<'google' | null>(null);
   private readonly fallbackRedirect = '/';
 
   constructor(
@@ -72,20 +72,12 @@ export class Signup {
     this.signInWithSocial('google');
   }
 
-  signUpWithGithub() {
-    this.signInWithSocial('github');
-  }
-
-  private signInWithSocial(provider: 'google' | 'github') {
+  private signInWithSocial(provider: 'google') {
     this.error.set('');
     this.success.set('');
     this.socialLoading.set(provider);
 
-    const request$ = provider === 'google'
-      ? this.authService.loginWithGoogle()
-      : this.authService.loginWithGithub();
-
-    request$.subscribe({
+    this.authService.loginWithGoogle().subscribe({
       next: () => {
         this.socialLoading.set(null);
         this.router.navigateByUrl(this.getRedirectUrl());

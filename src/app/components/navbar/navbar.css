@@ -6,14 +6,12 @@ nav {
   z-index: 1000;
   padding: 12px 0;
   transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #ffffff;
   border-bottom: 1px solid var(--border-color);
 }
 
 nav.scrolled {
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
 }
 

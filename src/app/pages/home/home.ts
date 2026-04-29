@@ -1,4 +1,4 @@
-import { Component, HostListener, signal, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnInit, NgZone } from '@angular/core';
+import { Component, signal, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnInit, NgZone } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PricingService } from '../../services/pricing.service';
 import { GalleryService } from '../../services/gallery.service';
@@ -13,11 +13,11 @@ import { GalleryService } from '../../services/gallery.service';
 export class Home implements AfterViewInit, OnDestroy, OnInit {
   @ViewChild('waveCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
 
-  // Scroll-driven hero animation
-  frameRotation = signal(3);
-  frameOpacity = signal(1);
+  public readonly heroSlideOffset = signal(0);
+  public readonly activeHeroSlide = signal(0);
 
   private animId = 0;
+  private heroSlideIntervalId = 0;
   private time = 0;
 
   constructor(
@@ -26,21 +26,19 @@ export class Home implements AfterViewInit, OnDestroy, OnInit {
     private galleryService: GalleryService
   ) {}
 
-  @HostListener('window:scroll')
-  onScroll() {
-    const scrollY = window.scrollY;
-    if (scrollY <= 250) {
-      const p = scrollY / 250;
-      this.frameRotation.set(3 + p * 12);
-      this.frameOpacity.set(1);
-    } else if (scrollY <= 500) {
-      const p = (scrollY - 250) / 250;
-      this.frameRotation.set(15 + p * 75);
-      this.frameOpacity.set(1 - p);
-    } else {
-      this.frameRotation.set(90);
-      this.frameOpacity.set(0);
-    }
+  private setHeroSlide(index: number) {
+    const slideCount = Math.max(this.galleryImages.length, 1);
+    const nextIndex = index % slideCount;
+
+    this.activeHeroSlide.set(nextIndex);
+    this.heroSlideOffset.set(nextIndex * -100);
+  }
+
+  private startHeroSlideshow() {
+    window.clearInterval(this.heroSlideIntervalId);
+    this.heroSlideIntervalId = window.setInterval(() => {
+      this.setHeroSlide(this.activeHeroSlide() + 1);
+    }, 3000);
   }
 
   ngOnInit() {
@@ -81,9 +79,12 @@ export class Home implements AfterViewInit, OnDestroy, OnInit {
             title: img.title,
             url: img.imageUrl
           }));
+          this.setHeroSlide(0);
         }
       }
     });
+
+    this.startHeroSlideshow();
   }
 
   ngAfterViewInit() {
@@ -94,6 +95,7 @@ export class Home implements AfterViewInit, OnDestroy, OnInit {
 
   ngOnDestroy() {
     cancelAnimationFrame(this.animId);
+    window.clearInterval(this.heroSlideIntervalId);
     window.removeEventListener('resize', this.resizeCanvas);
   }
 

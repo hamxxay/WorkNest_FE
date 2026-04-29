@@ -87,21 +87,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
   min-width: 28px;
   height: 28px;
   border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 800;
 }
 
 .social-google {
-  background: #fde7e7;
-  color: #c2410c;
+  background: #fff;
+  border: 1px solid #e5e7eb;
 }
 
-.social-github {
-  background: #e5e7eb;
-  color: #111827;
+.social-google svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .auth-divider {
