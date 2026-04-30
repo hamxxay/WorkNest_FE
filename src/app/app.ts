@@ -60,10 +60,11 @@ export class App {
 
   /**
    * Helper used in template to decide whether to render navbar/footer.
-   * If route data explicitly says layout: 'auth' or 'admin', hide public chrome.
+   * If route data explicitly says layout: 'admin', hide public chrome.
+   * Auth pages now show the navbar.
    */
   showChrome(): boolean {
     const layout = this.currentData['layout'];
-    return layout !== 'auth' && layout !== 'admin';
+    return layout !== 'admin';
   }
 }

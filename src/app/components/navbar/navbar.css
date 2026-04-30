@@ -7,12 +7,19 @@ nav {
   padding: 12px 0;
   transition: all 0.3s ease;
   background: #ffffff;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.72);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
 }
 
 nav.scrolled {
   background: #ffffff;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+nav.over-hero {
+  background: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
 }
 
 .nav-container {
@@ -36,6 +43,19 @@ nav.scrolled {
 
 .logo svg {
   color: var(--accent);
+}
+
+.logo img {
+  filter: brightness(0) saturate(100%) sepia(85%) hue-rotate(12deg) saturate(350%) brightness(80%) contrast(95%);
+}
+
+nav.over-hero .logo,
+nav.over-hero .logo svg {
+  color: #ffffff;
+}
+
+nav.over-hero .logo img {
+  filter: brightness(0) invert(1);
 }
 
 .nav-links {
@@ -94,6 +114,48 @@ nav.scrolled {
   color: var(--accent);
 }
 
+nav.over-hero .nav-links a {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+nav.over-hero .nav-links a svg {
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+}
+
+nav.over-hero .nav-links a:hover,
+nav.over-hero .nav-links a.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+nav.over-hero .nav-links a:hover svg,
+nav.over-hero .nav-links a.active svg {
+  color: #ffffff;
+}
+
+nav.over-hero .nav-actions .btn-outline {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+nav.over-hero .nav-actions .btn-outline:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #ffffff;
+}
+
+nav.over-hero .nav-actions .btn-primary {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+nav.over-hero .nav-actions .btn-primary:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
 .nav-actions {
   display: flex;
   gap: 10px;
@@ -122,6 +184,10 @@ nav.scrolled {
   background: var(--text-primary);
   transition: all 0.3s ease;
   border-radius: 2px;
+}
+
+nav.over-hero .hamburger span {
+  background: #ffffff;
 }
 
 .hamburger.open span:nth-child(1) {
@@ -300,6 +366,16 @@ nav.scrolled {
   background: var(--accent-bg);
 }
 
+nav.over-hero .profile-trigger {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+nav.over-hero .profile-name,
+nav.over-hero .profile-chevron {
+  color: #ffffff;
+}
+
 .profile-avatar {
   width: 32px;
   height: 32px;
@@ -408,7 +484,7 @@ nav.scrolled {
   letter-spacing: 0.5px;
   background: var(--accent-bg);
   color: var(--accent);
-  border: 1px solid rgba(13, 148, 136, 0.15);
+  border: 1px solid rgba(109, 105, 81, 0.15);
 }
 
 .profile-menu-link {

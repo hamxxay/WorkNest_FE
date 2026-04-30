@@ -48,7 +48,7 @@
   text-decoration: none;
 }
 
-.sidebar-logo svg { color: #14b8a6; flex-shrink: 0; }
+.sidebar-logo svg { color: #8a8568; flex-shrink: 0; }
 
 .sidebar-toggle {
   background: none;
@@ -102,7 +102,7 @@
 
 .nav-item.active {
   color: #fff;
-  background: #0d9488;
+  background: #6d6951;
 }
 
 .nav-item.active .nav-icon svg { color: #fff; }
@@ -135,7 +135,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #0d9488;
+  background: #6d6951;
   color: #fff;
   display: flex;
   align-items: center;
