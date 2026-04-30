@@ -17,25 +17,6 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
-.auth-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  text-decoration: none;
-}
-
-.auth-logo svg {
-  color: var(--accent);
-}
-
-.auth-logo span {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-
 .auth-card h1 {
   font-size: 1.5rem;
   font-weight: 700;

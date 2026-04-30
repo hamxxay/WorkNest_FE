@@ -21,11 +21,12 @@
   --text-secondary: #475569;     /* slate-600 */
   --text-muted: #94a3b8;         /* slate-400 */
 
-  --accent: #0d9488;             /* teal-600 */
-  --accent-hover: #0f766e;       /* teal-700 */
-  --accent-light: #14b8a6;       /* teal-500 */
-  --accent-bg: rgba(13, 148, 136, 0.08);
-  --accent-bg-strong: rgba(13, 148, 136, 0.12);
+  --accent: #6d6951;
+  --accent-hover: #56523f;
+  --accent-dark: #56523f;
+  --accent-light: #8a8568;
+  --accent-bg: rgba(109, 105, 81, 0.08);
+  --accent-bg-strong: rgba(109, 105, 81, 0.12);
 
   --danger: #ef4444;
   --warning: #f59e0b;
@@ -128,7 +129,7 @@ button, input, textarea, select {
 .btn-primary:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 4px 16px rgba(109, 105, 81, 0.25);
 }
 
 .btn-outline {
@@ -229,7 +230,7 @@ select.form-input {
 }
 
 .badge-success {
-  background: rgba(13, 148, 136, 0.1);
+  background: rgba(109, 105, 81, 0.1);
   color: var(--accent);
 }
 
@@ -260,9 +261,9 @@ select.form-input {
 }
 
 .alert-success {
-  background: rgba(13, 148, 136, 0.1);
+  background: rgba(109, 105, 81, 0.1);
   color: var(--accent);
-  border: 1px solid rgba(13, 148, 136, 0.2);
+  border: 1px solid rgba(109, 105, 81, 0.2);
 }
 
 /* ========== Loading Spinner ========== */

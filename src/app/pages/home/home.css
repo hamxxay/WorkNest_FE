@@ -14,9 +14,9 @@
   position: absolute;
   inset: 0 0 auto;
   z-index: 2;
-  height: 140px;
+  height: 170px;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(3, 7, 18, 0.54), rgba(3, 7, 18, 0));
+  background: linear-gradient(180deg, rgba(3, 7, 18, 0.58) 0%, rgba(3, 7, 18, 0.26) 46%, rgba(3, 7, 18, 0) 100%);
 }
 
 .hero-slides {
@@ -79,7 +79,7 @@
   display: inline-flex;
   align-items: center;
   margin-bottom: 18px;
-  color: #67d4e2;
+  color: #d6cfaa;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -185,7 +185,7 @@
 }
 
 .feature-card:nth-child(1) {
-  border-color: #0d9488;
+  border-color: #6d6951;
 }
 
 .feature-card:nth-child(2) {
@@ -193,7 +193,7 @@
 }
 
 .feature-card:nth-child(3) {
-  border-color: #67d4e2;
+  border-color: #d6cfaa;
 }
 
 .feature-icon {
@@ -308,8 +308,9 @@
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 420px));
   gap: 24px;
+  justify-content: center;
   text-align: left;
 }
 
@@ -320,23 +321,48 @@
   padding: 24px;
 }
 
+.promo-card {
+  max-width: 520px;
+  text-align: center;
+  background: #f7f2ec;
+  color: #2f1d0f;
+  border: 1px solid rgba(47, 29, 15, 0.14);
+  box-shadow: 0 18px 45px rgba(47, 29, 15, 0.12);
+}
+
+.promo-card .plan-header {
+  justify-content: center;
+}
+
+.promo-card .plan-desc {
+  color: #6d6951;
+}
+
+.promo-card .price .amount,
+.promo-card .price .period,
+.promo-card h3 {
+  color: #2f1d0f;
+}
+
+.promo-card .btn-primary {
+  background: #2f1d0f;
+  color: #fff;
+  border: none;
+}
+
+.promo-card .btn-primary:hover {
+  background: #5a3f27;
+}
+
+.promo-card .plan-icon {
+  display: none;
+}
+
 .plan-header {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
-}
-
-.plan-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-bg-strong);
-  color: var(--accent);
-  flex-shrink: 0;
 }
 
 .pricing-card.popular .plan-icon {
@@ -348,7 +374,7 @@
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-  box-shadow: 0 8px 30px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 8px 30px rgba(109, 105, 81, 0.25);
 }
 
 .pricing-card.popular h3,

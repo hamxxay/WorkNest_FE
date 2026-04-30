@@ -1,0 +1,62 @@
+<section class="page-hero blog-hero">
+  <div class="container">
+    <div class="hero-copy">
+      <span class="eyebrow">WorkNest Journal</span>
+      <h1>Ideas for better workdays</h1>
+      <p class="hero-sub">
+        Practical notes on coworking, productivity, meetings, and building a work routine that feels focused and sustainable.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section featured-section">
+  <div class="container">
+    <article class="featured-post">
+      <div class="featured-image">
+        <img [src]="featuredPost.image" [alt]="featuredPost.title" />
+      </div>
+      <div class="featured-content">
+        <div class="post-meta">
+          <span>{{ featuredPost.category }}</span>
+          <span>{{ featuredPost.date }}</span>
+          <span>{{ featuredPost.readTime }}</span>
+        </div>
+        <h2>{{ featuredPost.title }}</h2>
+        <p>{{ featuredPost.excerpt }}</p>
+        <a routerLink="/booking" class="btn btn-primary">Find a workspace</a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="section posts-section">
+  <div class="container">
+    <div class="section-heading">
+      <div>
+        <h2 class="section-title">Latest Articles</h2>
+        <p class="section-sub">Fresh guidance for freelancers, startups, and teams using flexible spaces.</p>
+      </div>
+      <a routerLink="/contact" class="btn btn-outline">Suggest a Topic</a>
+    </div>
+
+    <div class="posts-grid">
+      @for (post of posts; track post.title) {
+        <article class="blog-card">
+          <div class="blog-image">
+            <img [src]="post.image" [alt]="post.title" />
+          </div>
+          <div class="blog-content">
+            <div class="post-meta">
+              <span>{{ post.category }}</span>
+              <span>{{ post.readTime }}</span>
+            </div>
+            <h3>{{ post.title }}</h3>
+            <p>{{ post.excerpt }}</p>
+            <span class="post-date">{{ post.date }}</span>
+          </div>
+        </article>
+      }
+    </div>
+  </div>
+</section>

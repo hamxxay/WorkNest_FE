@@ -1,7 +1,7 @@
 <!-- Hero Section -->
 <section class="hero">
   <div class="hero-slides">
-    @for (img of galleryImages; track img.title; let i = $index) {
+    @for (img of heroSlides; track img.title; let i = $index) {
       <div class="hero-slide" [class.active]="i === activeHeroSlide()">
         <img [src]="img.url" [alt]="img.title" />
       </div>
@@ -24,7 +24,7 @@
       </div>
     </div>
     <div class="hero-progress" aria-hidden="true">
-      @for (img of galleryImages; track img.title; let i = $index) {
+      @for (img of heroSlides; track img.title; let i = $index) {
         <span [class.active]="i === activeHeroSlide()"></span>
       }
     </div>
@@ -32,9 +32,9 @@
 </section>
 
 <!-- Wave Divider (Canvas) -->
-<div class="wave-divider">
+<!-- <div class="wave-divider">
   <canvas #waveCanvas></canvas>
-</div>
+</div> -->
 
 <!-- Features Section -->
 <section class="section features-section">
@@ -71,7 +71,7 @@
       <a routerLink="/gallery" class="btn btn-outline">View Full Gallery</a>
     </div>
     <div class="gallery-grid">
-      @for (img of galleryImages; track img.title) {
+      @for (img of galleryImages(); track img.title) {
         <div class="gallery-item">
           <img [src]="img.url" [alt]="img.title" />
           <div class="gallery-overlay">
@@ -88,45 +88,24 @@
   <div class="container">
     <div class="pricing-header">
       <div>
-        <h2 class="section-title">Plans for every work style</h2>
-        <p class="pricing-sub">Simple monthly pricing with no hidden fees. Pick the plan that matches your team and upgrade anytime.</p>
+        <h2 class="section-title">Choose Your Perfect Plan</h2>
+        <p class="pricing-sub">Flexible pricing options designed for every type of worker. No long-term contracts required.</p>
       </div>
-      <a routerLink="/pricing" class="btn btn-primary">See All Plans</a>
+      <a href="/pricing" (click)="redirectToPlans($event)" class="btn btn-primary">View Plans</a>
     </div>
 
     <div class="pricing-grid">
-      @for (plan of plans; track plan.name) {
-        <div class="card pricing-card" [class.popular]="plan.popular">
-          <div class="plan-header">
-            <span class="plan-icon">
-              @if (plan.name === 'Standard') {
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-              } @else if (plan.name === 'Premium') {
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>
-              }
-            </span>
-            <h3>{{ plan.name }}</h3>
-          </div>
-          <div class="price">
-            <span class="amount">Rs {{ plan.price }}</span>
-            <span class="period">/month</span>
-          </div>
-          <p class="plan-desc">{{ plan.description }}</p>
-          <ul class="plan-features">
-            @for (f of plan.features; track f) {
-              <li>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                {{ f }}
-              </li>
-            }
-          </ul>
-          <a routerLink="/pricing" class="btn btn-block" [class.btn-popular]="plan.popular" [class.btn-primary]="!plan.popular">
-            Choose {{ plan.name }}
-          </a>
+      <div class="card pricing-card promo-card">
+        <div class="plan-header">
+          <h3>Get your office now for as low as Rs 500</h3>
         </div>
-      }
+        <!-- <div class="price">
+          <span class="amount">Rs 500</span>
+          <span class="period">/day</span>
+        </div> -->
+          <p class="plan-desc">Book your daily office with instant access, high-speed internet, and a comfortable workspace for maximum productivity.</p>
+        <a routerLink="/booking" class="btn btn-block btn-primary">Book Now</a>
+      </div>
     </div>
   </div>
 </section>

@@ -10,8 +10,9 @@
 // - Responsive design for mobile and desktop
 // - Sticky header behavior on scroll
 
-import { Component, signal, computed, Signal, HostListener, ElementRef } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, signal, computed, Signal, HostListener, ElementRef, OnDestroy } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -20,7 +21,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './navbar.html',
   styleUrl: './navbar.css'
 })
-export class Navbar {
+export class Navbar implements OnDestroy {
   // Signal to track if mobile menu is open
   mobileOpen = signal(false);
   
@@ -29,6 +30,8 @@ export class Navbar {
   
   // Signal to track if user profile dropdown is open
   profileOpen = signal(false);
+
+  currentUrl = signal('/');
 
   // expose the reactive user signal from the auth service
   user!: Signal<any>;
@@ -57,6 +60,8 @@ export class Navbar {
   roles = computed(() => this.user()?.roles || []);
   isAdmin = computed(() => this.authService.hasRole('Admin'));
   loggedIn = computed(() => !!this.user());
+  overHero = computed(() => this.currentUrl() === '/' && !this.scrolled() && !this.mobileOpen());
+  private routerEventsSub: Subscription;
 
   constructor(
     public authService: AuthService,
@@ -64,6 +69,13 @@ export class Navbar {
     private elRef: ElementRef // Reference to the component's DOM element
   ) {
     this.user = this.authService.user;
+    this.currentUrl.set(this.router.url.split('?')[0] || '/');
+    this.routerEventsSub = this.router.events.subscribe(event => {
+      if (event instanceof NavigationEnd) {
+        this.currentUrl.set(event.urlAfterRedirects.split('?')[0] || '/');
+        this.onScroll();
+      }
+    });
   }
 
   /**
@@ -151,6 +163,11 @@ export class Navbar {
       // Redirect to home page
       this.router.navigate(['/']);
     });
+  }
+
+  ngOnDestroy() {
+    this.routerEventsSub.unsubscribe();
+    document.body.style.overflow = '';
   }
 
   // Old helper methods have been replaced by computed signals above.

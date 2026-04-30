@@ -1,7 +1,7 @@
-<nav [class.scrolled]="scrolled()">
+<nav [class.scrolled]="scrolled()" [class.over-hero]="overHero()">
   <div class="nav-container">
     <a routerLink="/" class="logo" (click)="closeMobile()">
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+      <img src="images/Logo.png" alt="WorkNest Logo" width="32" height="32" />
       WorkNest
     </a>
 
@@ -26,16 +26,24 @@
             Book Now
           </a>
         </li>
-        <li>
-          <a routerLink="/pricing" routerLinkActive="active" (click)="closeMobile()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-            Pricing
-          </a>
-        </li>
+        @if (loggedIn() && currentUrl() === '/') {
+          <li>
+            <a routerLink="/pricing" routerLinkActive="active" (click)="closeMobile()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+              Pricing
+            </a>
+          </li>
+        }
         <li>
           <a routerLink="/gallery" routerLinkActive="active" (click)="closeMobile()">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             Gallery
+          </a>
+        </li>
+        <li>
+          <a routerLink="/blogs" routerLinkActive="active" (click)="closeMobile()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
+            Blogs
           </a>
         </li>
         <li>
