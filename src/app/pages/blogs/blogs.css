@@ -6,7 +6,7 @@
 
 .blog-hero {
   background:
-    linear-gradient(90deg, rgba(109, 105, 81, 0.1), rgba(252, 217, 168, 0.16)),
+    linear-gradient(90deg, rgba(57, 160, 203, 0.1), rgba(252, 217, 168, 0.16)),
     var(--bg-secondary);
 }
 

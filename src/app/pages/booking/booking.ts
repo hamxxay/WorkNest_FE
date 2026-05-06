@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
+import { applyPercentDiscount, getWorkspaceDiscount, type BookingLike } from '../../utils/workspace-discount';
 
 interface Workspace {
   id: number;
@@ -36,6 +37,16 @@ export class Booking implements OnInit {
   bookingError = signal('');
 
   workspaces = signal<Workspace[]>([]);
+  myBookings = signal<BookingLike[]>([]);
+  discount = computed(() => getWorkspaceDiscount(this.myBookings()));
+  availableWorkspaceTypes = computed(() => {
+    const types = new Set<string>();
+    for (const ws of this.workspaces()) {
+      const t = (ws.spaceTypeName ?? '').trim();
+      if (t) types.add(t);
+    }
+    return Array.from(types).sort((a, b) => a.localeCompare(b));
+  });
   filteredWorkspaces = computed(() => {
     const query = this.searchQuery().toLowerCase();
     const type = this.workspaceType().toLowerCase();
@@ -66,6 +77,7 @@ export class Booking implements OnInit {
 
   ngOnInit() {
     this.loadSpaces();
+    this.loadMyBookingsForDiscount();
   }
 
   loadSpaces() {
@@ -77,6 +89,18 @@ export class Booking implements OnInit {
       },
       error: () => {
         this.loading.set(false);
+      }
+    });
+  }
+
+  private loadMyBookingsForDiscount() {
+    this.bookingService.getMyBookings().subscribe({
+      next: (res: any) => {
+        const data = Array.isArray(res?.data) ? res.data : [];
+        this.myBookings.set(data);
+      },
+      error: () => {
+        this.myBookings.set([]);
       }
     });
   }
@@ -143,6 +167,58 @@ export class Booking implements OnInit {
     this.bookingNotes = '';
   }
 
+  private isHourlyOnlySpace(spaceTypeName?: string): boolean {
+    const t = (spaceTypeName ?? '').toLowerCase();
+    return t.includes('padel') || t.includes('arena') || t.includes('court');
+  }
+
+  private isPadelLikeSpace(space?: Pick<Workspace, 'spaceTypeName' | 'name' | 'code'> | null): boolean {
+    if (!space) return false;
+    const haystack = `${space.spaceTypeName ?? ''} ${space.name ?? ''} ${space.code ?? ''}`.toLowerCase();
+    return haystack.includes('padel') || haystack.includes('arena') || haystack.includes('court');
+  }
+
+  private toDateTime(date: string, time: string): Date | null {
+    if (!date || !time) return null;
+    const d = new Date(`${date}T${time}:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  private calcBaseAmount(space: Workspace, start: Date, end: Date): number {
+    const diffMs = end.getTime() - start.getTime();
+    if (diffMs <= 0) return 0;
+
+    const hours = diffMs / (1000 * 60 * 60);
+    const days = Math.ceil(hours / 24);
+
+    // Padel Arena / Court: hourly-only billing.
+    if (this.isPadelLikeSpace(space) || Number(space.pricePerDay ?? 0) <= 0) {
+      return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
+    }
+
+    // Heuristic: short bookings charge hourly; longer ones charge daily.
+    if (hours <= 10) {
+      return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
+    }
+
+    return days * Number(space.pricePerDay ?? 0);
+  }
+
+  getPriceBreakdown(): { base: number; percent: number; discountAmount: number; final: number } | null {
+    if (!this.selectedSpace) return null;
+
+    const start = this.toDateTime(this.bookingStartDate, this.bookingStartTime);
+    const end = this.toDateTime(this.bookingEndDate, this.bookingEndTime);
+    if (!start || !end) return null;
+
+    const base = this.calcBaseAmount(this.selectedSpace, start, end);
+    const percent = this.discount().percent;
+    const final = applyPercentDiscount(base, percent);
+    const discountAmount = Math.max(0, base - final);
+
+    return { base, percent, discountAmount, final };
+  }
+
   submitBooking() {
     if (!this.selectedSpace || !this.bookingStartDate || !this.bookingEndDate) {
       this.bookingError.set('Please select start and end dates.');
@@ -157,6 +233,8 @@ export class Booking implements OnInit {
       return;
     }
 
+    const breakdown = this.getPriceBreakdown();
+
     this.bookingInProgress.set(true);
     this.bookingError.set('');
 
@@ -164,7 +242,9 @@ export class Booking implements OnInit {
       spaceId: this.selectedSpace.id,
       startDateTime,
       endDateTime,
-      notes: this.bookingNotes || null
+      notes: this.bookingNotes || null,
+      // Send the computed amount if the API supports it; otherwise it should be ignored server-side.
+      totalAmount: breakdown?.final ?? undefined
     }).subscribe({
       next: (res) => {
         this.bookingInProgress.set(false);

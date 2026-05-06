@@ -1,6 +1,5 @@
 import { Component, signal, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { PricingService } from '../../services/pricing.service';
 import { GalleryService } from '../../services/gallery.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -21,22 +20,10 @@ export class Home implements OnDestroy, OnInit {
   private time = 0;
 
   constructor(
-    private pricingService: PricingService,
     private galleryService: GalleryService,
     private authService: AuthService,
     private router: Router
   ) {}
-
-  redirectToPlans(event: Event) {
-    event.preventDefault();
-
-    if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/pricing']);
-      return;
-    }
-
-    this.router.navigate(['/login'], { queryParams: { returnUrl: '/pricing' } });
-  }
 
   private setHeroSlide(index: number) {
     const slideCount = Math.max(this.heroSlides.length, 1);
@@ -53,28 +40,6 @@ export class Home implements OnDestroy, OnInit {
   }
 
   ngOnInit() {
-    // Load pricing plans from API
-    this.pricingService.getActivePlans().subscribe({
-      next: (res) => {
-        if (res.isSuccessful && res.data) {
-          const plans = Array.isArray(res.data)
-            ? res.data
-            : Array.isArray(res.data?.items)
-              ? res.data.items
-              : Array.isArray(res.data?.results)
-                ? res.data.results
-                : [];
-          this.plans.set(plans.map((plan: any) => ({
-            name: plan.name,
-            price: plan.price,
-            description: plan.description,
-            features: plan.features?.map((f: any) => f.featureName) || [],
-            popular: plan.name === 'Premium'
-          })));
-        }
-      }
-    });
-
     // Load gallery images from API
     this.galleryService.getAll().subscribe({
       next: (res) => {
@@ -175,6 +140,34 @@ export class Home implements OnDestroy, OnInit {
     { title: 'Meeting room setup', url: 'images/spaces/meeting-room.jpg' }
   ]);
 
+  offerings = signal<{ name: string; description: string; features: string[]; popular: boolean }[]>([
+    {
+      name: 'Private Office',
+      description: 'Reserve a dedicated office suite for focused work or small teams.',
+      features: ['Secure workspace', 'Premium desks & chairs', 'High-speed internet'],
+      popular: false
+
+    },
+    {
+      name: 'Hot Desk',
+      description: 'Flexible desk access for remote workers and freelancers.',
+      features: ['Flexible hours', 'Community lounge', 'Printer access'],
+      popular: false
+    },
+    {
+      name: 'Meeting Room',
+      description: 'Book an equipped meeting room for presentations and team sessions.',
+      features: ['Audio/visual setup', 'Whiteboard & supplies', 'Room for up to 10'],
+      popular: false
+    },
+    // {
+    //   name: 'Event Space',
+    //   description: 'Host workshops, networking events, and offsite gatherings.',
+    //   features: ['Modular seating', 'Catering-friendly layout', 'Event support team'],
+    //   popular: false
+    // }
+  ]);
+
   heroSlides: { title: string; url: string }[] = [
     { title: 'Collaborative workspace', url: 'images/slideshow/Slideshow1.jpg' },
     { title: 'Modern office lounge', url: 'images/slideshow/Slideshow2.jpg' },
@@ -182,28 +175,6 @@ export class Home implements OnDestroy, OnInit {
     { title: 'Meeting room setup', url: 'images/slideshow/Slideshow4.jpg' }
   ];
 
-  plans = signal<{ name: string; price: number; description: string; features: string[]; popular: boolean }[]>([
-    {
-      name: 'Basic',
-      price: 19,
-      description: 'Perfect for occasional workspace needs.',
-      features: ['2 hours / month', 'High-speed WiFi', 'Community access'],
-      popular: false
-    },
-    {
-      name: 'Professional',
-      price: 49,
-      description: 'Ideal for regular remote workers.',
-      features: ['10 hours / month', 'Meeting rooms', 'Priority booking'],
-      popular: true
-    },
-    {
-      name: 'Enterprise',
-      price: 99,
-      description: 'Complete solution for growing teams.',
-      features: ['Unlimited access', 'Private office', 'Dedicated support'],
-      popular: false
-    }
-  ]);
 }
+
 

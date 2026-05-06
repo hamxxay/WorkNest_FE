@@ -83,29 +83,32 @@
   </div>
 </section>
 
-<!-- Pricing Preview -->
+<!-- Booking Preview -->
 <section class="section">
   <div class="container">
     <div class="pricing-header">
       <div>
-        <h2 class="section-title">Choose Your Perfect Plan</h2>
-        <p class="pricing-sub">Flexible pricing options designed for every type of worker. No long-term contracts required.</p>
+        <h2 class="section-title">What We Offer</h2>
+        <p class="pricing-sub">Preview our most popular booking options and choose the workspace that fits your work style.</p>
       </div>
-      <a href="/pricing" (click)="redirectToPlans($event)" class="btn btn-primary">View Plans</a>
+      <a routerLink="/booking" class="btn btn-primary">Browse All Bookings</a>
     </div>
 
     <div class="pricing-grid">
-      <div class="card pricing-card promo-card">
-        <div class="plan-header">
-          <h3>Get your office now for as low as Rs 500</h3>
+      @for (offer of offerings(); track offer.name) {
+        <div class="card pricing-card booking-card" [class.popular]="offer.popular">
+          <div class="plan-header">
+            <h3>{{ offer.name }}</h3>
+          </div>
+          <p class="plan-desc">{{ offer.description }}</p>
+          <ul>
+            @for (feature of offer.features; track feature) {
+              <li>{{ feature }}</li>
+            }
+          </ul>
+          <a routerLink="/booking" class="btn btn-primary">Book Now</a>
         </div>
-        <!-- <div class="price">
-          <span class="amount">Rs 500</span>
-          <span class="period">/day</span>
-        </div> -->
-          <p class="plan-desc">Book your daily office with instant access, high-speed internet, and a comfortable workspace for maximum productivity.</p>
-        <a routerLink="/booking" class="btn btn-block btn-primary">Book Now</a>
-      </div>
+      }
     </div>
   </div>
 </section>
