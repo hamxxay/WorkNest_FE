@@ -18,10 +18,9 @@
         </div>
         <select class="form-input" [ngModel]="workspaceType()" (ngModelChange)="workspaceType.set($event)">
           <option value="">All Types</option>
-          <option value="Private Office">Private Office</option>
-          <option value="Hot Desk">Hot Desk</option>
-          <option value="Meeting Room">Meeting Room</option>
-          <option value="Dedicated Desk">Dedicated Desk</option>
+          @for (t of availableWorkspaceTypes(); track t) {
+            <option [value]="t">{{ t }}</option>
+          }
         </select>
         <button class="btn btn-primary search-btn" (click)="filterWorkspaces()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -137,8 +136,19 @@
         </div>
         <div class="modal-price">
           <span>Hourly: Rs {{ selectedSpace.pricePerHour }}/hr</span>
-          <span>Daily: Rs {{ selectedSpace.pricePerDay }}/day</span>
+          @if ((selectedSpace.spaceTypeName + ' ' + selectedSpace.name + ' ' + selectedSpace.code).toLowerCase().includes('padel') || (selectedSpace.spaceTypeName + ' ' + selectedSpace.name + ' ' + selectedSpace.code).toLowerCase().includes('arena') || (selectedSpace.spaceTypeName + ' ' + selectedSpace.name + ' ' + selectedSpace.code).toLowerCase().includes('court')) {
+            <span style="color: var(--text-secondary);">Hourly-only booking</span>
+          } @else {
+            <span>Daily: Rs {{ selectedSpace.pricePerDay }}/day</span>
+          }
         </div>
+        @if (getPriceBreakdown(); as pb) {
+          <div class="modal-price" style="margin-top: 10px;">
+            <span>Base: Rs {{ pb.base.toFixed(2) }}</span>
+            <span>Discount: {{ pb.percent }}% (Rs {{ pb.discountAmount.toFixed(2) }})</span>
+            <span><b>Total: Rs {{ pb.final.toFixed(2) }}</b></span>
+          </div>
+        }
         <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="bookingInProgress()">
           {{ bookingInProgress() ? 'Booking...' : 'Confirm Booking' }}
         </button>
