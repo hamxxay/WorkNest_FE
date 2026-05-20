@@ -109,6 +109,16 @@
         <div class="alert alert-success">{{ bookingSuccess() }}</div>
       }
 
+      @if (isGuest()) {
+        <div class="guest-booking-banner">
+          <p>You're browsing as a guest. Create a free account to confirm bookings and manage your reservations.</p>
+          <div class="guest-booking-actions">
+            <a routerLink="/signup" class="btn btn-primary btn-sm">Create Account</a>
+            <a routerLink="/login" class="btn btn-outline btn-sm">Sign In</a>
+          </div>
+        </div>
+      }
+
       <form (ngSubmit)="submitBooking()">
         <div class="form-row">
           <div class="form-group">

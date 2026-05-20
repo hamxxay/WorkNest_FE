@@ -1,10 +1,10 @@
-import { Component, OnInit, signal, computed, effect } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
+import { Observable, Subscription } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { AdminService } from '../../services/admin.service';
-import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage } from '../../models/admin.model';
+import { ApiResponse } from '../../models/admin.model';
 
 interface Column { key: string; label: string; type?: string; }
 interface EntityConfig {
@@ -38,28 +38,26 @@ interface Handlers<T = any> {
   templateUrl: './manage.html',
   styleUrl: './manage.css'
 })
-export class AdminManage implements OnInit {
+export class AdminManage implements OnInit, OnDestroy {
   entity = '';
   config!: EntityConfig;
   items = signal<any[]>([]);
   loading = signal(true);
   showModal = false;
   editItem: unknown = null;
-  fullEditItem: unknown = null; // Store full entity details for spaces with relation IDs
+  fullEditItem: unknown = null;
   formData: Record<string, unknown> = {};
   saving = false;
   error = '';
   success = '';
-  // reactive search and  state
   searchQuery = signal('');
   currentPage = signal(1);
   readonly pageSize = 20;
   totalItems = signal(0);
-
-  // computed list of pages - not used in template directly but helps
   totalPages = computed(() => Math.max(1, Math.ceil(this.totalItems() / this.pageSize)));
-
   private handlers!: Handlers;
+  private searchTimer: any;
+  private routeSub?: Subscription;
 
   private configs: Record<string, EntityConfig> = {
     users: {
@@ -343,16 +341,13 @@ export class AdminManage implements OnInit {
 
     // debounce search query updates; reset page and ensure one load
     // even when already on page 1.
-    let searchTimer: any;
     effect(() => {
-      // dependency on query
       this.searchQuery();
       if (!searchInitialized) {
-        // skip until page effect has run once
         return;
       }
-      if (searchTimer) clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => {
         if (this.config) {
           if (this.currentPage() === 1) {
             // already on first page, call load directly
@@ -367,7 +362,7 @@ export class AdminManage implements OnInit {
   }
 
   ngOnInit() {
-    this.route.data.subscribe(data => {
+    this.routeSub = this.route.data.subscribe(data => {
       this.entity = data['entity'] || '';
       this.config = this.configs[this.entity];
       if (this.config) {
@@ -375,6 +370,11 @@ export class AdminManage implements OnInit {
         this.load();
       }
     });
+  }
+
+  ngOnDestroy() {
+    clearTimeout(this.searchTimer);
+    this.routeSub?.unsubscribe();
   }
 
   load() {
@@ -444,10 +444,9 @@ export class AdminManage implements OnInit {
             this.error = 'Failed to load space details';
           }
         },
-        error: (err: any) => {
+        error: (_err: any) => {
           this.saving = false;
           this.error = 'Failed to load space details';
-          console.error('Failed to load space details:', err);
         }
       });
     } else {

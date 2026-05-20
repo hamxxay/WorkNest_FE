@@ -1,15 +1,3 @@
-// ============================================================
-// HTTP Auth Interceptor
-// ============================================================
-// This interceptor is applied to all HTTP requests in the application.
-// It performs two main functions:
-// 1. Automatically attaches JWT token to Authorization header
-// 2. Handles 401 (Unauthorized) errors by clearing token and redirecting to login
-//
-// NOTE: On 401 responses from /auth/* endpoints (login, register, me, logout),
-// the interceptor clears local state only without attempting server logout
-// to prevent recursive unauthorized requests and client destabilization.
-
 import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
@@ -20,7 +8,6 @@ function isAuthRequest(url: string): boolean {
   return /\/auth(?:\/|$)/i.test(url);
 }
 
-// HttpInterceptorFn is a function-based interceptor in Angular 15+
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const authService = inject(AuthService);
@@ -36,7 +23,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
       return next(requestWithAuth).pipe(
         catchError((error: HttpErrorResponse) => {
-          if (error.status === 401) {
+          if (error.status === 401 && !authService.isGuest()) {
             authService.clearSession();
             if (!isAuthRequest(req.url)) {
               void router.navigate(['/login'], {

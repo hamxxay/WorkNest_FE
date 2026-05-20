@@ -69,32 +69,44 @@
                   <span class="profile-avatar lg">{{ initials() }}</span>
                   <div class="profile-info">
                     <span class="profile-info-name">{{ displayName() }}</span>
-                    <span class="profile-info-email">{{ email() }}</span>
+                    @if (!isGuest()) {
+                      <span class="profile-info-email">{{ email() }}</span>
+                    } @else {
+                      <span class="profile-info-email">Browsing as guest</span>
+                    }
                   </div>
                 </div>
-                <div class="profile-roles">
-                  @for (role of roles(); track role) {
-                    <span class="role-badge">{{ role }}</span>
-                  }
-                </div>
-                <a class="profile-menu-link" routerLink="/my-bookings" (click)="profileOpen.set(false); closeMobile()">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-                  My Bookings
-                </a>
-                <a class="profile-menu-link" routerLink="/my-payments" (click)="profileOpen.set(false); closeMobile()">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                  My Payments
-                </a>
-                @if (isAdmin()) {
-                  <a class="profile-menu-link admin" routerLink="/admin" (click)="profileOpen.set(false); closeMobile()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-                    Admin Panel
+                @if (isGuest()) {
+                  <div class="guest-signup-prompt">
+                    <p>Create an account to save your bookings and access all features.</p>
+                    <a routerLink="/signup" class="btn btn-primary btn-sm btn-block" (click)="profileOpen.set(false); closeMobile()">Create Account</a>
+                    <a routerLink="/login" class="btn btn-outline btn-sm btn-block" style="margin-top:8px" (click)="profileOpen.set(false); closeMobile()">Sign In</a>
+                  </div>
+                } @else {
+                  <div class="profile-roles">
+                    @for (role of roles(); track role) {
+                      <span class="role-badge">{{ role }}</span>
+                    }
+                  </div>
+                  <a class="profile-menu-link" routerLink="/my-bookings" (click)="profileOpen.set(false); closeMobile()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+                    My Bookings
                   </a>
+                  <a class="profile-menu-link" routerLink="/my-payments" (click)="profileOpen.set(false); closeMobile()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    My Payments
+                  </a>
+                  @if (isAdmin()) {
+                    <a class="profile-menu-link admin" routerLink="/admin" (click)="profileOpen.set(false); closeMobile()">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                      Admin Panel
+                    </a>
+                  }
                 }
                 <div class="profile-divider"></div>
                 <button class="profile-logout" (click)="logout()">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-                  Logout
+                  {{ isGuest() ? 'Exit Guest Mode' : 'Logout' }}
                 </button>
               </div>
             }

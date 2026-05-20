@@ -185,3 +185,25 @@
     padding: 32px 24px;
   }
 }
+
+.btn-guest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 12px;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--border-color, #d8dee8);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-guest:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

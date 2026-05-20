@@ -1,8 +1,9 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
+import { AuthService } from '../../services/auth.service';
 import { applyPercentDiscount, getWorkspaceDiscount, type BookingLike } from '../../utils/workspace-discount';
 
 interface Workspace {
@@ -22,7 +23,7 @@ interface Workspace {
 
 @Component({
   selector: 'app-booking',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './booking.html',
   styleUrl: './booking.css'
 })
@@ -69,9 +70,12 @@ export class Booking implements OnInit {
   bookingEndDate = '';
   bookingEndTime = '17:00';
 
+  isGuest = computed(() => this.authService.isGuest());
+
   constructor(
     private spaceService: SpaceService,
     private bookingService: BookingService,
+    private authService: AuthService,
     private router: Router
   ) {}
 
@@ -220,6 +224,11 @@ export class Booking implements OnInit {
   }
 
   submitBooking() {
+    if (this.isGuest()) {
+      this.router.navigate(['/signup']);
+      return;
+    }
+
     if (!this.selectedSpace || !this.bookingStartDate || !this.bookingEndDate) {
       this.bookingError.set('Please select start and end dates.');
       return;
