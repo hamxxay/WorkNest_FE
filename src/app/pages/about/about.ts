@@ -33,9 +33,8 @@ export class About {
   ];
 
   team = [
-    { name: 'Sarah Chen', role: 'CEO & Founder', initials: 'SC' },
-    { name: 'Michael Torres', role: 'COO', initials: 'MT' },
-    { name: 'Emily Johnson', role: 'Head of Design', initials: 'EJ' },
-    { name: 'David Kim', role: 'CTO', initials: 'DK' }
+    { name: 'Adil Ameen', role: 'CEO & Founder', initials: 'AA' },
+    { name: 'Shahzeb Mahmood', role: 'COO', initials: 'SM' },
+  
   ];
 }

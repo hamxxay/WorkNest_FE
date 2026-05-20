@@ -64,8 +64,11 @@ export class AuthService {
         firebaseAuth,
         async currentUser => {
           if (!currentUser) {
-            this.clearSession();
-            subscriber.next(null);
+            // Don't wipe guest sessions — they have no Firebase user by design
+            if (!this.isGuest()) {
+              this.clearSession();
+            }
+            subscriber.next(this.user());
             subscriber.complete();
             return;
           }
@@ -148,18 +151,14 @@ export class AuthService {
         const idToken = googleCredential?.idToken;
 
         if (!idToken) {
-          return throwError(() => ({
-            error: {
-              message: 'Google sign-in succeeded, but no Google ID token was returned.'
-            }
-          }));
+          return this.toAuthSuccess(credential, null);
         }
 
         return this.syncGoogleLoginToApi$(credential.user, idToken).pipe(
-          map(response => ({ credential, response }))
+          catchError(() => of(null)),
+          switchMap(response => this.toAuthSuccess(credential, response))
         );
-      }),
-      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response))
+      })
     );
   }
 
@@ -169,6 +168,21 @@ export class AuthService {
     data: UserInfo | null;
   }> {
     return this.signInWithProvider(githubProvider);
+  }
+
+  continueAsGuest(): void {
+    const guest: UserInfo = {
+      email: '',
+      userId: 'guest',
+      roles: ['guest'],
+      displayName: 'Guest'
+    };
+    this.user.set(guest);
+    localStorage.setItem(this.userKey, JSON.stringify(guest));
+  }
+
+  isGuest(): boolean {
+    return this.user()?.userId === 'guest';
   }
 
   clearUserOnly(): void {

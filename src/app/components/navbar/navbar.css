@@ -559,3 +559,22 @@ nav.over-hero .profile-chevron {
 .profile-logout:hover {
   background: rgba(239, 68, 68, 0.08);
 }
+
+.guest-signup-prompt {
+  padding: 12px;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.guest-signup-prompt p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
