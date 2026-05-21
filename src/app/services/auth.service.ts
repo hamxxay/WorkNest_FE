@@ -11,6 +11,7 @@ import {
   createUserWithEmailAndPassword,
   getIdTokenResult,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -168,6 +169,12 @@ export class AuthService {
     data: UserInfo | null;
   }> {
     return this.signInWithProvider(githubProvider);
+  }
+
+  resetPassword$(email: string): Observable<void> {
+    return this.ensureConfigured().pipe(
+      switchMap(() => from(sendPasswordResetEmail(firebaseAuth, email)))
+    );
   }
 
   continueAsGuest(): void {

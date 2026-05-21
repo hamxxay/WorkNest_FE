@@ -26,15 +26,15 @@
           type="text"
           placeholder="Search..."
           [ngModel]="searchQuery()"
-          (ngModelChange)="searchQuery.set($event)"
+          (ngModelChange)="onSearch($event)"
         />
       </div>
-      <span class="item-count">{{ totalItems() }} items</span>
+      <span class="item-count">{{ filteredItems().length }} items</span>
     </div>
 
     @if (loading()) {
       <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
-    } @else if (items().length === 0) {
+    } @else if (filteredItems().length === 0) {
       <div class="empty-state"><p>No records found.</p></div>
     } @else {
       <div class="table-wrap">
@@ -48,7 +48,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (item of items(); track item.id || $index) {
+            @for (item of filteredItems(); track item.id || $index) {
               <tr>
                 @for (col of config.columns; track col.key) {
                   <td>
@@ -61,7 +61,7 @@
                     } @else if (col.type === 'date') {
                       {{ item[col.key] | date:'short' }}
                     } @else if (col.type === 'currency') {
-                      ${{ item[col.key] | number:'1.2-2' }}
+                      $\{{ item[col.key] | number:'1.2-2' }}
                     } @else if (col.type === 'roles') {
                       @for (r of item[col.key]; track r) {
                         <span class="role-tag">{{ r }}</span>

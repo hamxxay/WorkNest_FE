@@ -30,8 +30,6 @@ interface Workspace {
 export class Booking implements OnInit {
   searchQuery = signal('');
   workspaceType = signal('');
-  startDate = signal('');
-  endDate = signal('');
   loading = signal(true);
   bookingInProgress = signal(false);
   bookingSuccess = signal('');
@@ -40,6 +38,7 @@ export class Booking implements OnInit {
   workspaces = signal<Workspace[]>([]);
   myBookings = signal<BookingLike[]>([]);
   discount = computed(() => getWorkspaceDiscount(this.myBookings()));
+
   availableWorkspaceTypes = computed(() => {
     const types = new Set<string>();
     for (const ws of this.workspaces()) {
@@ -48,6 +47,7 @@ export class Booking implements OnInit {
     }
     return Array.from(types).sort((a, b) => a.localeCompare(b));
   });
+
   filteredWorkspaces = computed(() => {
     const query = this.searchQuery().toLowerCase();
     const type = this.workspaceType().toLowerCase();
@@ -55,22 +55,20 @@ export class Booking implements OnInit {
       const matchesQuery = !query ||
         ws.name.toLowerCase().includes(query) ||
         ws.locationName.toLowerCase().includes(query);
-      const matchesType = !type ||
-        ws.spaceTypeName.toLowerCase().includes(type);
+      const matchesType = !type || ws.spaceTypeName.toLowerCase().includes(type);
       return matchesQuery && matchesType;
     });
   });
 
   // Booking modal
   showBookingModal = false;
+  showAuthPrompt = false;
   selectedSpace: Workspace | null = null;
   bookingNotes = '';
   bookingStartDate = '';
   bookingStartTime = '09:00';
   bookingEndDate = '';
   bookingEndTime = '17:00';
-
-  isGuest = computed(() => this.authService.isGuest());
 
   constructor(
     private spaceService: SpaceService,
@@ -87,34 +85,20 @@ export class Booking implements OnInit {
   loadSpaces() {
     this.loading.set(true);
     this.spaceService.getAll().subscribe({
-      next: (res) => {
-        this.workspaces.set(this.normalizeWorkspaces(res));
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-      }
+      next: (res) => { this.workspaces.set(this.normalizeWorkspaces(res)); this.loading.set(false); },
+      error: () => { this.loading.set(false); }
     });
   }
 
   private loadMyBookingsForDiscount() {
+    if (!this.authService.getToken()) return;
     this.bookingService.getMyBookings().subscribe({
-      next: (res: any) => {
-        const data = Array.isArray(res?.data) ? res.data : [];
-        this.myBookings.set(data);
-      },
-      error: () => {
-        this.myBookings.set([]);
-      }
+      next: (res: any) => { this.myBookings.set(Array.isArray(res?.data) ? res.data : []); },
+      error: () => { this.myBookings.set([]); }
     });
   }
 
-  filterWorkspaces() {
-    // filtering is computed automatically by signals; this method exists only
-    // for backwards compatibility with the template's search button.
-    // accessing computed value triggers evaluation if needed.
-    this.filteredWorkspaces();
-  }
+  filterWorkspaces() { this.filteredWorkspaces(); }
 
   getAmenities(amenities: string): string[] {
     if (!amenities) return [];
@@ -122,17 +106,12 @@ export class Booking implements OnInit {
   }
 
   private normalizeWorkspaces(res: any): Workspace[] {
-    const source = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res?.data?.items)
-        ? res.data.items
-        : Array.isArray(res?.data?.results)
-          ? res.data.results
-          : Array.isArray(res?.items)
-            ? res.items
-            : Array.isArray(res?.results)
-              ? res.results
-              : [];
+    const source = Array.isArray(res?.data) ? res.data
+      : Array.isArray(res?.data?.items) ? res.data.items
+      : Array.isArray(res?.data?.results) ? res.data.results
+      : Array.isArray(res?.items) ? res.items
+      : Array.isArray(res?.results) ? res.results
+      : [];
 
     return source.map((ws: any, index: number) => ({
       id: Number(ws.id ?? index + 1),
@@ -140,11 +119,9 @@ export class Booking implements OnInit {
       locationName: ws.locationName || ws.location?.name || ws.city || 'Unknown Location',
       spaceTypeName: ws.spaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
       capacity: Number(ws.capacity ?? 0),
-      amenities: typeof ws.amenities === 'string'
-        ? ws.amenities
-        : Array.isArray(ws.amenities)
-          ? ws.amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
-          : '',
+      amenities: typeof ws.amenities === 'string' ? ws.amenities
+        : Array.isArray(ws.amenities) ? ws.amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
+        : '',
       pricePerDay: Number(ws.pricePerDay ?? ws.dailyPrice ?? 0),
       pricePerHour: Number(ws.pricePerHour ?? ws.hourlyPrice ?? 0),
       status: ws.status || (ws.isAvailable ? 'Available' : 'Unavailable'),
@@ -155,11 +132,14 @@ export class Booking implements OnInit {
   }
 
   openBookingModal(ws: Workspace) {
+    if (!this.authService.isAuthenticated()) {
+      this.showAuthPrompt = true;
+      return;
+    }
     this.selectedSpace = ws;
     this.showBookingModal = true;
     this.bookingError.set('');
     this.bookingSuccess.set('');
-    // Set default dates to today
     const today = new Date().toISOString().split('T')[0];
     this.bookingStartDate = today;
     this.bookingEndDate = today;
@@ -167,19 +147,15 @@ export class Booking implements OnInit {
 
   closeBookingModal() {
     this.showBookingModal = false;
+    this.showAuthPrompt = false;
     this.selectedSpace = null;
     this.bookingNotes = '';
   }
 
-  private isHourlyOnlySpace(spaceTypeName?: string): boolean {
-    const t = (spaceTypeName ?? '').toLowerCase();
-    return t.includes('padel') || t.includes('arena') || t.includes('court');
-  }
-
   private isPadelLikeSpace(space?: Pick<Workspace, 'spaceTypeName' | 'name' | 'code'> | null): boolean {
     if (!space) return false;
-    const haystack = `${space.spaceTypeName ?? ''} ${space.name ?? ''} ${space.code ?? ''}`.toLowerCase();
-    return haystack.includes('padel') || haystack.includes('arena') || haystack.includes('court');
+    const h = `${space.spaceTypeName ?? ''} ${space.name ?? ''} ${space.code ?? ''}`.toLowerCase();
+    return h.includes('padel') || h.includes('arena') || h.includes('court');
   }
 
   private toDateTime(date: string, time: string): Date | null {
@@ -191,44 +167,27 @@ export class Booking implements OnInit {
   private calcBaseAmount(space: Workspace, start: Date, end: Date): number {
     const diffMs = end.getTime() - start.getTime();
     if (diffMs <= 0) return 0;
-
     const hours = diffMs / (1000 * 60 * 60);
     const days = Math.ceil(hours / 24);
-
-    // Padel Arena / Court: hourly-only billing.
     if (this.isPadelLikeSpace(space) || Number(space.pricePerDay ?? 0) <= 0) {
       return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
     }
-
-    // Heuristic: short bookings charge hourly; longer ones charge daily.
-    if (hours <= 10) {
-      return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
-    }
-
+    if (hours <= 10) return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
     return days * Number(space.pricePerDay ?? 0);
   }
 
   getPriceBreakdown(): { base: number; percent: number; discountAmount: number; final: number } | null {
     if (!this.selectedSpace) return null;
-
     const start = this.toDateTime(this.bookingStartDate, this.bookingStartTime);
     const end = this.toDateTime(this.bookingEndDate, this.bookingEndTime);
     if (!start || !end) return null;
-
     const base = this.calcBaseAmount(this.selectedSpace, start, end);
     const percent = this.discount().percent;
     const final = applyPercentDiscount(base, percent);
-    const discountAmount = Math.max(0, base - final);
-
-    return { base, percent, discountAmount, final };
+    return { base, percent, discountAmount: Math.max(0, base - final), final };
   }
 
   submitBooking() {
-    if (this.isGuest()) {
-      this.router.navigate(['/signup']);
-      return;
-    }
-
     if (!this.selectedSpace || !this.bookingStartDate || !this.bookingEndDate) {
       this.bookingError.set('Please select start and end dates.');
       return;
@@ -243,7 +202,6 @@ export class Booking implements OnInit {
     }
 
     const breakdown = this.getPriceBreakdown();
-
     this.bookingInProgress.set(true);
     this.bookingError.set('');
 
@@ -252,17 +210,13 @@ export class Booking implements OnInit {
       startDateTime,
       endDateTime,
       notes: this.bookingNotes || null,
-      // Send the computed amount if the API supports it; otherwise it should be ignored server-side.
       totalAmount: breakdown?.final ?? undefined
     }).subscribe({
       next: (res) => {
         this.bookingInProgress.set(false);
         if (res.isSuccessful) {
           this.bookingSuccess.set('Booking created successfully!');
-          setTimeout(() => {
-            this.closeBookingModal();
-            this.bookingSuccess.set('');
-          }, 2000);
+          setTimeout(() => { this.closeBookingModal(); this.bookingSuccess.set(''); }, 2000);
         } else {
           this.bookingError.set(res.message || 'Booking failed.');
         }

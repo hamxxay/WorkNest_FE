@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -42,6 +42,7 @@ export class AdminManage implements OnInit, OnDestroy {
   entity = '';
   config!: EntityConfig;
   items = signal<any[]>([]);
+  allItems = signal<any[]>([]);
   loading = signal(true);
   showModal = false;
   editItem: unknown = null;
@@ -55,6 +56,15 @@ export class AdminManage implements OnInit, OnDestroy {
   readonly pageSize = 20;
   totalItems = signal(0);
   totalPages = computed(() => Math.max(1, Math.ceil(this.totalItems() / this.pageSize)));
+  filteredItems = computed(() => {
+    const q = this.searchQuery().toLowerCase().trim();
+    if (!q) return this.allItems();
+    return this.allItems().filter(item =>
+      Object.values(item).some(v =>
+        v != null && String(v).toLowerCase().includes(q)
+      )
+    );
+  });
   private handlers!: Handlers;
   private searchTimer: any;
   private routeSub?: Subscription;
@@ -323,48 +333,16 @@ export class AdminManage implements OnInit, OnDestroy {
     return [];
   }
 
-  constructor(private route: ActivatedRoute, public admin: AdminService) {
-    // flag to prevent the first debounced search from firing before the
-    // initial page-triggered load completes.
-    let searchInitialized = false;
-
-    // reload when page changes immediately
-    effect(() => {
-      // access to create dependency but not otherwise used
-      this.currentPage();
-      if (this.config) this.load();
-      // mark search effect ready after first page effect runs
-      if (!searchInitialized) {
-        searchInitialized = true;
-      }
-    });
-
-    // debounce search query updates; reset page and ensure one load
-    // even when already on page 1.
-    effect(() => {
-      this.searchQuery();
-      if (!searchInitialized) {
-        return;
-      }
-      if (this.searchTimer) clearTimeout(this.searchTimer);
-      this.searchTimer = setTimeout(() => {
-        if (this.config) {
-          if (this.currentPage() === 1) {
-            // already on first page, call load directly
-            this.load();
-          } else {
-            // change page to 1; page effect will fire load
-            this.currentPage.set(1);
-          }
-        }
-      }, 300);
-    });
-  }
+  constructor(private route: ActivatedRoute, public admin: AdminService) {}
 
   ngOnInit() {
     this.routeSub = this.route.data.subscribe(data => {
       this.entity = data['entity'] || '';
       this.config = this.configs[this.entity];
+      this.searchQuery.set('');
+      this.currentPage.set(1);
+      this.allItems.set([]);
+      this.items.set([]);
       if (this.config) {
         this.setHandlers();
         this.load();
@@ -380,18 +358,21 @@ export class AdminManage implements OnInit, OnDestroy {
   load() {
     this.loading.set(true);
     const page = this.currentPage();
-    const limit = this.pageSize;
-    const search = this.searchQuery();
-    this.handlers.load(page, limit, search).subscribe({
+    const search = this.searchQuery().trim();
+    // When searching, fetch all records so client-side filter covers every page
+    const limit = search ? 10000 : this.pageSize;
+    const fetchPage = search ? 1 : page;
+    this.handlers.load(fetchPage, limit, search).subscribe({
       next: (res: any) => {
         const list = this.normalizeList(res?.data);
+        this.allItems.set(list);
         this.items.set(list);
-        // expect server to send total count in response (e.g. res.total)
         const total = res?.total ?? res?.data?.total ?? res?.data?.count ?? res?.data?.totalCount ?? list.length;
         this.totalItems.set(total);
         this.loading.set(false);
       },
       error: () => {
+        this.allItems.set([]);
         this.items.set([]);
         this.totalItems.set(0);
         this.loading.set(false);
@@ -572,30 +553,29 @@ export class AdminManage implements OnInit, OnDestroy {
     const next = this.currentPage() + 1;
     if (next <= this.totalPages()) {
       this.currentPage.set(next);
+      this.load();
     }
   }
 
-  /**
-   * Navigate to the previous page if not already at the first page.
-   * Updating currentPage will trigger the page effect, which calls load().
-   */
   prevPage() {
     const prev = this.currentPage() - 1;
     if (prev >= 1) {
       this.currentPage.set(prev);
+      this.load();
     }
   }
 
-  /**
-   * Check if we are at the first page.
-   */
+  onSearch(query: string) {
+    this.searchQuery.set(query);
+    this.currentPage.set(1);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.load(), 400);
+  }
+
   isFirstPage(): boolean {
     return this.currentPage() === 1;
   }
 
-  /**
-   * Check if we are at the last page.
-   */
   isLastPage(): boolean {
     return this.currentPage() >= this.totalPages();
   }
