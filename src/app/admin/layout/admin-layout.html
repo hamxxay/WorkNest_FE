@@ -62,7 +62,7 @@
         <span class="sidebar-avatar">{{ getInitials() }}</span>
         <div class="sidebar-user-info">
           <span class="sidebar-user-name">{{ getUserName() }}</span>
-          <span class="sidebar-user-role">Administrator</span>
+          <span class="sidebar-user-role">{{ userRole }}</span>
         </div>
       </div>
       <button class="sidebar-logout" (click)="logout()">
