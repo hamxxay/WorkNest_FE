@@ -35,6 +35,7 @@ export class About {
   team = [
     { name: 'Adil Ameen', role: 'CEO & Founder', initials: 'AA' },
     { name: 'Shahzeb Mahmood', role: 'COO', initials: 'SM' },
+    // { name: 'Muhammad Hamza Shakeel', role: 'CTO', initials: 'MHS' },
   
   ];
 }
