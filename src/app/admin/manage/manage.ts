@@ -632,6 +632,14 @@ export class AdminManage implements OnInit {
     });
   }
 
+  changeUserRole(item: any, role: string) {
+    if (!role) return;
+    this.admin.updateUserRole(item.id, role).subscribe({
+      next: () => { this.load(); this.flashSuccess('Role updated'); },
+      error: (err: any) => { alert(err.error?.message || 'Role update failed'); }
+    });
+  }
+
   toggleActive(item: any) {
     if (this.entity === 'users') {
       const fn = item.isActive ? 'deactivateUser' : 'activateUser';

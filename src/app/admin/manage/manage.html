@@ -121,6 +121,14 @@
                     </button>
                   }
                   @if (entity === 'users') {
+                    <select class="status-select" (change)="changeUserRole(item, $any($event.target).value); $any($event.target).value = ''">
+                      <option value="" disabled selected>Role</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Receptionist">Receptionist</option>
+                      <option value="Public">Public</option>
+                    </select>
+                  }
+                  @if (entity === 'users') {
                     <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive" (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
                       {{ item.isActive ? '🔒' : '🔓' }}
                     </button>
