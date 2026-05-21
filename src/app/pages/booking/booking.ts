@@ -1,6 +1,6 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
@@ -74,18 +74,30 @@ export class Booking implements OnInit {
     private spaceService: SpaceService,
     private bookingService: BookingService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
+    this.pendingTypeFilter = this.route.snapshot.queryParamMap.get('type') ?? '';
     this.loadSpaces();
     this.loadMyBookingsForDiscount();
   }
 
+  private pendingTypeFilter = '';
+
   loadSpaces() {
     this.loading.set(true);
     this.spaceService.getAll().subscribe({
-      next: (res) => { this.workspaces.set(this.normalizeWorkspaces(res)); this.loading.set(false); },
+      next: (res) => {
+        this.workspaces.set(this.normalizeWorkspaces(res));
+        this.loading.set(false);
+        if (this.pendingTypeFilter) {
+          const q = this.pendingTypeFilter.toLowerCase();
+          const match = this.availableWorkspaceTypes().find(t => t.toLowerCase().includes(q) || q.includes(t.toLowerCase()));
+          this.workspaceType.set(match ?? this.pendingTypeFilter);
+        }
+      },
       error: () => { this.loading.set(false); }
     });
   }
