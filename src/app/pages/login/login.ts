@@ -16,7 +16,15 @@ export class Login {
   loading = signal(false);
   error = signal('');
   socialLoading = signal<'google' | null>(null);
-  private readonly fallbackRedirect = '/';
+
+  // Forgot password
+  showForgotPassword = false;
+  resetEmail = '';
+  resetLoading = signal(false);
+  resetSuccess = signal(false);
+  resetError = signal('');
+
+  private readonly fallbackRedirect = '/booking';
 
   constructor(
     private authService: AuthService,
@@ -67,6 +75,45 @@ export class Login {
   continueAsGuest() {
     this.authService.continueAsGuest();
     this.router.navigateByUrl(this.getRedirectUrl());
+  }
+
+  openForgotPassword() {
+    this.resetEmail = this.email;
+    this.resetError.set('');
+    this.resetSuccess.set(false);
+    this.showForgotPassword = true;
+  }
+
+  closeForgotPassword() {
+    this.showForgotPassword = false;
+    this.resetEmail = '';
+    this.resetError.set('');
+    this.resetSuccess.set(false);
+  }
+
+  submitReset() {
+    if (!this.resetEmail) {
+      this.resetError.set('Please enter your email address.');
+      return;
+    }
+    this.resetError.set('');
+    this.resetLoading.set(true);
+
+    this.authService.resetPassword$(this.resetEmail).subscribe({
+      next: () => {
+        this.resetLoading.set(false);
+        this.resetSuccess.set(true);
+      },
+      error: (err) => {
+        this.resetLoading.set(false);
+        const code = err?.code ?? '';
+        if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
+          this.resetError.set('No account found with that email address.');
+        } else {
+          this.resetError.set(err.error?.message || 'Failed to send reset email. Please try again.');
+        }
+      }
+    });
   }
 
   private getRedirectUrl(): string {

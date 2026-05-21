@@ -181,19 +181,7 @@
   text-align: center;
   padding: 36px 24px;
   background: var(--white);
-  border: 2px solid transparent;
-}
-
-.feature-card:nth-child(1) {
-  border-color: var(--accent);
-}
-
-.feature-card:nth-child(2) {
-  border-color: var(--accent-light);
-}
-
-.feature-card:nth-child(3) {
-  border-color: var(--accent-hover);
+  border: 2px solid var(--accent);
 }
 
 .feature-icon {
