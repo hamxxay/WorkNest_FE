@@ -1,11 +1,11 @@
 <div class="admin-page">
   <div class="page-header">
     <div>
-      <h1>{{ config.title }}</h1>
-      <p>Manage all {{ config.title.toLowerCase() }}</p>
+      <h1>{{ config?.title }}</h1>
+      <p>Manage all {{ config?.title?.toLowerCase() }}</p>
     </div>
     <div class="header-actions">
-      @if (config.createFn || (entity === 'users' && config.fields)) {
+      @if (config?.createFn || (entity === 'users' && config?.fields)) {
         <button class="btn-admin btn-primary-admin" (click)="openCreate()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
           Add New
@@ -22,19 +22,24 @@
     <div class="card-toolbar">
       <div class="search-box">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input
-          type="text"
-          placeholder="Search..."
-          [ngModel]="searchQuery()"
-          (ngModelChange)="onSearch($event)"
-        />
+        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" />
       </div>
-      <span class="item-count">{{ filteredItems().length }} items</span>
+      <div class="toolbar-right">
+        <label class="page-size-wrap">
+          <span>Show</span>
+          <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            @for (size of pageSizeOptions; track size) {
+              <option [value]="size">{{ size }}</option>
+            }
+          </select>
+        </label>
+        <span class="item-count">{{ totalCount() }} items</span>
+      </div>
     </div>
 
     @if (loading()) {
       <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
-    } @else if (filteredItems().length === 0) {
+    } @else if (filtered.length === 0) {
       <div class="empty-state"><p>No records found.</p></div>
     } @else {
       <div class="table-wrap">
@@ -48,7 +53,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (item of filteredItems(); track item.id || $index) {
+            @for (item of filtered; track item.id || $index) {
               <tr>
                 @for (col of config.columns; track col.key) {
                   <td>
@@ -61,7 +66,7 @@
                     } @else if (col.type === 'date') {
                       {{ item[col.key] | date:'short' }}
                     } @else if (col.type === 'currency') {
-                      $\{{ item[col.key] | number:'1.2-2' }}
+                      PKR {{ item[col.key] | number:'1.2-2' }}
                     } @else if (col.type === 'roles') {
                       @for (r of item[col.key]; track r) {
                         <span class="role-tag">{{ r }}</span>
@@ -72,6 +77,36 @@
                   </td>
                 }
                 <td class="actions-cell">
+                  @if (entity === 'bookings') {
+                    <button class="action-btn info" (click)="openBookingUser(item)" title="User Details">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                    </button>
+                  }
+                  @if (entity === 'users') {
+                    <button class="action-btn info" (click)="openUserFromUsers(item)" title="User Details">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                    </button>
+                  }
+                  @if (entity === 'spaces') {
+                    <button class="action-btn info" (click)="openSpaceDetails(item)" title="Space Details">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h5"/></svg>
+                    </button>
+                  }
+                  @if (entity === 'pricing') {
+                    <button class="action-btn info" (click)="openPricingPlanSummary(item)" title="Pricing Plan Summary">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v-3"/><path d="M12 15V9"/><path d="M17 15V6"/></svg>
+                    </button>
+                  }
+                  @if (entity === 'memberships') {
+                    <button class="action-btn info" (click)="openMembershipSummary(item)" title="Membership Summary">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/><path d="M16 12h6"/><path d="M19 9v6"/></svg>
+                    </button>
+                  }
+                  @if (entity === 'payments') {
+                    <button class="action-btn info" (click)="openPaymentSummary(item)" title="Payment Summary">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9h20"/><path d="M6 15h2"/><path d="M11 15h4"/><rect x="2" y="5" width="20" height="14" rx="2"/></svg>
+                    </button>
+                  }
                   @if (config.statusFn && config.statusOptions) {
                     <select class="status-select" (change)="changeStatus(item, $any($event.target).value)">
                       <option value="" disabled selected>Status</option>
@@ -87,7 +122,7 @@
                   }
                   @if (entity === 'users') {
                     <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive" (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
-                      {{ item.isActive ? '🔓' : '🔒' }}
+                      {{ item.isActive ? '🔒' : '🔓' }}
                     </button>
                   }
                   @if (config.deleteFn) {
@@ -101,26 +136,10 @@
           </tbody>
         </table>
       </div>
-
-      <!-- Pagination Controls -->
-      <div class="pagination-controls">
-        <button
-          class="btn-admin btn-outline-admin"
-          (click)="prevPage()"
-          [disabled]="isFirstPage()"
-          title="Previous page">
-          ← Previous
-        </button>
-        <span class="page-indicator">
-          Page {{ currentPage() }} of {{ totalPages() }}
-        </span>
-        <button
-          class="btn-admin btn-outline-admin"
-          (click)="nextPage()"
-          [disabled]="isLastPage()"
-          title="Next page">
-          Next →
-        </button>
+      <div class="admin-pagination">
+        <button class="btn-admin btn-outline-admin" (click)="prevPage()" [disabled]="!canPrev()">Previous</button>
+        <span>Page {{ page() }} of {{ totalPages() }}</span>
+        <button class="btn-admin btn-outline-admin" (click)="nextPage()" [disabled]="!canNext()">Next</button>
       </div>
     }
   </div>
@@ -129,7 +148,7 @@
 <!-- Create/Edit Modal -->
 @if (showModal && config.fields) {
   <div class="modal-overlay" (click)="closeModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-content" [class.booking-modal]="entity === 'bookings'" (click)="$event.stopPropagation()">
       <button class="modal-close" (click)="closeModal()">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
@@ -138,13 +157,64 @@
         <div class="alert-admin alert-error-admin">{{ error }}</div>
       }
       <form (ngSubmit)="save()">
+        @if (entity === 'bookings') {
+          <div class="booking-calendar-block">
+            <div class="booking-calendar-head">
+              <h4>Availability Calendar</h4>
+              <div class="booking-calendar-nav">
+                <button type="button" class="btn-admin btn-outline-admin" (click)="prevBookingMonth()">Prev</button>
+                <span>{{ bookingMonthTitle }}</span>
+                <button type="button" class="btn-admin btn-outline-admin" (click)="nextBookingMonth()">Next</button>
+              </div>
+            </div>
+
+            <div class="booking-calendar-legend">
+              <span><i class="dot available"></i>Available</span>
+              <span><i class="dot booked"></i>Booked</span>
+              <span><i class="dot selected"></i>Selected</span>
+            </div>
+
+            @if (bookingCalendarLoading()) {
+              <div class="calendar-loading">Loading calendar...</div>
+            } @else {
+              <div class="calendar-weekdays">
+                @for (w of weekDays; track w) {
+                  <div class="weekday">{{ w }}</div>
+                }
+              </div>
+              <div class="calendar-grid">
+                @for (day of bookingMonthCells; track day.date || ('blank-' + $index)) {
+                  <button
+                    type="button"
+                    class="day-cell"
+                    [class.placeholder]="day.placeholder"
+                    [class.booked]="day.isBooked"
+                    [class.available]="!day.placeholder && !day.isBooked"
+                    [class.selected]="formData.startDateTime === day.date || formData.endDateTime === day.date"
+                    [class.in-range]="day.date && isBookingInRange(day.date)"
+                    [disabled]="day.placeholder || day.isBooked || isBookingPast(day.date)"
+                    (click)="pickBookingDate(day)">
+                    @if (!day.placeholder) {
+                      <span class="day-num">{{ day.day }}</span>
+                      @if (day.isBooked) {
+                        <small>Booked</small>
+                      }
+                    }
+                  </button>
+                }
+              </div>
+              <p class="calendar-hint">Select start and end dates directly on the calendar.</p>
+            }
+          </div>
+        }
+
         @for (field of config.fields; track field.key) {
           <div class="form-group-admin">
             <label>{{ field.label }}</label>
             @if (field.type === 'textarea') {
               <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
             } @else if (field.type === 'select') {
-              <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
+              <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" (change)="onFieldChange(field.key)">
                 <option value="">Select...</option>
                 @for (opt of field.options; track opt.v) {
                   <option [value]="opt.v">{{ opt.l }}</option>
@@ -167,6 +237,398 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+}
+
+<!-- Space Reservation Details Modal -->
+@if (showSpaceModal) {
+  <div class="modal-overlay" (click)="closeSpaceModal()">
+    <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeSpaceModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Space Reservation Details</h2>
+
+      @if (spaceSummaryLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading space summary...</p></div>
+      } @else {
+        @if (spaceSummaryError) {
+          <div class="alert-admin alert-error-admin">{{ spaceSummaryError }}</div>
+        }
+        @if (spaceSummary(); as summary) {
+          <div class="user-detail-grid">
+            <div class="user-line"><span>Space</span><strong>{{ summary.space?.name }} ({{ summary.space?.code }})</strong></div>
+            <div class="user-line"><span>Location</span><strong>{{ summary.space?.locationName || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Type</span><strong>{{ summary.space?.spaceTypeName || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Status</span><strong>{{ summary.space?.status || 'N/A' }}</strong></div>
+          </div>
+
+          <div class="history-section">
+            <h3>Reservation Summary</h3>
+            <div class="history-stats">
+              <div class="stat-card"><span>Total Bookings</span><strong>{{ summary.stats?.totalBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Reserved Days</span><strong>{{ summary.stats?.totalReservedDays ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Confirmed</span><strong>{{ summary.stats?.confirmedBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Pending</span><strong>{{ summary.stats?.pendingBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Completed</span><strong>{{ summary.stats?.completedBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Cancelled</span><strong>{{ summary.stats?.cancelledBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Collected Revenue</span><strong>PKR {{ (summary.stats?.collectedRevenue ?? 0) | number:'1.2-2' }}</strong></div>
+            </div>
+
+            <div class="history-list">
+              <h4>Recent Reservations</h4>
+              @if (summary.recentReservations?.length) {
+                @for (r of summary.recentReservations; track r.id) {
+                  <div class="history-item">
+                    <div>
+                      <strong>#{{ r.id }} - {{ r.userEmail || 'Unknown user' }}</strong>
+                      <p>{{ r.startDateTime | date:'mediumDate' }} to {{ r.endDateTime | date:'mediumDate' }} ({{ r.reservedDays }} days)</p>
+                    </div>
+                    <span class="status-badge" [class]="'status-' + (r.bookingStatus || '').toLowerCase()">{{ r.bookingStatus }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="history-empty">No reservations found for this space.</p>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+<!-- Pricing Plan Summary Modal -->
+@if (showPlanModal) {
+  <div class="modal-overlay" (click)="closePlanModal()">
+    <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closePlanModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Pricing Plan Summary</h2>
+
+      @if (planSummaryLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading pricing plan summary...</p></div>
+      } @else {
+        @if (planSummaryError) {
+          <div class="alert-admin alert-error-admin">{{ planSummaryError }}</div>
+        }
+        @if (planSummary(); as summary) {
+          <div class="user-detail-grid">
+            <div class="user-line"><span>Plan</span><strong>{{ summary.plan?.name || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Billing Cycle</span><strong>{{ summary.plan?.billingCycle || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Price</span><strong>PKR {{ (summary.plan?.price ?? 0) | number:'1.2-2' }}</strong></div>
+            <div class="user-line"><span>Status</span><strong>{{ summary.plan?.isActive ? 'Active' : 'Inactive' }}</strong></div>
+          </div>
+
+          <div class="history-section">
+            <h3>Plan Stats</h3>
+            <div class="history-stats">
+              <div class="stat-card"><span>Total Subscribers</span><strong>{{ summary.stats?.totalSubscribers ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Active</span><strong>{{ summary.stats?.activeSubscribers ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Paused</span><strong>{{ summary.stats?.pausedSubscribers ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Expired</span><strong>{{ summary.stats?.expiredSubscribers ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Cancelled</span><strong>{{ summary.stats?.cancelledSubscribers ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Revenue</span><strong>PKR {{ (summary.stats?.paidRevenue ?? 0) | number:'1.2-2' }}</strong></div>
+            </div>
+          </div>
+
+          <div class="history-list-wrap">
+            <div class="history-list">
+              <h4>Recent Memberships</h4>
+              @if (summary.recentMemberships?.length) {
+                @for (m of summary.recentMemberships; track m.id) {
+                  <div class="history-item">
+                    <div>
+                      <strong>#{{ m.id }} - {{ m.userEmail || 'Unknown user' }}</strong>
+                      <p>{{ m.startDate | date:'mediumDate' }} to {{ m.endDate | date:'mediumDate' }}</p>
+                    </div>
+                    <span class="status-badge" [class]="'status-' + (m.status || '').toLowerCase()">{{ m.status }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="history-empty">No memberships found for this plan.</p>
+              }
+            </div>
+
+            <div class="history-list">
+              <h4>Recent Payments</h4>
+              @if (summary.recentPayments?.length) {
+                @for (p of summary.recentPayments; track p.id) {
+                  <div class="history-item">
+                    <div>
+                      <strong>#{{ p.id }} - PKR {{ p.amount | number:'1.2-2' }}</strong>
+                      <p>{{ p.paymentMethod || 'N/A' }} | {{ p.createdAt | date:'medium' }}</p>
+                    </div>
+                    <span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="history-empty">No payments found for this plan.</p>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+<!-- Membership Summary Modal -->
+@if (showMembershipModal) {
+  <div class="modal-overlay" (click)="closeMembershipModal()">
+    <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeMembershipModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Membership Summary</h2>
+
+      @if (membershipSummaryLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading membership summary...</p></div>
+      } @else {
+        @if (membershipSummaryError) {
+          <div class="alert-admin alert-error-admin">{{ membershipSummaryError }}</div>
+        }
+        @if (membershipSummary(); as summary) {
+          <div class="user-detail-grid">
+            <div class="user-line"><span>Member</span><strong>{{ summary.membership?.userName || summary.membership?.userEmail || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Email</span><strong>{{ summary.membership?.userEmail || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Plan</span><strong>{{ summary.membership?.planName || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Cycle</span><strong>{{ summary.membership?.planCycle || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Plan Price</span><strong>PKR {{ (summary.membership?.planPrice ?? 0) | number:'1.2-2' }}</strong></div>
+            <div class="user-line"><span>Status</span><strong>{{ summary.membership?.status || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Start</span><strong>{{ summary.membership?.startDate ? (summary.membership?.startDate | date:'mediumDate') : 'N/A' }}</strong></div>
+            <div class="user-line"><span>End</span><strong>{{ summary.membership?.endDate ? (summary.membership?.endDate | date:'mediumDate') : 'N/A' }}</strong></div>
+          </div>
+
+          <div class="history-section">
+            <h3>Membership Stats</h3>
+            <div class="history-stats">
+              <div class="stat-card"><span>Total Payments</span><strong>{{ summary.stats?.totalPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Paid</span><strong>{{ summary.stats?.paidPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Pending</span><strong>{{ summary.stats?.pendingPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Failed</span><strong>{{ summary.stats?.failedPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Refunded</span><strong>{{ summary.stats?.refundedPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (summary.stats?.paidAmount ?? 0) | number:'1.2-2' }}</strong></div>
+              <div class="stat-card"><span>Expired</span><strong>{{ summary.stats?.isExpired ? 'Yes' : 'No' }}</strong></div>
+              <div class="stat-card"><span>Days Remaining</span><strong>{{ summary.stats?.daysRemaining ?? 'N/A' }}</strong></div>
+            </div>
+          </div>
+
+          <div class="history-list-wrap">
+            <div class="history-list">
+              <h4>Recent Payments</h4>
+              @if (summary.recentPayments?.length) {
+                @for (p of summary.recentPayments; track p.id) {
+                  <div class="history-item">
+                    <div>
+                      <strong>#{{ p.id }} - PKR {{ p.amount | number:'1.2-2' }}</strong>
+                      <p>{{ p.paymentMethod || 'N/A' }} | {{ p.createdAt | date:'medium' }}</p>
+                    </div>
+                    <span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="history-empty">No payments found for this membership.</p>
+              }
+            </div>
+
+            <div class="history-list">
+              <h4>User Membership History</h4>
+              @if (summary.userMembershipHistory?.length) {
+                @for (m of summary.userMembershipHistory; track m.id) {
+                  <div class="history-item">
+                    <div>
+                      <strong>#{{ m.id }} - {{ m.planName || 'Plan' }}</strong>
+                      <p>{{ m.startDate | date:'mediumDate' }} to {{ m.endDate ? (m.endDate | date:'mediumDate') : 'Open ended' }}</p>
+                    </div>
+                    <span class="status-badge" [class]="'status-' + (m.status || '').toLowerCase()">{{ m.status }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="history-empty">No membership history found for this user.</p>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+<!-- Payment Summary Modal -->
+@if (showPaymentModal) {
+  <div class="modal-overlay" (click)="closePaymentModal()">
+    <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closePaymentModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Payment Summary</h2>
+
+      @if (paymentSummaryLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading payment summary...</p></div>
+      } @else {
+        @if (paymentSummaryError) {
+          <div class="alert-admin alert-error-admin">{{ paymentSummaryError }}</div>
+        }
+        @if (paymentSummary(); as summary) {
+          <div class="user-detail-grid">
+            <div class="user-line"><span>Member</span><strong>{{ summary.payment?.userName || summary.payment?.userEmail || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Email</span><strong>{{ summary.payment?.userEmail || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Amount</span><strong>PKR {{ (summary.payment?.amount ?? 0) | number:'1.2-2' }}</strong></div>
+            <div class="user-line"><span>Method</span><strong>{{ summary.payment?.paymentMethod || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Status</span><strong>{{ summary.payment?.paymentStatus || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Transaction Ref</span><strong>{{ summary.payment?.transactionRef || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Paid At</span><strong>{{ summary.payment?.paidAt ? (summary.payment?.paidAt | date:'medium') : 'Not paid yet' }}</strong></div>
+            <div class="user-line"><span>Created</span><strong>{{ summary.payment?.createdAt ? (summary.payment?.createdAt | date:'medium') : 'N/A' }}</strong></div>
+          </div>
+
+          @if (summary.booking) {
+            <div class="history-section">
+              <h3>Linked Booking</h3>
+              <div class="user-detail-grid">
+                <div class="user-line"><span>Booking ID</span><strong>#{{ summary.booking.id }}</strong></div>
+                <div class="user-line"><span>Space</span><strong>{{ summary.booking.spaceName || 'N/A' }}</strong></div>
+                <div class="user-line"><span>Period</span><strong>{{ summary.booking.startDateTime | date:'mediumDate' }} to {{ summary.booking.endDateTime | date:'mediumDate' }}</strong></div>
+                <div class="user-line"><span>Status</span><strong>{{ summary.booking.bookingStatus || 'N/A' }}</strong></div>
+              </div>
+            </div>
+          }
+
+          @if (summary.membership) {
+            <div class="history-section">
+              <h3>Linked Membership</h3>
+              <div class="user-detail-grid">
+                <div class="user-line"><span>Membership ID</span><strong>#{{ summary.membership.id }}</strong></div>
+                <div class="user-line"><span>Plan</span><strong>{{ summary.membership.planName || 'N/A' }}</strong></div>
+                <div class="user-line"><span>Start</span><strong>{{ summary.membership.startDate | date:'mediumDate' }}</strong></div>
+                <div class="user-line"><span>End</span><strong>{{ summary.membership.endDate ? (summary.membership.endDate | date:'mediumDate') : 'Open ended' }}</strong></div>
+                <div class="user-line"><span>Status</span><strong>{{ summary.membership.status || 'N/A' }}</strong></div>
+              </div>
+            </div>
+          }
+
+          <div class="history-section">
+            <h3>User Payment Stats</h3>
+            <div class="history-stats">
+              <div class="stat-card"><span>Total Payments</span><strong>{{ summary.userPaymentStats?.totalPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Paid</span><strong>{{ summary.userPaymentStats?.paidPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Pending</span><strong>{{ summary.userPaymentStats?.pendingPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Failed</span><strong>{{ summary.userPaymentStats?.failedPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Refunded</span><strong>{{ summary.userPaymentStats?.refundedPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (summary.userPaymentStats?.totalPaidAmount ?? 0) | number:'1.2-2' }}</strong></div>
+            </div>
+          </div>
+
+          <div class="history-list">
+            <h4>Recent User Payments</h4>
+            @if (summary.recentUserPayments?.length) {
+              @for (p of summary.recentUserPayments; track p.id) {
+                <div class="history-item">
+                  <div>
+                    <strong>#{{ p.id }} - PKR {{ p.amount | number:'1.2-2' }}</strong>
+                    <p>{{ p.paymentMethod || 'N/A' }} | {{ p.createdAt | date:'medium' }}</p>
+                  </div>
+                  <span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span>
+                </div>
+              }
+            } @else {
+              <p class="history-empty">No payment history found for this user.</p>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+}
+
+<!-- Booking User Details Modal -->
+@if (showUserModal) {
+  <div class="modal-overlay" (click)="closeUserModal()">
+    <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeUserModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>User Details</h2>
+
+      @if (userDetailsLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading user details...</p></div>
+      } @else {
+        @if (userDetailsError) {
+          <div class="alert-admin alert-error-admin">{{ userDetailsError }}</div>
+        }
+
+        @if (selectedUser(); as user) {
+          <div class="user-detail-grid">
+            <div class="user-line"><span>Name</span><strong>{{ userDisplayName }}</strong></div>
+            <div class="user-line"><span>Email</span><strong>{{ user.email || 'N/A' }}</strong></div>
+            <div class="user-line"><span>Phone</span><strong>{{ user.phoneNumber || 'N/A' }}</strong></div>
+            <div class="user-line">
+              <span>Roles</span>
+              <strong>
+                @if (user.roles?.length) {
+                  {{ user.roles.join(', ') }}
+                } @else {
+                  N/A
+                }
+              </strong>
+            </div>
+            <div class="user-line"><span>Active</span><strong>{{ user.isActive == null ? 'N/A' : (user.isActive ? 'Yes' : 'No') }}</strong></div>
+            <div class="user-line"><span>Email Confirmed</span><strong>{{ user.emailConfirmed == null ? 'N/A' : (user.emailConfirmed ? 'Yes' : 'No') }}</strong></div>
+            <div class="user-line"><span>Created</span><strong>{{ user.createdAt ? (user.createdAt | date:'medium') : 'N/A' }}</strong></div>
+          </div>
+        }
+
+        @if (userHistory(); as history) {
+          <div class="history-section">
+            <h3>User Trust & History</h3>
+            <div class="history-stats">
+              <div class="stat-card"><span>Total Bookings</span><strong>{{ history.stats?.totalBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Total Payments</span><strong>{{ history.stats?.totalPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (history.stats?.totalPaidAmount ?? 0) | number:'1.2-2' }}</strong></div>
+              <div class="stat-card"><span>Failed Payments</span><strong>{{ history.stats?.failedPayments ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Cancelled Bookings</span><strong>{{ history.stats?.cancelledBookings ?? 0 }}</strong></div>
+            </div>
+
+            <div class="history-list-wrap">
+              <div class="history-list">
+                <h4>Recent Bookings</h4>
+                @if (history.recentBookings?.length) {
+                  @for (b of history.recentBookings; track b.id) {
+                    <div class="history-item">
+                      <div>
+                        <strong>#{{ b.id }} - {{ b.spaceName || 'Space' }}</strong>
+                        <p>{{ b.startDateTime | date:'mediumDate' }} to {{ b.endDateTime | date:'mediumDate' }}</p>
+                      </div>
+                      <span class="status-badge" [class]="'status-' + (b.bookingStatus || '').toLowerCase()">{{ b.bookingStatus }}</span>
+                    </div>
+                  }
+                } @else {
+                  <p class="history-empty">No booking history found.</p>
+                }
+              </div>
+
+              <div class="history-list">
+                <h4>Recent Payments</h4>
+                @if (history.recentPayments?.length) {
+                  @for (p of history.recentPayments; track p.id) {
+                    <div class="history-item">
+                      <div>
+                        <strong>#{{ p.id }} - PKR {{ p.amount | number:'1.2-2' }}</strong>
+                        <p>{{ p.paymentMethod || 'N/A' }} | {{ p.paidAt ? (p.paidAt | date:'medium') : 'Not paid yet' }}</p>
+                      </div>
+                      <span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span>
+                    </div>
+                  }
+                } @else {
+                  <p class="history-empty">No payment history found.</p>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      }
     </div>
   </div>
 }

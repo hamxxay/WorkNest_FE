@@ -48,7 +48,7 @@
   text-decoration: none;
 }
 
-.sidebar-logo svg { color: var(--accent-light); flex-shrink: 0; }
+.sidebar-logo svg { color: #14b8a6; flex-shrink: 0; }
 
 .sidebar-toggle {
   background: none;
@@ -102,7 +102,7 @@
 
 .nav-item.active {
   color: #fff;
-  background: var(--accent);
+  background: #0d9488;
 }
 
 .nav-item.active .nav-icon svg { color: #fff; }
@@ -135,7 +135,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--accent);
+  background: #0d9488;
   color: #fff;
   display: flex;
   align-items: center;
@@ -178,47 +178,15 @@
 
 .admin-shell.collapsed .admin-main { margin-left: 68px; }
 
-.mobile-menu-btn { display: none; }
-
 /* Scrollbar inside sidebar */
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
 .sidebar-nav::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
 
 @media (max-width: 900px) {
-  /* Mobile: make sidebar an off-canvas overlay */
-  .sidebar {
-    width: 260px;
-    transform: translateX(-260px);
-    left: 0;
-    transition: transform 0.25s ease;
-  }
+  .sidebar { width: 68px; }
   .logo-text, .nav-text, .nav-label, .sidebar-user-info { display: none; }
   .sidebar-user { justify-content: center; }
   .sidebar-logout { justify-content: center; }
   .sidebar-header { justify-content: center; padding: 16px 0; }
-  .admin-main { margin-left: 0; padding-top: 56px; }
-
-  /* When mobile open, slide sidebar in */
-  .admin-shell.mobile-open .sidebar { transform: translateX(0); }
-  .admin-shell.mobile-open .admin-main { filter: blur(0.3px); }
-
-  /* Backdrop */
-  .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 90; }
-  .admin-shell.mobile-open .sidebar-backdrop { display: block; }
-
-  /* Mobile menu button */
-  .mobile-menu-btn {
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    background: #0f172a;
-    color: #fff;
-    border: none;
-    padding: 8px;
-    border-radius: 8px;
-    z-index: 110;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  .admin-main { margin-left: 68px; }
 }

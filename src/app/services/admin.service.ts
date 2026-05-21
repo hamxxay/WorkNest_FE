@@ -28,30 +28,23 @@ export class AdminService {
   constructor(private http: HttpClient) {}
 
   // ============= DASHBOARD =============
-  
-  /**
-   * Get dashboard statistics and overview data.
-   *
-   * NOTE: The API now exposes a lightweight summary endpoint that returns
-   * counts for each major entity rather than returning the full lists.
-   * This helps avoid unnecessary bandwidth and client-side counting.
-   */
+
+  getStats(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/stats`);
+  }
+
+  getReports(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/reports`);
+  }
+
   getDashboardStats(): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/summary`);
   }
 
-  /**
-   * Retrieve a limited list of recent bookings. The server applies the
-   * limit and sorts by most recent first.
-   */
   getRecentBookings(limit: number = 5): Observable<ApiResponse<Booking[]>> {
     return this.http.get<ApiResponse<Booking[]>>(`${this.api}/booking/recent?limit=${limit}`);
   }
 
-  /**
-   * Retrieve a limited list of recent contact messages. The server applies
-   * the limit and sorts by most recent first.
-   */
   getRecentContacts(limit: number = 5): Observable<ApiResponse<Contact[]>> {
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact/recent?limit=${limit}`);
   }
@@ -73,6 +66,9 @@ export class AdminService {
   
   /** Get a specific user by ID */
   getUserById(id: string): Observable<ApiResponse<User>> { return this.http.get<ApiResponse<User>>(`${this.api}/user/${id}`); }
+
+  /** Get full booking/payment history for a user */
+  getUserHistory(id: string): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/user/${id}/history`); }
   
   /** Create a new user */
   createUser(data: Partial<User>): Observable<ApiResponse<User>> { return this.http.post<ApiResponse<User>>(`${this.api}/user`, data); }
@@ -159,6 +155,9 @@ export class AdminService {
   /** Delete a space */
   deleteSpace(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/space/${id}`); }
 
+  /** Get space reservation summary */
+  getSpaceSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/space/${id}/summary`); }
+
   // ============= BOOKING MANAGEMENT =============
   
   /**
@@ -176,6 +175,14 @@ export class AdminService {
   /** Update booking status (e.g., Confirmed, Cancelled) */
   updateBookingStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${id}/status?status=${encodeURIComponent(status)}`, {}); }
 
+  /** Update booking details */
+  updateBooking(id: number, data: Partial<Booking>): Observable<ApiResponse<any>> { return this.http.put<ApiResponse<any>>(`${this.api}/booking/${id}`, data); }
+
+  /** Get booking calendar availability for a space */
+  getBookingCalendar(spaceId: number, year: number, month: number): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/booking/calendar?spaceId=${spaceId}&year=${year}&month=${month}`);
+  }
+
   // ============= PRICING PLAN MANAGEMENT =============
   
   /** Retrieve pricing plans with optional paging/search. */
@@ -192,6 +199,9 @@ export class AdminService {
   createPricingPlan(data: Partial<PricingPlan>): Observable<ApiResponse<PricingPlan>> { return this.http.post<ApiResponse<PricingPlan>>(`${this.api}/pricingplan`, data); }
   updatePricingPlan(id: number, data: Partial<PricingPlan>): Observable<ApiResponse<PricingPlan>> { return this.http.put<ApiResponse<PricingPlan>>(`${this.api}/pricingplan/${id}`, data); }
   deletePricingPlan(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/pricingplan/${id}`); }
+
+  /** Get pricing plan subscriber/revenue summary */
+  getPricingPlanSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/pricingplan/${id}/summary`); }
 
   // Plan Features
   getPlanFeatures(planId: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/planfeature/by-plan/${planId}`); }
@@ -212,6 +222,9 @@ export class AdminService {
   updateMembershipStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/membership/${id}/status?status=${encodeURIComponent(status)}`, {}); }
   deleteMembership(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/membership/${id}`); }
 
+  /** Get membership payment/history summary */
+  getMembershipSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/membership/${id}/summary`); }
+
   // Payments
   getPayments(page?: number, limit?: number, search?: string): Observable<ApiResponse<Payment[]>> {
     const params = new URLSearchParams();
@@ -228,6 +241,9 @@ export class AdminService {
     return this.http.patch<any>(url, {});
   }
   deletePayment(id: number): Observable<any> { return this.http.delete<any>(`${this.api}/payment/${id}`); }
+
+  /** Get payment detail with linked booking/membership and user stats */
+  getPaymentSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/payment/${id}/summary`); }
 
   // Contact Messages
   getContacts(page?: number, limit?: number, search?: string): Observable<ApiResponse<Contact[]>> {
