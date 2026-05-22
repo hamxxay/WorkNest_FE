@@ -67,11 +67,19 @@
             </div>
             <div class="booking-footer">
               <span class="booking-date">Booked {{ b.createdAt | date:'mediumDate' }}</span>
-              @if (b.bookingStatus === 'Pending' || b.bookingStatus === 'Confirmed') {
-                <button class="btn-cancel" (click)="cancelBooking(b.id)" [disabled]="cancellingId() === b.id">
-                  {{ cancellingId() === b.id ? 'Cancelling...' : 'Cancel Booking' }}
-                </button>
-              }
+              <div class="booking-footer-actions">
+                @if (b.bookingStatus === 'Pending') {
+                  <button class="btn-pay-now" (click)="payNow(b.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                    Pay Now
+                  </button>
+                }
+                @if (b.bookingStatus === 'Pending' || b.bookingStatus === 'Confirmed') {
+                  <button class="btn-cancel" (click)="cancelBooking(b.id)" [disabled]="cancellingId() === b.id">
+                    {{ cancellingId() === b.id ? 'Cancelling...' : 'Cancel' }}
+                  </button>
+                }
+              </div>
             </div>
           </div>
         }

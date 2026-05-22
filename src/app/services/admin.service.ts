@@ -85,6 +85,9 @@ export class AdminService {
   /** Deactivate a user account */
   deactivateUser(id: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/user/${id}/deactivate`, {}); }
 
+  /** Update user role */
+  updateUserRole(id: string, role: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/user/${id}/role`, { role }); }
+
   // ============= LOCATION MANAGEMENT =============
   
   /**

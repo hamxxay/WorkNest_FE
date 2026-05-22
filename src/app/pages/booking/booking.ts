@@ -227,8 +227,9 @@ export class Booking implements OnInit {
       next: (res) => {
         this.bookingInProgress.set(false);
         if (res.isSuccessful) {
-          this.bookingSuccess.set('Booking created successfully!');
-          setTimeout(() => { this.closeBookingModal(); this.bookingSuccess.set(''); }, 2000);
+          const bookingId = res.data?.id ?? res.data?.bookingId;
+          this.closeBookingModal();
+          this.router.navigate(['/checkout', bookingId]);
         } else {
           this.bookingError.set(res.message || 'Booking failed.');
         }
