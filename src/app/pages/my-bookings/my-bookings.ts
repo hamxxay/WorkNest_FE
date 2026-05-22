@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { BookingService } from '../../services/booking.service';
 
 @Component({
@@ -15,7 +15,7 @@ export class MyBookings implements OnInit {
   cancellingId = signal<number | null>(null);
   successMsg = signal('');
 
-  constructor(private bookingService: BookingService) {}
+  constructor(private bookingService: BookingService, private router: Router) {}
 
   ngOnInit() {
     this.loadBookings();
@@ -50,6 +50,10 @@ export class MyBookings implements OnInit {
         alert('Failed to cancel booking.');
       }
     });
+  }
+
+  payNow(id: number) {
+    this.router.navigate(['/checkout', id]);
   }
 
   getStatusClass(status: string): string {

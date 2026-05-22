@@ -28,6 +28,10 @@ export class BookingService {
     return this.http.get<any>(`${this.apiUrl}/my`);
   }
 
+  getById(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${id}`);
+  }
+
   /**
    * Create a new booking
    * @param booking - Booking object containing space ID, dates, and other details

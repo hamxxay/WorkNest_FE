@@ -176,6 +176,29 @@
   color: var(--text-muted);
 }
 
+.booking-footer-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-pay-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-pay-now:hover { background: var(--accent-dark); }
+
 .btn-cancel {
   padding: 6px 16px;
   border-radius: 6px;
