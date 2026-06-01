@@ -3,10 +3,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { BookingService } from '../../services/booking.service';
-import { PaymentService } from '../../services/payment.service';
 import { CardPaymentService } from '../../services/card-payment.service';
+import { OneBillService, OneBillVoucherResponse } from '../../services/one-bill.service';
 
-type PaymentTab = 'card' | 'bank' | 'wallet';
+type PaymentTab = 'card' | 'voucher';
 
 @Component({
   selector: 'app-checkout',
@@ -22,60 +22,49 @@ export class Checkout implements OnInit {
 
   activeTab = signal<PaymentTab>('card');
 
-  // ── Bank / Wallet ──────────────────────────────────────────
-  readonly bankDetails = {
-    bankName:      'Meezan Bank',
-    accountTitle:  'WorkNest Pvt Ltd',
-    accountNumber: '0123456789012345',
-    iban:          'PK36MEZN0001234567890123',
-    branch:        'I-8 Markaz, Islamabad',
-  };
-
-  readonly walletMethods = [
-    { value: 'EasyPaisa', label: 'EasyPaisa', number: '0300-0000000' },
-    { value: 'JazzCash',  label: 'JazzCash',  number: '0300-1111111' },
-  ];
-
-  selectedWallet  = 'EasyPaisa';
-  transactionRef  = '';
-
   // ── Card ───────────────────────────────────────────────────
-  // These fields live only in memory for the duration of the
-  // form. They are never written to localStorage, sessionStorage,
-  // or any log. They are cleared immediately after submission.
-  cardHolderName  = '';
-  cardNumber      = '';       // display value with spaces
-  expiryMonth     = '';
-  expiryYear      = '';
-  cvv             = '';
-  showCvv         = false;
+  cardHolderName = '';
+  cardNumber     = '';
+  expiryMonth    = '';
+  expiryYear     = '';
+  cvv            = '';
+  showCvv        = false;
 
-  // Derived display helpers
   cardNumberDisplay = computed(() => this.cardNumber || '•••• •••• •••• ••••');
   cardHolderDisplay = computed(() => this.cardHolderName.toUpperCase() || 'FULL NAME');
   expiryDisplay     = computed(() => {
     const m = this.expiryMonth.padStart(2, '0');
-    const y = this.expiryYear || 'YY';
-    return m ? `${m}/${y}` : 'MM/YY';
+    return m ? `${m}/${this.expiryYear || 'YY'}` : 'MM/YY';
   });
   cardBrand = computed(() => {
     const n = this.cardNumber.replace(/\s/g, '');
-    if (/^4/.test(n))          return 'visa';
-    if (/^5[1-5]/.test(n))     return 'mastercard';
-    if (/^3[47]/.test(n))      return 'amex';
+    if (/^4/.test(n))      return 'visa';
+    if (/^5[1-5]/.test(n)) return 'mastercard';
+    if (/^3[47]/.test(n))  return 'amex';
     return 'generic';
   });
+
+  // ── 1Bill Voucher ──────────────────────────────────────────
+  voucher = signal<OneBillVoucherResponse | null>(null);
+
+  // Default channels shown before the real API responds
+  readonly defaultChannels = [
+    'Any bank branch (over the counter)',
+    'ATM (Bill Payment)',
+    'Internet Banking',
+    'EasyPaisa / JazzCash',
+    'HBL Mobile / MCB Mobile',
+  ];
 
   constructor(
     private route:          ActivatedRoute,
     private router:         Router,
     private bookingService: BookingService,
-    private paymentService: PaymentService,
     private cardService:    CardPaymentService,
+    private oneBillService: OneBillService,
   ) {}
 
   ngOnInit() {
-    // Booking is already validated by checkoutGuard — just load details
     const id = Number(this.route.snapshot.paramMap.get('bookingId'));
     this.bookingService.getById(id).subscribe({
       next: (res: any) => {
@@ -89,17 +78,16 @@ export class Checkout implements OnInit {
     });
   }
 
-  // ── Card number formatting ─────────────────────────────────
+  // ── Card input handlers ────────────────────────────────────
   onCardNumberInput(event: Event) {
-    const input = event.target as HTMLInputElement;
-    // Keep only digits, group into blocks of 4
+    const input  = event.target as HTMLInputElement;
     const digits = input.value.replace(/\D/g, '').slice(0, 16);
     this.cardNumber = digits.replace(/(.{4})/g, '$1 ').trim();
     input.value = this.cardNumber;
   }
 
   onExpiryInput(event: Event) {
-    const input = event.target as HTMLInputElement;
+    const input  = event.target as HTMLInputElement;
     const digits = input.value.replace(/\D/g, '').slice(0, 4);
     this.expiryMonth = digits.slice(0, 2);
     this.expiryYear  = digits.slice(2, 4);
@@ -108,36 +96,29 @@ export class Checkout implements OnInit {
 
   onCvvInput(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.cvv = input.value.replace(/\D/g, '').slice(0, 4);
+    this.cvv    = input.value.replace(/\D/g, '').slice(0, 4);
     input.value = this.cvv;
   }
 
-  get walletNumber(): string {
-    return this.walletMethods.find(w => w.value === this.selectedWallet)?.number ?? '';
-  }
-
-  // ── Validation ─────────────────────────────────────────────
+  // ── Card validation ────────────────────────────────────────
   private validateCard(): string | null {
-    if (!this.cardHolderName.trim())          return 'Card holder name is required.';
+    if (!this.cardHolderName.trim()) return 'Card holder name is required.';
     const digits = this.cardNumber.replace(/\s/g, '');
     if (digits.length < 13 || digits.length > 19) return 'Enter a valid card number.';
-    if (!this.luhnCheck(digits))              return 'Card number is invalid.';
+    if (!this.luhnCheck(digits))                  return 'Card number is invalid.';
     const month = Number(this.expiryMonth);
     const year  = Number('20' + this.expiryYear);
     if (!this.expiryMonth || !this.expiryYear || month < 1 || month > 12)
-                                              return 'Enter a valid expiry date.';
+      return 'Enter a valid expiry date.';
     const now = new Date();
     if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1))
-                                              return 'This card has expired.';
-    if (this.cvv.length < 3)                  return 'Enter a valid CVV.';
+      return 'This card has expired.';
+    if (this.cvv.length < 3) return 'Enter a valid CVV.';
     return null;
   }
 
-  // Luhn algorithm — catches most mistyped card numbers client-side
-  // (real validation still happens server-side / at the bank)
   private luhnCheck(num: string): boolean {
-    let sum = 0;
-    let alt = false;
+    let sum = 0, alt = false;
     for (let i = num.length - 1; i >= 0; i--) {
       let n = parseInt(num[i], 10);
       if (alt) { n *= 2; if (n > 9) n -= 9; }
@@ -147,10 +128,10 @@ export class Checkout implements OnInit {
     return sum % 10 === 0;
   }
 
-  // ── Submission ─────────────────────────────────────────────
+  // ── Card submit ────────────────────────────────────────────
   submitCard() {
-    const validationError = this.validateCard();
-    if (validationError) { this.error.set(validationError); return; }
+    const err = this.validateCard();
+    if (err) { this.error.set(err); return; }
 
     const b = this.booking();
     if (!b) return;
@@ -158,9 +139,6 @@ export class Checkout implements OnInit {
     this.submitting.set(true);
     this.error.set('');
 
-    // Idempotency key: unique per payment attempt.
-    // If the request is retried (network drop), the backend
-    // returns the same result without charging twice.
     const idempotencyKey = `${b.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     this.cardService.initiateCardPayment({
@@ -175,15 +153,7 @@ export class Checkout implements OnInit {
       next: (res) => {
         this.clearCardFields();
         this.submitting.set(false);
-
-        // BANK SWAP POINT: if bank returns a 3DS redirect URL,
-        // navigate the user there. The bank will redirect back
-        // to /payment-result?status=...&bookingId=...
-        if (res.redirectUrl) {
-          window.location.href = res.redirectUrl;
-          return;
-        }
-
+        if (res.redirectUrl) { window.location.href = res.redirectUrl; return; }
         this.router.navigate(['/payment-result'], {
           queryParams: {
             status:    res.isSuccessful ? 'success' : 'failed',
@@ -202,50 +172,6 @@ export class Checkout implements OnInit {
     });
   }
 
-  submitManual() {
-    if (!this.transactionRef.trim()) {
-      this.error.set('Please enter your transaction reference number.');
-      return;
-    }
-    const b = this.booking();
-    if (!b) return;
-
-    this.submitting.set(true);
-    this.error.set('');
-
-    this.paymentService.createPayment({
-      bookingId:     b.id,
-      amount:        b.totalAmount,
-      paymentMethod: this.activeTab() === 'wallet' ? this.selectedWallet : 'BankTransfer',
-      transactionRef: this.transactionRef.trim(),
-    }).subscribe({
-      next: (res: any) => {
-        this.submitting.set(false);
-        this.router.navigate(['/payment-result'], {
-          queryParams: {
-            status:    res?.isSuccessful ? 'success' : 'failed',
-            bookingId: b.id,
-            amount:    b.totalAmount,
-            ref:       this.transactionRef.trim(),
-            method:    this.activeTab() === 'wallet' ? this.selectedWallet : 'BankTransfer',
-          }
-        });
-      },
-      error: (err: any) => {
-        this.submitting.set(false);
-        this.router.navigate(['/payment-result'], {
-          queryParams: {
-            status:    'failed',
-            bookingId: b.id,
-            message:   err?.error?.message || 'Payment submission failed.',
-          }
-        });
-      }
-    });
-  }
-
-  // Wipe card data from memory immediately after use —
-  // never let it linger in component state
   private clearCardFields() {
     this.cardHolderName = '';
     this.cardNumber     = '';
@@ -253,5 +179,78 @@ export class Checkout implements OnInit {
     this.expiryYear     = '';
     this.cvv            = '';
     this.showCvv        = false;
+  }
+
+  // ── 1Bill voucher ──────────────────────────────────────────
+  generateVoucher() {
+    const b = this.booking();
+    if (!b || this.voucher()) return;
+
+    this.submitting.set(true);
+    this.error.set('');
+
+    // ── DUMMY VOUCHER (remove when backend is ready) ──────────
+    // Generates a fake 14-digit voucher number locally.
+    // Replace this block with the real API call below when
+    // your backend /payment/voucher/generate endpoint is ready.
+    const dummyVoucherNumber = '1BILL' + String(b.id).padStart(4, '0') +
+      Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 3);
+
+    setTimeout(() => {
+      this.submitting.set(false);
+      this.voucher.set({
+        isSuccessful:    true,
+        message:         'Voucher generated successfully.',
+        voucherNumber:   dummyVoucherNumber,
+        expiryDate:      expiryDate.toISOString(),
+        amount:          b.totalAmount,
+        paymentChannels: this.defaultChannels,
+      });
+    }, 800);
+    // ── END DUMMY ─────────────────────────────────────────────
+
+    // ── REAL API CALL (uncomment when backend is ready) ───────
+    // const idempotencyKey = `vchr-${b.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    // this.oneBillService.generateVoucher({
+    //   bookingId:      b.id,
+    //   amount:         b.totalAmount,
+    //   idempotencyKey,
+    // }).subscribe({
+    //   next: (res) => {
+    //     this.submitting.set(false);
+    //     if (res.isSuccessful) {
+    //       this.voucher.set(res);
+    //     } else {
+    //       this.error.set(res.message || 'Failed to generate voucher.');
+    //     }
+    //   },
+    //   error: (err: any) => {
+    //     this.submitting.set(false);
+    //     this.error.set(err?.error?.message || 'Failed to generate voucher. Please try again.');
+    //   }
+    // });
+    // ── END REAL API ──────────────────────────────────────────
+  }
+
+  copyVoucherNumber() {
+    const v = this.voucher();
+    if (!v?.voucherNumber) return;
+    navigator.clipboard.writeText(v.voucherNumber).catch(() => {});
+    this.copied.set(true);
+    setTimeout(() => this.copied.set(false), 2000);
+  }
+
+  copied = signal(false);
+
+  printVoucher() {
+    window.print();
+  }
+
+  get voucherChannels(): string[] {
+    return this.voucher()?.paymentChannels?.length
+      ? this.voucher()!.paymentChannels!
+      : this.defaultChannels;
   }
 }

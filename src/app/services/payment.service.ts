@@ -12,8 +12,4 @@ export class PaymentService {
   getMyPayments(): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/my`);
   }
-
-  createPayment(data: { bookingId: number; amount: number; paymentMethod: string; transactionRef?: string }): Observable<any> {
-    return this.http.post<any>(this.apiUrl, data);
-  }
 }

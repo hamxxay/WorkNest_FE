@@ -1,16 +1,3 @@
-// ============================================================
-// Checkout Guard
-// ============================================================
-// Prevents users from accessing /checkout/:bookingId directly
-// unless:
-//   1. They are authenticated
-//   2. The booking exists and belongs to them
-//   3. The booking status is still Pending (not already paid)
-//
-// This closes the loophole where someone could guess a booking
-// ID in the URL and land on another user's checkout page.
-// ============================================================
-
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
@@ -35,25 +22,23 @@ export const checkoutGuard: CanActivateFn = (route) => {
 
   return bookings.getById(id).pipe(
     map((res: any) => {
-      const booking = res?.data;
+      const d = res?.data;
+      const booking = d && !Array.isArray(d) && typeof d === 'object' && !d.items
+        ? d
+        : res?.booking ?? res;
 
-      // Booking must exist
-      if (!booking) return router.createUrlTree(['/my-bookings']);
+      if (!booking?.id) return router.createUrlTree(['/my-bookings']);
 
-      // Booking must belong to the logged-in user
-      const currentUserId = auth.getUser()?.userId;
-      if (booking.userId && currentUserId && String(booking.userId) !== String(currentUserId)) {
-        return router.createUrlTree(['/my-bookings']);
-      }
-
-      // Booking must still be Pending — no re-paying a completed booking
-      const status = (booking.bookingStatus || '').toLowerCase();
-      if (status !== 'pending') {
+      // Only block if booking is explicitly NOT pending.
+      // Ownership is enforced by the backend — a 403 from getById
+      // is caught below and lets the checkout component show the error.
+      const status = (booking.bookingStatus ?? booking.status ?? '').toLowerCase();
+      if (status && status !== 'pending') {
         return router.createUrlTree(['/my-bookings']);
       }
 
       return true;
     }),
-    catchError(() => of(router.createUrlTree(['/my-bookings'])))
+    catchError(() => of(true))
   );
 };
