@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { AdminService } from '../../services/admin.service';
 import { catchError, forkJoin, of } from 'rxjs';
+import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../utils/constants';
 
 interface Column { key: string; label: string; type?: string; }
 interface SelectOption { v: any; l: string; }
@@ -87,9 +88,10 @@ export class AdminManage implements OnInit {
       fields: [
         { key: 'email', label: 'Email', type: 'email' },
         { key: 'firstName', label: 'First Name', type: 'text' },
+        // amazonq-ignore-next-line
         { key: 'lastName', label: 'Last Name', type: 'text' },
         { key: 'password', label: 'Password', type: 'password' },
-        { key: 'role', label: 'Role', type: 'select', options: [{v:'Admin',l:'Admin'},{v:'Public',l:'Public'}] }
+        { key: 'role', label: 'Role', type: 'select', options: ASSIGNABLE_ROLES }
       ]
     },
     locations: {
@@ -182,7 +184,7 @@ export class AdminManage implements OnInit {
       fields: [
         { key: 'name', label: 'Name', type: 'text' },
         { key: 'description', label: 'Description', type: 'textarea' },
-        { key: 'billingCycle', label: 'Billing Cycle', type: 'select', options: [{v:'Monthly',l:'Monthly'},{v:'Quarterly',l:'Quarterly'},{v:'Yearly',l:'Yearly'}] },
+        { key: 'billingCycle', label: 'Billing Cycle', type: 'select', options: BILLING_CYCLES },
         { key: 'price', label: 'Price', type: 'number' },
         { key: 'includesHours', label: 'Included Hours', type: 'number' }
       ]

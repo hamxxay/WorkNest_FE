@@ -511,28 +511,34 @@ export class AuthService {
   private normalizeAuthError(error: unknown) {
     const authError = error as AuthError;
     const messageMap: Record<string, string> = {
+      // amazonq-ignore-next-line
       'auth/account-exists-with-different-credential': 'An account already exists with a different sign-in method.',
       'auth/email-already-in-use': 'That email is already in use.',
+      // amazonq-ignore-next-line
       'auth/invalid-credential': 'That sign-in attempt was rejected. Please try again.',
       'auth/invalid-email': 'Please enter a valid email address.',
       'auth/network-request-failed': 'Network error while contacting Firebase. Please try again.',
       'auth/popup-blocked': 'Your browser blocked the sign-in popup. Please allow popups and try again.',
       'auth/popup-closed-by-user': 'The sign-in popup was closed before completing authentication.',
       'auth/user-not-found': 'No account was found for that email address.',
+      // amazonq-ignore-next-line
       'auth/weak-password': 'Password should be at least 6 characters.',
       'auth/wrong-password': 'Invalid email or password.',
     };
 
+    const code = typeof authError?.code === 'string' ? authError.code : '';
+    const message = Object.prototype.hasOwnProperty.call(messageMap, code)
+      ? messageMap[code]
+      : 'Authentication failed. Please try again.';
+
     return {
       ...authError,
-      error: {
-        message: messageMap[authError?.code ?? ''] ?? authError?.message ?? 'Authentication failed. Please try again.'
-      }
+      error: { message }
     };
   }
 
   private requiresRequestWrapper(error: any): boolean {
-    return error?.status === 400 &&
-      JSON.stringify(error?.error ?? {}).toLowerCase().includes('request field is required');
+    const msg = typeof error?.error?.message === 'string' ? error.error.message.toLowerCase() : '';
+    return error?.status === 400 && msg.includes('request field is required');
   }
 }

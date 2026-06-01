@@ -1,10 +1,11 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   GoogleAuthProvider,
   GithubAuthProvider,
   browserLocalPersistence,
   getAuth,
   setPersistence,
+  Auth,
 } from 'firebase/auth';
 import { environment } from '../../environments/environment';
 
@@ -17,10 +18,19 @@ export const isFirebaseConfigured = Boolean(
     firebaseConfig.appId
 );
 
-const firebaseApp = initializeApp(firebaseConfig);
-export const firebaseAuth = getAuth(firebaseApp);
+// Only initialise Firebase when all required config values are present.
+// When running without .env (e.g. CI preview), the app still loads —
+// auth features are simply disabled and isFirebaseConfigured = false.
+let firebaseApp: FirebaseApp | null = null;
+let _firebaseAuth: Auth | null = null;
 
-void setPersistence(firebaseAuth, browserLocalPersistence);
+if (isFirebaseConfigured) {
+  firebaseApp = initializeApp(firebaseConfig);
+  _firebaseAuth = getAuth(firebaseApp);
+  void setPersistence(_firebaseAuth, browserLocalPersistence);
+}
+
+export const firebaseAuth = _firebaseAuth as Auth;
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
