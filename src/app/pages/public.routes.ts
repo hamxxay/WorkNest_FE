@@ -6,6 +6,8 @@ export const PUBLIC_ROUTES: Routes = [
 
   { path: 'contact', loadComponent: () => import('./contact/contact').then(m => m.Contact) },
 
-  { path: 'book-a-tour', loadComponent: () => import('./book-a-tour/book-a-tour').then(m => m.BookATour) }
+  { path: 'book-a-tour', loadComponent: () => import('./book-a-tour/book-a-tour').then(m => m.BookATour) },
+
+  { path: 'about', loadComponent: () => import('./about/about').then(m => m.About) }
 
 ];

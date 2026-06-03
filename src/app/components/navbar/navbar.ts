@@ -50,7 +50,7 @@ export class Navbar implements OnDestroy {
   overHero = computed(() => this.currentUrl() === '/' && !this.scrolled() && !this.mobileOpen());
   private routerEventsSub: Subscription;
 
-  constructor(
+  constructor(/*  */
     public authService: AuthService,
     private router: Router,
     private elRef: ElementRef
