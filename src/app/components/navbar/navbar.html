@@ -27,6 +27,38 @@
             About
           </a>
         </li>
+        <!-- <li class="nav-dropdown-wrap" [class.open]="locationOpen()">
+          <button class="nav-dropdown-trigger" (click)="toggleLocation()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            Find Us
+            <svg class="dropdown-chevron" [class.open]="locationOpen()" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          @if (locationOpen()) {
+            <div class="nav-location-dropdown">
+              <div class="nav-map">
+                <iframe
+                  title="WorkNest Location"
+                  src="https://www.google.com/maps?q=EOBI+Building+II+I-8+Markaz+Islamabad&output=embed"
+                  width="100%"
+                  height="160"
+                  style="border:0;"
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade">
+                </iframe>
+              </div>
+              <div class="nav-location-links">
+                <a href="https://www.google.com/maps/search/?api=1&query=EOBI+Building+F-7+Markaz+Islamabad" target="_blank" rel="noopener noreferrer" (click)="locationOpen.set(false)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  F-7 Markaz, Islamabad
+                </a>
+                <a href="https://www.google.com/maps/search/?api=1&query=EOBI+Building+2+I-8+Markaz+Islamabad" target="_blank" rel="noopener noreferrer" (click)="locationOpen.set(false)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  I-8 Markaz, Islamabad
+                </a>
+              </div>
+            </div>
+          }
+        </li> -->
       </ul>
 
       <div class="nav-actions">
