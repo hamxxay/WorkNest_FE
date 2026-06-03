@@ -83,3 +83,24 @@
     </div>
   </div>
 </section>
+
+<!-- FAQs -->
+<section class="section faq-section">
+  <div class="container">
+    <h2 class="section-title text-center">Frequently Asked Questions</h2>
+    <p class="section-subtitle text-center">Everything you need to know about WorkNest.</p>
+    <div class="faq-list">
+      @for (faq of faqs; track faq.q; let i = $index) {
+        <div class="faq-item" [class.open]="openFaq === i">
+          <button class="faq-question" (click)="toggleFaq(i)">
+            <span>{{ faq.q }}</span>
+            <svg class="faq-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          @if (openFaq === i) {
+            <div class="faq-answer">{{ faq.a }}</div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
