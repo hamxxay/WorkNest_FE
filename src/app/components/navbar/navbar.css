@@ -78,13 +78,21 @@ nav.over-hero .logo img {
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: 20px;
+  flex: 1;
 }
 
 .nav-menu-content {
   display: flex;
   align-items: center;
+  flex: 1;
+  justify-content: flex-end;
   gap: 20px;
+}
+
+.nav-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .nav-links a {
@@ -163,12 +171,6 @@ nav.over-hero .nav-actions .btn-primary {
 nav.over-hero .nav-actions .btn-primary:hover {
   background: rgba(255, 255, 255, 0.3);
   color: #ffffff;
-}
-
-.nav-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
 }
 
 .nav-btn {
