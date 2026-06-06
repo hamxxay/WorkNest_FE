@@ -1,9 +1,8 @@
 {
   "/api": {
-    "target": "https://workspace.somee.com/publish",
+    "target": "http://localhost:8000",
     "secure": false,
     "changeOrigin": true,
-    "logLevel": "debug",
-    "cookieDomainRewrite": "localhost"  
+    "logLevel": "debug"
   }
 }

@@ -18,7 +18,6 @@ export class PricingService {
   getActivePlans(forceRefresh: boolean = false): Observable<any> {
     if (forceRefresh || !this.plans$) {
       this.plans$ = this.http.get<any>(this.apiUrl).pipe(
-        // replay latest value to new subscribers
         shareReplay({ bufferSize: 1, refCount: true })
       );
     }
@@ -27,9 +26,5 @@ export class PricingService {
 
   clearPlansCache() {
     this.plans$ = undefined;
-  }
-
-  getPlanFeatures(planId: number): Observable<any> {
-    return this.http.get<any>(`${environment.apiUrl}/planfeature/by-plan/${planId}`);
   }
 }

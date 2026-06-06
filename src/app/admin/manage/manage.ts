@@ -133,6 +133,7 @@ export class AdminManage implements OnInit {
         { key: 'locationName', label: 'Location' },
         { key: 'spaceTypeName', label: 'Type' },
         { key: 'code', label: 'Code' },
+        { key: 'pricePerHour', label: 'PKR/hr', type: 'currency' },
         { key: 'pricePerDay', label: 'PKR/day', type: 'currency' },
         { key: 'status', label: 'Status', type: 'status' }
       ],
@@ -144,6 +145,7 @@ export class AdminManage implements OnInit {
         { key: 'code', label: 'Code', type: 'text' },
         { key: 'description', label: 'Description', type: 'textarea' },
         { key: 'floor', label: 'Floor', type: 'text' },
+        { key: 'pricePerHour', label: 'Price/Hour', type: 'number' },
         { key: 'pricePerDay', label: 'Price/Day', type: 'number' },
         { key: 'imageUrl', label: 'Image URL', type: 'text' },
         { key: 'amenities', label: 'Amenities (comma-separated)', type: 'text' }
@@ -263,13 +265,16 @@ export class AdminManage implements OnInit {
 
   load() {
     this.loading.set(true);
-    (this.admin as any)[this.config.loadFn](this.page(), this.pageSize).subscribe({
+    (this.admin as any)[this.config.loadFn]().subscribe({
       next: (res: any) => {
-        const payload = res?.data ?? {};
-        const items = payload.items ?? payload;
-        this.items.set(Array.isArray(items) ? items : []);
-        this.totalCount.set(Number(payload.totalCount ?? this.items().length));
-        this.totalPages.set(Number(payload.totalPages ?? 1));
+        const items: any[] = Array.isArray(res) ? res
+          : Array.isArray(res?.data?.items) ? res.data.items
+          : Array.isArray(res?.data) ? res.data
+          : Array.isArray(res?.items) ? res.items
+          : [];
+        this.items.set(items);
+        this.totalCount.set(res?.data?.totalCount ?? items.length);
+        this.totalPages.set(res?.data?.totalPages ?? Math.max(1, Math.ceil(items.length / this.pageSize)));
         this.loading.set(false);
       },
       error: () => {
@@ -344,6 +349,19 @@ export class AdminManage implements OnInit {
   openEdit(item: any) {
     this.editItem = item;
     this.formData = { ...item };
+    if (this.entity === 'spaces') {
+      // Resolve locationId and spaceTypeId from names since list API doesn't return IDs
+      this.admin.getLocations().pipe(catchError(() => of([]))).subscribe((locs: any) => {
+        const locList: any[] = Array.isArray(locs) ? locs : (locs?.data ?? []);
+        const matched = locList.find((l: any) => l.name === item.locationName);
+        if (matched) this.formData.locationId = matched.id;
+      });
+      this.admin.getSpaceTypes().pipe(catchError(() => of([]))).subscribe((types: any) => {
+        const typeList: any[] = Array.isArray(types) ? types : (types?.data ?? []);
+        const matched = typeList.find((t: any) => t.name === item.spaceTypeName);
+        if (matched) this.formData.spaceTypeId = matched.id;
+      });
+    }
     if (this.entity === 'bookings') {
       this.formData.startDateTime = this.toDateOnly(item.startDateTime);
       this.formData.endDateTime = this.toDateOnly(item.endDateTime);
@@ -595,9 +613,10 @@ export class AdminManage implements OnInit {
     const fn = this.editItem ? this.config.updateFn : this.config.createFn;
     if (!fn) return;
 
+    const payload = this.toSubmitPayload();
     const call = this.editItem
-      ? (this.admin as any)[fn](id, this.toSubmitPayload())
-      : (this.admin as any)[fn](this.formData);
+      ? (this.admin as any)[fn](id, payload)
+      : (this.admin as any)[fn](payload);
 
     call.subscribe({
       next: (res: any) => {
@@ -691,8 +710,14 @@ export class AdminManage implements OnInit {
     }
 
     const payload: any = { ...this.formData };
+    const numericFields = this.config.fields
+      ?.filter(f => f.type === 'number')
+      .map(f => f.key) ?? [];
+
     for (const key of Object.keys(payload)) {
-      if (!key.toLowerCase().endsWith('id')) continue;
+      const isIdField = key.toLowerCase().endsWith('id');
+      const isNumeric = numericFields.includes(key);
+      if (!isIdField && !isNumeric) continue;
       if (payload[key] === '' || payload[key] == null) {
         payload[key] = null;
         continue;
@@ -736,9 +761,11 @@ export class AdminManage implements OnInit {
   }
 
   private extractItems(response: any): any[] {
-    const payload = response?.data ?? {};
-    const items = payload.items ?? payload;
-    return Array.isArray(items) ? items : [];
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.data?.items)) return response.data.items;
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.items)) return response.items;
+    return [];
   }
 
   private setFieldOptions(fieldKey: string, options: SelectOption[]) {

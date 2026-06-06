@@ -15,9 +15,18 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     switchMap(token => {
       let requestWithAuth = req.clone({ withCredentials: true });
 
+      const headers: Record<string, string> = {};
       if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const user = authService.getUser();
+      if (user && user.email) {
+        headers['X-User-Email'] = user.email;
+      }
+
+      if (Object.keys(headers).length > 0) {
         requestWithAuth = requestWithAuth.clone({
-          setHeaders: { Authorization: `Bearer ${token}` }
+          setHeaders: headers
         });
       }
 

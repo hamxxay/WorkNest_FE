@@ -30,7 +30,8 @@ export class MyPayments implements OnInit {
   ngOnInit() {
     this.paymentService.getMyPayments().subscribe({
       next: (res: any) => {
-        this.payments.set(res.data || []);
+        const data = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        this.payments.set(data);
         this.loading.set(false);
       },
       error: () => {

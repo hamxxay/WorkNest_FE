@@ -36,17 +36,27 @@ export class MyBookings implements OnInit {
   }
 
   private extractBookings(res: any): any[] {
-    // Handle all common API response shapes:
-    // { data: [...] }  |  { data: { items: [...] } }  |  { data: { results: [...] } }  |  [...]
     const d = res?.data;
-    if (Array.isArray(d))              return d;
-    if (Array.isArray(d?.items))       return d.items;
-    if (Array.isArray(d?.results))     return d.results;
-    if (Array.isArray(d?.bookings))    return d.bookings;
-    if (Array.isArray(res?.items))     return res.items;
-    if (Array.isArray(res?.results))   return res.results;
-    if (Array.isArray(res))            return res;
-    return [];
+    let raw: any[];
+    if (Array.isArray(d))                raw = d;
+    else if (Array.isArray(d?.items))    raw = d.items;
+    else if (Array.isArray(d?.results))  raw = d.results;
+    else if (Array.isArray(d?.bookings)) raw = d.bookings;
+    else if (Array.isArray(res?.items))  raw = res.items;
+    else if (Array.isArray(res?.results))raw = res.results;
+    else if (Array.isArray(res))         raw = res;
+    else if (d && typeof d === 'object') raw = [d];
+    else return [];
+    return raw.map(b => ({
+      ...b,
+      id:            b.id            ?? b.bookingId    ?? b.Id,
+      spaceName:     b.spaceName     ?? b.workspaceName ?? b.space?.name ?? `Space #${b.spaceId}`,
+      bookingStatus: b.bookingStatus ?? b.status        ?? b.Status ?? 'Pending',
+      totalAmount:   b.totalAmount   ?? b.amount        ?? 0,
+      startDateTime: b.startDateTime ?? b.startDate,
+      endDateTime:   b.endDateTime   ?? b.endDate,
+      createdAt:     b.createdAt     ?? b.createdDate   ?? b.bookingDate,
+    }));
   }
 
   cancelBooking(id: number) {

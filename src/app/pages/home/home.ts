@@ -43,17 +43,19 @@ export class Home implements OnDestroy, OnInit {
     // Load gallery images from API
     this.galleryService.getAll().subscribe({
       next: (res) => {
-        if (res.isSuccessful && res.data) {
-          const images = Array.isArray(res.data)
+        const images = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
             ? res.data
-            : Array.isArray(res.data?.items)
+            : Array.isArray(res?.data?.items)
               ? res.data.items
-              : Array.isArray(res.data?.results)
+              : Array.isArray(res?.data?.results)
                 ? res.data.results
                 : [];
+        if (images.length > 0) {
           this.galleryImages.set(images.slice(0, 4).map((img: any) => ({
-            title: img.title,
-            url: img.imageUrl
+            title: img.title || img.Name || '',
+            url: img.imageUrl || img.ImageUrl || ''
           })));
         }
       }

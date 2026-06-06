@@ -31,7 +31,6 @@ export class Booking implements OnInit {
   searchQuery = signal('');
   workspaceType = signal('');
   loading = signal(true);
-  bookingInProgress = signal(false);
   bookingSuccess = signal('');
   bookingError = signal('');
 
@@ -105,7 +104,10 @@ export class Booking implements OnInit {
   private loadMyBookingsForDiscount() {
     if (!this.authService.getToken()) return;
     this.bookingService.getMyBookings().subscribe({
-      next: (res: any) => { this.myBookings.set(Array.isArray(res?.data) ? res.data : []); },
+      next: (res: any) => {
+        const data = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        this.myBookings.set(data);
+      },
       error: () => { this.myBookings.set([]); }
     });
   }
@@ -118,7 +120,8 @@ export class Booking implements OnInit {
   }
 
   private normalizeWorkspaces(res: any): Workspace[] {
-    const source = Array.isArray(res?.data) ? res.data
+    const source = Array.isArray(res) ? res
+      : Array.isArray(res?.data) ? res.data
       : Array.isArray(res?.data?.items) ? res.data.items
       : Array.isArray(res?.data?.results) ? res.data.results
       : Array.isArray(res?.items) ? res.items
@@ -126,20 +129,27 @@ export class Booking implements OnInit {
       : [];
 
     return source.map((ws: any, index: number) => ({
-      id: Number(ws.id ?? index + 1),
-      name: ws.name || ws.title || `Workspace ${index + 1}`,
-      locationName: ws.locationName || ws.location?.name || ws.city || 'Unknown Location',
-      spaceTypeName: ws.spaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
-      capacity: Number(ws.capacity ?? 0),
+      id: Number(ws.id ?? ws.Id ?? index + 1),
+      name: ws.name || ws.Name || ws.title || ws.Title || `Workspace ${index + 1}`,
+      locationName: ws.locationName || ws.LocationName || ws.location?.name || ws.city || 'Unknown Location',
+      spaceTypeName: ws.spaceTypeName || ws.SpaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
+      capacity: Number(ws.capacity ?? ws.Capacity ?? 0),
       amenities: typeof ws.amenities === 'string' ? ws.amenities
+        : typeof ws.Amenities === 'string' ? ws.Amenities
         : Array.isArray(ws.amenities) ? ws.amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
+        : Array.isArray(ws.Amenities) ? ws.Amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
         : '',
-      pricePerDay: Number(ws.pricePerDay ?? ws.dailyPrice ?? 0),
-      pricePerHour: Number(ws.pricePerHour ?? ws.hourlyPrice ?? 0),
-      status: ws.status || (ws.isAvailable ? 'Available' : 'Unavailable'),
-      imageUrl: ws.imageUrl || ws.image || ws.url || 'images/spaces/modern-office.jpg',
+      pricePerDay: Number(ws.pricePerDay ?? ws.PricePerDay ?? ws.dailyPrice ?? 0),
+      pricePerHour: (() => {
+        const perHour = Number(ws.pricePerHour ?? ws.PricePerHour ?? ws.hourlyPrice ?? 0);
+        if (perHour > 0) return perHour;
+        const perDay = Number(ws.pricePerDay ?? ws.PricePerDay ?? ws.dailyPrice ?? 0);
+        return perDay > 0 ? Math.round(perDay / 8) : 0;
+      })(),
+      status: (() => { const s = (ws.status || ws.Status || (ws.isAvailable ? 'available' : 'unavailable')).toLowerCase(); return s === 'available' ? 'Available' : 'Unavailable'; })(),
+      imageUrl: ws.imageUrl || ws.ImageUrl || ws.image || ws.url || 'images/spaces/modern-office.jpg',
       floor: ws.floor || ws.floorName || '-',
-      code: ws.code || ''
+      code: ws.code || ws.Code || ''
     }));
   }
 
@@ -181,11 +191,11 @@ export class Booking implements OnInit {
     if (diffMs <= 0) return 0;
     const hours = diffMs / (1000 * 60 * 60);
     const days = Math.ceil(hours / 24);
-    if (this.isPadelLikeSpace(space) || Number(space.pricePerDay ?? 0) <= 0) {
-      return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
+    if (this.isPadelLikeSpace(space) || Number(space.pricePerDay) <= 0) {
+      return Math.ceil(hours) * Number(space.pricePerHour);
     }
-    if (hours <= 10) return Math.ceil(hours) * Number(space.pricePerHour ?? 0);
-    return days * Number(space.pricePerDay ?? 0);
+    if (hours <= 10) return Math.ceil(hours) * Number(space.pricePerHour);
+    return days * Number(space.pricePerDay);
   }
 
   getPriceBreakdown(): { base: number; percent: number; discountAmount: number; final: number } | null {
@@ -214,38 +224,21 @@ export class Booking implements OnInit {
     }
 
     const breakdown = this.getPriceBreakdown();
-    this.bookingInProgress.set(true);
-    this.bookingError.set('');
+    const space = this.selectedSpace;
+    this.closeBookingModal();
 
-    this.bookingService.create({
-      spaceId: this.selectedSpace.id,
-      startDateTime,
-      endDateTime,
-      notes: this.bookingNotes || null,
-      totalAmount: breakdown?.final ?? undefined
-    }).subscribe({
-      next: (res) => {
-        this.bookingInProgress.set(false);
-        if (res.isSuccessful) {
-          const bookingId = res.data?.id
-            ?? res.data?.bookingId
-            ?? res.data?.booking?.id
-            ?? res.booking?.id
-            ?? res.id;
-          if (!bookingId) {
-            this.bookingError.set('Booking created but could not retrieve booking ID. Please check My Bookings.');
-            return;
-          }
-          this.closeBookingModal();
-          this.router.navigate(['/checkout', bookingId]);
-        } else {
-          this.bookingError.set(res.message || 'Booking failed.');
+    this.router.navigate(['/checkout'], {
+      state: {
+        pendingBooking: {
+          spaceId:       space.id,
+          spaceName:     space.name,
+          startDateTime,
+          endDateTime,
+          totalAmount:   breakdown != null ? breakdown.final : 0,
+          notes:         this.bookingNotes || null
         }
-      },
-      error: (err) => {
-        this.bookingInProgress.set(false);
-        this.bookingError.set(err.error?.message || 'Failed to create booking. Please try again.');
       }
     });
   }
 }
+
