@@ -27,28 +27,6 @@ export class AdminService {
   
   constructor(private http: HttpClient) {}
 
-  // ============= DASHBOARD =============
-
-  getStats(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/stats`);
-  }
-
-  getReports(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/reports`);
-  }
-
-  getDashboardStats(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/summary`);
-  }
-
-  getRecentBookings(limit: number = 5): Observable<ApiResponse<Booking[]>> {
-    return this.http.get<ApiResponse<Booking[]>>(`${this.api}/booking/recent?limit=${limit}`);
-  }
-
-  getRecentContacts(limit: number = 5): Observable<ApiResponse<Contact[]>> {
-    return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact/recent?limit=${limit}`);
-  }
-
   // ============= USER MANAGEMENT =============
   
   /**
@@ -99,7 +77,7 @@ export class AdminService {
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.http.get<ApiResponse<Location[]>>(`${this.api}/location/all${qs}`);
+    return this.http.get<ApiResponse<Location[]>>(`${this.api}/location${qs}`);
   }
   
   /** Create a new location */
@@ -120,7 +98,7 @@ export class AdminService {
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.http.get<ApiResponse<SpaceType[]>>(`${this.api}/spacetype/all${qs}`);
+    return this.http.get<ApiResponse<SpaceType[]>>(`${this.api}/spacetype${qs}`);
   }
   
   /** Create a new space type */
@@ -195,7 +173,7 @@ export class AdminService {
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.http.get<ApiResponse<PricingPlan[]>>(`${this.api}/pricingplan/all${qs}`);
+    return this.http.get<ApiResponse<PricingPlan[]>>(`${this.api}/pricingplan${qs}`);
   }
   
   /** Create a new pricing plan */
@@ -250,12 +228,7 @@ export class AdminService {
 
   // Contact Messages
   getContacts(page?: number, limit?: number, search?: string): Observable<ApiResponse<Contact[]>> {
-    const params = new URLSearchParams();
-    if (page != null) params.set('page', String(page));
-    if (limit != null) params.set('limit', String(limit));
-    if (search) params.set('search', search);
-    const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
+    return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact`);
   }
   updateContactStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status?status=${encodeURIComponent(status)}`, {}); }
   deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
@@ -267,7 +240,7 @@ export class AdminService {
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.http.get<ApiResponse<GalleryImage[]>>(`${this.api}/gallery/all${qs}`);
+    return this.http.get<ApiResponse<GalleryImage[]>>(`${this.api}/gallery${qs}`);
   }
   createGalleryImage(data: Partial<GalleryImage>): Observable<ApiResponse<GalleryImage>> { return this.http.post<ApiResponse<GalleryImage>>(`${this.api}/gallery`, data); }
   updateGalleryImage(id: number, data: Partial<GalleryImage>): Observable<ApiResponse<GalleryImage>> { return this.http.put<ApiResponse<GalleryImage>>(`${this.api}/gallery/${id}`, data); }

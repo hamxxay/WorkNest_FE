@@ -1,54 +1,38 @@
-ng# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# Environment
+.env
+.env.*
 
-# Compiled output
+# Angular environments
+src/environments/environment.ts
+src/environments/environment.prod.ts
+
+# Build output
 /dist
-/tmp
 /out-tsc
-/bazel-out
+/.angular/cache
 
-# Node
+# Dependencies
 /node_modules
-npm-debug.log
-yarn-error.log
 
-# IDEs and editors
-.idea/
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Coverage
+/coverage
 
-# Visual Studio Code
+# Screenshots
+screenshots/
+
+# API Server
+/api_server
+
+# IDEs
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-!.vscode/mcp.json
-.history/*
 
-# Miscellaneous
-/.angular/cache
-.sass-cache/
-/connect.lock
-/coverage
-/libpeerconnection.log
-testem.log
-/typings
-__screenshots__/
-vercel.json
+.idea/
+.settings/
 
-# System files
+# OS Files
 .DS_Store
 Thumbs.db
-
-# Environment files
-.env
-.env.*
-.env.example
-envoirment.ts
-environment.prod.ts
-src\environments\environment.prod.ts
-src\environments\environment.ts

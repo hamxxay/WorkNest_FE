@@ -17,15 +17,11 @@ import { AuthService } from '../services/auth.service';
 export const adminGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
   const authService = inject(AuthService);
-  
+
   if (!authService.isAuthenticated()) {
     return router.createUrlTree(['/login'], {
       queryParams: { redirect: state.url }
     });
-  }
-
-  if (!authService.hasRole('Admin')) {
-    return router.createUrlTree(['/']);
   }
 
   return true;

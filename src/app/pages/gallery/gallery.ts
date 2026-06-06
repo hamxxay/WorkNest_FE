@@ -57,17 +57,19 @@ export class Gallery implements OnInit {
   }
 
   private normalizeImages(res: any): GalleryItem[] {
-    const source = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res?.data?.items)
-        ? res.data.items
-        : Array.isArray(res?.data?.results)
-          ? res.data.results
-          : Array.isArray(res?.items)
-            ? res.items
-            : Array.isArray(res?.results)
-              ? res.results
-              : [];
+    const source = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.data?.items)
+          ? res.data.items
+          : Array.isArray(res?.data?.results)
+            ? res.data.results
+            : Array.isArray(res?.items)
+              ? res.items
+              : Array.isArray(res?.results)
+                ? res.results
+                : [];
 
     return source
       .map((img: any, index: number) => {

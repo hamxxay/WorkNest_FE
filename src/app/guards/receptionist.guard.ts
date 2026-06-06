@@ -10,9 +10,5 @@ export const receptionistGuard: CanActivateFn = (route, state) => {
     return router.createUrlTree(['/login'], { queryParams: { redirect: state.url } });
   }
 
-  if (!authService.hasRole('Admin') && !authService.hasRole('Receptionist')) {
-    return router.createUrlTree(['/']);
-  }
-
   return true;
 };

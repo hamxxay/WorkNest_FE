@@ -6,7 +6,7 @@ import { BookingService } from '../../services/booking.service';
 import { CardPaymentService } from '../../services/card-payment.service';
 import { OneBillService, OneBillVoucherResponse } from '../../services/one-bill.service';
 
-type PaymentTab = 'card' | 'voucher';
+type PaymentTab = 'card' | 'voucher' | 'counter';
 
 @Component({
   selector: 'app-checkout',
@@ -65,15 +65,45 @@ export class Checkout implements OnInit {
   ) {}
 
   ngOnInit() {
-    const id = Number(this.route.snapshot.paramMap.get('bookingId'));
-    this.bookingService.getById(id).subscribe({
-      next: (res: any) => {
-        this.booking.set(res?.data ?? null);
-        this.loading.set(false);
+    const navState = this.router.getCurrentNavigation()?.extras?.state ?? history.state;
+    if (navState?.pendingBooking) {
+      this.pending = navState.pendingBooking;
+      this.loading.set(false);
+    } else {
+      // Fallback: navigated directly to /checkout without state
+      this.loading.set(false);
+      this.error.set('No booking details found. Please start from the booking page.');
+    }
+  }
+
+  pending: any = null;
+
+  // ── Create booking then act on payment method ───────────────────
+  private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number) => void) {
+    if (!this.pending) return;
+    this.submitting.set(true);
+    this.error.set('');
+
+    this.bookingService.create({
+      spaceId:       this.pending.spaceId,
+      startDateTime: this.pending.startDateTime,
+      endDateTime:   this.pending.endDateTime,
+      totalAmount:   parseFloat(Number(this.pending.totalAmount).toFixed(2)),
+      notes:         paymentMethod
+    }).subscribe({
+      next: (res) => {
+        if (res.isSuccessful) {
+          const bookingId = res.data?.id ?? res.data?.bookingId ?? res.id;
+          this.booking.set({ ...this.pending, id: bookingId });
+          onSuccess(bookingId);
+        } else {
+          this.submitting.set(false);
+          this.error.set(res.message || 'Booking failed.');
+        }
       },
-      error: () => {
-        this.loading.set(false);
-        this.error.set('Failed to load booking details.');
+      error: (err: any) => {
+        this.submitting.set(false);
+        this.error.set(err?.error?.message || 'Failed to create booking. Please try again.');
       }
     });
   }
@@ -133,42 +163,37 @@ export class Checkout implements OnInit {
     const err = this.validateCard();
     if (err) { this.error.set(err); return; }
 
-    const b = this.booking();
-    if (!b) return;
-
-    this.submitting.set(true);
-    this.error.set('');
-
-    const idempotencyKey = `${b.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    this.cardService.initiateCardPayment({
-      bookingId:      b.id,
-      cardHolderName: this.cardHolderName.trim(),
-      cardNumber:     this.cardNumber.replace(/\s/g, ''),
-      expiryMonth:    this.expiryMonth,
-      expiryYear:     this.expiryYear,
-      cvv:            this.cvv,
-      idempotencyKey,
-    }).subscribe({
-      next: (res) => {
-        this.clearCardFields();
-        this.submitting.set(false);
-        if (res.redirectUrl) { window.location.href = res.redirectUrl; return; }
-        this.router.navigate(['/payment-result'], {
-          queryParams: {
-            status:    res.isSuccessful ? 'success' : 'failed',
-            bookingId: b.id,
-            amount:    b.totalAmount,
-            ref:       res.transactionRef ?? '',
-            method:    'Card',
-          }
-        });
-      },
-      error: (err: any) => {
-        this.clearCardFields();
-        this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Card payment failed. Please try again.');
-      }
+    this.createBookingWith('Card', (bookingId) => {
+      const idempotencyKey = `${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      this.cardService.initiateCardPayment({
+        bookingId,
+        cardHolderName: this.cardHolderName.trim(),
+        cardNumber:     this.cardNumber.replace(/\s/g, ''),
+        expiryMonth:    this.expiryMonth,
+        expiryYear:     this.expiryYear,
+        cvv:            this.cvv,
+        idempotencyKey,
+      }).subscribe({
+        next: (res) => {
+          this.clearCardFields();
+          this.submitting.set(false);
+          if (res.redirectUrl) { window.location.href = res.redirectUrl; return; }
+          this.router.navigate(['/payment-result'], {
+            queryParams: {
+              status:    res.isSuccessful ? 'success' : 'failed',
+              bookingId,
+              amount:    this.pending?.totalAmount,
+              ref:       res.transactionRef ?? '',
+              method:    'Card',
+            }
+          });
+        },
+        error: (err: any) => {
+          this.clearCardFields();
+          this.submitting.set(false);
+          this.error.set(err?.error?.message || 'Card payment failed. Please try again.');
+        }
+      });
     });
   }
 
@@ -183,55 +208,28 @@ export class Checkout implements OnInit {
 
   // ── 1Bill voucher ──────────────────────────────────────────
   generateVoucher() {
-    const b = this.booking();
-    if (!b || this.voucher()) return;
-
-    this.submitting.set(true);
-    this.error.set('');
-
-    // ── DUMMY VOUCHER (remove when backend is ready) ──────────
-    // Generates a fake 14-digit voucher number locally.
-    // Replace this block with the real API call below when
-    // your backend /payment/voucher/generate endpoint is ready.
-    const dummyVoucherNumber = '1BILL' + String(b.id).padStart(4, '0') +
-      Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 3);
-
-    setTimeout(() => {
-      this.submitting.set(false);
-      this.voucher.set({
-        isSuccessful:    true,
-        message:         'Voucher generated successfully.',
-        voucherNumber:   dummyVoucherNumber,
-        expiryDate:      expiryDate.toISOString(),
-        amount:          b.totalAmount,
-        paymentChannels: this.defaultChannels,
+    if (this.voucher()) return;
+    this.createBookingWith('Voucher', (bookingId) => {
+      const idempotencyKey = `vchr-${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      this.oneBillService.generateVoucher({
+        bookingId,
+        amount: this.pending?.totalAmount,
+        idempotencyKey,
+      }).subscribe({
+        next: (res) => {
+          this.submitting.set(false);
+          if (res.isSuccessful) {
+            this.voucher.set(res);
+          } else {
+            this.error.set(res.message || 'Failed to generate voucher.');
+          }
+        },
+        error: (err: any) => {
+          this.submitting.set(false);
+          this.error.set(err?.error?.message || 'Failed to generate voucher. Please try again.');
+        }
       });
-    }, 800);
-    // ── END DUMMY ─────────────────────────────────────────────
-
-    // ── REAL API CALL (uncomment when backend is ready) ───────
-    // const idempotencyKey = `vchr-${b.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    // this.oneBillService.generateVoucher({
-    //   bookingId:      b.id,
-    //   amount:         b.totalAmount,
-    //   idempotencyKey,
-    // }).subscribe({
-    //   next: (res) => {
-    //     this.submitting.set(false);
-    //     if (res.isSuccessful) {
-    //       this.voucher.set(res);
-    //     } else {
-    //       this.error.set(res.message || 'Failed to generate voucher.');
-    //     }
-    //   },
-    //   error: (err: any) => {
-    //     this.submitting.set(false);
-    //     this.error.set(err?.error?.message || 'Failed to generate voucher. Please try again.');
-    //   }
-    // });
-    // ── END REAL API ──────────────────────────────────────────
+    });
   }
 
   copyVoucherNumber() {
@@ -243,9 +241,18 @@ export class Checkout implements OnInit {
   }
 
   copied = signal(false);
+  counterDone = signal(false);
 
   printVoucher() {
     window.print();
+  }
+
+  // ── Pay at Counter ─────────────────────────────────────────
+  submitCounter() {
+    this.createBookingWith('Payment via Cash on Counter', () => {
+      this.submitting.set(false);
+      this.counterDone.set(true);
+    });
   }
 
   get voucherChannels(): string[] {

@@ -11,30 +11,28 @@ import { AuthService } from '../../services/auth.service';
 export class AdminLayout {
   sidebarCollapsed = false;
 
-  private readonly allMenuItems = [
-    { label: 'Dashboard', icon: 'dashboard', route: '/admin', roles: ['Admin'] },
-    { label: 'Users', icon: 'users', route: '/admin/users', roles: ['Admin'] },
-    { label: 'Locations', icon: 'location', route: '/admin/locations', roles: ['Admin'] },
-    { label: 'Space Types', icon: 'spacetype', route: '/admin/space-types', roles: ['Admin'] },
-    { label: 'Spaces', icon: 'spaces', route: '/admin/spaces', roles: ['Admin'] },
-    { label: 'Bookings', icon: 'bookings', route: '/admin/bookings', roles: ['Admin', 'Receptionist'] },
-    { label: 'Pricing Plans', icon: 'pricing', route: '/admin/pricing', roles: ['Admin'] },
-    { label: 'Memberships', icon: 'memberships', route: '/admin/memberships', roles: ['Admin'] },
-    { label: 'Payments', icon: 'payments', route: '/admin/payments', roles: ['Admin'] },
-    { label: 'Contacts', icon: 'contacts', route: '/admin/contacts', roles: ['Admin'] },
-    { label: 'Gallery', icon: 'gallery', route: '/admin/gallery', roles: ['Admin'] },
+  readonly menuItems = [
+    { label: 'Dashboard', icon: 'dashboard', route: '/admin' },
+    { label: 'Users', icon: 'users', route: '/admin/users' },
+    { label: 'Locations', icon: 'location', route: '/admin/locations' },
+    { label: 'Space Types', icon: 'spacetype', route: '/admin/space-types' },
+    { label: 'Spaces', icon: 'spaces', route: '/admin/spaces' },
+    { label: 'Bookings', icon: 'bookings', route: '/admin/bookings' },
+    { label: 'Pricing Plans', icon: 'pricing', route: '/admin/pricing' },
+    { label: 'Memberships', icon: 'memberships', route: '/admin/memberships' },
+    { label: 'Payments', icon: 'payments', route: '/admin/payments' },
+    { label: 'Contacts', icon: 'contacts', route: '/admin/contacts' },
+    { label: 'Gallery', icon: 'gallery', route: '/admin/gallery' },
   ];
 
   constructor(private authService: AuthService, private router: Router) {}
 
-  get menuItems() {
-    return this.allMenuItems.filter(item =>
-      item.roles.some(r => this.authService.hasRole(r))
-    );
-  }
-
   get userRole(): string {
-    return this.authService.hasRole('Admin') ? 'Administrator' : 'Receptionist';
+    const user = this.authService.getUser();
+    const roles = user?.roles ?? [];
+    if (roles.some(r => r.toLowerCase() === 'admin')) return 'Administrator';
+    if (roles.some(r => r.toLowerCase() === 'receptionist')) return 'Receptionist';
+    return 'User';
   }
 
   toggleSidebar() {
