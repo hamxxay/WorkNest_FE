@@ -46,7 +46,7 @@ nav.over-hero {
 }
 
 .logo img {
-  filter: none;
+  filter: brightness(0);
   width: 46px;
   height: 46px;
   object-fit: contain;
@@ -58,7 +58,7 @@ nav.scrolled .logo svg {
 }
 
 nav.scrolled .logo img {
-  filter: brightness(0.2);
+  filter: brightness(0);
 }
 
 nav.over-hero .logo,
