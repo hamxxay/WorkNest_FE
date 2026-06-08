@@ -37,10 +37,10 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   features = [
     // { icon: 'clock',    title: 'Real-Time Availability',  description: 'See live workspace availability and book instantly — no conflicts, no double-bookings.' },
-    // { icon: 'calendar', title: 'Effortless Booking',       description: 'Three clicks to confirm your space. Calendar integration and instant email confirmations.' },
+    { icon: 'layout', title: 'Flexible Workspace',       description: 'Connect with entrepreneurs, freelancers, startups, and industry leaders through a collaborative community designed for networking and growth.' },
     { icon: 'wifi',     title: 'High-Speed Internet',      description: 'Dedicated enterprise-grade fibre connectivity across all locations.' },
-    { icon: 'shield',   title: 'Secure & Private',         description: 'Keycard access, CCTV monitoring, and dedicated private offices for sensitive work.' },
-    { icon: 'users',    title: 'Vibrant Community',        description: 'Network with hundreds of like-minded professionals, freelancers, and startups.' },
+    { icon: 'shield',   title: 'Secure & Private',         description: '24/7 security, keycard access, CCTV monitoring, and private offices provide a safe and professional environment for your business.' },
+    { icon: 'users',    title: 'Vibrant Community',        description: 'Connect with entrepreneurs, freelancers, startups, and industry leaders through a collaborative community designed for networking and growth.' },
     { icon: 'building', title: 'Premium Workspaces',       description: 'Ergonomic furniture, natural lighting, fully-equipped meeting rooms and lounges.' },
   ];
 
