@@ -640,8 +640,18 @@ export class AdminManage implements OnInit {
     if (!this.config.deleteFn) return;
     if (!confirm('Are you sure you want to delete this item?')) return;
     (this.admin as any)[this.config.deleteFn](item.id).subscribe({
-      next: () => { this.load(); this.flashSuccess('Deleted successfully'); },
-      error: (err: any) => { alert(err.error?.message || 'Delete failed'); }
+      next: (res: any) => {
+        if (res && res.isSuccessful === false) {
+          alert(res.message || 'Delete failed');
+          return;
+        }
+        this.load();
+        this.flashSuccess('Deleted successfully');
+      },
+      error: (err: any) => {
+        const msg = err.error?.message || err.error?.title || err.message || 'Delete failed';
+        alert(msg);
+      }
     });
   }
 
