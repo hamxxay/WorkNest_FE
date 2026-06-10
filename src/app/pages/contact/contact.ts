@@ -32,6 +32,8 @@ export class Contact {
     this.contactService.submit(this.form).subscribe({
       next: (res) => {
         if (res.isSuccessful) {
+          const msg = `Hi WorkNest! I just sent a message via the website.\n\nName: ${this.form.fullName}\nEmail: ${this.form.email}\nPhone: ${this.form.phone}\nMessage: ${this.form.message}`;
+          this.contactService.sendWhatsApp(msg);
           this.submitted.set(true);
           setTimeout(() => {
             this.submitted.set(false);

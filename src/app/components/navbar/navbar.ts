@@ -44,7 +44,6 @@ export class Navbar implements OnDestroy {
 
   email = computed(() => this.user()?.email || '');
   roles = computed(() => this.user()?.roles || []);
-  isAdmin = computed(() => this.authService.hasRole('Admin'));
   isGuest = computed(() => this.authService.isGuest());
   loggedIn = computed(() => !!this.user());
   overHero = computed(() => this.currentUrl() === '/' && !this.scrolled() && !this.mobileOpen());

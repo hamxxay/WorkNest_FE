@@ -16,6 +16,7 @@ const firebaseDefaults = {
 export const environment = {
   production: appEnv['NG_APP_PRODUCTION'] === 'true',
   apiUrl: appEnv['NG_APP_API_URL'] ?? '/api',
+  whatsappNumber: appEnv['NG_APP_WHATSAPP_NUMBER'] ?? '27XXXXXXXXX',
   payfast: {
     sandbox: true,  // flip to false when going live
   },

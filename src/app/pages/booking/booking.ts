@@ -146,7 +146,14 @@ export class Booking implements OnInit {
         const perDay = Number(ws.pricePerDay ?? ws.PricePerDay ?? ws.dailyPrice ?? 0);
         return perDay > 0 ? Math.round(perDay / 8) : 0;
       })(),
-      status: (() => { const s = (ws.status || ws.Status || (ws.isAvailable ? 'available' : 'unavailable')).toLowerCase(); return s === 'available' ? 'Available' : 'Unavailable'; })(),
+      status: (() => {
+        const spaceStatus = ws.spaceStatus || ws.SpaceStatus || '';
+        if (spaceStatus) return spaceStatus.toLowerCase() === 'available' ? 'Available' : 'Unavailable';
+        const s = ws.status ?? ws.Status;
+        if (s === 1 || s === true || String(s).toLowerCase() === 'available') return 'Available';
+        if (ws.isAvailable === true) return 'Available';
+        return 'Unavailable';
+      })(),
       imageUrl: ws.imageUrl || ws.ImageUrl || ws.image || ws.url || 'images/spaces/modern-office.jpg',
       floor: ws.floor || ws.floorName || '-',
       code: ws.code || ws.Code || ''

@@ -1,7 +1,9 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgFor } from '@angular/common';
-import { AdminService } from '../../services/admin.service';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { SpaceService } from '../../services/space.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-footer',
@@ -12,14 +14,18 @@ import { AdminService } from '../../services/admin.service';
 export class Footer implements OnInit {
   year = new Date().getFullYear();
   spaceTypes = signal<string[]>([]);
+  whatsappUrl: SafeUrl;
 
-  constructor(private adminService: AdminService) {}
+  constructor(private spaceService: SpaceService, private sanitizer: DomSanitizer) {
+    this.whatsappUrl = this.sanitizer.bypassSecurityTrustUrl(`https://wa.me/${environment.whatsappNumber}`);
+  }
 
   ngOnInit() {
-    this.adminService.getSpaceTypes(1, 200).subscribe({
-      next: (res) => {
-        const items = Array.isArray(res) ? res : (res?.data as any[] ?? []);
-        this.spaceTypes.set(items.map((t: any) => t.name).filter(Boolean));
+    this.spaceService.getAll().subscribe({
+      next: (res: any) => {
+        const items: any[] = Array.isArray(res) ? res : (res?.data ?? []);
+        const types = [...new Set(items.map((s: any) => s.spaceTypeName).filter(Boolean))] as string[];
+        this.spaceTypes.set(types);
       }
     });
   }
