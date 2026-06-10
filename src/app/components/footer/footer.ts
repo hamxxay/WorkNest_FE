@@ -24,7 +24,13 @@ export class Footer implements OnInit {
     this.spaceService.getAll().subscribe({
       next: (res: any) => {
         const items: any[] = Array.isArray(res) ? res : (res?.data ?? []);
-        const types = [...new Set(items.map((s: any) => s.spaceTypeName).filter(Boolean))] as string[];
+        const types = [...new Set(items
+          .map((s: any) => {
+            const t = s.spaceTypeName ?? s.SpaceTypeName ?? s.spaceType?.name ?? s.type ?? 'Workspace';
+            return typeof t === 'string' ? t.trim() : String(t);
+          })
+          .filter(Boolean)
+        )] as string[];
         this.spaceTypes.set(types);
       }
     });

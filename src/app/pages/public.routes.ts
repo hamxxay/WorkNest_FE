@@ -4,7 +4,7 @@ export const PUBLIC_ROUTES: Routes = [
 
   { path: '', loadComponent: () => import('./home/home').then(m => m.Home) },
 
-  { path: 'pricing', loadComponent: () => import('./pricing/pricing').then(m => m.Pricing) },
+  
 
   { path: 'gallery', loadComponent: () => import('./gallery/gallery').then(m => m.Gallery) },
 
