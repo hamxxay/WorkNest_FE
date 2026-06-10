@@ -16,6 +16,9 @@ const firebaseDefaults = {
 export const environment = {
   production: appEnv['NG_APP_PRODUCTION'] === 'true',
   apiUrl: appEnv['NG_APP_API_URL'] ?? '/api',
+  payfast: {
+    sandbox: true,  // flip to false when going live
+  },
   firebase: {
     apiKey:            appEnv['NG_APP_FIREBASE_API_KEY']             ?? firebaseDefaults.apiKey,
     authDomain:        appEnv['NG_APP_FIREBASE_AUTH_DOMAIN']         ?? firebaseDefaults.authDomain,

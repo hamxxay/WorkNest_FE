@@ -61,6 +61,10 @@
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M3 15h18"/><path d="M3 3h18v18H3z" rx="2"/><path d="M9 3v18"/></svg>
               Pay at Counter
             </button>
+            <button class="tab-btn" [class.active]="activeTab() === 'payfast'" (click)="activeTab.set('payfast'); error.set('')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              PayFast
+            </button>
           </div>
 
           @if (error()) {
@@ -324,6 +328,45 @@
                   </div>
                 </div>
               }
+            </div>
+          }
+
+          <!-- ══ PAYFAST TAB ══ -->
+          @if (activeTab() === 'payfast') {
+            <div class="tab-content">
+              <div class="voucher-intro">
+                <div class="voucher-intro-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                </div>
+                <h3>Pay via PayFast</h3>
+                <p>You will be redirected to PayFast's secure sandbox to complete your payment. No card details are stored on our servers.</p>
+                <div class="channel-list">
+                  <div class="channel-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Debit / Credit Card
+                  </div>
+                  <div class="channel-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Internet Banking
+                  </div>
+                  <div class="channel-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    256-bit SSL secured by PayFast
+                  </div>
+                </div>
+                <button class="btn-pay" (click)="submitPayFast()" [disabled]="payfastSubmitting() || submitting()">
+                  @if (payfastSubmitting() || submitting()) {
+                    <span class="btn-spinner"></span> Redirecting to PayFast...
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                    Pay Rs {{ pending.totalAmount?.toFixed(2) }} via PayFast
+                  }
+                </button>
+                <p class="payment-note">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  Sandbox mode — use Demo Bank / Account: 1234567890 / NIC: 1234567890123 / OTP: 123456
+                </p>
+              </div>
             </div>
           }
 
