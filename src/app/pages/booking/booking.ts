@@ -130,6 +130,7 @@ export class Booking implements OnInit {
 
     return source.map((ws: any, index: number) => ({
       id: Number(ws.id ?? ws.Id ?? index + 1),
+      idGuid: ws.idGuid || ws.IdGUID || ws.idGuid,
       name: ws.name || ws.Name || ws.title || ws.Title || `Workspace ${index + 1}`,
       locationName: ws.locationName || ws.LocationName || ws.location?.name || ws.city || 'Unknown Location',
       spaceTypeName: ws.spaceTypeName || ws.SpaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
