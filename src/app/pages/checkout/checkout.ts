@@ -5,8 +5,10 @@ import { DatePipe } from '@angular/common';
 import { BookingService } from '../../services/booking.service';
 import { CardPaymentService } from '../../services/card-payment.service';
 import { OneBillService, OneBillVoucherResponse } from '../../services/one-bill.service';
+import { PayFastService } from '../../services/payfast.service';
+import { AuthService } from '../../services/auth.service';
 
-type PaymentTab = 'card' | 'voucher' | 'counter';
+type PaymentTab = 'card' | 'voucher' | 'counter' | 'payfast';
 
 @Component({
   selector: 'app-checkout',
@@ -62,6 +64,8 @@ export class Checkout implements OnInit {
     private bookingService: BookingService,
     private cardService:    CardPaymentService,
     private oneBillService: OneBillService,
+    private payfastService: PayFastService,
+    private authService:    AuthService,
   ) {}
 
   ngOnInit() {
@@ -252,6 +256,36 @@ export class Checkout implements OnInit {
     this.createBookingWith('Payment via Cash on Counter', () => {
       this.submitting.set(false);
       this.counterDone.set(true);
+    });
+  }
+
+  payfastSubmitting = signal(false);
+
+  submitPayFast() {
+    if (!this.pending) return;
+    this.payfastSubmitting.set(true);
+    this.error.set('');
+
+    const user = this.authService.user();
+    this.createBookingWith('PayFast', (bookingId) => {
+      this.payfastService.initiatePayment({
+        bookingId,
+        customerName:  user?.displayName  || user?.email?.split('@')[0] || 'Customer',
+        customerEmail: user?.email        || '',
+      }).subscribe({
+        next: (res) => {
+          this.payfastSubmitting.set(false);
+          if (res.isSuccessful && res.data) {
+            this.payfastService.redirectToPayFast(res.data);
+          } else {
+            this.error.set(res.message || 'PayFast initiation failed.');
+          }
+        },
+        error: (err: any) => {
+          this.payfastSubmitting.set(false);
+          this.error.set(err?.error?.detail || 'PayFast initiation failed. Please try again.');
+        }
+      });
     });
   }
 

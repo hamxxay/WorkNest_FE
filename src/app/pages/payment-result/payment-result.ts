@@ -21,7 +21,7 @@ export class PaymentResult implements OnInit {
     this.status.set(p.get('status') === 'success' ? 'success' : 'failed');
     this.bookingId.set(p.get('bookingId') ?? '');
     this.amount.set(p.get('amount') ?? '');
-    this.ref.set(p.get('ref') ?? '');
-    this.message.set(p.get('message') ?? '');
+    this.ref.set(p.get('ref') ?? p.get('order_id') ?? '');
+    this.message.set(p.get('message') ?? p.get('payment_status') ?? '');
   }
 }
