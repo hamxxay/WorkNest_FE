@@ -56,6 +56,8 @@ export class BookATour {
     this.contactService.submit(payload).subscribe({
       next: () => {
         this.loading.set(false);
+        const msg = `Hi WorkNest! I'd like to book a tour.\n\nName: ${this.form.fullName}\nEmail: ${this.form.email}\nPhone: ${this.form.phone}\nDate: ${this.form.preferredDate}\nTime: ${this.form.timeSlot}${this.form.message ? '\nNotes: ' + this.form.message : ''}`;
+        this.contactService.sendWhatsApp(msg);
         this.submitted.set(true);
       },
       error: (err) => {

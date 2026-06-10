@@ -13,8 +13,13 @@ export class ContactService {
   constructor(private http: HttpClient) {}
 
   submit(data: any): Observable<any> {
-    // Use /contact for contact messages, /book-tour for tour requests
     const url = data.subject === 'Book a Tour Request' ? this.apiUrl : this.contactUrl;
     return this.http.post<any>(url, data);
+  }
+
+  sendWhatsApp(message: string): void {
+    const number = environment.whatsappNumber;
+    const url = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
   }
 }
