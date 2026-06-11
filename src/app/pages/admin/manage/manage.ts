@@ -1,10 +1,10 @@
-import { Component, signal, OnInit, computed } from '@angular/core';
+import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from '../../services/admin.service';
-import { AuthService } from '../../services/auth.service';
-import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../utils/constants';
+import { AdminService } from '../../../services/admin.service';
+import { AuthService } from '../../../services/auth.service';
+import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../../utils/constants';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; }
@@ -93,11 +93,11 @@ export class Manage implements OnInit {
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
 
-  constructor(
-    private route: ActivatedRoute,
-    private admin: AdminService,
-    private auth: AuthService
-  ) {
+  private route = inject(ActivatedRoute);
+  private admin = inject(AdminService);
+  private auth = inject(AuthService);
+
+  constructor() {
     this.isSuperAdmin = this.auth.hasRole('super_admin');
   }
 

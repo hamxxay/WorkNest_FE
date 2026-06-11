@@ -542,12 +542,21 @@ nav.over-hero .profile-chevron {
   color: var(--accent);
 }
 
-.profile-menu-link.admin {
-  margin-top: 4px;
+.profile-menu-link.admin-link {
+  background: rgba(13, 148, 136, 0.06);
+  color: #0d9488;
+  border: 1px solid rgba(13, 148, 136, 0.15);
+  margin-bottom: 8px;
+  font-weight: 600;
 }
 
-.profile-menu-link.admin svg {
-  color: var(--accent);
+.profile-menu-link.admin-link svg {
+  color: #0d9488;
+}
+
+.profile-menu-link.admin-link:hover {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0d9488;
 }
 
 .profile-divider {

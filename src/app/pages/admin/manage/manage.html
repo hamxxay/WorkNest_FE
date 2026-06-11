@@ -356,36 +356,57 @@
         }
         @if (userHistory(); as history) {
           <div class="history-section">
-            <h3>History</h3>
             <div class="history-stats">
-              <div class="stat-card"><span>Bookings</span><strong>{{ history.stats?.totalBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Total Bookings</span><strong>{{ history.stats?.totalBookings ?? 0 }}</strong></div>
               <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (history.stats?.totalPaidAmount ?? 0) | number:'1.2-2' }}</strong></div>
               <div class="stat-card"><span>Cancelled</span><strong>{{ history.stats?.cancelledBookings ?? 0 }}</strong></div>
+              <div class="stat-card"><span>Failed Payments</span><strong>{{ history.stats?.failedPayments ?? 0 }}</strong></div>
             </div>
-            <div class="history-list-wrap">
-              <div class="history-list">
-                <h4>Recent Bookings</h4>
-                @if (history.recentBookings?.length) {
-                  @for (b of history.recentBookings; track b.id) {
-                    <div class="history-item">
-                      <div><strong>#{{ b.id }} - {{ b.spaceName }}</strong><p>{{ b.startDateTime | date:'mediumDate' }}</p></div>
-                      <span class="status-badge" [class]="'status-' + (b.bookingStatus || '').toLowerCase()">{{ b.bookingStatus }}</span>
-                    </div>
-                  }
-                } @else { <p class="history-empty">No bookings.</p> }
+            <h4>All Bookings ({{ history.recentBookings?.length ?? 0 }})</h4>
+            @if (history.recentBookings?.length) {
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead>
+                    <tr><th>Space</th><th>Start</th><th>End</th><th>Amount</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (b of history.recentBookings; track b.id) {
+                      <tr>
+                        <td>{{ b.spaceName || 'N/A' }}</td>
+                        <td>{{ b.startDateTime | date:'mediumDate' }}</td>
+                        <td>{{ b.endDateTime | date:'mediumDate' }}</td>
+                        <td>PKR {{ (b.totalAmount ?? 0) | number:'1.2-2' }}</td>
+                        <td><span class="status-badge" [class]="'status-' + (b.bookingStatus || '').toLowerCase()">{{ b.bookingStatus }}</span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
-              <div class="history-list">
-                <h4>Recent Payments</h4>
-                @if (history.recentPayments?.length) {
-                  @for (p of history.recentPayments; track p.id) {
-                    <div class="history-item">
-                      <div><strong>#{{ p.id }} - PKR {{ p.amount | number:'1.2-2' }}</strong><p>{{ p.paymentMethod }}</p></div>
-                      <span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span>
-                    </div>
-                  }
-                } @else { <p class="history-empty">No payments.</p> }
+            } @else {
+              <p class="history-empty">No bookings found.</p>
+            }
+            <h4 style="margin-top:16px">All Payments ({{ history.recentPayments?.length ?? 0 }})</h4>
+            @if (history.recentPayments?.length) {
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead>
+                    <tr><th>Amount</th><th>Method</th><th>Status</th><th>Paid At</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (p of history.recentPayments; track p.id) {
+                      <tr>
+                        <td>PKR {{ (p.amount ?? 0) | number:'1.2-2' }}</td>
+                        <td>{{ p.paymentMethod }}</td>
+                        <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span></td>
+                        <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
-            </div>
+            } @else {
+              <p class="history-empty">No payments found.</p>
+            }
           </div>
         }
       }

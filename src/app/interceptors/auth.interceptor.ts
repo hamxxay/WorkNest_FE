@@ -13,7 +13,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   return authService.getAccessToken$().pipe(
     switchMap(token => {
-      let requestWithAuth = req.clone({ withCredentials: true });
+      let requestWithAuth = req.clone();
 
       const headers: Record<string, string> = {};
       if (token) {

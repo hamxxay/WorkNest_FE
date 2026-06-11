@@ -74,10 +74,39 @@
   margin-top: 8px;
 }
 
-.section-sub {
-  color: var(--text-secondary);
-  margin-bottom: 28px;
-  font-size: 0.95rem;
+.location-section {
+  margin-bottom: 48px;
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.location-header svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.location-header h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.location-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--accent-bg);
+  border: 1px solid rgba(57,160,203,0.2);
+  border-radius: 20px;
+  padding: 3px 10px;
 }
 
 .workspace-grid {

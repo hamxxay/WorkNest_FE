@@ -1,5 +1,6 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
@@ -8,6 +9,7 @@ import { applyPercentDiscount, getWorkspaceDiscount, type BookingLike } from '..
 
 interface Workspace {
   id: number;
+  idGuid: string;
   name: string;
   locationName: string;
   spaceTypeName: string;
@@ -23,7 +25,7 @@ interface Workspace {
 
 @Component({
   selector: 'app-booking',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet],
   templateUrl: './booking.html',
   styleUrl: './booking.css'
 })
@@ -58,6 +60,21 @@ export class Booking implements OnInit {
       return matchesQuery && matchesType;
     });
   });
+
+  i8Workspaces = computed(() =>
+    this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('i-8') || ws.locationName.toLowerCase().includes('i8'))
+  );
+
+  f7Workspaces = computed(() =>
+    this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('f-7') || ws.locationName.toLowerCase().includes('f7'))
+  );
+
+  otherWorkspaces = computed(() =>
+    this.filteredWorkspaces().filter(ws => {
+      const loc = ws.locationName.toLowerCase();
+      return !loc.includes('i-8') && !loc.includes('i8') && !loc.includes('f-7') && !loc.includes('f7');
+    })
+  );
 
   // Booking modal
   showBookingModal = false;
@@ -129,8 +146,8 @@ export class Booking implements OnInit {
       : [];
 
     return source.map((ws: any, index: number) => ({
-      id: Number(ws.id ?? ws.Id ?? index + 1),
-      idGuid: ws.idGuid || ws.IdGUID || ws.idGuid,
+      id: Number(ws.numericId ?? ws.numeric_id ?? ws.Id ?? 0) || (index + 1),
+      idGuid: ws.idGuid || ws.IdGUID || ws.id || '',
       name: ws.name || ws.Name || ws.title || ws.Title || `Workspace ${index + 1}`,
       locationName: ws.locationName || ws.LocationName || ws.location?.name || ws.city || 'Unknown Location',
       spaceTypeName: ws.spaceTypeName || ws.SpaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
@@ -238,7 +255,7 @@ export class Booking implements OnInit {
     this.router.navigate(['/checkout'], {
       state: {
         pendingBooking: {
-          spaceId:       space.id,
+          spaceId:       space.idGuid || space.id,
           spaceName:     space.name,
           startDateTime,
           endDateTime,

@@ -1,7 +1,7 @@
-import { Component, signal, OnInit, computed, AfterViewInit, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, signal, OnInit, computed, AfterViewInit, ViewChild, ElementRef, effect, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AdminService } from '../../services/admin.service';
+import { AdminService } from '../../../services/admin.service';
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler } from 'chart.js';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
@@ -121,7 +121,9 @@ export class Dashboard implements OnInit, AfterViewInit {
     return { labels: displayLabels, data };
   });
 
-  constructor(private admin: AdminService) {
+  private admin = inject(AdminService);
+
+  constructor() {
     effect(() => {
       const { labels, data } = this.chartData();
       console.debug('[Dashboard] chartData effect', { labels, data });
@@ -130,15 +132,16 @@ export class Dashboard implements OnInit, AfterViewInit {
   }
 
   ngOnInit() {
+    const safe = (obs: any) => obs.toPromise().catch(() => null);
     Promise.all([
-      this.admin.getUsers(1, 1).toPromise(),
-      this.admin.getSpaces(1, 1).toPromise(),
-      this.admin.getPayments(1, 500).toPromise(),
-      this.admin.getBookings(1, 500).toPromise(),
-      this.admin.getContacts(1, 5).toPromise(),
-      this.admin.getLocations(1, 1).toPromise(),
-      this.admin.getPricingPlans(1, 1).toPromise(),
-      this.admin.getGalleryAll(1, 1).toPromise(),
+      safe(this.admin.getUsers(1, 1)),
+      safe(this.admin.getSpaces(1, 1)),
+      safe(this.admin.getPayments(1, 500)),
+      safe(this.admin.getBookings(1, 500)),
+      safe(this.admin.getContacts(1, 5)),
+      safe(this.admin.getLocations(1, 1)),
+      safe(this.admin.getPricingPlans(1, 1)),
+      safe(this.admin.getGalleryAll(1, 1)),
     ]).then(([users, spaces, payments, bookings, contacts, locations, plans, gallery]) => {
       this.baseStats.set({
         users: (users as any)?.total ?? 0,
@@ -154,7 +157,7 @@ export class Dashboard implements OnInit, AfterViewInit {
       this.recentBookings.set(((bookings as any)?.data ?? []).slice(0, 5));
       this.recentContacts.set((contacts as any)?.data ?? []);
       this.loading.set(false);
-    }).catch(() => this.loading.set(false));
+    });
   }
 
   setPeriod(p: Period) { this.period.set(p); }

@@ -1,7 +1,7 @@
 {
   "/api": {
-    "target": "https://work-nest-api-s.vercel.app",
-    "secure": true,
+    "target": "http://localhost:8000",
+    "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   }
