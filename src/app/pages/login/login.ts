@@ -44,7 +44,7 @@ export class Login {
       next: (res) => {
         this.loading.set(false);
         if (res.isSuccessful) {
-          this.router.navigateByUrl(this.getRedirectUrl());
+          this.router.navigateByUrl(this.getRoleBasedRedirect(res.data));
         } else {
           this.error.set(res.message || 'Login failed.');
         }
@@ -61,9 +61,9 @@ export class Login {
     this.socialLoading.set('google');
 
     this.authService.loginWithGoogle().subscribe({
-      next: () => {
+      next: (res) => {
         this.socialLoading.set(null);
-        this.router.navigateByUrl(this.getRedirectUrl());
+        this.router.navigateByUrl(this.getRoleBasedRedirect(res.data));
       },
       error: (err) => {
         this.socialLoading.set(null);
@@ -114,6 +114,14 @@ export class Login {
         }
       }
     });
+  }
+
+  private getRoleBasedRedirect(user?: any): string {
+    const roles: string[] = user?.roles ?? [];
+    const isAdmin = roles.some(r => r.toLowerCase() === 'admin');
+    if (isAdmin) return '/admin/dashboard';
+    const redirectParam = this.route.snapshot.queryParamMap.get('redirect');
+    return redirectParam || this.fallbackRedirect;
   }
 
   private getRedirectUrl(): string {

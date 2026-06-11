@@ -2,9 +2,9 @@
 // Update here when new roles are added to the system.
 
 export const ASSIGNABLE_ROLES: { v: string; l: string }[] = [
-  { v: 'Admin',        l: 'Admin' },
-  { v: 'Receptionist', l: 'Receptionist' },
-  { v: 'Public',       l: 'Public' },
+  { v: 'super_admin', l: 'Super Admin' },
+  { v: 'admin',       l: 'Admin' },
+  { v: 'general',     l: 'General User' },
 ];
 
 export const BILLING_CYCLES: { v: string; l: string }[] = [
