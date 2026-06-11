@@ -1,6 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-admin-layout',
@@ -25,7 +25,10 @@ export class AdminLayout {
     { route: '/admin/gallery',   label: 'Gallery',     icon: 'gallery'      },
   ];
 
-  constructor(private auth: AuthService, private router: Router) {
+  private auth = inject(AuthService);
+  private router = inject(Router);
+
+  constructor() {
     const u = this.auth.getUser();
     this.userRole = u?.roles?.[0] ?? 'Admin';
   }
