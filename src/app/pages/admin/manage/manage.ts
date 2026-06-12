@@ -144,7 +144,7 @@ export class Manage implements OnInit {
   save() {
     this.saving = true; this.error = '';
     const obs = this.editItem
-      ? this.config.updateFn!(this.editItem.id, this.formData)
+      ? this.config.updateFn!(this.editItem.idGuid, this.formData)
       : this.config.createFn!(this.formData);
     obs.subscribe({
       next: () => {
@@ -159,22 +159,22 @@ export class Manage implements OnInit {
 
   deleteItem(item: any) {
     if (!confirm('Delete this item?')) return;
-    this.config.deleteFn!(item.id).subscribe({ next: () => this.load() });
+    this.config.deleteFn!(item.idGuid).subscribe({ next: () => this.load() });
   }
 
   changeStatus(item: any, status: string) {
     if (!status) return;
-    this.config.statusFn!(item.id, status).subscribe({ next: () => this.load() });
+    this.config.statusFn!(item.idGuid, status).subscribe({ next: () => this.load() });
   }
 
   toggleActive(item: any) {
-    const obs = item.isActive ? this.admin.deactivateUser(item.id) : this.admin.activateUser(item.id);
+    const obs = item.isActive ? this.admin.deactivateUser(item.idGuid) : this.admin.activateUser(item.idGuid);
     obs.subscribe({ next: () => this.load() });
   }
 
   changeUserRole(item: any, role: string) {
     if (!role || !this.isSuperAdmin) return;
-    this.admin.updateUserRole(item.id, role).subscribe({
+    this.admin.updateUserRole(item.idGuid, role).subscribe({
       next: () => {
         this.success = `Role updated to "${role}" successfully.`;
         setTimeout(() => this.success = '', 3000);
@@ -184,7 +184,7 @@ export class Manage implements OnInit {
   }
 
   openBookingUser(item: any) { this.openUserModal(item.userId ?? item.userEmail); }
-  openUserFromUsers(item: any) { this.openUserModal(item.id); }
+  openUserFromUsers(item: any) { this.openUserModal(item.idGuid); }
 
   private openUserModal(idOrEmail: any) {
     this.showUserModal = true; this.userDetailsLoading.set(true);
@@ -208,7 +208,7 @@ export class Manage implements OnInit {
   openSpaceDetails(item: any) {
     this.showSpaceModal = true; this.spaceSummaryLoading.set(true);
     this.spaceSummaryError = ''; this.spaceSummary.set(null);
-    this.admin.getSpaceSummary(item.id).subscribe({
+    this.admin.getSpaceSummary(item.idGuid).subscribe({
       next: (res: any) => { this.spaceSummary.set(res?.data ?? res); this.spaceSummaryLoading.set(false); },
       error: () => { this.spaceSummaryLoading.set(false); this.spaceSummaryError = 'Failed to load space summary.'; }
     });
@@ -218,7 +218,7 @@ export class Manage implements OnInit {
   openPricingPlanSummary(item: any) {
     this.showPlanModal = true; this.planSummaryLoading.set(true);
     this.planSummaryError = ''; this.planSummary.set(null);
-    this.admin.getPricingPlanSummary(item.id).subscribe({
+    this.admin.getPricingPlanSummary(item.idGuid).subscribe({
       next: (res: any) => { this.planSummary.set(res?.data ?? res); this.planSummaryLoading.set(false); },
       error: () => { this.planSummaryLoading.set(false); this.planSummaryError = 'Failed to load plan summary.'; }
     });
@@ -228,7 +228,7 @@ export class Manage implements OnInit {
   openPaymentSummary(item: any) {
     this.showPaymentModal = true; this.paymentSummaryLoading.set(true);
     this.paymentSummaryError = ''; this.paymentSummary.set(null);
-    this.admin.getPaymentSummary(item.id).subscribe({
+    this.admin.getPaymentSummary(item.idGuid).subscribe({
       next: (res: any) => { this.paymentSummary.set(res?.data ?? res); this.paymentSummaryLoading.set(false); },
       error: () => { this.paymentSummaryLoading.set(false); this.paymentSummaryError = 'Failed to load payment summary.'; }
     });
