@@ -13,7 +13,6 @@ export class Navbar implements OnDestroy {
   mobileOpen = signal(false);
   scrolled = signal(false);
   profileOpen = signal(false);
-  locationOpen = signal(false);
   currentUrl = signal('/');
   user!: Signal<any>;
 
@@ -45,13 +44,12 @@ export class Navbar implements OnDestroy {
 
   email = computed(() => this.user()?.email || '');
   roles = computed(() => this.user()?.roles || []);
-  isAdmin = computed(() => this.authService.hasRole('Admin'));
   isGuest = computed(() => this.authService.isGuest());
   loggedIn = computed(() => !!this.user());
   overHero = computed(() => this.currentUrl() === '/' && !this.scrolled() && !this.mobileOpen());
   private routerEventsSub: Subscription;
 
-  constructor(/*  */
+  constructor(
     public authService: AuthService,
     private router: Router,
     private elRef: ElementRef
@@ -93,12 +91,6 @@ export class Navbar implements OnDestroy {
         this.profileOpen.set(false);
       }
     }
-    if (this.locationOpen()) {
-      const locEl = this.elRef.nativeElement.querySelector('.nav-dropdown-wrap');
-      if (locEl && !locEl.contains(event.target as Node)) {
-        this.locationOpen.set(false);
-      }
-    }
   }
 
   toggleMobile() {
@@ -113,12 +105,7 @@ export class Navbar implements OnDestroy {
   closeMobile() {
     this.mobileOpen.set(false);
     this.profileOpen.set(false);
-    this.locationOpen.set(false);
     document.body.style.overflow = '';
-  }
-
-  toggleLocation() {
-    this.locationOpen.update(v => !v);
   }
 
   toggleProfile() {
