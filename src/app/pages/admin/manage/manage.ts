@@ -90,6 +90,9 @@ export class Manage implements OnInit {
   private bookingCalendarDate = new Date();
   weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  locationOptions: { v: any; l: string }[] = [];
+  spaceTypeOptions: { v: any; l: string }[] = [];
+
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
 
@@ -106,6 +109,24 @@ export class Manage implements OnInit {
       this.entity = data['entity'];
       this.config = this.buildConfig(this.entity);
       this.load();
+      if (this.entity === 'spaces') this.loadSpaceDropdowns();
+    });
+  }
+
+  private loadSpaceDropdowns() {
+    this.admin.getLocations(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? res ?? [];
+        this.locationOptions = items.map((l: any) => ({ v: l.id, l: l.name }));
+        this.config = this.buildConfig('spaces');
+      }
+    });
+    this.admin.getSpaceTypes(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? res ?? [];
+        this.spaceTypeOptions = items.map((s: any) => ({ v: s.id, l: s.name }));
+        this.config = this.buildConfig('spaces');
+      }
     });
   }
 
@@ -187,19 +208,28 @@ export class Manage implements OnInit {
   openUserFromUsers(item: any) { this.openUserModal(item.idGuid); }
 
   private openUserModal(idOrEmail: any) {
-    this.showUserModal = true; this.userDetailsLoading.set(true);
-    this.userDetailsError = ''; this.selectedUser.set(null); this.userHistory.set(null);
-    this.admin.getUserById(idOrEmail).subscribe({
-      next: (res: any) => {
-        const u = res?.data ?? res;
-        this.selectedUser.set(u);
-        this.userDisplayName = [u?.firstName, u?.lastName].filter(Boolean).join(' ') || u?.email || 'N/A';
-        this.admin.getUserHistory(u.id ?? idOrEmail).subscribe({
-          next: (h: any) => { this.userHistory.set(h?.data ?? h); this.userDetailsLoading.set(false); },
+    this.showUserModal = true;
+    this.userDetailsLoading.set(true);
+    this.userDetailsError = '';
+    this.selectedUser.set(null);
+    this.userHistory.set(null);
+    this.admin.getUserHistory(idOrEmail).subscribe({
+      next: (histRes: any) => {
+        this.userHistory.set(histRes?.data ?? histRes);
+        this.admin.getUserById(String(idOrEmail)).subscribe({
+          next: (res: any) => {
+            const u = res?.data ?? res;
+            this.selectedUser.set(u);
+            this.userDisplayName = [u?.firstName, u?.lastName].filter(Boolean).join(' ') || u?.name || u?.email || 'N/A';
+            this.userDetailsLoading.set(false);
+          },
           error: () => this.userDetailsLoading.set(false)
         });
       },
-      error: () => { this.userDetailsLoading.set(false); this.userDetailsError = 'Failed to load user.'; }
+      error: () => {
+        this.userDetailsError = 'Failed to load user history.';
+        this.userDetailsLoading.set(false);
+      }
     });
   }
 
@@ -365,8 +395,8 @@ export class Manage implements OnInit {
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'code', label: 'Code', type: 'text' },
-          { key: 'locationId', label: 'Location ID', type: 'number' },
-          { key: 'spaceTypeId', label: 'Space Type ID', type: 'number' },
+          { key: 'locationId', label: 'Location', type: 'select', options: this.locationOptions },
+          { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions },
           { key: 'pricePerHour', label: 'Price/Hour', type: 'number' },
           { key: 'pricePerDay', label: 'Price/Day', type: 'number' },
           { key: 'floor', label: 'Floor', type: 'text' },
