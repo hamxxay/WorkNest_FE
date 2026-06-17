@@ -159,6 +159,18 @@ export class AdminService {
   /** Update booking details */
   updateBooking(id: number, data: Partial<Booking>): Observable<ApiResponse<any>> { return this.http.put<ApiResponse<any>>(`${this.api}/booking/${id}`, data); }
 
+  /** Reassign booking to different space */
+  reassignBooking(bookingId: number, newSpaceId: number): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${bookingId}/reassign`, { spaceId: newSpaceId });
+  }
+
+  /** Get available spaces for reassignment */
+  getAvailableSpacesForReassignment(spaceType: string, startDateTime: string, endDateTime: string, excludeBookingId?: number): Observable<ApiResponse<any>> {
+    const params = new URLSearchParams({ spaceType, startDateTime, endDateTime });
+    if (excludeBookingId) params.set('excludeBookingId', String(excludeBookingId));
+    return this.http.get<ApiResponse<any>>(`${this.api}/booking/available-spaces?${params.toString()}`);
+  }
+
   /** Get booking calendar availability for a space */
   getBookingCalendar(spaceId: number, year: number, month: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/booking/calendar?spaceId=${spaceId}&year=${year}&month=${month}`);

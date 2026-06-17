@@ -85,6 +85,18 @@ h1 {
   font-weight: 600;
 }
 
+.result-row.assigned-space-row {
+  background: rgba(57, 160, 203, 0.05);
+  border-left: 3px solid var(--accent);
+}
+
+.result-row.assigned-space-row .space-code {
+  color: var(--accent) !important;
+  font-family: 'Courier New', monospace;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
 .result-row strong.mono {
   font-family: 'Courier New', monospace;
   font-size: 0.82rem;

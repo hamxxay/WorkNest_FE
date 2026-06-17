@@ -63,6 +63,22 @@
 .summary-row span { color: var(--text-muted); flex-shrink: 0; }
 .summary-row strong { color: var(--text-primary); text-align: right; font-weight: 500; }
 
+.summary-row.assigned-space {
+  padding: 12px 0;
+  background: rgba(57, 160, 203, 0.05);
+  border-radius: 8px;
+  margin: 8px -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.space-code {
+  color: var(--accent) !important;
+  font-family: 'Courier New', monospace;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
 .summary-divider { height: 1px; background: var(--border-color); margin: 10px 0; }
 
 .total-row { padding-top: 12px; }

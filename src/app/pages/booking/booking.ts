@@ -6,6 +6,7 @@ import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
 import { applyPercentDiscount, getWorkspaceDiscount, type BookingLike } from '../../utils/workspace-discount';
+import { getSpaceTypeDisplayName, validateSpaceAssignment } from '../../utils/space-assignment';
 
 interface Workspace {
   id: number;
@@ -80,11 +81,17 @@ export class Booking implements OnInit {
   showBookingModal = false;
   showAuthPrompt = false;
   selectedSpace: Workspace | null = null;
+  selectedSpaceType = '';
   bookingNotes = '';
   bookingStartDate = '';
   bookingStartTime = '09:00';
   bookingEndDate = '';
   bookingEndTime = '17:00';
+  availabilityLoading = signal(false);
+  availabilityError = signal('');
+  availableCount = signal(0);
+  isSpaceFull = computed(() => this.availableCount() === 0);
+  assignedSpace = signal<any>(null);
 
   constructor(
     private spaceService: SpaceService,
@@ -184,12 +191,55 @@ export class Booking implements OnInit {
       return;
     }
     this.selectedSpace = ws;
+    this.selectedSpaceType = ws.spaceTypeName;
     this.showBookingModal = true;
     this.bookingError.set('');
     this.bookingSuccess.set('');
+    this.availabilityError.set('');
+    this.assignedSpace.set(null);
     const today = new Date().toISOString().split('T')[0];
     this.bookingStartDate = today;
     this.bookingEndDate = today;
+    this.checkAvailability();
+  }
+
+  private checkAvailability() {
+    if (!this.selectedSpaceType || !this.bookingStartDate || !this.bookingStartTime || !this.bookingEndDate || !this.bookingEndTime) {
+      this.availableCount.set(0);
+      return;
+    }
+
+    const startDateTime = `${this.bookingStartDate}T${this.bookingStartTime}:00`;
+    const endDateTime = `${this.bookingEndDate}T${this.bookingEndTime}:00`;
+
+    // Validate assignment before checking availability
+    const validation = validateSpaceAssignment(this.selectedSpaceType, startDateTime, endDateTime);
+    if (!validation.valid) {
+      this.availabilityError.set(validation.error || 'Invalid booking parameters');
+      this.availableCount.set(0);
+      return;
+    }
+
+    this.availabilityLoading.set(true);
+    this.availabilityError.set('');
+    
+    this.bookingService.getAvailableSpaces(this.selectedSpaceType, startDateTime, endDateTime).subscribe({
+      next: (res) => {
+        const data = res?.data || res;
+        this.availableCount.set(data?.availableCount || 0);
+        this.availabilityLoading.set(false);
+      },
+      error: (err) => {
+        const errorMsg = err?.error?.message || 'Unable to check availability';
+        this.availabilityError.set(errorMsg);
+        this.availableCount.set(0);
+        this.availabilityLoading.set(false);
+      }
+    });
+  }
+
+  onBookingTimeChange() {
+    this.checkAvailability();
   }
 
   closeBookingModal() {
@@ -240,27 +290,41 @@ export class Booking implements OnInit {
       return;
     }
 
+    if (this.isSpaceFull()) {
+      this.bookingError.set('No space available for the selected time.');
+      return;
+    }
+
     const startDateTime = `${this.bookingStartDate}T${this.bookingStartTime}:00`;
     const endDateTime = `${this.bookingEndDate}T${this.bookingEndTime}:00`;
 
-    if (new Date(endDateTime) <= new Date(startDateTime)) {
-      this.bookingError.set('End date/time must be after start date/time.');
+    // Final validation before submitting
+    const validation = validateSpaceAssignment(this.selectedSpaceType, startDateTime, endDateTime);
+    if (!validation.valid) {
+      this.bookingError.set(validation.error || 'Invalid booking parameters');
       return;
     }
 
     const breakdown = this.getPriceBreakdown();
-    const space = this.selectedSpace;
+    const displayName = getSpaceTypeDisplayName(this.selectedSpaceType);
+    
+    // Create booking with space type for auto-assignment
+    const bookingData = {
+      spaceType: this.selectedSpaceType,
+      startDateTime,
+      endDateTime,
+      totalAmount: breakdown != null ? breakdown.final : 0,
+      notes: this.bookingNotes || null
+    };
+
     this.closeBookingModal();
 
     this.router.navigate(['/checkout'], {
       state: {
         pendingBooking: {
-          spaceId:       space.idGuid || space.id,
-          spaceName:     space.name,
-          startDateTime,
-          endDateTime,
-          totalAmount:   breakdown != null ? breakdown.final : 0,
-          notes:         this.bookingNotes || null
+          ...bookingData,
+          spaceName: `${displayName} (Auto-assigned)`,
+          autoAssign: true
         }
       }
     });

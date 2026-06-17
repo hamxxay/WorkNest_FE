@@ -83,6 +83,11 @@
                     <button class="action-btn info" (click)="openBookingUser(item)" title="User Details">
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                     </button>
+                    @if (item.bookingStatus === 'Confirmed') {
+                      <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign Space">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2-2z"/><path d="M8 5v4"/><path d="M16 5v4"/></svg>
+                      </button>
+                    }
                   }
                   @if (entity === 'users') {
                     <button class="action-btn info" (click)="openUserFromUsers(item)" title="User Details">
@@ -409,6 +414,50 @@
             }
           </div>
         }
+      }
+    </div>
+  </div>
+}
+
+<!-- Reassign Booking Modal -->
+@if (showReassignModal && reassignBooking) {
+  <div class="modal-overlay" (click)="closeReassignModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeReassignModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Reassign Booking</h2>
+      <div class="user-detail-grid" style="margin-bottom: 1rem;">
+        <div class="user-line"><span>User</span><strong>{{ reassignBooking.userEmail }}</strong></div>
+        <div class="user-line"><span>Current Space</span><strong>{{ reassignBooking.spaceName }} ({{ reassignBooking.assignedSpaceCode }})</strong></div>
+        <div class="user-line"><span>Time</span><strong>{{ reassignBooking.startDateTime | date:'medium' }} - {{ reassignBooking.endDateTime | date:'medium' }}</strong></div>
+      </div>
+      @if (reassignError) {
+        <div class="alert-admin alert-error-admin">{{ reassignError }}</div>
+      }
+      @if (reassignLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading available spaces...</p></div>
+      } @else {
+        <form (ngSubmit)="submitReassignment()">
+          <div class="form-group-admin">
+            <label>Reassign to Space:</label>
+            <select class="form-input-admin" [(ngModel)]="selectedNewSpace" name="newSpace" required>
+              <option value="">Select available space...</option>
+              @for (space of availableSpacesForReassign(); track space.id) {
+                <option [value]="space.id">{{ space.code }} - {{ space.name }} ({{ space.locationName }})</option>
+              }
+            </select>
+          </div>
+          @if (availableSpacesForReassign().length === 0) {
+            <p style="color: var(--error); font-size: 0.875rem; margin: 0.5rem 0;">No available spaces found for this time slot and space type.</p>
+          }
+          <div class="modal-actions">
+            <button type="button" class="btn-admin btn-outline-admin" (click)="closeReassignModal()">Cancel</button>
+            <button type="submit" class="btn-admin btn-primary-admin" [disabled]="!selectedNewSpace || reassignLoading() || availableSpacesForReassign().length === 0">
+              {{ reassignLoading() ? 'Reassigning...' : 'Reassign Space' }}
+            </button>
+          </div>
+        </form>
       }
     </div>
   </div>

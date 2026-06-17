@@ -19,6 +19,12 @@
           </div>
           <div class="summary-body">
             <div class="summary-row"><span>Space</span><strong>{{ pending.spaceName }}</strong></div>
+            @if (booking()?.assignedSpace) {
+              <div class="summary-row assigned-space">
+                <span>Assigned Space</span>
+                <strong class="space-code">{{ booking()?.assignedSpace.code }} - {{ booking()?.assignedSpace.name }}</strong>
+              </div>
+            }
             <div class="summary-row"><span>Check-in</span><strong>{{ pending.startDateTime | date:'medium' }}</strong></div>
             <div class="summary-row"><span>Check-out</span><strong>{{ pending.endDateTime | date:'medium' }}</strong></div>
             @if (pending.notes) {
