@@ -83,31 +83,42 @@ export class Checkout implements OnInit {
   pending: any = null;
 
   // ── Create booking then act on payment method ───────────────────
-  private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number) => void) {
+  private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number, assignedSpace?: any) => void) {
     if (!this.pending) return;
     this.submitting.set(true);
     this.error.set('');
 
-    this.bookingService.create({
-      spaceId:       this.pending.spaceId,
+    // Use different payload based on whether it's auto-assignment or specific space booking
+    const bookingData = this.pending.autoAssign ? {
+      spaceType: this.pending.spaceType,
       startDateTime: this.pending.startDateTime,
-      endDateTime:   this.pending.endDateTime,
-      totalAmount:   parseFloat(Number(this.pending.totalAmount).toFixed(2)),
-      notes:         paymentMethod
-    }).subscribe({
+      endDateTime: this.pending.endDateTime,
+      totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
+      notes: this.pending.notes || paymentMethod
+    } : {
+      spaceId: this.pending.spaceId,
+      startDateTime: this.pending.startDateTime,
+      endDateTime: this.pending.endDateTime,
+      totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
+      notes: paymentMethod
+    };
+
+    this.bookingService.create(bookingData).subscribe({
       next: (res) => {
-        if (res.isSuccessful) {
+        if (res.isSuccessful || res.success) {
           const bookingId = res.data?.id ?? res.data?.bookingId ?? res.id;
-          this.booking.set({ ...this.pending, id: bookingId });
-          onSuccess(bookingId);
+          const assignedSpace = res.data?.assignedSpace;
+          this.booking.set({ ...this.pending, id: bookingId, assignedSpace });
+          onSuccess(bookingId, assignedSpace);
         } else {
           this.submitting.set(false);
-          this.error.set(res.message || 'Booking failed.');
+          this.error.set(res.message || res.error || 'Booking failed.');
         }
       },
       error: (err: any) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Failed to create booking. Please try again.');
+        const errorMsg = err?.error?.message || err?.error?.error || 'Failed to create booking. Please try again.';
+        this.error.set(errorMsg);
       }
     });
   }
@@ -167,7 +178,7 @@ export class Checkout implements OnInit {
     const err = this.validateCard();
     if (err) { this.error.set(err); return; }
 
-    this.createBookingWith('Card', (bookingId) => {
+    this.createBookingWith('Card', (bookingId, assignedSpace) => {
       const idempotencyKey = `${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.cardService.initiateCardPayment({
         bookingId,
@@ -189,6 +200,7 @@ export class Checkout implements OnInit {
               amount:    this.pending?.totalAmount,
               ref:       res.transactionRef ?? '',
               method:    'Card',
+              assignedSpace: assignedSpace ? JSON.stringify(assignedSpace) : ''
             }
           });
         },
@@ -213,7 +225,7 @@ export class Checkout implements OnInit {
   // ── 1Bill voucher ──────────────────────────────────────────
   generateVoucher() {
     if (this.voucher()) return;
-    this.createBookingWith('Voucher', (bookingId) => {
+    this.createBookingWith('Voucher', (bookingId, assignedSpace) => {
       const idempotencyKey = `vchr-${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.oneBillService.generateVoucher({
         bookingId,
@@ -224,6 +236,10 @@ export class Checkout implements OnInit {
           this.submitting.set(false);
           if (res.isSuccessful) {
             this.voucher.set(res);
+            // Store assigned space info for later display
+            if (assignedSpace) {
+              this.voucher.update(v => ({ ...v!, assignedSpace }));
+            }
           } else {
             this.error.set(res.message || 'Failed to generate voucher.');
           }
@@ -253,9 +269,13 @@ export class Checkout implements OnInit {
 
   // ── Pay at Counter ─────────────────────────────────────────
   submitCounter() {
-    this.createBookingWith('Payment via Cash on Counter', () => {
+    this.createBookingWith('Payment via Cash on Counter', (bookingId, assignedSpace) => {
       this.submitting.set(false);
       this.counterDone.set(true);
+      // Store assigned space for display
+      if (assignedSpace) {
+        this.booking.update(b => ({ ...b!, assignedSpace }));
+      }
     });
   }
 
@@ -267,7 +287,7 @@ export class Checkout implements OnInit {
     this.error.set('');
 
     const user = this.authService.user();
-    this.createBookingWith('PayFast', (bookingId) => {
+    this.createBookingWith('PayFast', (bookingId, assignedSpace) => {
       this.payfastService.initiatePayment({
         bookingId,
         customerName:  user?.displayName  || user?.email?.split('@')[0] || 'Customer',
@@ -276,6 +296,10 @@ export class Checkout implements OnInit {
         next: (res) => {
           this.payfastSubmitting.set(false);
           if (res.isSuccessful && res.data) {
+            // Store assigned space info before redirecting
+            if (assignedSpace) {
+              sessionStorage.setItem(`assignedSpace_${bookingId}`, JSON.stringify(assignedSpace));
+            }
             this.payfastService.redirectToPayFast(res.data);
           } else {
             this.error.set(res.message || 'PayFast initiation failed.');

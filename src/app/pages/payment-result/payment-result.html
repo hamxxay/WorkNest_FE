@@ -16,10 +16,22 @@
               <strong>#{{ bookingId() }}</strong>
             </div>
           }
+          @if (assignedSpace()) {
+            <div class="result-row assigned-space-row">
+              <span>Assigned Space</span>
+              <strong class="space-code">{{ assignedSpace().code }} - {{ assignedSpace().name }}</strong>
+            </div>
+          }
           @if (amount()) {
             <div class="result-row">
               <span>Amount</span>
               <strong>Rs {{ amount() }}</strong>
+            </div>
+          }
+          @if (method()) {
+            <div class="result-row">
+              <span>Payment Method</span>
+              <strong>{{ method() }}</strong>
             </div>
           }
           @if (ref()) {

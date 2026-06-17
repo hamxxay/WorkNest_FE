@@ -176,22 +176,47 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Start Date</label>
-            <input type="date" class="form-input" [(ngModel)]="bookingStartDate" name="startDate" required />
+            <input type="date" class="form-input" [(ngModel)]="bookingStartDate" name="startDate" (ngModelChange)="onBookingTimeChange()" required />
           </div>
           <div class="form-group">
             <label class="form-label">Start Time</label>
-            <input type="time" class="form-input" [(ngModel)]="bookingStartTime" name="startTime" required />
+            <input type="time" class="form-input" [(ngModel)]="bookingStartTime" name="startTime" (ngModelChange)="onBookingTimeChange()" required />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">End Date</label>
-            <input type="date" class="form-input" [(ngModel)]="bookingEndDate" name="endDate" required />
+            <input type="date" class="form-input" [(ngModel)]="bookingEndDate" name="endDate" (ngModelChange)="onBookingTimeChange()" required />
           </div>
           <div class="form-group">
             <label class="form-label">End Time</label>
-            <input type="time" class="form-input" [(ngModel)]="bookingEndTime" name="endTime" required />
+            <input type="time" class="form-input" [(ngModel)]="bookingEndTime" name="endTime" (ngModelChange)="onBookingTimeChange()" required />
           </div>
+        </div>
+
+        <!-- Availability Status -->
+        <div class="availability-status" style="margin-bottom: 1rem; padding: 0.75rem; border-radius: 6px; background: var(--bg-secondary);">
+          @if (availabilityLoading()) {
+            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary);">
+              <div class="spinner" style="width: 16px; height: 16px;"></div>
+              <span>Checking availability...</span>
+            </div>
+          } @else if (availabilityError()) {
+            <div style="color: var(--error); font-size: 0.875rem;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              {{ availabilityError() }}
+            </div>
+          } @else {
+            <div [style.color]="isSpaceFull() ? 'var(--error)' : 'var(--success)'" style="font-weight: 500; font-size: 0.875rem;">
+              @if (isSpaceFull()) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                No {{ selectedSpaceType }} spaces available for selected time
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+                {{ availableCount() }} {{ selectedSpaceType }} space{{ availableCount() === 1 ? '' : 's' }} available
+              }
+            </div>
+          }
         </div>
         <div class="form-group">
           <label class="form-label">Notes (optional)</label>
@@ -212,8 +237,14 @@
             <span><b>Total: Rs {{ pb.final.toFixed(2) }}</b></span>
           </div>
         }
-        <button type="submit" class="btn btn-primary btn-block btn-lg">
-          Proceed to Payment
+        <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="isSpaceFull() || availabilityLoading()">
+          @if (isSpaceFull()) {
+            <span>No Space Available</span>
+          } @else if (availabilityLoading()) {
+            <span>Checking Availability...</span>
+          } @else {
+            <span>Proceed to Payment</span>
+          }
         </button>
       </form>
     </div>

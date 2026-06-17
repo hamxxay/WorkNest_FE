@@ -33,12 +33,38 @@ export class BookingService {
   }
 
   /**
-   * Create a new booking
-   * @param booking - Booking object containing space ID, dates, and other details
-   * @returns Observable of created booking confirmation
+   * Get available spaces by type with auto-assignment logic
+   * @param spaceType - Type of space (e.g., 'Private Office', 'Shared Space', 'Meeting Room')
+   * @param startDateTime - Booking start date/time
+   * @param endDateTime - Booking end date/time
+   * @returns Observable with available spaces and assignment info
+   */
+  getAvailableSpaces(spaceType: string, startDateTime: string, endDateTime: string): Observable<any> {
+    const params = new URLSearchParams({
+      spaceType,
+      startDateTime,
+      endDateTime
+    });
+    return this.http.get<any>(`${this.apiUrl}/available-spaces?${params.toString()}`);
+  }
+
+  /**
+   * Create a new booking with auto-assigned space
+   * @param booking - Booking object containing space type, dates, and other details
+   * @returns Observable of created booking with assigned space
    */
   create(booking: any): Observable<any> {
     return this.http.post<any>(this.apiUrl, booking);
+  }
+
+  /**
+   * Reassign booking to a different space (admin only)
+   * @param bookingId - Booking ID
+   * @param newSpaceId - New space ID to assign
+   * @returns Observable of updated booking
+   */
+  reassignSpace(bookingId: number, newSpaceId: number): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/${bookingId}/reassign`, { spaceId: newSpaceId });
   }
 
   /**

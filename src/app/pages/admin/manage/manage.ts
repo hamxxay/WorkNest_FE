@@ -84,6 +84,13 @@ export class Manage implements OnInit {
   paymentSummaryLoading = signal(false);
   paymentSummaryError = '';
 
+  showReassignModal = false;
+  reassignBooking: any = null;
+  availableSpacesForReassign = signal<any[]>([]);
+  reassignLoading = signal(false);
+  reassignError = '';
+  selectedNewSpace = '';
+
   bookingCalendarLoading = signal(false);
   bookingMonthCells: any[] = [];
   bookingMonthTitle = '';
@@ -265,6 +272,62 @@ export class Manage implements OnInit {
   }
   closePaymentModal() { this.showPaymentModal = false; }
 
+  openReassignModal(booking: any) {
+    this.reassignBooking = booking;
+    this.showReassignModal = true;
+    this.reassignError = '';
+    this.selectedNewSpace = '';
+    this.loadAvailableSpacesForReassign();
+  }
+
+  closeReassignModal() {
+    this.showReassignModal = false;
+    this.reassignBooking = null;
+    this.availableSpacesForReassign.set([]);
+  }
+
+  private loadAvailableSpacesForReassign() {
+    if (!this.reassignBooking) return;
+    
+    this.reassignLoading.set(true);
+    this.admin.getAvailableSpacesForReassignment(
+      this.reassignBooking.spaceTypeName || 'Private Office',
+      this.reassignBooking.startDateTime,
+      this.reassignBooking.endDateTime,
+      this.reassignBooking.id
+    ).subscribe({
+      next: (res: any) => {
+        this.availableSpacesForReassign.set(res?.data || []);
+        this.reassignLoading.set(false);
+      },
+      error: () => {
+        this.reassignError = 'Failed to load available spaces';
+        this.reassignLoading.set(false);
+      }
+    });
+  }
+
+  submitReassignment() {
+    if (!this.selectedNewSpace || !this.reassignBooking) {
+      this.reassignError = 'Please select a space to reassign';
+      return;
+    }
+
+    this.reassignLoading.set(true);
+    this.admin.reassignBooking(this.reassignBooking.id, Number(this.selectedNewSpace)).subscribe({
+      next: () => {
+        this.success = 'Booking reassigned successfully';
+        setTimeout(() => this.success = '', 3000);
+        this.closeReassignModal();
+        this.load();
+      },
+      error: (err: any) => {
+        this.reassignError = err?.error?.message || 'Failed to reassign booking';
+        this.reassignLoading.set(false);
+      }
+    });
+  }
+
   private initBookingCalendar() { this.bookingCalendarDate = new Date(); this.buildBookingCalendar(); }
   prevBookingMonth() { this.bookingCalendarDate.setMonth(this.bookingCalendarDate.getMonth() - 1); this.buildBookingCalendar(); }
   nextBookingMonth() { this.bookingCalendarDate.setMonth(this.bookingCalendarDate.getMonth() + 1); this.buildBookingCalendar(); }
@@ -420,6 +483,7 @@ export class Manage implements OnInit {
         columns: [
           { key: 'userEmail', label: 'User' },
           { key: 'spaceName', label: 'Space' },
+          { key: 'assignedSpaceCode', label: 'Code' },
           { key: 'startDateTime', label: 'Start', type: 'date' },
           { key: 'endDateTime', label: 'End', type: 'date' },
           { key: 'totalAmount', label: 'Amount', type: 'currency' },
