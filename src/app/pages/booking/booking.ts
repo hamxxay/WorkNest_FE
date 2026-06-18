@@ -197,9 +197,11 @@ export class Booking implements OnInit {
     this.bookingSuccess.set('');
     this.availabilityError.set('');
     this.assignedSpace.set(null);
-    const today = new Date().toISOString().split('T')[0];
-    this.bookingStartDate = today;
-    this.bookingEndDate = today;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    this.bookingStartDate = tomorrowStr;
+    this.bookingEndDate = tomorrowStr;
     this.checkAvailability();
   }
 
@@ -212,27 +214,26 @@ export class Booking implements OnInit {
     const startDateTime = `${this.bookingStartDate}T${this.bookingStartTime}:00`;
     const endDateTime = `${this.bookingEndDate}T${this.bookingEndTime}:00`;
 
-    // Validate assignment before checking availability
-    const validation = validateSpaceAssignment(this.selectedSpaceType, startDateTime, endDateTime);
-    if (!validation.valid) {
-      this.availabilityError.set(validation.error || 'Invalid booking parameters');
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
       this.availableCount.set(0);
       return;
     }
 
     this.availabilityLoading.set(true);
     this.availabilityError.set('');
-    
+
     this.bookingService.getAvailableSpaces(this.selectedSpaceType, startDateTime, endDateTime).subscribe({
       next: (res) => {
         const data = res?.data || res;
-        this.availableCount.set(data?.availableCount || 0);
+        const spaces = Array.isArray(data) ? data : (Array.isArray(data?.spaces) ? data.spaces : []);
+        this.availableCount.set(spaces.length);
         this.availabilityLoading.set(false);
       },
-      error: (err) => {
-        const errorMsg = err?.error?.message || 'Unable to check availability';
-        this.availabilityError.set(errorMsg);
-        this.availableCount.set(0);
+      error: () => {
+        // On error still allow booking — let backend validate
+        this.availableCount.set(1);
         this.availabilityLoading.set(false);
       }
     });

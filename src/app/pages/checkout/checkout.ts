@@ -107,7 +107,7 @@ export class Checkout implements OnInit {
       next: (res) => {
         if (res.isSuccessful || res.success) {
           const bookingId = res.data?.id ?? res.data?.bookingId ?? res.id;
-          const assignedSpace = res.data?.assignedSpace;
+          const assignedSpace = res.data?.assignedSpace ?? (res.data?.assignedSpaceName ? { name: res.data.assignedSpaceName, code: res.data.assignedSpaceId ?? '' } : null);
           this.booking.set({ ...this.pending, id: bookingId, assignedSpace });
           onSuccess(bookingId, assignedSpace);
         } else {
