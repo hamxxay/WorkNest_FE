@@ -1,0 +1,151 @@
+<section class="page-hero">
+  <div class="container text-center">
+    <h1>Policies</h1>
+    <p class="hero-sub">Please read our policies carefully before using WorkNest services.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+
+    <div class="policy-tabs">
+      <button class="policy-tab" [class.active]="activeTab() === 'privacy'" (click)="setTab('privacy')">Privacy Policy</button>
+      <button class="policy-tab" [class.active]="activeTab() === 'terms'" (click)="setTab('terms')">Terms of Service</button>
+      <button class="policy-tab" [class.active]="activeTab() === 'refund'" (click)="setTab('refund')">Refund Policy</button>
+      <button class="policy-tab" [class.active]="activeTab() === 'booking'" (click)="setTab('booking')">Booking Policy</button>
+    </div>
+
+    <div class="policy-body card">
+
+      @if (activeTab() === 'privacy') {
+        <h2>Privacy Policy</h2>
+        <p class="policy-date">Last updated: June 2025</p>
+        <p>WorkNest ("we", "our", "us") is committed to protecting your personal information. This policy explains how we collect, use, and safeguard your data when you use our platform.</p>
+
+        <h3>Information We Collect</h3>
+        <ul>
+          <li>Name, email address, and phone number provided during registration or booking.</li>
+          <li>Payment-related information (processed securely via third-party gateways; we do not store card details).</li>
+          <li>Usage data such as pages visited and actions taken on the platform.</li>
+        </ul>
+
+        <h3>How We Use Your Information</h3>
+        <ul>
+          <li>To process bookings and send confirmation emails.</li>
+          <li>To communicate updates, invoices, and support responses.</li>
+          <li>To improve our services and user experience.</li>
+          <li>To comply with legal obligations.</li>
+        </ul>
+
+        <h3>Data Sharing</h3>
+        <p>We do not sell or rent your personal data. We may share it with trusted service providers (e.g., payment processors) solely to deliver our services.</p>
+
+        <h3>Data Security</h3>
+        <p>We implement industry-standard security measures to protect your data. However, no online platform can guarantee absolute security.</p>
+
+        <h3>Your Rights</h3>
+        <p>You may request access to, correction of, or deletion of your personal data by contacting us at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a>.</p>
+
+        <h3>Contact</h3>
+        <p>For privacy-related queries, email us at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a> or call <a href="tel:+923080256000">+92 308 0256000</a>.</p>
+      }
+
+      @if (activeTab() === 'terms') {
+        <h2>Terms of Service</h2>
+        <p class="policy-date">Last updated: June 2025</p>
+        <p>By accessing or using the WorkNest platform, you agree to be bound by these Terms of Service. If you do not agree, please do not use our services.</p>
+
+        <h3>Use of the Platform</h3>
+        <ul>
+          <li>You must be at least 18 years old to register and make bookings.</li>
+          <li>You are responsible for maintaining the confidentiality of your account credentials.</li>
+          <li>You agree not to misuse the platform, including attempting unauthorized access or submitting false information.</li>
+        </ul>
+
+        <h3>Bookings & Payments</h3>
+        <ul>
+          <li>All bookings are subject to availability and confirmation by WorkNest.</li>
+          <li>Prices displayed are inclusive of applicable taxes unless stated otherwise.</li>
+          <li>WorkNest reserves the right to cancel bookings in cases of fraud or policy violations.</li>
+        </ul>
+
+        <h3>Intellectual Property</h3>
+        <p>All content on the WorkNest platform, including logos, images, and text, is the property of WorkNest and may not be reproduced without written permission.</p>
+
+        <h3>Limitation of Liability</h3>
+        <p>WorkNest shall not be liable for any indirect, incidental, or consequential damages arising from your use of our services.</p>
+
+        <h3>Changes to Terms</h3>
+        <p>We may update these terms at any time. Continued use of the platform after changes constitutes acceptance of the revised terms.</p>
+
+        <h3>Contact</h3>
+        <p>Questions about these terms? Reach us at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a>.</p>
+      }
+
+      @if (activeTab() === 'refund') {
+        <h2>Refund Policy</h2>
+        <p class="policy-date">Last updated: June 2025</p>
+        <p>We strive to provide a seamless experience. If you are not satisfied, please review our refund policy below.</p>
+
+        <h3>Eligibility for Refunds</h3>
+        <ul>
+          <li>Cancellations made <strong>48 hours or more</strong> before the booking start time are eligible for a full refund.</li>
+          <li>Cancellations made <strong>24–48 hours</strong> before the booking start time are eligible for a 50% refund.</li>
+          <li>Cancellations made <strong>less than 24 hours</strong> before the booking start time are non-refundable.</li>
+          <li>No-shows are non-refundable.</li>
+        </ul>
+
+        <h3>How to Request a Refund</h3>
+        <p>Contact our support team at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a> with your booking ID and reason for cancellation. Refunds are processed within 5–7 business days to the original payment method.</p>
+
+        <h3>Non-Refundable Situations</h3>
+        <ul>
+          <li>Bookings cancelled outside the eligible window.</li>
+          <li>Bookings where the space was used even partially.</li>
+          <li>Promotional or discounted bookings marked as non-refundable.</li>
+        </ul>
+
+        <h3>Contact</h3>
+        <p>For refund queries, email <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a> or call <a href="tel:+923080256000">+92 308 0256000</a>.</p>
+      }
+
+      @if (activeTab() === 'booking') {
+        <h2>Booking Policy</h2>
+        <p class="policy-date">Last updated: June 2025</p>
+        <p>These guidelines govern how bookings are made, managed, and honoured at WorkNest.</p>
+
+        <h3>Making a Booking</h3>
+        <ul>
+          <li>Bookings can be made online through the WorkNest platform by registered users.</li>
+          <li>A booking is confirmed only after successful payment processing.</li>
+          <li>You will receive a confirmation email with your booking details and assigned space.</li>
+        </ul>
+
+        <h3>Space Assignment</h3>
+        <ul>
+          <li>WorkNest uses an auto-assignment system to allocate the best available space of the requested type.</li>
+          <li>The assigned space (room number / code) will be shared in your booking confirmation.</li>
+          <li>WorkNest reserves the right to reassign spaces in exceptional circumstances while ensuring equivalent or better alternatives.</li>
+        </ul>
+
+        <h3>Usage Rules</h3>
+        <ul>
+          <li>Spaces must be used only during the booked time window.</li>
+          <li>Subletting or transferring a booking to another party is not permitted.</li>
+          <li>Damage to the space or its equipment will be charged to the booking holder.</li>
+          <li>Smoking, illegal activities, or disruptive behaviour will result in immediate termination of the booking without refund.</li>
+        </ul>
+
+        <h3>Modifications</h3>
+        <p>Booking modifications (date/time changes) are subject to availability and must be requested at least 24 hours in advance by contacting <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a>.</p>
+
+        <h3>Contact</h3>
+        <p>For booking support, reach us at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a> or call <a href="tel:+923080256000">+92 308 0256000</a>.</p>
+      }
+
+    </div>
+
+    <p class="policy-back">Have questions? <a routerLink="/contact">Contact us</a> or <a routerLink="/book-a-tour">book a tour</a>.</p>
+
+  </div>
+</section>

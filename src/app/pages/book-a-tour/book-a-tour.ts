@@ -47,10 +47,13 @@ export class BookATour {
     this.error.set('');
     this.loading.set(true);
 
+    const summary = `${this.form.preferredDate} ${this.form.timeSlot}`;
+    const notes = this.form.message ? ` | ${this.form.message}` : '';
     const payload = {
-      ...this.form,
-      subject: 'Book a Tour Request',
-      message: `Tour Request\nDate: ${this.form.preferredDate}\nTime: ${this.form.timeSlot}\n\n${this.form.message}`
+      fullName: this.form.fullName,
+      email: this.form.email,
+      phone: this.form.phone.slice(0, 20),
+      message: `Tour: ${summary}${notes}`.slice(0, 100)
     };
 
     this.contactService.submit(payload).subscribe({
