@@ -205,7 +205,7 @@ const POLICIES: Record<string, Policy> = {
             </div>
           }
           <div class="policy-contact">
-            <p>Questions? Contact us at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a> or call <a href="tel:+923080256000">+92 308 0256000</a>.</p>
+            <p>Questions? Contact us at <a href="mailto:sales@worknestpk.com">sales&#64;worknestpk.com</a> or call <a href="tel:+92 309 9771774">+92 309 977 1774</a>.</p>
           </div>
         } @else {
           <p>Policy not found.</p>
