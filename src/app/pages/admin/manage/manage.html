@@ -203,6 +203,28 @@
             <label>{{ field.label }}</label>
             @if (field.type === 'textarea') {
               <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
+            } @else if (field.type === 'floor-select') {
+              <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
+                <option value="">Select Floor...</option>
+                @for (opt of floorOptions; track opt.v) {
+                  <option [value]="opt.v">{{ opt.l }}</option>
+                }
+              </select>
+              @if (!floorOptions.length) {
+                <small style="color:var(--warning,#f59e0b)">Select a location first to load floors.</small>
+              }
+            } @else if (field.type === 'amenities-multicheck') {
+              <div class="amenities-check-grid">
+                @for (a of amenityOptions; track a.id) {
+                  <label class="checkbox-label">
+                    <input type="checkbox" [checked]="isAmenitySelected(a.id)" (change)="toggleAmenity(a.id)" />
+                    {{ a.name }}
+                  </label>
+                }
+                @if (!amenityOptions.length) {
+                  <small style="color:var(--warning,#f59e0b)">No amenities found in database.</small>
+                }
+              </div>
             } @else if (field.type === 'select') {
               <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" (change)="onFieldChange(field.key)">
                 <option value="">Select...</option>

@@ -245,6 +245,23 @@ export class AdminService {
   updateContactStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status?status=${encodeURIComponent(status)}`, {}); }
   deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
 
+  // Floors
+  getFloors(locationId?: number): Observable<ApiResponse<any[]>> {
+    const qs = locationId ? `?locationId=${locationId}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/floor${qs}`);
+  }
+  createFloor(data: { locationId: number; floorName: string }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/floor`, data);
+  }
+
+  // Amenities
+  getAmenities(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/amenity`);
+  }
+  createAmenity(data: { name: string }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/amenity`, data);
+  }
+
   // Gallery
   getGalleryAll(page?: number, limit?: number, search?: string): Observable<ApiResponse<GalleryImage[]>> {
     const params = new URLSearchParams();
