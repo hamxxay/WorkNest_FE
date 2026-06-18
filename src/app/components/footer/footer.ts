@@ -15,7 +15,6 @@ export class Footer implements AfterViewInit {
   ngAfterViewInit() {
     if (typeof L === 'undefined') return;
 
-    // Centre between F-7 and I-8
     const map = L.map('footer-map', {
       center: [33.694, 73.062],
       zoom: 12,
@@ -24,14 +23,12 @@ export class Footer implements AfterViewInit {
       attributionControl: true,
     });
 
-    // CartoDB Voyager — same clean look as Google Maps, no API key needed
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '© <a href="https://carto.com/">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 20,
     }).addTo(map);
 
-    // Reusable custom pin factory
     const pin = (color: string) =>
       L.divIcon({
         className: '',
@@ -46,7 +43,6 @@ export class Footer implements AfterViewInit {
         popupAnchor: [0, -42],
       });
 
-    // ── F-7 Markaz ──────────────────────────────────────────────
     L.marker([33.7192312, 73.0544084], { icon: pin('#4f46e5') })
       .addTo(map)
       .bindPopup(
@@ -61,7 +57,6 @@ export class Footer implements AfterViewInit {
         { maxWidth: 180 }
       );
 
-    // ── I-8 Markaz — EOBI Building 2 ───────────────────────────
     L.marker([33.668563, 73.0737923], { icon: pin('#e11d48') })
       .addTo(map)
       .bindPopup(
@@ -76,7 +71,6 @@ export class Footer implements AfterViewInit {
         { maxWidth: 180 }
       );
 
-    // Auto-fit to show both pins with padding
     map.fitBounds(
       [[33.7192312, 73.0544084], [33.668563, 73.0737923]],
       { padding: [32, 32] }

@@ -9,10 +9,11 @@ import { RouterOutlet, Router, NavigationEnd, ActivatedRoute, Data } from '@angu
 import { filter, map } from 'rxjs/operators';
 import { Navbar } from './components/navbar/navbar';
 import { Footer } from './components/footer/footer';
+import { WhatsappFloatComponent } from './components/whatsapp-float/whatsapp-float.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Navbar, Footer],
+  imports: [RouterOutlet, Navbar, Footer, WhatsappFloatComponent],
   template: `
     @if (showChrome()) {
       <app-navbar />
@@ -22,6 +23,7 @@ import { Footer } from './components/footer/footer';
     </main>
     @if (showChrome()) {
       <app-footer />
+      <app-whatsapp-float />
     }
   `,
   styles: [`

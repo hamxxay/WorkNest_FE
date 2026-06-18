@@ -63,7 +63,11 @@ export class BookATour {
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err.error?.message || 'Failed to submit. Please try again.');
+        const detail = err.error?.detail;
+        const msg = Array.isArray(detail)
+          ? detail.map((d: any) => d.msg).join(', ')
+          : err.error?.message || err.error?.detail || 'Failed to submit. Please try again.';
+        this.error.set(msg);
       }
     });
   }
