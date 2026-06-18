@@ -253,7 +253,25 @@ export class AuthService {
   }
 
   private hydrateBackendSession$(fallbackUser: UserInfo | null): Observable<UserInfo | null> {
-    return of(fallbackUser);
+    const email = fallbackUser?.email;
+    if (!email) return of(fallbackUser);
+
+    return this.http.get<any>(`${environment.apiUrl}/auth/me`, {
+      headers: { 'x-user-email': email }
+    }).pipe(
+      map(res => {
+        const data = res?.data;
+        if (!data) return fallbackUser;
+        const updated: UserInfo = {
+          ...fallbackUser!,
+          roles: data.role ? [data.role] : (fallbackUser?.roles ?? [])
+        };
+        this.user.set(updated);
+        localStorage.setItem(this.userKey, JSON.stringify(updated));
+        return updated;
+      }),
+      catchError(() => of(fallbackUser))
+    );
   }
 
   private signInWithProvider(provider: AuthProvider): Observable<{

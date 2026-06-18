@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: 'https://work-nest-api-s.vercel.app/api',
+  apiUrl: 'http://localhost:8000/api',
   whatsappNumber: '923080256000',
   payfast: {
     sandbox: true,

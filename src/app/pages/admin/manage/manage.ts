@@ -99,6 +99,7 @@ export class Manage implements OnInit {
 
   locationOptions: { v: any; l: string }[] = [];
   spaceTypeOptions: { v: any; l: string }[] = [];
+  spaceOptions: { v: any; l: string }[] = [];
 
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
@@ -117,6 +118,7 @@ export class Manage implements OnInit {
       this.config = this.buildConfig(this.entity);
       this.load();
       if (this.entity === 'spaces') this.loadSpaceDropdowns();
+      if (this.entity === 'bookings') this.loadSpacesForDropdown();
     });
   }
 
@@ -133,6 +135,16 @@ export class Manage implements OnInit {
         const items = res?.data ?? res ?? [];
         this.spaceTypeOptions = items.map((s: any) => ({ v: s.id, l: s.name }));
         this.config = this.buildConfig('spaces');
+      }
+    });
+  }
+
+  private loadSpacesForDropdown() {
+    this.admin.getSpaces(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? res ?? [];
+        this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) — ${s.locationName ?? ''}` }));
+        this.config = this.buildConfig('bookings');
       }
     });
   }
@@ -162,9 +174,28 @@ export class Manage implements OnInit {
   }
 
   openEdit(item: any) {
-    this.editItem = item; this.formData = { ...item }; this.error = ''; this.showModal = true;
-    if (this.entity === 'bookings') this.initBookingCalendar();
-    if (this.entity === 'gallery' && this.formData.isActive === undefined) this.formData.isActive = true;
+    this.editItem = item;
+    this.formData = { ...item };
+    // Format datetimes for datetime-local input (needs 'YYYY-MM-DDTHH:mm')
+    if (this.entity === 'bookings') {
+      this.formData['startDateTime'] = this.toDatetimeLocal(item.startDateTime);
+      this.formData['endDateTime']   = this.toDatetimeLocal(item.endDateTime);
+      // Pre-select current space in dropdown
+      if (!this.formData['spaceId'] && item.spaceGuid) {
+        this.formData['spaceId'] = item.spaceGuid;
+      }
+    }
+    this.error = '';
+    this.showModal = true;
+  }
+
+  private toDatetimeLocal(val: any): string {
+    if (!val) return '';
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return val;
+      return d.toISOString().slice(0, 16);
+    } catch { return val; }
   }
 
   closeModal() { this.showModal = false; }
@@ -483,19 +514,18 @@ export class Manage implements OnInit {
         columns: [
           { key: 'userEmail', label: 'User' },
           { key: 'spaceName', label: 'Space' },
-          { key: 'assignedSpaceCode', label: 'Code' },
           { key: 'startDateTime', label: 'Start', type: 'date' },
           { key: 'endDateTime', label: 'End', type: 'date' },
           { key: 'totalAmount', label: 'Amount', type: 'currency' },
           { key: 'bookingStatus', label: 'Status', type: 'status' },
         ],
         fields: [
-          { key: 'spaceId', label: 'Space ID', type: 'number' },
-          { key: 'startDateTime', label: 'Start Date', type: 'text' },
-          { key: 'endDateTime', label: 'End Date', type: 'text' },
+          { key: 'spaceId', label: 'Space', type: 'select', options: this.spaceOptions },
+          { key: 'startDateTime', label: 'Start Date & Time', type: 'datetime-local' },
+          { key: 'endDateTime', label: 'End Date & Time', type: 'datetime-local' },
+          { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
         getFn: (p, l, s) => this.admin.getBookings(p, l, s),
-        createFn: (d) => this.admin.updateBooking(0, d),
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, status) => this.admin.updateBookingStatus(id, status),
         statusOptions: ['Confirmed', 'Cancelled', 'Completed'],

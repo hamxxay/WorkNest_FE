@@ -142,10 +142,6 @@ export function validateSpaceAssignment(
     return { valid: false, error: 'End time must be after start time' };
   }
   
-  if (start < new Date()) {
-    return { valid: false, error: 'Booking cannot be in the past' };
-  }
-  
   return { valid: true };
 }
 
