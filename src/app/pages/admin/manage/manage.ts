@@ -100,6 +100,9 @@ export class Manage implements OnInit {
   locationOptions: { v: any; l: string }[] = [];
   spaceTypeOptions: { v: any; l: string }[] = [];
   spaceOptions: { v: any; l: string }[] = [];
+  floorOptions: { v: any; l: string }[] = [];
+  amenityOptions: { id: number; name: string }[] = [];
+  selectedAmenityIds: number[] = [];
 
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
@@ -137,6 +140,11 @@ export class Manage implements OnInit {
         this.config = this.buildConfig('spaces');
       }
     });
+    this.admin.getAmenities().subscribe({
+      next: (res: any) => {
+        this.amenityOptions = (res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name }));
+      }
+    });
   }
 
   private loadSpacesForDropdown() {
@@ -169,6 +177,7 @@ export class Manage implements OnInit {
 
   openCreate() {
     this.editItem = null; this.formData = {}; this.error = ''; this.showModal = true;
+    this.selectedAmenityIds = [];
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
   }
@@ -176,6 +185,15 @@ export class Manage implements OnInit {
   openEdit(item: any) {
     this.editItem = item;
     this.formData = { ...item };
+    this.selectedAmenityIds = [];
+    if (this.entity === 'spaces') {
+      // Use amenityIds (comma-sep int IDs) returned by the API
+      const savedIds: string = item.amenityIds || '';
+      this.selectedAmenityIds = savedIds
+        ? savedIds.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))
+        : [];
+      if (item.locationId) this.loadFloorsForLocation(item.locationId);
+    }
     // Format datetimes for datetime-local input (needs 'YYYY-MM-DDTHH:mm')
     if (this.entity === 'bookings') {
       this.formData['startDateTime'] = this.toDatetimeLocal(item.startDateTime);
@@ -202,6 +220,7 @@ export class Manage implements OnInit {
 
   save() {
     this.saving = true; this.error = '';
+    if (this.entity === 'spaces') this.override_save_spaces(this.formData);
     const obs = this.editItem
       ? this.config.updateFn!(this.editItem.idGuid, this.formData)
       : this.config.createFn!(this.formData);
@@ -408,7 +427,37 @@ export class Manage implements OnInit {
 
   isBookingPast(date: string): boolean { return !!date && date < new Date().toISOString().slice(0, 10); }
 
-  onFieldChange(key: string) { if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar(); }
+  loadFloorsForLocation(locationId: number) {
+    this.floorOptions = [];
+    if (!locationId) return;
+    this.admin.getFloors(locationId).subscribe({
+      next: (res: any) => {
+        this.floorOptions = (res?.data ?? []).map((f: any) => ({ v: f.id, l: f.floorName }));
+      }
+    });
+  }
+
+  toggleAmenity(id: number) {
+    const idx = this.selectedAmenityIds.indexOf(id);
+    if (idx === -1) this.selectedAmenityIds.push(id);
+    else this.selectedAmenityIds.splice(idx, 1);
+  }
+
+  isAmenitySelected(id: number): boolean { return this.selectedAmenityIds.includes(id); }
+
+  onFieldChange(key: string) {
+    if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar();
+    if (key === 'locationId' && this.entity === 'spaces') this.loadFloorsForLocation(this.formData['locationId']);
+  }
+
+  override_save_spaces(d: any): any {
+    d.amenities = this.selectedAmenityIds.join(',');
+    // ensure numeric types for FK fields
+    if (d.locationId) d.locationId = Number(d.locationId);
+    if (d.spaceTypeId) d.spaceTypeId = Number(d.spaceTypeId);
+    if (d.floorId) d.floorId = Number(d.floorId);
+    return d;
+  }
 
   private buildConfig(entity: string): EntityConfig {
     switch (entity) {
@@ -493,10 +542,10 @@ export class Manage implements OnInit {
           { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions },
           { key: 'pricePerHour', label: 'Price/Hour', type: 'number' },
           { key: 'pricePerDay', label: 'Price/Day', type: 'number' },
-          { key: 'floor', label: 'Floor', type: 'text' },
+          { key: 'floorId', label: 'Floor', type: 'floor-select' },
           { key: 'description', label: 'Description', type: 'textarea' },
           { key: 'imageUrl', label: 'Image URL', type: 'text' },
-          { key: 'amenities', label: 'Amenities', type: 'text' },
+          { key: 'amenities', label: 'Amenities', type: 'amenities-multicheck' },
           { key: 'status', label: 'Status', type: 'select', options: [
             { v: 'Available', l: 'Available' },
             { v: 'Maintenance', l: 'Maintenance' },
