@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
   apiUrl: 'http://localhost:8000/api',
-  whatsappNumber: '923080256000',
+  whatsappNumber: '+923099771774',
   payfast: {
     sandbox: true,
   },

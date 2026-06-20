@@ -37,7 +37,9 @@
       </div>
     </div>
 
-    @if (loading()) {
+  @if (entity === 'spaceconfig') {
+    <!-- Space config handled by its own panel below -->
+  } @else if (loading()) {
       <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
     } @else if (filtered.length === 0) {
       <div class="empty-state"><p>No records found.</p></div>
@@ -437,6 +439,59 @@
           </div>
         }
       }
+    </div>
+  </div>
+}
+
+<!-- Space Config inline editor (renders instead of generic table when entity=spaceconfig) -->
+@if (entity === 'spaceconfig') {
+  <div class="admin-page">
+    <div class="page-header">
+      <div><h1>Space Configuration</h1><p>Configure space counts, capacities and operating hours</p></div>
+    </div>
+    @if (spaceConfigSuccess) { <div class="alert-admin alert-success-admin">{{ spaceConfigSuccess }}</div> }
+    @if (spaceConfigError)   { <div class="alert-admin alert-error-admin">{{ spaceConfigError }}</div> }
+    <div class="admin-card">
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Category</th><th>Total Spaces</th><th>Code Prefix</th>
+              <th>Capacities</th><th>Opens</th><th>Closes</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cfg of spaceConfigItems(); track cfg.id) {
+              <tr>
+                @if (editingConfig?.id === cfg.id) {
+                  <td><strong>{{ cfg.spaceCategory }}</strong></td>
+                  <td><input class="form-input-admin" type="number" min="1" [(ngModel)]="configFormData.totalSpaces" name="totalSpaces_{{cfg.id}}" style="width:80px" /></td>
+                  <td>{{ cfg.codePrefix }}</td>
+                  <td><input class="form-input-admin" type="text" [(ngModel)]="configFormData.defaultCapacities" name="caps_{{cfg.id}}" placeholder="e.g. 3,4,5" style="width:100px" /></td>
+                  <td><input class="form-input-admin" type="time" [(ngModel)]="configFormData.openingTime" name="open_{{cfg.id}}" style="width:90px" /></td>
+                  <td><input class="form-input-admin" type="time" [(ngModel)]="configFormData.closingTime" name="close_{{cfg.id}}" style="width:90px" /></td>
+                  <td class="actions-cell">
+                    <button class="action-btn edit" (click)="saveConfig()" [disabled]="spaceConfigSaving()" title="Save">✓</button>
+                    <button class="action-btn" (click)="cancelEditConfig()" title="Cancel">✗</button>
+                  </td>
+                } @else {
+                  <td><strong>{{ cfg.spaceCategory }}</strong></td>
+                  <td>{{ cfg.totalSpaces }}</td>
+                  <td>{{ cfg.codePrefix }}</td>
+                  <td>{{ cfg.defaultCapacities || '—' }}</td>
+                  <td>{{ cfg.openingTime }}</td>
+                  <td>{{ cfg.closingTime }}</td>
+                  <td class="actions-cell">
+                    <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 }

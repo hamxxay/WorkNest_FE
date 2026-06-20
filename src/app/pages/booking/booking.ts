@@ -1,45 +1,52 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
 import { applyPercentDiscount, getWorkspaceDiscount, type BookingLike } from '../../utils/workspace-discount';
-import { getSpaceTypeDisplayName, validateSpaceAssignment } from '../../utils/space-assignment';
 
 interface Workspace {
-  id: number;
-  idGuid: string;
-  name: string;
-  locationName: string;
-  spaceTypeName: string;
-  capacity: number;
-  amenities: string;
-  pricePerDay: number;
-  pricePerHour: number;
-  status: string;
-  imageUrl: string;
-  floor: string;
-  code: string;
+  id: number; idGuid: string; name: string; locationName: string;
+  spaceTypeName: string; capacity: number; amenities: string;
+  pricePerDay: number; pricePerHour: number; status: string;
+  imageUrl: string; floor: string; code: string;
+}
+
+interface SpaceConfig {
+  spaceCategory: string; totalSpaces: number; codePrefix: string;
+  defaultCapacities: string; openingTime: string; closingTime: string;
+}
+
+// Maps DB space type name → booking category
+const CATEGORY_MAP: Record<string, string> = {
+  'shared space': 'Shared', 'co-working space': 'Shared', 'coworking': 'Shared',
+  'private office': 'Private', 'private room': 'Private',
+  'meeting room': 'Meeting', 'conference room': 'Meeting',
+};
+
+function getCategory(spaceTypeName: string): string {
+  return CATEGORY_MAP[spaceTypeName.toLowerCase()] ?? 'Shared';
 }
 
 @Component({
   selector: 'app-booking',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet],
+  imports: [ReactiveFormsModule, RouterLink, NgTemplateOutlet],
   templateUrl: './booking.html',
   styleUrl: './booking.css'
 })
 export class Booking implements OnInit {
-  searchQuery = signal('');
+  searchQuery  = signal('');
   workspaceType = signal('');
-  loading = signal(true);
+  loading      = signal(true);
   bookingSuccess = signal('');
-  bookingError = signal('');
+  bookingError   = signal('');
 
-  workspaces = signal<Workspace[]>([]);
-  myBookings = signal<BookingLike[]>([]);
-  discount = computed(() => getWorkspaceDiscount(this.myBookings()));
+  workspaces  = signal<Workspace[]>([]);
+  myBookings  = signal<BookingLike[]>([]);
+  spaceConfig = signal<SpaceConfig[]>([]);
+  discount    = computed(() => getWorkspaceDiscount(this.myBookings()));
 
   availableWorkspaceTypes = computed(() => {
     const types = new Set<string>();
@@ -51,49 +58,35 @@ export class Booking implements OnInit {
   });
 
   filteredWorkspaces = computed(() => {
-    const query = this.searchQuery().toLowerCase();
-    const type = this.workspaceType().toLowerCase();
+    const query = this.workspaceType().toLowerCase();
+    const search = this.searchQuery().toLowerCase();
     return this.workspaces().filter(ws => {
-      const matchesQuery = !query ||
-        ws.name.toLowerCase().includes(query) ||
-        ws.locationName.toLowerCase().includes(query);
-      const matchesType = !type || ws.spaceTypeName.toLowerCase().includes(type);
-      return matchesQuery && matchesType;
+      const matchSearch = !search || ws.name.toLowerCase().includes(search) || ws.locationName.toLowerCase().includes(search);
+      const matchType   = !query  || ws.spaceTypeName.toLowerCase().includes(query);
+      return matchSearch && matchType;
     });
   });
 
-  i8Workspaces = computed(() =>
-    this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('i-8') || ws.locationName.toLowerCase().includes('i8'))
-  );
+  i8Workspaces    = computed(() => this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('i-8') || ws.locationName.toLowerCase().includes('i8')));
+  f7Workspaces    = computed(() => this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('f-7') || ws.locationName.toLowerCase().includes('f7')));
+  otherWorkspaces = computed(() => this.filteredWorkspaces().filter(ws => { const l = ws.locationName.toLowerCase(); return !l.includes('i-8') && !l.includes('i8') && !l.includes('f-7') && !l.includes('f7'); }));
 
-  f7Workspaces = computed(() =>
-    this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('f-7') || ws.locationName.toLowerCase().includes('f7'))
-  );
-
-  otherWorkspaces = computed(() =>
-    this.filteredWorkspaces().filter(ws => {
-      const loc = ws.locationName.toLowerCase();
-      return !loc.includes('i-8') && !loc.includes('i8') && !loc.includes('f-7') && !loc.includes('f7');
-    })
-  );
-
-  // Booking modal
-  showBookingModal = false;
-  showAuthPrompt = false;
+  // Modal state
+  showBookingModal  = false;
+  showAuthPrompt    = false;
   selectedSpace: Workspace | null = null;
-  selectedSpaceType = '';
-  bookingNotes = '';
-  bookingStartDate = '';
-  bookingStartTime = '09:00';
-  bookingEndDate = '';
-  bookingEndTime = '17:00';
+  bookingCategory   = '';          // 'Shared' | 'Private' | 'Meeting'
+  bookingForm!: FormGroup;
   availabilityLoading = signal(false);
-  availabilityError = signal('');
-  availableCount = signal(0);
-  isSpaceFull = computed(() => this.availableCount() === 0);
-  assignedSpace = signal<any>(null);
+  availableCount      = signal(0);
+  isSpaceFull = computed(() => this.availableCount() === 0 && !this.availabilityLoading());
+  availableCapacities: number[] = [];
+
+  readonly today = new Date().toISOString().split('T')[0];
+  private pendingTypeFilter = '';
 
   constructor(
+    private fb: FormBuilder,
     private spaceService: SpaceService,
     private bookingService: BookingService,
     private authService: AuthService,
@@ -105,9 +98,15 @@ export class Booking implements OnInit {
     this.pendingTypeFilter = this.route.snapshot.queryParamMap.get('type') ?? '';
     this.loadSpaces();
     this.loadMyBookingsForDiscount();
+    this.loadSpaceConfig();
   }
 
-  private pendingTypeFilter = '';
+  private loadSpaceConfig() {
+    this.bookingService.getSpaceConfig().subscribe({
+      next: (res) => this.spaceConfig.set(res?.data ?? []),
+      error: () => {}
+    });
+  }
 
   loadSpaces() {
     this.loading.set(true);
@@ -121,7 +120,7 @@ export class Booking implements OnInit {
           this.workspaceType.set(match ?? this.pendingTypeFilter);
         }
       },
-      error: () => { this.loading.set(false); }
+      error: () => this.loading.set(false)
     });
   }
 
@@ -132,203 +131,235 @@ export class Booking implements OnInit {
         const data = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
         this.myBookings.set(data);
       },
-      error: () => { this.myBookings.set([]); }
+      error: () => this.myBookings.set([])
     });
   }
 
-  filterWorkspaces() { this.filteredWorkspaces(); }
+  filterWorkspaces() { /* computed signal reactive — no-op */ }
 
   getAmenities(amenities: string): string[] {
-    if (!amenities) return [];
-    return amenities.split(',').map(a => a.trim());
+    return amenities ? amenities.split(',').map(a => a.trim()).filter(Boolean) : [];
   }
 
-  private normalizeWorkspaces(res: any): Workspace[] {
-    const source = Array.isArray(res) ? res
-      : Array.isArray(res?.data) ? res.data
-      : Array.isArray(res?.data?.items) ? res.data.items
-      : Array.isArray(res?.data?.results) ? res.data.results
-      : Array.isArray(res?.items) ? res.items
-      : Array.isArray(res?.results) ? res.results
-      : [];
-
-    return source.map((ws: any, index: number) => ({
-      id: Number(ws.numericId ?? ws.numeric_id ?? ws.Id ?? 0) || (index + 1),
-      idGuid: ws.idGuid || ws.IdGUID || ws.id || '',
-      name: ws.name || ws.Name || ws.title || ws.Title || `Workspace ${index + 1}`,
-      locationName: ws.locationName || ws.LocationName || ws.location?.name || ws.city || 'Unknown Location',
-      spaceTypeName: ws.spaceTypeName || ws.SpaceTypeName || ws.spaceType?.name || ws.type || 'Workspace',
-      capacity: Number(ws.capacity ?? ws.Capacity ?? 0),
-      amenities: typeof ws.amenities === 'string' ? ws.amenities
-        : typeof ws.Amenities === 'string' ? ws.Amenities
-        : Array.isArray(ws.amenities) ? ws.amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
-        : Array.isArray(ws.Amenities) ? ws.Amenities.map((item: any) => item?.name || item).filter(Boolean).join(', ')
-        : '',
-      pricePerDay: Number(ws.pricePerDay ?? ws.PricePerDay ?? ws.dailyPrice ?? 0),
-      pricePerHour: (() => {
-        const perHour = Number(ws.pricePerHour ?? ws.PricePerHour ?? ws.hourlyPrice ?? 0);
-        if (perHour > 0) return perHour;
-        const perDay = Number(ws.pricePerDay ?? ws.PricePerDay ?? ws.dailyPrice ?? 0);
-        return perDay > 0 ? Math.round(perDay / 8) : 0;
-      })(),
-      status: (() => {
-        const spaceStatus = ws.spaceStatus || ws.SpaceStatus || '';
-        if (spaceStatus) return spaceStatus.toLowerCase() === 'available' ? 'Available' : 'Unavailable';
-        const s = ws.status ?? ws.Status;
-        if (s === 1 || s === true || String(s).toLowerCase() === 'available') return 'Available';
-        if (ws.isAvailable === true) return 'Available';
-        return 'Unavailable';
-      })(),
-      imageUrl: ws.imageUrl || ws.ImageUrl || ws.image || ws.url || 'images/spaces/modern-office.jpg',
-      floor: ws.floor || ws.floorName || '-',
-      code: ws.code || ws.Code || ''
-    }));
+  getConfigFor(category: string): SpaceConfig | undefined {
+    return this.spaceConfig().find(c => c.spaceCategory === category);
   }
 
-  openBookingModal(ws: Workspace) {
-    if (!this.authService.isAuthenticated()) {
-      this.showAuthPrompt = true;
-      return;
+  // ── Form helpers ──────────────────────────────────────────────────────────
+
+  get isShared()  { return this.bookingCategory === 'Shared';  }
+  get isPrivate() { return this.bookingCategory === 'Private'; }
+  get isMeeting() { return this.bookingCategory === 'Meeting'; }
+
+  get openingTime(): string { return this.getConfigFor(this.bookingCategory)?.openingTime ?? '08:00'; }
+  get closingTime(): string { return this.getConfigFor(this.bookingCategory)?.closingTime ?? '20:00'; }
+
+  // Positive integer validator
+  private positiveInt = (ctrl: AbstractControl) => {
+    const v = ctrl.value;
+    if (v == null || v === '') return null;
+    return Number.isInteger(+v) && +v >= 1 ? null : { positiveInt: true };
+  };
+
+  private buildForm() {
+    if (this.isShared || this.isMeeting) {
+      this.bookingForm = this.fb.group({
+        startDate:  ['', Validators.required],
+        startTime:  ['09:00', Validators.required],
+        hours:      [1, [Validators.required, Validators.min(1), this.positiveInt]],
+        ...(this.isMeeting ? { capacity: [null, Validators.required] } : {}),
+        notes:      [''],
+      });
+    } else {
+      // Private — monthly
+      this.bookingForm = this.fb.group({
+        startDate: ['', Validators.required],
+        months:    [1, [Validators.required, Validators.min(1), this.positiveInt]],
+        capacity:  [null, Validators.required],
+        notes:     [''],
+      });
     }
-    this.selectedSpace = ws;
-    this.selectedSpaceType = ws.spaceTypeName;
-    this.showBookingModal = true;
-    this.bookingError.set('');
-    this.bookingSuccess.set('');
-    this.availabilityError.set('');
-    this.assignedSpace.set(null);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-    this.bookingStartDate = tomorrowStr;
-    this.bookingEndDate = tomorrowStr;
-    this.checkAvailability();
+
+    // Auto-recalculate end time when relevant fields change
+    const recalc$ = () => this.checkAvailability();
+    this.bookingForm.get('startDate')?.valueChanges.subscribe(recalc$);
+    this.bookingForm.get('startTime')?.valueChanges.subscribe(recalc$);
+    this.bookingForm.get('hours')?.valueChanges.subscribe(recalc$);
+    this.bookingForm.get('months')?.valueChanges.subscribe(recalc$);
+    this.bookingForm.get('capacity')?.valueChanges.subscribe(recalc$);
+  }
+
+  get endDateTimeDisplay(): string {
+    const [start, end] = this.calcDateRange();
+    return end ? end.toLocaleString() : '—';
+  }
+
+  private calcDateRange(): [Date | null, Date | null] {
+    const f = this.bookingForm?.value;
+    if (!f?.startDate) return [null, null];
+
+    if (this.isShared || this.isMeeting) {
+      const time  = f.startTime || '09:00';
+      const start = new Date(`${f.startDate}T${time}:00`);
+      if (isNaN(start.getTime()) || !f.hours || +f.hours < 1) return [null, null];
+      const end = new Date(start.getTime() + +f.hours * 3600_000);
+      return [start, end];
+    } else {
+      // Private monthly
+      const start = new Date(`${f.startDate}T00:00:00`);
+      if (isNaN(start.getTime()) || !f.months || +f.months < 1) return [null, null];
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + +f.months);
+      return [start, end];
+    }
   }
 
   private checkAvailability() {
-    if (!this.selectedSpaceType || !this.bookingStartDate || !this.bookingStartTime || !this.bookingEndDate || !this.bookingEndTime) {
-      this.availableCount.set(0);
-      return;
-    }
+    const [start, end] = this.calcDateRange();
+    if (!start || !end) { this.availableCount.set(0); return; }
 
-    const startDateTime = `${this.bookingStartDate}T${this.bookingStartTime}:00`;
-    const endDateTime = `${this.bookingEndDate}T${this.bookingEndTime}:00`;
-
-    const start = new Date(startDateTime);
-    const end = new Date(endDateTime);
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
-      this.availableCount.set(0);
-      return;
-    }
-
+    const cap = this.bookingForm?.value?.capacity ? +this.bookingForm.value.capacity : undefined;
     this.availabilityLoading.set(true);
-    this.availabilityError.set('');
 
-    this.bookingService.getAvailableSpaces(this.selectedSpaceType, startDateTime, endDateTime).subscribe({
+    this.bookingService.getSmartAvailableSpaces(
+      this.bookingCategory,
+      start.toISOString().slice(0, 19),
+      end.toISOString().slice(0, 19),
+      cap
+    ).subscribe({
       next: (res) => {
-        const data = res?.data || res;
-        const spaces = Array.isArray(data) ? data : (Array.isArray(data?.spaces) ? data.spaces : []);
+        const spaces = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
         this.availableCount.set(spaces.length);
         this.availabilityLoading.set(false);
       },
-      error: () => {
-        // On error still allow booking — let backend validate
-        this.availableCount.set(1);
-        this.availabilityLoading.set(false);
-      }
+      error: () => { this.availableCount.set(1); this.availabilityLoading.set(false); }
     });
   }
 
-  onBookingTimeChange() {
+  // ── Modal open/close ──────────────────────────────────────────────────────
+
+  openBookingModal(ws: Workspace) {
+    if (!this.authService.isAuthenticated()) { this.showAuthPrompt = true; return; }
+    this.selectedSpace     = ws;
+    this.bookingCategory   = getCategory(ws.spaceTypeName);
+    this.bookingSuccess.set('');
+    this.bookingError.set('');
+    this.availableCount.set(0);
+    this.availableCapacities = this.parseCapacities(this.getConfigFor(this.bookingCategory)?.defaultCapacities);
+    this.buildForm();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    this.bookingForm.patchValue({ startDate: tomorrow.toISOString().split('T')[0] });
+    this.showBookingModal = true;
     this.checkAvailability();
   }
 
   closeBookingModal() {
     this.showBookingModal = false;
-    this.showAuthPrompt = false;
-    this.selectedSpace = null;
-    this.bookingNotes = '';
+    this.showAuthPrompt  = false;
+    this.selectedSpace   = null;
   }
 
-  private isPadelLikeSpace(space?: Pick<Workspace, 'spaceTypeName' | 'name' | 'code'> | null): boolean {
-    if (!space) return false;
-    const h = `${space.spaceTypeName ?? ''} ${space.name ?? ''} ${space.code ?? ''}`.toLowerCase();
-    return h.includes('padel') || h.includes('arena') || h.includes('court');
+  private parseCapacities(csv?: string): number[] {
+    if (!csv) return [];
+    return csv.split(',').map(s => +s.trim()).filter(n => !isNaN(n) && n > 0);
   }
 
-  private toDateTime(date: string, time: string): Date | null {
-    if (!date || !time) return null;
-    const d = new Date(`${date}T${time}:00`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  private calcBaseAmount(space: Workspace, start: Date, end: Date): number {
-    const diffMs = end.getTime() - start.getTime();
-    if (diffMs <= 0) return 0;
-    const hours = diffMs / (1000 * 60 * 60);
-    const days = Math.ceil(hours / 24);
-    if (this.isPadelLikeSpace(space) || Number(space.pricePerDay) <= 0) {
-      return Math.ceil(hours) * Number(space.pricePerHour);
-    }
-    if (hours <= 10) return Math.ceil(hours) * Number(space.pricePerHour);
-    return days * Number(space.pricePerDay);
-  }
+  // ── Price breakdown ───────────────────────────────────────────────────────
 
   getPriceBreakdown(): { base: number; percent: number; discountAmount: number; final: number } | null {
     if (!this.selectedSpace) return null;
-    const start = this.toDateTime(this.bookingStartDate, this.bookingStartTime);
-    const end = this.toDateTime(this.bookingEndDate, this.bookingEndTime);
+    const [start, end] = this.calcDateRange();
     if (!start || !end) return null;
-    const base = this.calcBaseAmount(this.selectedSpace, start, end);
-    const percent = this.discount().percent;
-    const final = applyPercentDiscount(base, percent);
+    const diffMs = end.getTime() - start.getTime();
+    let base: number;
+    if (this.isPrivate) {
+      const months = this.bookingForm?.value?.months ?? 1;
+      base = months * +this.selectedSpace.pricePerDay * 30;
+    } else {
+      const hours = diffMs / 3_600_000;
+      base = Math.ceil(hours) * +this.selectedSpace.pricePerHour;
+    }
+    const percent        = this.discount().percent;
+    const final          = applyPercentDiscount(base, percent);
     return { base, percent, discountAmount: Math.max(0, base - final), final };
   }
 
+  // ── Submit ────────────────────────────────────────────────────────────────
+
   submitBooking() {
-    if (!this.selectedSpace || !this.bookingStartDate || !this.bookingEndDate) {
-      this.bookingError.set('Please select start and end dates.');
+    this.bookingForm.markAllAsTouched();
+    if (this.bookingForm.invalid) {
+      this.bookingError.set('Please fill in all required fields correctly.');
       return;
     }
 
-    if (this.isSpaceFull()) {
-      this.bookingError.set('No space available for the selected time.');
+    const [start, end] = this.calcDateRange();
+    if (!start || !end) {
+      this.bookingError.set('Invalid date/time selection.');
       return;
     }
 
-    const startDateTime = `${this.bookingStartDate}T${this.bookingStartTime}:00`;
-    const endDateTime = `${this.bookingEndDate}T${this.bookingEndTime}:00`;
-
-    // Final validation before submitting
-    const validation = validateSpaceAssignment(this.selectedSpaceType, startDateTime, endDateTime);
-    if (!validation.valid) {
-      this.bookingError.set(validation.error || 'Invalid booking parameters');
-      return;
+    // Validate opening/closing hours for hourly bookings
+    if (!this.isPrivate) {
+      const [openH, openM] = this.openingTime.split(':').map(Number);
+      const [closeH, closeM] = this.closingTime.split(':').map(Number);
+      const startMins = start.getHours() * 60 + start.getMinutes();
+      const endMins   = end.getHours()   * 60 + end.getMinutes();
+      const openMins  = openH  * 60 + openM;
+      const closeMins = closeH * 60 + closeM;
+      if (startMins < openMins || endMins > closeMins) {
+        this.bookingError.set(`Booking must be between ${this.openingTime} and ${this.closingTime}.`);
+        return;
+      }
     }
 
-    const breakdown = this.getPriceBreakdown();
-    const displayName = getSpaceTypeDisplayName(this.selectedSpaceType);
-    
-    // Create booking with space type for auto-assignment
-    const bookingData = {
-      spaceType: this.selectedSpaceType,
-      startDateTime,
-      endDateTime,
-      totalAmount: breakdown != null ? breakdown.final : 0,
-      notes: this.bookingNotes || null
-    };
+    const breakdown    = this.getPriceBreakdown();
+    const cap          = this.bookingForm.value.capacity ? +this.bookingForm.value.capacity : undefined;
+    const spaceTypeName = this.selectedSpace!.spaceTypeName;
 
-    this.closeBookingModal();
+    // Close modal first but keep selectedSpace reference via local var
+    this.showBookingModal = false;
+    this.showAuthPrompt  = false;
 
     this.router.navigate(['/checkout'], {
       state: {
         pendingBooking: {
-          ...bookingData,
-          spaceName: `${displayName} (Auto-assigned)`,
-          autoAssign: true
+          spaceCategory:  this.bookingCategory,
+          spaceName:      `${spaceTypeName} (Auto-assigned)`,
+          startDateTime:  start.toISOString().slice(0, 19),
+          endDateTime:    end.toISOString().slice(0, 19),
+          totalAmount:    breakdown?.final ?? 0,
+          notes:          this.bookingForm.value.notes || null,
+          capacity:       cap,
+          autoAssign:     true,
+          smartBooking:   true,
         }
       }
-    });
+    }).then(() => { this.selectedSpace = null; });
+  }
+
+  // ── Normalise spaces ──────────────────────────────────────────────────────
+
+  private normalizeWorkspaces(res: any): Workspace[] {
+    const source = Array.isArray(res) ? res
+      : Array.isArray(res?.data) ? res.data
+      : Array.isArray(res?.data?.items) ? res.data.items
+      : Array.isArray(res?.items) ? res.items : [];
+    return source.map((ws: any, i: number) => ({
+      id:            Number(ws.numericId ?? ws.Id ?? 0) || (i + 1),
+      idGuid:        ws.idGuid || ws.id || '',
+      name:          ws.name || ws.Name || `Workspace ${i + 1}`,
+      locationName:  ws.locationName || ws.LocationName || 'Unknown',
+      spaceTypeName: ws.spaceTypeName || ws.SpaceTypeName || 'Workspace',
+      capacity:      Number(ws.capacity ?? ws.Capacity ?? 0),
+      amenities:     typeof ws.amenities === 'string' ? ws.amenities : (Array.isArray(ws.amenities) ? ws.amenities.join(', ') : ''),
+      pricePerDay:   Number(ws.pricePerDay ?? ws.PricePerDay ?? 0),
+      pricePerHour:  (() => { const h = Number(ws.pricePerHour ?? ws.PricePerHour ?? 0); if (h > 0) return h; const d = Number(ws.pricePerDay ?? 0); return d > 0 ? Math.round(d / 8) : 0; })(),
+      status:        (() => { const s = ws.spaceStatus || ws.SpaceStatus || ''; if (s) return s.toLowerCase() === 'available' ? 'Available' : 'Unavailable'; return (ws.status === 1 || ws.status === true) ? 'Available' : 'Unavailable'; })(),
+      imageUrl:      ws.imageUrl || ws.ImageUrl || 'images/spaces/modern-office.jpg',
+      floor:         ws.floor || ws.floorName || '-',
+      code:          ws.code || ws.Code || '',
+    }));
   }
 }
-

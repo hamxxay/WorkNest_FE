@@ -254,6 +254,17 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/floor`, data);
   }
 
+  // Space Configuration
+  getSpaceConfig(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space-config`);
+  }
+  updateSpaceConfig(category: string, data: { totalSpaces: number; defaultCapacities?: string; openingTime?: string; closingTime?: string }): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.api}/space-config/${category}`, data);
+  }
+  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: number; locationId: number; pricePerHour?: number; pricePerDay?: number }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/space-config/generate-inventory`, data);
+  }
+
   // Amenities
   getAmenities(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/amenity`);

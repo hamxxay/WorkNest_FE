@@ -95,6 +95,15 @@ export class Checkout implements OnInit {
       endDateTime: this.pending.endDateTime,
       totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
       notes: this.pending.notes || paymentMethod
+    } : this.pending.smartBooking ? {
+      // New smart booking — uses /booking/smart endpoint via spaceCategory
+      spaceCategory: this.pending.spaceCategory,
+      startDateTime: this.pending.startDateTime,
+      endDateTime: this.pending.endDateTime,
+      totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
+      capacity: this.pending.capacity ?? undefined,
+      notes: this.pending.notes || paymentMethod,
+      paymentMethod,
     } : {
       spaceId: this.pending.spaceId,
       startDateTime: this.pending.startDateTime,
@@ -103,11 +112,25 @@ export class Checkout implements OnInit {
       notes: paymentMethod
     };
 
-    this.bookingService.create(bookingData).subscribe({
+    const createCall = this.pending.smartBooking
+      ? this.bookingService.createSmart({
+          spaceCategory: this.pending.spaceCategory ?? '',
+          startDateTime: this.pending.startDateTime,
+          endDateTime:   this.pending.endDateTime,
+          totalAmount:   parseFloat(Number(this.pending.totalAmount).toFixed(2)),
+          capacity:      this.pending.capacity ?? undefined,
+          notes:         this.pending.notes || paymentMethod,
+          paymentMethod,
+        })
+      : this.bookingService.create(bookingData);
+
+    createCall.subscribe({
       next: (res) => {
         if (res.isSuccessful || res.success) {
-          const bookingId = res.data?.id ?? res.data?.bookingId ?? res.id;
-          const assignedSpace = res.data?.assignedSpace ?? (res.data?.assignedSpaceName ? { name: res.data.assignedSpaceName, code: res.data.assignedSpaceId ?? '' } : null);
+          const bookingId = res.data?.id ?? (typeof res.data?.bookingId === 'number' ? res.data.bookingId : null) ?? res.id;
+          const assignedSpace = res.data?.assignedSpaceName
+            ? { name: res.data.assignedSpaceName, code: res.data.assignedSpace ?? '' }
+            : res.data?.assignedSpace ?? null;
           this.booking.set({ ...this.pending, id: bookingId, assignedSpace });
           onSuccess(bookingId, assignedSpace);
         } else {

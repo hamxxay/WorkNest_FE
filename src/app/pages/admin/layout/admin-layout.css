@@ -34,13 +34,20 @@
 .sidebar-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 1px;
   text-decoration: none;
   color: #0d9488;
   font-weight: 800;
   font-size: 1.05rem;
   white-space: nowrap;
 }
+
+.sidebar-logo-img {
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.admin-shell.collapsed .sidebar-logo-img { width: 28px; height: 24px; }
 
 .sidebar-toggle {
   background: none;

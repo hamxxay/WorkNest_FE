@@ -40,12 +40,30 @@ export class BookingService {
    * @returns Observable with available spaces and assignment info
    */
   getAvailableSpaces(spaceType: string, startDateTime: string, endDateTime: string): Observable<any> {
-    const params = new URLSearchParams({
-      spaceType,
-      startDateTime,
-      endDateTime
-    });
+    const params = new URLSearchParams({ spaceType, startDateTime, endDateTime });
     return this.http.get<any>(`${this.apiUrl}/available-spaces?${params.toString()}`);
+  }
+
+  getSmartAvailableSpaces(spaceCategory: string, startDateTime: string, endDateTime: string, capacity?: number): Observable<any> {
+    const p = new URLSearchParams({ spaceCategory, startDateTime, endDateTime });
+    if (capacity) p.set('capacity', String(capacity));
+    return this.http.get<any>(`${this.apiUrl}/smart/available?${p.toString()}`);
+  }
+
+  createSmart(booking: {
+    spaceCategory: string;
+    startDateTime: string;
+    endDateTime: string;
+    capacity?: number;
+    notes?: string;
+    totalAmount?: number;
+    paymentMethod?: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/smart`, booking);
+  }
+
+  getSpaceConfig(): Observable<any> {
+    return this.http.get<any>(`${environment.apiUrl}/space-config`);
   }
 
   /**
