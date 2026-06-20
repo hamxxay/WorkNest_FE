@@ -122,6 +122,53 @@ export class Manage implements OnInit {
       this.load();
       if (this.entity === 'spaces') this.loadSpaceDropdowns();
       if (this.entity === 'bookings') this.loadSpacesForDropdown();
+      if (this.entity === 'spaceconfig') this.loadSpaceConfig();
+    });
+  }
+
+  spaceConfigItems = signal<any[]>([]);
+  spaceConfigSaving = signal(false);
+  spaceConfigError = '';
+  spaceConfigSuccess = '';
+  editingConfig: any = null;
+  configFormData: any = {};
+
+  private loadSpaceConfig() {
+    this.admin.getSpaceConfig().subscribe({
+      next: (res: any) => this.spaceConfigItems.set(res?.data ?? []),
+      error: () => {}
+    });
+  }
+
+  openEditConfig(cfg: any) {
+    this.editingConfig = cfg;
+    this.configFormData = {
+      totalSpaces:        cfg.totalSpaces,
+      defaultCapacities:  cfg.defaultCapacities,
+      openingTime:        cfg.openingTime,
+      closingTime:        cfg.closingTime,
+    };
+    this.spaceConfigError = '';
+    this.spaceConfigSuccess = '';
+  }
+
+  cancelEditConfig() { this.editingConfig = null; }
+
+  saveConfig() {
+    if (!this.editingConfig) return;
+    this.spaceConfigSaving.set(true);
+    this.admin.updateSpaceConfig(this.editingConfig.spaceCategory, this.configFormData).subscribe({
+      next: () => {
+        this.spaceConfigSuccess = 'Configuration saved.';
+        this.spaceConfigSaving.set(false);
+        this.editingConfig = null;
+        this.loadSpaceConfig();
+        setTimeout(() => this.spaceConfigSuccess = '', 3000);
+      },
+      error: (e: any) => {
+        this.spaceConfigError = e?.error?.detail || 'Failed to save config.';
+        this.spaceConfigSaving.set(false);
+      }
     });
   }
 
@@ -661,6 +708,19 @@ export class Manage implements OnInit {
         createFn: (d) => this.admin.createGalleryImage(d),
         updateFn: (id, d) => this.admin.updateGalleryImage(id, d),
         deleteFn: (id) => this.admin.deleteGalleryImage(id),
+      };
+
+      case 'spaceconfig': return {
+        title: 'Space Configuration',
+        columns: [
+          { key: 'spaceCategory',     label: 'Category' },
+          { key: 'totalSpaces',       label: 'Total Spaces' },
+          { key: 'codePrefix',        label: 'Code Prefix' },
+          { key: 'defaultCapacities', label: 'Capacities' },
+          { key: 'openingTime',       label: 'Opens' },
+          { key: 'closingTime',       label: 'Closes' },
+        ],
+        getFn: () => this.admin.getSpaceConfig(),
       };
 
       default: return { title: entity, columns: [], getFn: () => [] };

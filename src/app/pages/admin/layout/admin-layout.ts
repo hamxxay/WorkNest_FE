@@ -22,7 +22,8 @@ export class AdminLayout {
     { route: '/admin/pricing',   label: 'Pricing',     icon: 'pricing'      },
     { route: '/admin/payments',  label: 'Payments',    icon: 'payments'     },
     { route: '/admin/contacts',  label: 'Contacts',    icon: 'contacts'     },
-    { route: '/admin/gallery',   label: 'Gallery',     icon: 'gallery'      },
+    { route: '/admin/gallery',      label: 'Gallery',        icon: 'gallery'      },
+    { route: '/admin/spaceconfig',   label: 'Space Config',   icon: 'spaceconfig'  },
   ];
 
   private auth = inject(AuthService);
