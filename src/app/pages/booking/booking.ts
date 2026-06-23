@@ -67,9 +67,14 @@ export class Booking implements OnInit {
     });
   });
 
-  i8Workspaces    = computed(() => this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('i-8') || ws.locationName.toLowerCase().includes('i8')));
-  f7Workspaces    = computed(() => this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('f-7') || ws.locationName.toLowerCase().includes('f7')));
-  otherWorkspaces = computed(() => this.filteredWorkspaces().filter(ws => { const l = ws.locationName.toLowerCase(); return !l.includes('i-8') && !l.includes('i8') && !l.includes('f-7') && !l.includes('f7'); }));
+  private dedupeByType = (ws: Workspace[]) => {
+    const seen = new Set<string>();
+    return ws.filter(w => { const k = `${w.locationName}|${w.spaceTypeName}`; return seen.has(k) ? false : (seen.add(k), true); });
+  };
+
+  i8Workspaces    = computed(() => this.dedupeByType(this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('i-8') || ws.locationName.toLowerCase().includes('i8'))));
+  f7Workspaces    = computed(() => this.dedupeByType(this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('f-7') || ws.locationName.toLowerCase().includes('f7'))));
+  otherWorkspaces = computed(() => this.dedupeByType(this.filteredWorkspaces().filter(ws => { const l = ws.locationName.toLowerCase(); return !l.includes('i-8') && !l.includes('i8') && !l.includes('f-7') && !l.includes('f7'); })));
 
   // Modal state
   showBookingModal  = false;

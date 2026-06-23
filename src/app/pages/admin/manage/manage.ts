@@ -132,12 +132,50 @@ export class Manage implements OnInit {
   spaceConfigSuccess = '';
   editingConfig: any = null;
   configFormData: any = {};
+  vacantSpaces = signal<any[]>([]);
+  vacantLoading = signal(false);
 
   private loadSpaceConfig() {
     this.admin.getSpaceConfig().subscribe({
       next: (res: any) => this.spaceConfigItems.set(res?.data ?? []),
       error: () => {}
     });
+    this.loadVacantSpaces();
+  }
+
+  private loadVacantSpaces() {
+    this.vacantLoading.set(true);
+    // Fetch all pages until exhausted
+    const fetchAll = (page: number, acc: any[]) => {
+      this.admin.getSpaces(page, 500, '').subscribe({
+        next: (res: any) => {
+          const chunk: any[] = res?.data ?? [];
+          const combined = [...acc, ...chunk];
+          if (chunk.length === 500) {
+            fetchAll(page + 1, combined);
+          } else {
+            const vacant = combined
+              .filter(s => (s.spaceStatus || '').toLowerCase() === 'available')
+              .sort((a, b) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
+            this.vacantSpaces.set(vacant);
+            this.vacantLoading.set(false);
+          }
+        },
+        error: () => this.vacantLoading.set(false)
+      });
+    };
+    fetchAll(1, []);
+  }
+
+  get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
+    const map = new Map<string, any[]>();
+    for (const s of this.vacantSpaces()) {
+      const code = parseInt(s.code, 10);
+      const key = code >= 3200 ? 'Meeting' : code >= 3100 ? 'Private' : code >= 3000 ? 'Shared' : (s.spaceTypeName || 'Other');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    }
+    return Array.from(map.entries()).map(([type, spaces]) => ({ type, spaces }));
   }
 
   openEditConfig(cfg: any) {

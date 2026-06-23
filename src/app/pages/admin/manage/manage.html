@@ -494,6 +494,42 @@
       </div>
     </div>
   </div>
+
+  <div class="page-header" style="margin-top:32px">
+    <div><h1>Vacant Spaces</h1><p>All currently available spaces by ID</p></div>
+    <span class="item-count">{{ vacantSpaces().length }} vacant</span>
+  </div>
+  @if (vacantLoading()) {
+    <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
+  } @else if (vacantSpaces().length === 0) {
+    <div class="admin-card"><div class="empty-state"><p>No vacant spaces found.</p></div></div>
+  } @else {
+    @for (group of vacantSpacesGrouped; track group.type) {
+      <div class="admin-card" style="margin-bottom:16px">
+        <div style="padding:12px 16px 8px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+          <strong style="font-size:.95rem;color:#0f172a">{{ group.type }}</strong>
+          <span class="item-count">{{ group.spaces.length }} available</span>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Space ID</th><th>Name</th><th>Location</th><th>Price/Day</th></tr>
+            </thead>
+            <tbody>
+              @for (s of group.spaces; track s.code) {
+                <tr>
+                  <td><strong>{{ s.code }}</strong></td>
+                  <td>{{ s.name }}</td>
+                  <td>{{ s.locationName }}</td>
+                  <td>PKR {{ (s.pricePerDay ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
 }
 
 <!-- Reassign Booking Modal -->

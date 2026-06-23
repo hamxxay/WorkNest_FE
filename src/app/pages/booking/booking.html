@@ -41,7 +41,7 @@
           <div class="location-section">
             <div class="location-header">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <h2>I-8 Location</h2><span class="location-count">{{ i8Workspaces().length }} spaces</span>
+              <h2>I-8 Location</h2><span class="location-count">{{ i8Workspaces().length }} space types</span>
             </div>
             <div class="workspace-grid">
               @for (ws of i8Workspaces(); track ws.id) {
@@ -54,7 +54,7 @@
           <div class="location-section">
             <div class="location-header">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <h2>F-7 Location</h2><span class="location-count">{{ f7Workspaces().length }} spaces</span>
+              <h2>F-7 Location</h2><span class="location-count">{{ f7Workspaces().length }} space types</span>
             </div>
             <div class="workspace-grid">
               @for (ws of f7Workspaces(); track ws.id) {
@@ -67,7 +67,7 @@
           <div class="location-section">
             <div class="location-header">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <h2>Other Locations</h2><span class="location-count">{{ otherWorkspaces().length }} spaces</span>
+              <h2>Other Locations</h2><span class="location-count">{{ otherWorkspaces().length }} space types</span>
             </div>
             <div class="workspace-grid">
               @for (ws of otherWorkspaces(); track ws.id) {
