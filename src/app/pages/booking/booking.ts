@@ -1,6 +1,5 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
-import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
@@ -12,6 +11,22 @@ interface Workspace {
   spaceTypeName: string; capacity: number; amenities: string;
   pricePerDay: number; pricePerHour: number; status: string;
   imageUrl: string; floor: string; code: string;
+}
+
+interface SpaceTypeGroup {
+  spaceTypeName: string;
+  pricePerHour: number;
+  pricePerDay: number;
+  amenities: string;
+  imageUrl: string;
+  spaces: Workspace[];
+  availableCount: number;
+  expanded: boolean;
+}
+
+interface LocationGroup {
+  locationName: string;
+  spaceTypes: SpaceTypeGroup[];
 }
 
 interface SpaceConfig {
@@ -32,7 +47,7 @@ function getCategory(spaceTypeName: string): string {
 
 @Component({
   selector: 'app-booking',
-  imports: [ReactiveFormsModule, RouterLink, NgTemplateOutlet],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './booking.html',
   styleUrl: './booking.css'
 })
@@ -67,14 +82,40 @@ export class Booking implements OnInit {
     });
   });
 
-  private dedupeByType = (ws: Workspace[]) => {
-    const seen = new Set<string>();
-    return ws.filter(w => { const k = `${w.locationName}|${w.spaceTypeName}`; return seen.has(k) ? false : (seen.add(k), true); });
-  };
+  // Expanded state: 'LocationName|SpaceTypeName' -> boolean
+  expandedGroups = new Set<string>();
 
-  i8Workspaces    = computed(() => this.dedupeByType(this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('i-8') || ws.locationName.toLowerCase().includes('i8'))));
-  f7Workspaces    = computed(() => this.dedupeByType(this.filteredWorkspaces().filter(ws => ws.locationName.toLowerCase().includes('f-7') || ws.locationName.toLowerCase().includes('f7'))));
-  otherWorkspaces = computed(() => this.dedupeByType(this.filteredWorkspaces().filter(ws => { const l = ws.locationName.toLowerCase(); return !l.includes('i-8') && !l.includes('i8') && !l.includes('f-7') && !l.includes('f7'); })));
+  toggleGroup(locationName: string, spaceTypeName: string) {
+    const key = `${locationName}|${spaceTypeName}`;
+    this.expandedGroups.has(key) ? this.expandedGroups.delete(key) : this.expandedGroups.add(key);
+  }
+
+  isExpanded(locationName: string, spaceTypeName: string): boolean {
+    return this.expandedGroups.has(`${locationName}|${spaceTypeName}`);
+  }
+
+  locationGroups = computed<LocationGroup[]>(() => {
+    const map = new Map<string, Map<string, Workspace[]>>();
+    for (const ws of this.filteredWorkspaces()) {
+      if (!map.has(ws.locationName)) map.set(ws.locationName, new Map());
+      const typeMap = map.get(ws.locationName)!;
+      if (!typeMap.has(ws.spaceTypeName)) typeMap.set(ws.spaceTypeName, []);
+      typeMap.get(ws.spaceTypeName)!.push(ws);
+    }
+    return Array.from(map.entries()).map(([locationName, typeMap]) => ({
+      locationName,
+      spaceTypes: Array.from(typeMap.entries()).map(([spaceTypeName, spaces]) => ({
+        spaceTypeName,
+        pricePerHour:   spaces[0].pricePerHour,
+        pricePerDay:    spaces[0].pricePerDay,
+        amenities:      spaces[0].amenities,
+        imageUrl:       spaces[0].imageUrl,
+        spaces,
+        availableCount: spaces.filter(s => s.status === 'Available').length,
+        expanded:       false,
+      }))
+    }));
+  });
 
   // Modal state
   showBookingModal  = false;

@@ -37,81 +37,67 @@
       } @else if (filteredWorkspaces().length === 0) {
         <div class="empty-state"><p>No workspaces found. Try adjusting your search filters.</p></div>
       } @else {
-        @if (i8Workspaces().length > 0) {
+        @for (loc of locationGroups(); track loc.locationName) {
           <div class="location-section">
             <div class="location-header">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <h2>I-8 Location</h2><span class="location-count">{{ i8Workspaces().length }} space types</span>
+              <h2>{{ loc.locationName }}</h2>
+              <span class="location-count">{{ loc.spaceTypes.length }} space types</span>
             </div>
+
+            <!-- Space Type cards -->
             <div class="workspace-grid">
-              @for (ws of i8Workspaces(); track ws.id) {
-                <ng-container *ngTemplateOutlet="wsCard; context: { ws: ws }"></ng-container>
-              }
-            </div>
-          </div>
-        }
-        @if (f7Workspaces().length > 0) {
-          <div class="location-section">
-            <div class="location-header">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <h2>F-7 Location</h2><span class="location-count">{{ f7Workspaces().length }} space types</span>
-            </div>
-            <div class="workspace-grid">
-              @for (ws of f7Workspaces(); track ws.id) {
-                <ng-container *ngTemplateOutlet="wsCard; context: { ws: ws }"></ng-container>
-              }
-            </div>
-          </div>
-        }
-        @if (otherWorkspaces().length > 0) {
-          <div class="location-section">
-            <div class="location-header">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <h2>Other Locations</h2><span class="location-count">{{ otherWorkspaces().length }} space types</span>
-            </div>
-            <div class="workspace-grid">
-              @for (ws of otherWorkspaces(); track ws.id) {
-                <ng-container *ngTemplateOutlet="wsCard; context: { ws: ws }"></ng-container>
+              @for (st of loc.spaceTypes; track st.spaceTypeName) {
+                <div class="workspace-card card">
+                  <div class="ws-image">
+                    <img [src]="st.imageUrl" [alt]="st.spaceTypeName" />
+                    <span class="badge" [class.badge-success]="st.availableCount > 0" [class.badge-danger]="st.availableCount === 0">
+                      {{ st.availableCount }} / {{ st.spaces.length }} available
+                    </span>
+                  </div>
+                  <div class="ws-content">
+                    <h3>{{ st.spaceTypeName }}</h3>
+                    <p class="ws-location">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                      {{ loc.locationName }}
+                    </p>
+                    <div class="ws-amenities">
+                      @for (a of getAmenities(st.amenities); track a) {
+                        <span class="amenity-tag">{{ a }}</span>
+                      }
+                    </div>
+                    <div class="ws-footer">
+                      <span class="ws-price">Rs {{ st.pricePerHour }}<small>/hr</small> · Rs {{ st.pricePerDay }}<small>/day</small></span>
+                      <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn btn-outline btn-sm" (click)="toggleGroup(loc.locationName, st.spaceTypeName)">
+                          {{ isExpanded(loc.locationName, st.spaceTypeName) ? 'Hide ▲' : 'Rooms ▼' }}
+                        </button>
+                        <button class="btn btn-primary btn-sm" (click)="openBookingModal(st.spaces[0])" [disabled]="st.availableCount === 0">Book Now</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Rooms list (informational only) -->
+                  @if (isExpanded(loc.locationName, st.spaceTypeName)) {
+                    <div class="rooms-list">
+                      @for (ws of st.spaces; track ws.id) {
+                        <div class="room-row">
+                          <div class="room-info">
+                            <span class="room-name">{{ ws.name }}</span>
+                            <span class="room-meta">Floor: {{ ws.floor }} · Code: {{ ws.code }}</span>
+                          </div>
+                          <span class="badge" [class.badge-success]="ws.status === 'Available'" [class.badge-danger]="ws.status !== 'Available'">{{ ws.status }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
               }
             </div>
           </div>
         }
       }
     </div>
-
-    <!-- Workspace Card Template -->
-    <ng-template #wsCard let-ws="ws">
-      <div class="workspace-card card">
-        <div class="ws-image">
-          <img [src]="ws.imageUrl" [alt]="ws.name" />
-          <span class="badge" [class.badge-success]="ws.status === 'Available'" [class.badge-danger]="ws.status !== 'Available'">{{ ws.status }}</span>
-        </div>
-        <div class="ws-content">
-          <h3>{{ ws.name }}</h3>
-          <p class="ws-location">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-            {{ ws.locationName }}
-          </p>
-          <p class="ws-capacity">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            {{ ws.spaceTypeName }} · Floor: {{ ws.floor }}
-          </p>
-          <div class="ws-amenities">
-            @for (a of getAmenities(ws.amenities); track a) {
-              <span class="amenity-tag">{{ a }}</span>
-            }
-          </div>
-          <div class="ws-footer">
-            <span class="ws-price">Rs {{ ws.pricePerHour }}<small>/hr</small> · Rs {{ ws.pricePerDay }}<small>/day</small></span>
-            @if (ws.status === 'Available') {
-              <button class="btn btn-primary btn-sm" (click)="openBookingModal(ws)">Book Now</button>
-            } @else {
-              <button class="btn btn-outline btn-sm" disabled>Unavailable</button>
-            }
-          </div>
-        </div>
-      </div>
-    </ng-template>
   </div>
 </section>
 
