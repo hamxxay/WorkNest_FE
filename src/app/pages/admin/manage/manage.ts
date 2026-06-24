@@ -449,7 +449,7 @@ export class Manage implements OnInit {
     }
 
     this.reassignLoading.set(true);
-    this.admin.reassignBooking(this.reassignBooking.id, Number(this.selectedNewSpace)).subscribe({
+    this.admin.reassignBooking(this.reassignBooking.idGuid, Number(this.selectedNewSpace)).subscribe({
       next: () => {
         this.success = 'Booking reassigned successfully';
         setTimeout(() => this.success = '', 3000);
