@@ -246,17 +246,55 @@
             @if (pb.percent > 0) {
               <span>Discount {{ pb.percent }}%: −Rs {{ pb.discountAmount.toFixed(2) }}</span>
             }
-            <span><b>Total: Rs {{ pb.final.toFixed(2) }}</b></span>
+            <span>Rent: Rs {{ pb.final.toFixed(2) }}</span>
+            @if (pb.securityDeposit > 0) {
+              <span>Security Deposit (refundable): Rs {{ pb.securityDeposit.toFixed(2) }}</span>
+            }
+            <span><b>Total: Rs {{ pb.total.toFixed(2) }}</b></span>
           </div>
         }
 
-        <button type="submit" class="btn btn-primary btn-block btn-lg"
-          [disabled]="bookingForm.invalid || availabilityLoading()">
+        <button type="button" class="btn btn-primary btn-block btn-lg"
+          [disabled]="bookingForm.invalid || availabilityLoading()"
+          (click)="openTncModal()">
           @if (availabilityLoading()) { <span>Checking...</span> }
           @else if (isSpaceFull()) { <span>⚠ No spaces found — submit anyway to confirm</span> }
           @else { <span>Proceed to Payment</span> }
         </button>
       </form>
+    </div>
+  </div>
+}
+
+<!-- Terms & Conditions Modal -->
+@if (showTncModal) {
+  <div class="modal-overlay" (click)="closeTncModal()">
+    <div class="modal-content modal-narrow" (click)="$event.stopPropagation()" style="max-width:520px">
+      <button class="modal-close" (click)="closeTncModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2 style="margin-bottom:.5rem">Terms &amp; Conditions</h2>
+      <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">Please read before proceeding to payment</p>
+      <div class="tnc-body">
+        <p>By booking a workspace at WorkNest, you agree to the following:</p>
+        <ol>
+          <li>All bookings are subject to availability and confirmation by WorkNest staff.</li>
+          <li>Cancellations made less than 24 hours before the booking start time are non-refundable.</li>
+          <li>Users are responsible for the care and proper use of all WorkNest facilities.</li>
+          <li>Any damage caused to the premises or equipment will be charged to the booking user.</li>
+          <li>WorkNest reserves the right to cancel or reassign bookings in exceptional circumstances.</li>
+          <li>For Private Office bookings, a refundable security deposit is collected and will be returned upon satisfactory vacation of the space.</li>
+          <li>Payment must be completed within the specified time window; otherwise the booking will be released.</li>
+          <li>By proceeding, you confirm that all information provided is accurate and complete.</li>
+        </ol>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:1.25rem"
+        [disabled]="!tncAcceptEnabled"
+        (click)="acceptTncAndBook()">
+        @if (!tncAcceptEnabled) { Please wait... }
+        @else { I Accept — Proceed to Payment }
+      </button>
+      <button class="btn btn-outline btn-block" style="margin-top:.5rem" (click)="closeTncModal()">Cancel</button>
     </div>
   </div>
 }

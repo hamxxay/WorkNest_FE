@@ -32,6 +32,7 @@ interface LocationGroup {
 interface SpaceConfig {
   spaceCategory: string; totalSpaces: number; codePrefix: string;
   defaultCapacities: string; openingTime: string; closingTime: string;
+  securityDeposit?: number;
 }
 
 // Maps DB space type name → booking category
@@ -116,6 +117,11 @@ export class Booking implements OnInit {
       }))
     }));
   });
+
+  // T&C modal state
+  showTncModal      = false;
+  tncAcceptEnabled  = false;
+  private pendingBookingSubmit = false;
 
   // Modal state
   showBookingModal  = false;
@@ -304,6 +310,40 @@ export class Booking implements OnInit {
     this.showBookingModal = false;
     this.showAuthPrompt  = false;
     this.selectedSpace   = null;
+    this.closeTncModal();
+  }
+
+  openTncModal() {
+    this.bookingForm.markAllAsTouched();
+    if (this.bookingForm.invalid) {
+      this.bookingError.set('Please fill in all required fields correctly.');
+      return;
+    }
+    const [start, end] = this.calcDateRange();
+    if (!start || !end) { this.bookingError.set('Invalid date/time selection.'); return; }
+    if (!this.isPrivate) {
+      const [openH, openM] = this.openingTime.split(':').map(Number);
+      const [closeH, closeM] = this.closingTime.split(':').map(Number);
+      const startMins = start.getHours() * 60 + start.getMinutes();
+      const endMins   = end.getHours()   * 60 + end.getMinutes();
+      if (startMins < openH * 60 + openM || endMins > closeH * 60 + closeM) {
+        this.bookingError.set(`Booking must be between ${this.openingTime} and ${this.closingTime}.`);
+        return;
+      }
+    }
+    this.showTncModal = true;
+    this.tncAcceptEnabled = true;
+  }
+
+  closeTncModal() {
+    this.showTncModal = false;
+    this.tncAcceptEnabled = false;
+  }
+
+  acceptTncAndBook() {
+    if (!this.tncAcceptEnabled) return;
+    this.closeTncModal();
+    this.submitBooking();
   }
 
   private parseCapacities(csv?: string): number[] {
@@ -311,24 +351,29 @@ export class Booking implements OnInit {
     return csv.split(',').map(s => +s.trim()).filter(n => !isNaN(n) && n > 0);
   }
 
+  // ── Security deposit ─────────────────────────────────────────────────────
+
   // ── Price breakdown ───────────────────────────────────────────────────────
 
-  getPriceBreakdown(): { base: number; percent: number; discountAmount: number; final: number } | null {
+  getPriceBreakdown() {
     if (!this.selectedSpace) return null;
     const [start, end] = this.calcDateRange();
     if (!start || !end) return null;
-    const diffMs = end.getTime() - start.getTime();
     let base: number;
     if (this.isPrivate) {
       const months = this.bookingForm?.value?.months ?? 1;
       base = months * +this.selectedSpace.pricePerDay * 30;
     } else {
-      const hours = diffMs / 3_600_000;
+      const hours = (end.getTime() - start.getTime()) / 3_600_000;
       base = Math.ceil(hours) * +this.selectedSpace.pricePerHour;
     }
-    const percent        = this.discount().percent;
-    const final          = applyPercentDiscount(base, percent);
-    return { base, percent, discountAmount: Math.max(0, base - final), final };
+    const percent  = this.discount().percent;
+    const final    = applyPercentDiscount(base, percent);
+    // Read directly from spaceConfig signal so latest DB value is always used
+    const deposit  = this.isPrivate
+      ? +(this.spaceConfig().find(c => c.spaceCategory === 'Private')?.securityDeposit ?? 0)
+      : 0;
+    return { base, percent, discountAmount: Math.max(0, base - final), final, securityDeposit: deposit, total: final + deposit };
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -371,15 +416,22 @@ export class Booking implements OnInit {
     this.router.navigate(['/checkout'], {
       state: {
         pendingBooking: {
-          spaceCategory:  this.bookingCategory,
-          spaceName:      `${spaceTypeName} (Auto-assigned)`,
-          startDateTime:  start.toISOString().slice(0, 19),
-          endDateTime:    end.toISOString().slice(0, 19),
-          totalAmount:    breakdown?.final ?? 0,
-          notes:          this.bookingForm.value.notes || null,
-          capacity:       cap,
-          autoAssign:     true,
-          smartBooking:   true,
+          spaceCategory:   this.bookingCategory,
+          spaceName:       `${spaceTypeName} (Auto-assigned)`,
+          startDateTime:   start.toISOString().slice(0, 19),
+          endDateTime:     end.toISOString().slice(0, 19),
+          totalAmount:     breakdown?.total ?? 0,
+          rentAmount:      breakdown?.final ?? 0,
+          baseAmount:      breakdown?.base ?? 0,
+          discountAmount:  breakdown?.discountAmount ?? 0,
+          discountPercent: breakdown?.percent ?? 0,
+          securityDeposit: breakdown?.securityDeposit ?? 0,
+          months:          this.isPrivate ? (+this.bookingForm.value.months || 1) : undefined,
+          pricePerHour:    this.selectedSpace?.pricePerHour ?? 0,
+          notes:           this.bookingForm.value.notes || null,
+          capacity:        cap,
+          autoAssign:      true,
+          smartBooking:    true,
         }
       }
     }).then(() => { this.selectedSpace = null; });

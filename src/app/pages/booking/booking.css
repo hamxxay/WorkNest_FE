@@ -393,3 +393,20 @@ button:disabled {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* ── T&C Modal ─────────────────────────────────────────── */
+.tnc-body {
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-size: .86rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+.tnc-body p { margin-bottom: .5rem; }
+.tnc-body ol { padding-left: 1.25rem; }
+.tnc-body li { margin-bottom: .4rem; }
