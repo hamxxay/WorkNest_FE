@@ -71,55 +71,82 @@ export class Checkout implements OnInit {
   ngOnInit() {
     const navState = this.router.getCurrentNavigation()?.extras?.state ?? history.state;
     if (navState?.pendingBooking) {
-      this.pending = navState.pendingBooking;
+      this.pending.set(navState.pendingBooking);
       this.loading.set(false);
     } else {
-      // Fallback: navigated directly to /checkout without state
       this.loading.set(false);
       this.error.set('No booking details found. Please start from the booking page.');
     }
   }
 
-  pending: any = null;
+  pending = signal<any>(null);
+
+  // ── Breakdown helpers ───────────────────────────────────────
+  isPrivateBooking = computed(() => this.pending()?.spaceCategory === 'Private');
+
+  durationLabel = computed(() => {
+    const p = this.pending();
+    if (!p) return '';
+    const start = new Date(p.startDateTime);
+    const end   = new Date(p.endDateTime);
+    if (this.isPrivateBooking()) {
+      const months = (p.months ?? Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30))) || 1;
+      return `${months} month${months !== 1 ? 's' : ''}`;
+    }
+    const hours = Math.ceil((end.getTime() - start.getTime()) / 3_600_000);
+    return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  });
+
+  monthlyRent = computed(() => {
+    const p = this.pending();
+    if (!p) return 0;
+    const months = (p.months ?? Math.round(
+      (new Date(p.endDateTime).getTime() - new Date(p.startDateTime).getTime()) / (1000 * 60 * 60 * 24 * 30)
+    )) || 1;
+    return (p.rentAmount ?? p.totalAmount ?? 0) / months;
+  });
+
+  baseAmount    = computed(() => { const p = this.pending(); return p ? (p.baseAmount ?? p.totalAmount ?? 0) : 0; });
+  discountAmount = computed(() => { const p = this.pending(); return p ? (p.discountAmount ?? 0) : 0; });
 
   // ── Create booking then act on payment method ───────────────────
   private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number, assignedSpace?: any) => void) {
-    if (!this.pending) return;
+    if (!this.pending()) return;
     this.submitting.set(true);
     this.error.set('');
 
     // Use different payload based on whether it's auto-assignment or specific space booking
-    const bookingData = this.pending.autoAssign ? {
-      spaceType: this.pending.spaceType,
-      startDateTime: this.pending.startDateTime,
-      endDateTime: this.pending.endDateTime,
-      totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
-      notes: this.pending.notes || paymentMethod
-    } : this.pending.smartBooking ? {
-      // New smart booking — uses /booking/smart endpoint via spaceCategory
-      spaceCategory: this.pending.spaceCategory,
-      startDateTime: this.pending.startDateTime,
-      endDateTime: this.pending.endDateTime,
-      totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
-      capacity: this.pending.capacity ?? undefined,
-      notes: this.pending.notes || paymentMethod,
+    const p = this.pending();
+    const bookingData = p.autoAssign ? {
+      spaceType: p.spaceType,
+      startDateTime: p.startDateTime,
+      endDateTime: p.endDateTime,
+      totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
+      notes: p.notes || paymentMethod
+    } : p.smartBooking ? {
+      spaceCategory: p.spaceCategory,
+      startDateTime: p.startDateTime,
+      endDateTime: p.endDateTime,
+      totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
+      capacity: p.capacity ?? undefined,
+      notes: p.notes || paymentMethod,
       paymentMethod,
     } : {
-      spaceId: this.pending.spaceId,
-      startDateTime: this.pending.startDateTime,
-      endDateTime: this.pending.endDateTime,
-      totalAmount: parseFloat(Number(this.pending.totalAmount).toFixed(2)),
+      spaceId: p.spaceId,
+      startDateTime: p.startDateTime,
+      endDateTime: p.endDateTime,
+      totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
       notes: paymentMethod
     };
 
-    const createCall = this.pending.smartBooking
+    const createCall = p.smartBooking
       ? this.bookingService.createSmart({
-          spaceCategory: this.pending.spaceCategory ?? '',
-          startDateTime: this.pending.startDateTime,
-          endDateTime:   this.pending.endDateTime,
-          totalAmount:   parseFloat(Number(this.pending.totalAmount).toFixed(2)),
-          capacity:      this.pending.capacity ?? undefined,
-          notes:         this.pending.notes || paymentMethod,
+          spaceCategory: p.spaceCategory ?? '',
+          startDateTime: p.startDateTime,
+          endDateTime:   p.endDateTime,
+          totalAmount:   parseFloat(Number(p.totalAmount).toFixed(2)),
+          capacity:      p.capacity ?? undefined,
+          notes:         p.notes || paymentMethod,
           paymentMethod,
         })
       : this.bookingService.create(bookingData);
@@ -131,7 +158,7 @@ export class Checkout implements OnInit {
           const assignedSpace = res.data?.assignedSpaceName
             ? { name: res.data.assignedSpaceName, code: res.data.assignedSpace ?? '' }
             : res.data?.assignedSpace ?? null;
-          this.booking.set({ ...this.pending, id: bookingId, assignedSpace });
+          this.booking.set({ ...this.pending(), id: bookingId, assignedSpace });
           onSuccess(bookingId, assignedSpace);
         } else {
           this.submitting.set(false);
@@ -220,7 +247,7 @@ export class Checkout implements OnInit {
             queryParams: {
               status:    res.isSuccessful ? 'success' : 'failed',
               bookingId,
-              amount:    this.pending?.totalAmount,
+              amount:    this.pending()?.totalAmount,
               ref:       res.transactionRef ?? '',
               method:    'Card',
               assignedSpace: assignedSpace ? JSON.stringify(assignedSpace) : ''
@@ -252,7 +279,7 @@ export class Checkout implements OnInit {
       const idempotencyKey = `vchr-${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.oneBillService.generateVoucher({
         bookingId,
-        amount: this.pending?.totalAmount,
+        amount: this.pending()?.totalAmount,
         idempotencyKey,
       }).subscribe({
         next: (res) => {
@@ -305,7 +332,7 @@ export class Checkout implements OnInit {
   payfastSubmitting = signal(false);
 
   submitPayFast() {
-    if (!this.pending) return;
+    if (!this.pending()) return;
     this.payfastSubmitting.set(true);
     this.error.set('');
 
