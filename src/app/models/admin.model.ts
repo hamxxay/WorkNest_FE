@@ -37,7 +37,7 @@ export interface Location {
   id: number;
   name: string;
   address: string;
-  city: string;
+  cityName: string;
   openingTime?: string;
   closingTime?: string;
   isActive?: boolean;

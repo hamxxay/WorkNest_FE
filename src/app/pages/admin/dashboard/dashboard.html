@@ -100,7 +100,7 @@
                 <tr>
                   <td>{{ b.userEmail }}</td>
                   <td>{{ b.spaceName }}</td>
-                  <td><span class="status-badge" [class]="'status-' + b.bookingStatus?.toLowerCase()">{{ b.bookingStatus }}</span></td>
+                  <td><span class="status-badge" [class]="'status-' + b.bookingStatus?.toString()?.toLowerCase()">{{ b.bookingStatus }}</span></td>
                   <td>{{ b.startDateTime | date:'short' }}</td>
                 </tr>
               }
@@ -120,7 +120,7 @@
                 <tr>
                   <td>{{ c.fullName }}</td>
                   <td>{{ c.email }}</td>
-                  <td><span class="status-badge" [class]="'status-' + c.status?.toLowerCase()">{{ c.status }}</span></td>
+                  <td><span class="status-badge" [class]="'status-' + c.status?.toString()?.toLowerCase()">{{ c.status }}</span></td>
                 </tr>
               }
             </tbody>

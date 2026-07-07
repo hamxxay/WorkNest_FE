@@ -62,7 +62,7 @@
                     @if (col.type === 'image') {
                       <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
                     } @else if (col.type === 'status') {
-                      <span class="status-badge" [class]="'status-' + (item[col.key] || '').toLowerCase()">{{ item[col.key] }}</span>
+                      <span class="status-badge" [class]="'status-' + (item[col.key]?.toString() || '').toLowerCase()">{{ item[col.key] }}</span>
                     } @else if (col.type === 'boolean') {
                       <span class="bool-badge" [class.active]="item[col.key]">{{ item[col.key] ? 'Yes' : 'No' }}</span>
                     } @else if (col.type === 'date') {
@@ -379,8 +379,8 @@
           <div class="user-detail-grid">
             <div class="user-line"><span>Name</span><strong>{{ userDisplayName }}</strong></div>
             <div class="user-line"><span>Phone</span><strong>{{ user.phoneNumber || 'N/A' }}</strong></div>
-            <div class="user-line"><span>Active</span><strong>{{ user.isActive ? 'Yes' : 'No' }}</strong></div>
-            <div class="user-line"><span>Created</span><strong>{{ user.createdAt ? (user.createdAt | date:'medium') : 'N/A' }}</strong></div>
+            <div class="user-line"><span>Active</span><strong>{{ (user.isActive ?? user.status == 1) ? 'Yes' : 'No' }}</strong></div>
+            <div class="user-line"><span>Created</span><strong>{{ (user.createdAt || user.createdOn) ? ((user.createdAt || user.createdOn) | date:'medium') : 'N/A' }}</strong></div>
           </div>
         }
         @if (userHistory(); as history) {

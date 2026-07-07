@@ -430,7 +430,6 @@ export class Booking implements OnInit {
           pricePerHour:    this.selectedSpace?.pricePerHour ?? 0,
           notes:           this.bookingForm.value.notes || null,
           capacity:        cap,
-          autoAssign:      true,
           smartBooking:    true,
         }
       }
