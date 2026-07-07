@@ -168,14 +168,14 @@ export class Manage implements OnInit {
   }
 
   get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
-    const map = new Map<string, any[]>();
+    const grouped = new Map<string, any[]>();
     for (const s of this.vacantSpaces()) {
       const code = parseInt(s.code, 10);
       const key = code >= 3200 ? 'Meeting' : code >= 3100 ? 'Private' : code >= 3000 ? 'Shared' : (s.spaceTypeName || 'Other');
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(s);
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(s);
     }
-    return Array.from(map.entries()).map(([type, spaces]) => ({ type, spaces }));
+    return Array.from(grouped.entries()).map(([type, spaces]) => ({ type, spaces }));
   }
 
   openEditConfig(cfg: any) {
@@ -246,8 +246,9 @@ export class Manage implements OnInit {
     this.loading.set(true);
     this.config.getFn(this.page(), this.pageSize, this.searchQuery).subscribe({
       next: (res: any) => {
-        this.items.set(res?.data ?? []);
-        this.totalCount.set(res?.total ?? (res?.data?.length ?? 0));
+        const data = Array.isArray(res) ? res : (res?.data ?? []);
+        this.items.set(data);
+        this.totalCount.set(res?.total ?? data.length);
         this.loading.set(false);
       },
       error: () => this.loading.set(false)
@@ -331,7 +332,8 @@ export class Manage implements OnInit {
   }
 
   toggleActive(item: any) {
-    const obs = item.isActive ? this.admin.deactivateUser(item.idGuid) : this.admin.activateUser(item.idGuid);
+    const isActive = item.isActive ?? (item.status == 1);
+    const obs = isActive ? this.admin.deactivateUser(item.idGuid) : this.admin.activateUser(item.idGuid);
     obs.subscribe({ next: () => this.load() });
   }
 
@@ -551,6 +553,7 @@ export class Manage implements OnInit {
         columns: [
           { key: 'email', label: 'Email' },
           { key: 'name', label: 'Name' },
+          { key: 'phone', label: 'Phone' },
           { key: 'role', label: 'Role', type: 'role' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
           { key: 'createdAt', label: 'Created', type: 'date' },
@@ -568,17 +571,17 @@ export class Manage implements OnInit {
       case 'locations': return {
         title: 'Locations',
         columns: [
-          { key: 'name', label: 'Name' },
-          { key: 'address', label: 'Address' },
-          { key: 'city', label: 'City' },
+          { key: 'name',        label: 'Name' },
+          { key: 'address',     label: 'Address' },
+          { key: 'cityName',    label: 'City' },
           { key: 'openingTime', label: 'Opens' },
           { key: 'closingTime', label: 'Closes' },
-          { key: 'isActive', label: 'Active', type: 'boolean' },
+          { key: 'status',      label: 'Active', type: 'boolean' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'address', label: 'Address', type: 'text' },
-          { key: 'city', label: 'City', type: 'text' },
+          { key: 'cityId', label: 'City ID', type: 'number' },
           { key: 'openingTime', label: 'Opening Time', type: 'time' },
           { key: 'closingTime', label: 'Closing Time', type: 'time' },
           { key: 'isActive', label: 'Active', type: 'checkbox' },
@@ -592,10 +595,10 @@ export class Manage implements OnInit {
       case 'spacetypes': return {
         title: 'Space Types',
         columns: [
-          { key: 'name', label: 'Name' },
-          { key: 'capacity', label: 'Capacity' },
-          { key: 'hourlyAllowed', label: 'Hourly', type: 'boolean' },
-          { key: 'isActive', label: 'Active', type: 'boolean' },
+          { key: 'name',         label: 'Name' },
+          { key: 'capacity',     label: 'Capacity' },
+          { key: 'hourlyAllowed',label: 'Hourly', type: 'boolean' },
+          { key: 'status',       label: 'Active', type: 'boolean' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
@@ -612,13 +615,13 @@ export class Manage implements OnInit {
       case 'spaces': return {
         title: 'Spaces',
         columns: [
-          { key: 'name', label: 'Name' },
-          { key: 'code', label: 'Code' },
-          { key: 'locationName', label: 'Location' },
+          { key: 'name',          label: 'Name' },
+          { key: 'code',          label: 'Code' },
+          { key: 'locationName',  label: 'Location' },
           { key: 'spaceTypeName', label: 'Type' },
-          { key: 'pricePerDay', label: 'Price/Day', type: 'currency' },
-          { key: 'spaceStatus', label: 'Status', type: 'status' },
-          { key: 'imageUrl', label: 'Image', type: 'image' },
+          { key: 'pricePerDay',   label: 'Price/Day', type: 'currency' },
+          { key: 'status',        label: 'Status', type: 'status' },
+          { key: 'imageUrl',      label: 'Image', type: 'image' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },

@@ -240,7 +240,12 @@ export class AdminService {
 
   // Contact Messages
   getContacts(page?: number, limit?: number, search?: string): Observable<ApiResponse<Contact[]>> {
-    return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact`);
+      const params = new URLSearchParams();
+    if (page != null) params.set('page', String(page));
+    if (limit != null) params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
   updateContactStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status?status=${encodeURIComponent(status)}`, {}); }
   deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
