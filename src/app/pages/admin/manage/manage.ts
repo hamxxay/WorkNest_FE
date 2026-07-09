@@ -323,7 +323,8 @@ export class Manage implements OnInit {
 
   deleteItem(item: any) {
     if (!confirm('Delete this item?')) return;
-    this.config.deleteFn!(item.idGuid).subscribe({ next: () => this.load() });
+    const id = item.idGuid ?? item.id;
+    this.config.deleteFn!(id).subscribe({ next: () => this.load() });
   }
 
   changeStatus(item: any, status: string) {
@@ -735,8 +736,7 @@ export class Manage implements OnInit {
         columns: [
           { key: 'title', label: 'Title' },
           { key: 'imageUrl', label: 'Image', type: 'image' },
-          // { key: 'sortOrder', label: 'Order' },
-          // { key: 'isActive', label: 'Active', type: 'boolean' },
+      
 
         ],
         fields: [
