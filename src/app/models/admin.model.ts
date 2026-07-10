@@ -122,6 +122,8 @@ export interface Payment {
   paymentMethod?: string;
   paymentStatus?: string;
   paidAt?: string;
+  approvedAt?: string;
+  approvedByAdminId?: string;
 }
 
 /**

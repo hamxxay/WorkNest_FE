@@ -233,6 +233,11 @@ export class AdminService {
     if (transactionRef) url += `&transactionRef=${encodeURIComponent(transactionRef)}`;
     return this.http.patch<any>(url, {});
   }
+  /** Approve a pending cash-on-counter payment */
+  approvePayment(id: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/payment/${id}/approve`, {});
+  }
+
   deletePayment(id: number): Observable<any> { return this.http.delete<any>(`${this.api}/payment/${id}`); }
 
   /** Get payment detail with linked booking/membership and user stats */

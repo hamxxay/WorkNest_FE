@@ -45,6 +45,13 @@ export class MyPayments implements OnInit {
     return 'status-' + (status || '').toLowerCase();
   }
 
+  getDisplayStatus(p: any): string {
+    if ((p.paymentMethod || '').toLowerCase().includes('cash') && p.paymentStatus !== 'Paid') {
+      return 'Pending';
+    }
+    return p.paymentStatus || '—';
+  }
+
   // old getters replaced by computed signals above; kept for reference
   getTotalPaid(): number {
     return this.totalPaid();

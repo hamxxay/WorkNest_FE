@@ -83,6 +83,7 @@ export class Manage implements OnInit {
   paymentSummary = signal<any>(null);
   paymentSummaryLoading = signal(false);
   paymentSummaryError = '';
+  approvingPaymentId = signal<number | null>(null);
 
   showReassignModal = false;
   reassignBooking: any = null;
@@ -409,6 +410,25 @@ export class Manage implements OnInit {
     });
   }
   closePaymentModal() { this.showPaymentModal = false; }
+
+  approvePayment(item: any) {
+    if (item.paymentStatus !== 'Pending') return;
+    if (this.approvingPaymentId() === item.id) return;
+    if (!confirm(`Approve cash payment of PKR ${item.amount ?? 0} for ${item.userEmail ?? 'this user'}?`)) return;
+    this.approvingPaymentId.set(item.id);
+    this.admin.approvePayment(item.id).subscribe({
+      next: () => {
+        this.success = 'Payment approved successfully.';
+        setTimeout(() => this.success = '', 3000);
+        this.approvingPaymentId.set(null);
+        this.load();
+      },
+      error: (e: any) => {
+        this.error = e?.error?.message ?? 'Failed to approve payment.';
+        this.approvingPaymentId.set(null);
+      }
+    });
+  }
 
   openReassignModal(booking: any) {
     this.reassignBooking = booking;

@@ -52,7 +52,7 @@
                 <td class="cell-id">#{{ p.id }}</td>
                 <td class="cell-amount">Rs {{ p.amount | number:'1.2-2' }}</td>
                 <td>{{ p.paymentMethod || '—' }}</td>
-                <td><span class="status-badge" [class]="getStatusClass(p.paymentStatus)">{{ p.paymentStatus }}</span></td>
+                <td><span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p) }}</span></td>
                 <td class="cell-ref">{{ p.transactionRef || '—' }}</td>
                 <td class="cell-date">{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</td>
               </tr>
@@ -66,17 +66,21 @@
         @for (p of payments(); track p.id) {
           <div class="payment-card-mobile">
             <div class="payment-mobile-header">
-              <span class="payment-mobile-id">#{{ p.id }}</span>
-              <span class="status-badge" [class]="getStatusClass(p.paymentStatus)">{{ p.paymentStatus }}</span>
+              <div class="payment-mobile-body">
+                <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.2-2' }}</div>
+                <div class="payment-mobile-details">
+                  <span>{{ p.paymentMethod || 'N/A' }}</span>
+                  <span>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</span>
+                </div>
+                @if (p.transactionRef) {
+                  <div class="payment-mobile-ref">Ref: {{ p.transactionRef }}</div>
+                }
+              </div>
+              <div class="payment-mobile-right">
+                <span class="payment-mobile-id">#{{ p.id }}</span>
+                <span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p) }}</span>
+              </div>
             </div>
-            <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.2-2' }}</div>
-            <div class="payment-mobile-details">
-              <span>{{ p.paymentMethod || 'N/A' }}</span>
-              <span>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</span>
-            </div>
-            @if (p.transactionRef) {
-              <div class="payment-mobile-ref">Ref: {{ p.transactionRef }}</div>
-            }
           </div>
         }
       </div>
