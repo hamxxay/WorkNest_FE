@@ -110,6 +110,19 @@
                     <button class="action-btn info" (click)="openPaymentSummary(item)" title="Payment Summary">
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9h20"/><path d="M6 15h2"/><path d="M11 15h4"/><rect x="2" y="5" width="20" height="14" rx="2"/></svg>
                     </button>
+                    @if (item.paymentStatus === 'Pending') {
+                      <button
+                        class="action-btn approve"
+                        (click)="approvePayment(item)"
+                        [disabled]="approvingPaymentId() === item.id"
+                        title="Approve Cash Payment">
+                        @if (approvingPaymentId() === item.id) {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        } @else {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        }
+                      </button>
+                    }
                   }
                   @if (config.statusFn && config.statusOptions) {
                     <select class="status-select" (change)="changeStatus(item, $any($event.target).value)">

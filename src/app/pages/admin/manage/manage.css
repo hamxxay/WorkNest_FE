@@ -44,6 +44,7 @@
 .action-btn.edit{color:#0d9488}.action-btn.edit:hover{background:rgba(13,148,136,.08);border-color:#0d9488}
 .action-btn.delete{color:#ef4444}.action-btn.delete:hover{background:rgba(239,68,68,.08);border-color:#ef4444}
 .action-btn.deactivate{color:#f59e0b}.action-btn.activate{color:#10b981}
+.action-btn.approve{color:#059669}.action-btn.approve:hover:not(:disabled){background:rgba(16,185,129,.08);border-color:#059669}.action-btn.approve:disabled{opacity:.6;cursor:not-allowed}
 .status-select{border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:.78rem;color:#475569;background:#fff;cursor:pointer}
 .admin-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;font-size:.875rem;color:#64748b}
 .btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}
