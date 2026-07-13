@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
-import { applyPercentDiscount, getWorkspaceDiscount, type BookingLike } from '../../utils/workspace-discount';
+
 
 interface Workspace {
   id: number; idGuid: string; name: string; locationName: string;
@@ -60,9 +60,7 @@ export class Booking implements OnInit {
   bookingError   = signal('');
 
   workspaces  = signal<Workspace[]>([]);
-  myBookings  = signal<BookingLike[]>([]);
   spaceConfig = signal<SpaceConfig[]>([]);
-  discount    = computed(() => getWorkspaceDiscount(this.myBookings()));
 
   availableWorkspaceTypes = computed(() => {
     const types = new Set<string>();
@@ -149,7 +147,6 @@ export class Booking implements OnInit {
   ngOnInit() {
     this.pendingTypeFilter = this.route.snapshot.queryParamMap.get('type') ?? '';
     this.loadSpaces();
-    this.loadMyBookingsForDiscount();
     this.loadSpaceConfig();
   }
 
@@ -173,17 +170,6 @@ export class Booking implements OnInit {
         }
       },
       error: () => this.loading.set(false)
-    });
-  }
-
-  private loadMyBookingsForDiscount() {
-    if (!this.authService.getToken()) return;
-    this.bookingService.getMyBookings().subscribe({
-      next: (res: any) => {
-        const data = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
-        this.myBookings.set(data);
-      },
-      error: () => this.myBookings.set([])
     });
   }
 
@@ -367,13 +353,10 @@ export class Booking implements OnInit {
       const hours = (end.getTime() - start.getTime()) / 3_600_000;
       base = Math.ceil(hours) * +this.selectedSpace.pricePerHour;
     }
-    const percent  = this.discount().percent;
-    const final    = applyPercentDiscount(base, percent);
-    // Read directly from spaceConfig signal so latest DB value is always used
-    const deposit  = this.isPrivate
+    const deposit = this.isPrivate
       ? +(this.spaceConfig().find(c => c.spaceCategory === 'Private')?.securityDeposit ?? 0)
       : 0;
-    return { base, percent, discountAmount: Math.max(0, base - final), final, securityDeposit: deposit, total: final + deposit };
+    return { base, percent: 0, discountAmount: 0, final: base, securityDeposit: deposit, total: base + deposit };
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -423,8 +406,6 @@ export class Booking implements OnInit {
           totalAmount:     breakdown?.total ?? 0,
           rentAmount:      breakdown?.final ?? 0,
           baseAmount:      breakdown?.base ?? 0,
-          discountAmount:  breakdown?.discountAmount ?? 0,
-          discountPercent: breakdown?.percent ?? 0,
           securityDeposit: breakdown?.securityDeposit ?? 0,
           months:          this.isPrivate ? (+this.bookingForm.value.months || 1) : undefined,
           pricePerHour:    this.selectedSpace?.pricePerHour ?? 0,

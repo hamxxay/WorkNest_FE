@@ -100,3 +100,15 @@
 .calendar-hint{font-size:.75rem;color:#94a3b8;margin-top:8px}
 .calendar-loading{text-align:center;color:#94a3b8;padding:20px;font-size:.85rem}
 .amenities-check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px}
+
+.form-row-admin{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-section-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0d9488;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+
+.customer-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:100;max-height:220px;overflow-y:auto}
+.customer-option{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f1f5f9}
+.customer-option:last-child{border-bottom:none}
+.customer-option:hover{background:#f8fafc}
+.customer-option strong{color:#0f172a;min-width:120px}
+.customer-option span{color:#64748b;font-size:.8rem}
+.cust-code{margin-left:auto;background:rgba(13,148,136,.1);color:#0d9488;padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
+.field-required-badge{display:inline-block;font-size:.7rem;font-weight:600;color:#d97706;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}

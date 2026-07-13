@@ -112,7 +112,7 @@
 .workspace-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 28px;
 }
 
 .workspace-card {
@@ -123,7 +123,7 @@
 
 .ws-image {
   position: relative;
-  height: 195px;
+  height: 240px;
   overflow: hidden;
 }
 
@@ -140,18 +140,21 @@
 
 .ws-image .badge {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 20px;
 }
 
 .ws-content {
-  padding: 18px;
+  padding: 24px;
 }
 
 .ws-content h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 6px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 
 .ws-location,
@@ -159,9 +162,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .ws-location svg,
@@ -174,13 +177,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 10px 0 14px;
+  margin: 12px 0 16px;
 }
 
 .amenity-tag {
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 6px;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   background: var(--accent-bg);
   color: var(--accent);
   border: 1px solid rgba(57, 160, 203, 0.15);
@@ -190,18 +193,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-color);
 }
 
 .ws-price {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .ws-price small {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 400;
   color: var(--text-muted);
 }
@@ -410,3 +413,24 @@ button:disabled {
 .tnc-body p { margin-bottom: .5rem; }
 .tnc-body ol { padding-left: 1.25rem; }
 .tnc-body li { margin-bottom: .4rem; }
+
+/* ========== Loyalty Discount Banner ========== */
+.loyalty-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(57,160,203,0.12), rgba(57,160,203,0.06));
+  border: 1px solid rgba(57,160,203,0.35);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.loyalty-banner svg {
+  flex-shrink: 0;
+  fill: var(--accent);
+  stroke: var(--accent);
+}
