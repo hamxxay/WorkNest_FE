@@ -275,6 +275,16 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/space-config/generate-inventory`, data);
   }
 
+  // Cities
+  getCities(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/city`);
+  }
+
+  // Admin create booking with customer details
+  createAdminBooking(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/booking/create-admin`, data);
+  }
+
   // Amenities
   getAmenities(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/amenity`);

@@ -1,10 +1,16 @@
-<div class="admin-page">
+﻿<div class="admin-page">
   <div class="page-header">
     <div>
       <h1>{{ config?.title }}</h1>
       <p>Manage all {{ config?.title?.toLowerCase() }}</p>
     </div>
     <div class="header-actions">
+      @if (entity === 'bookings') {
+        <button class="btn-admin btn-primary-admin" (click)="openAdminBookingForm()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+          Create Booking
+        </button>
+      }
       @if (config?.createFn) {
         <button class="btn-admin btn-primary-admin" (click)="openCreate()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
@@ -147,7 +153,7 @@
                       </select>
                     }
                     <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive" (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
-                      {{ item.isActive ? '🔒' : '🔓' }}
+                      {{ item.isActive ? 'ðŸ”’' : 'ðŸ”“' }}
                     </button>
                   }
                   @if (config.deleteFn) {
@@ -440,7 +446,7 @@
                         <td>PKR {{ (p.amount ?? 0) | number:'1.2-2' }}</td>
                         <td>{{ p.paymentMethod }}</td>
                         <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{ p.paymentStatus }}</span></td>
-                        <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '—' }}</td>
+                        <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : 'â€”' }}</td>
                       </tr>
                     }
                   </tbody>
@@ -484,14 +490,14 @@
                   <td><input class="form-input-admin" type="time" [(ngModel)]="configFormData.openingTime" name="open_{{cfg.id}}" style="width:90px" /></td>
                   <td><input class="form-input-admin" type="time" [(ngModel)]="configFormData.closingTime" name="close_{{cfg.id}}" style="width:90px" /></td>
                   <td class="actions-cell">
-                    <button class="action-btn edit" (click)="saveConfig()" [disabled]="spaceConfigSaving()" title="Save">✓</button>
-                    <button class="action-btn" (click)="cancelEditConfig()" title="Cancel">✗</button>
+                    <button class="action-btn edit" (click)="saveConfig()" [disabled]="spaceConfigSaving()" title="Save">âœ“</button>
+                    <button class="action-btn" (click)="cancelEditConfig()" title="Cancel">âœ—</button>
                   </td>
                 } @else {
                   <td><strong>{{ cfg.spaceCategory }}</strong></td>
                   <td>{{ cfg.totalSpaces }}</td>
                   <td>{{ cfg.codePrefix }}</td>
-                  <td>{{ cfg.defaultCapacities || '—' }}</td>
+                  <td>{{ cfg.defaultCapacities || 'â€”' }}</td>
                   <td>{{ cfg.openingTime }}</td>
                   <td>{{ cfg.closingTime }}</td>
                   <td class="actions-cell">
@@ -585,6 +591,141 @@
           </div>
         </form>
       }
+    </div>
+  </div>
+}
+
+
+@if (showBookingForm) {
+  <div class="modal-overlay" (click)="closeAdminBookingForm()">
+    <div class="modal-content booking-modal" (click)="$event.stopPropagation()" style="max-width:660px">
+      <button class="modal-close" (click)="closeAdminBookingForm()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Create Booking</h2>
+      @if (bookingFormError) {
+        <div class="alert-admin alert-error-admin">{{ bookingFormError }}</div>
+      }
+      <form (ngSubmit)="submitAdminBooking()">
+
+        <p class="form-section-label">Customer</p>
+
+        <div class="form-group-admin" style="position:relative">
+          <label>Search Customer *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="customerSearch"
+            placeholder="Type name or email..." (input)="onCustomerSearch()" autocomplete="off" />
+          @if (customerSearchResults.length) {
+            <div class="customer-dropdown">
+              @for (u of customerSearchResults; track u.id) {
+                <div class="customer-option" (click)="selectCustomer(u)">
+                  <strong>{{ u.name || u.firstName || u.email }}</strong>
+                  <span>{{ u.email }}</span>
+                  @if (u.customerCode || u.code) {
+                    <span class="cust-code">{{ u.customerCode || u.code }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        @if (selectedCustomer) {
+          <div class="form-row-admin">
+            <div class="form-group-admin">
+              <label>Full Name</label>
+              <input class="form-input-admin" [ngModel]="bookingFormData.customerName" name="customerName" readonly style="background:#f1f5f9;color:#64748b" />
+            </div>
+            <div class="form-group-admin">
+              <label>Email</label>
+              <input class="form-input-admin" [ngModel]="bookingFormData.customerEmail" name="customerEmail" readonly style="background:#f1f5f9;color:#64748b" />
+            </div>
+          </div>
+          <div class="form-row-admin">
+            <div class="form-group-admin">
+              <label>Customer Code @if (isCustomerFieldEmpty('customerCode')) { <span class="field-required-badge">fill in</span> }</label>
+              <input class="form-input-admin" [(ngModel)]="bookingFormData.customerCode" name="customerCode"
+                [readonly]="!isCustomerFieldEmpty('customerCode')" [placeholder]="isCustomerFieldEmpty('customerCode') ? 'e.g. WN001' : ''" [style.background]="isCustomerFieldEmpty('customerCode') ? '#fff' : '#f1f5f9'" />
+            </div>
+            <div class="form-group-admin">
+              <label>Phone @if (isCustomerFieldEmpty('phone')) { <span class="field-required-badge">fill in</span> }</label>
+              <input class="form-input-admin" [(ngModel)]="bookingFormData.phone" name="phone"
+                [readonly]="!isCustomerFieldEmpty('phone')" [placeholder]="isCustomerFieldEmpty('phone') ? 'e.g. 03001234567' : ''" [style.background]="isCustomerFieldEmpty('phone') ? '#fff' : '#f1f5f9'" />
+            </div>
+          </div>
+          <div class="form-row-admin">
+            <div class="form-group-admin">
+              <label>CNIC / Passport @if (isCustomerFieldEmpty('cnicOrPassport')) { <span class="field-required-badge">fill in</span> }</label>
+              <input class="form-input-admin" [(ngModel)]="bookingFormData.cnicOrPassport" name="cnicOrPassport"
+                [readonly]="!isCustomerFieldEmpty('cnicOrPassport')" [placeholder]="isCustomerFieldEmpty('cnicOrPassport') ? 'e.g. 42101-1234567-1' : ''" [style.background]="isCustomerFieldEmpty('cnicOrPassport') ? '#fff' : '#f1f5f9'" />
+            </div>
+            <div class="form-group-admin">
+              <label>City @if (isCustomerFieldEmpty('cityId')) { <span class="field-required-badge">fill in</span> }</label>
+              <select class="form-input-admin" [(ngModel)]="bookingFormData.cityId" name="cityId" [disabled]="!isCustomerFieldEmpty('cityId')">
+                <option value="">Select City...</option>
+                @for (c of cityOptions; track c.v) {
+                  <option [value]="c.v">{{ c.l }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="form-group-admin">
+              <label>Address @if (isCustomerFieldEmpty('address')) { <span class="field-required-badge">fill in</span> }</label>
+              <input class="form-input-admin" type="text" [(ngModel)]="bookingFormData.address" name="address"
+                [readonly]="!isCustomerFieldEmpty('address')" [placeholder]="isCustomerFieldEmpty('address') ? 'Street address' : ''" [style.background]="isCustomerFieldEmpty('address') ? '#fff' : '#f1f5f9'" />
+          </div>
+        }
+
+        <p class="form-section-label" style="margin-top:1.25rem">Space Selection</p>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Space Type *</label>
+            <select class="form-input-admin" [(ngModel)]="selectedSpaceTypeId" name="spaceTypeId" required (change)="onSpaceTypeChange()">
+              <option value="">Select Space Type...</option>
+              @for (st of spaceTypeOptions; track st.v) {
+                <option [value]="st.v">{{ st.l }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group-admin">
+            <label>Space *</label>
+            <select class="form-input-admin" [(ngModel)]="bookingFormData.spaceId" name="spaceId" required [disabled]="!selectedSpaceTypeId" (change)="recalcAmount()">
+              <option value="">{{ selectedSpaceTypeId ? 'Select Space...' : 'Select a type first' }}</option>
+              @for (sp of filteredSpaceOptions; track sp.v) {
+                <option [value]="sp.v">{{ sp.l }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <p class="form-section-label" style="margin-top:1.25rem">Booking Period</p>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Start Date &amp; Time *</label>
+            <input class="form-input-admin" type="datetime-local" [(ngModel)]="bookingFormData.startDateTime" name="startDateTime" required (change)="recalcAmount()" />
+          </div>
+          <div class="form-group-admin">
+            <label>End Date &amp; Time *</label>
+            <input class="form-input-admin" type="datetime-local" [(ngModel)]="bookingFormData.endDateTime" name="endDateTime" required (change)="recalcAmount()" />
+          </div>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Total Amount (PKR) <small style="color:#94a3b8">(auto-calculated)</small></label>
+            <input class="form-input-admin" type="number" [ngModel]="bookingFormData.totalAmount" name="totalAmount" readonly style="background:#f1f5f9;font-weight:600" placeholder="Select space &amp; dates" />
+          </div>
+          <div class="form-group-admin">
+            <label>Notes</label>
+            <input class="form-input-admin" type="text" [(ngModel)]="bookingFormData.notes" name="notes" placeholder="Optional notes" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminBookingForm()">Cancel</button>
+          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="bookingFormSaving() || !selectedCustomer">
+            {{ bookingFormSaving() ? 'Creating...' : 'Create Booking' }}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 }

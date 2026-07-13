@@ -45,6 +45,8 @@
               <span class="location-count">{{ loc.spaceTypes.length }} space types</span>
             </div>
 
+
+
             <!-- Space Type cards -->
             <div class="workspace-grid">
               @for (st of loc.spaceTypes; track st.spaceTypeName) {
@@ -243,10 +245,6 @@
         @if (getPriceBreakdown(); as pb) {
           <div class="modal-price" style="margin-bottom:.75rem">
             <span>Base: Rs {{ pb.base.toFixed(2) }}</span>
-            @if (pb.percent > 0) {
-              <span>Discount {{ pb.percent }}%: −Rs {{ pb.discountAmount.toFixed(2) }}</span>
-            }
-            <span>Rent: Rs {{ pb.final.toFixed(2) }}</span>
             @if (pb.securityDeposit > 0) {
               <span>Security Deposit (refundable): Rs {{ pb.securityDeposit.toFixed(2) }}</span>
             }

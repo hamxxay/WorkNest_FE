@@ -105,6 +105,21 @@ export class Manage implements OnInit {
   amenityOptions: { id: number; name: string }[] = [];
   selectedAmenityIds: number[] = [];
 
+  // ── Admin Booking Form ────────────────────────────────────
+  showBookingForm = false;
+  bookingFormData: any = {};
+  bookingFormSaving = signal(false);
+  bookingFormError = '';
+  cityOptions: { v: any; l: string }[] = [];
+  allSpaces: any[] = [];
+  filteredSpaceOptions: { v: any; l: string }[] = [];
+  selectedSpaceTypeId = '';
+  // customer search
+  customerSearchQuery = '';
+  customerSearchResults: any[] = [];
+  customerSearchTimer: any;
+  selectedCustomer: any = null;
+
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
 
@@ -237,10 +252,151 @@ export class Manage implements OnInit {
     this.admin.getSpaces(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
+        this.allSpaces = items;
         this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) — ${s.locationName ?? ''}` }));
         this.config = this.buildConfig('bookings');
       }
     });
+  }
+
+  openAdminBookingForm() {
+    this.bookingFormData = {};
+    this.bookingFormError = '';
+    this.selectedSpaceTypeId = '';
+    this.filteredSpaceOptions = [];
+    this.customerSearchQuery = '';
+    this.customerSearchResults = [];
+    this.selectedCustomer = null;
+    this.showBookingForm = true;
+    if (!this.cityOptions.length) {
+      this.admin.getCities().subscribe({
+        next: (res: any) => {
+          this.cityOptions = (res?.data ?? []).map((c: any) => ({ v: c.id, l: c.name }));
+        }
+      });
+    }
+    this.admin.getSpaceTypes(1, 1000, '').subscribe({
+      next: (res: any) => {
+        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.id, l: s.name }));
+      }
+    });
+    if (!this.allSpaces.length) {
+      this.admin.getSpaces(1, 1000, '').subscribe({
+        next: (res: any) => { this.allSpaces = res?.data ?? []; }
+      });
+    }
+  }
+
+  closeAdminBookingForm() { this.showBookingForm = false; }
+
+  onCustomerSearch() {
+    clearTimeout(this.customerSearchTimer);
+    if (!this.customerSearchQuery.trim()) { this.customerSearchResults = []; return; }
+    this.customerSearchTimer = setTimeout(() => {
+      this.admin.getUsers(1, 20, this.customerSearchQuery).subscribe({
+        next: (res: any) => { this.customerSearchResults = res?.data ?? []; }
+      });
+    }, 300);
+  }
+
+  selectCustomer(user: any) {
+    this.selectedCustomer = user;
+    this.customerSearchQuery = user.name || user.email || '';
+    this.customerSearchResults = [];
+    this.bookingFormData.customerName   = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || '';
+    this.bookingFormData.customerEmail  = user.email || '';
+    this.bookingFormData.customerCode   = user.customerCode || user.code || '';
+    this.bookingFormData.phone          = user.phone || user.phoneNumber || '';
+    this.bookingFormData.cnicOrPassport = user.cnic || user.cnicOrPassport || user.passportNumber || '';
+    this.bookingFormData.address        = user.address || '';
+    this.bookingFormData.cityId         = user.cityId || '';
+  }
+
+  isCustomerFieldEmpty(field: string): boolean {
+    const u = this.selectedCustomer;
+    if (!u) return false;
+    switch (field) {
+      case 'phone':          return !u.phone && !u.phoneNumber;
+      case 'cnicOrPassport': return !u.cnic && !u.cnicOrPassport && !u.passportNumber;
+      case 'address':        return !u.address;
+      case 'cityId':         return !u.cityId;
+      case 'customerCode':   return !u.customerCode && !u.code;
+      default: return false;
+    }
+  }
+
+  onSpaceTypeChange() {
+    this.bookingFormData.spaceId = '';
+    this.bookingFormData.totalAmount = null;
+    if (!this.selectedSpaceTypeId) { this.filteredSpaceOptions = []; return; }
+    const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+    const filtered = selectedType
+      ? this.allSpaces.filter((s: any) => (s.spaceTypeName || s.SpaceTypeName || '').toLowerCase() === selectedType.l.toLowerCase())
+      : this.allSpaces;
+    this.filteredSpaceOptions = filtered.map((s: any) => ({ v: s.idGuid || s.IdGuid, l: `${s.name || s.Name} (${s.code ?? ''}) — ${s.locationName ?? s.LocationName ?? ''}` }));
+  }
+
+  recalcAmount() {
+    const { spaceId, startDateTime, endDateTime } = this.bookingFormData;
+    if (!spaceId || !startDateTime || !endDateTime) return;
+    const space = this.allSpaces.find((s: any) => s.idGuid === spaceId);
+    if (!space) return;
+    const start = new Date(startDateTime);
+    const end   = new Date(endDateTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
+    const diffMs   = end.getTime() - start.getTime();
+    const diffHours = diffMs / 3_600_000;
+    const diffDays  = diffMs / 86_400_000;
+    // Use daily rate if >= 1 day, otherwise hourly
+    const amount = diffDays >= 1
+      ? Math.ceil(diffDays) * Number(space.pricePerDay ?? 0)
+      : Math.ceil(diffHours) * Number(space.pricePerHour ?? 0);
+    this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(amount.toFixed(2)) };
+  }
+
+  submitAdminBooking() {
+    this.bookingFormSaving.set(true);
+    this.bookingFormError = '';
+
+    // Collect fields that were empty on the user record and have now been filled
+    const u = this.selectedCustomer;
+    const patch: any = {};
+    if (!u.phone        && !u.phoneNumber   && this.bookingFormData.phone)          patch.phone          = this.bookingFormData.phone;
+    if (!u.cnic        && !u.cnicOrPassport && !u.passportNumber && this.bookingFormData.cnicOrPassport) patch.cnicOrPassport = this.bookingFormData.cnicOrPassport;
+    if (!u.address     && this.bookingFormData.address)   patch.address  = this.bookingFormData.address;
+    if (!u.cityId      && this.bookingFormData.cityId)    patch.cityId   = Number(this.bookingFormData.cityId);
+    if (!u.customerCode && !u.code && this.bookingFormData.customerCode) patch.customerCode = this.bookingFormData.customerCode;
+
+    const doCreate = () => {
+      const payload = {
+        ...this.bookingFormData,
+        userId: u.idGuid ?? u.id,
+        cityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : undefined,
+      };
+      this.admin.createAdminBooking(payload).subscribe({
+        next: () => {
+          this.bookingFormSaving.set(false);
+          this.showBookingForm = false;
+          this.success = 'Booking created successfully.';
+          setTimeout(() => this.success = '', 3000);
+          this.load();
+        },
+        error: (e: any) => {
+          this.bookingFormSaving.set(false);
+          this.bookingFormError = e?.error?.message ?? 'Failed to create booking.';
+        }
+      });
+    };
+
+    if (Object.keys(patch).length) {
+      // Patch user first, then create booking
+      this.admin.updateUser(u.idGuid ?? u.id, patch).subscribe({
+        next: () => doCreate(),
+        error: () => doCreate() // still proceed even if patch fails
+      });
+    } else {
+      doCreate();
+    }
   }
 
   private load() {
@@ -782,7 +938,7 @@ export class Manage implements OnInit {
           { key: 'closingTime',       label: 'Closes' },
         ],
         getFn: () => this.admin.getSpaceConfig(),
-      };
+      }; 
 
       default: return { title: entity, columns: [], getFn: () => [] };
     }
