@@ -114,6 +114,7 @@ export class Manage implements OnInit {
   allSpaces: any[] = [];
   filteredSpaceOptions: { v: any; l: string }[] = [];
   selectedSpaceTypeId = '';
+  securityDeposit = 0;
   // customer search
   customerSearchQuery = '';
   customerSearchResults: any[] = [];
@@ -267,7 +268,13 @@ export class Manage implements OnInit {
     this.customerSearchQuery = '';
     this.customerSearchResults = [];
     this.selectedCustomer = null;
+    this.securityDeposit = 0;
     this.showBookingForm = true;
+    if (!this.spaceConfigItems().length) {
+      this.admin.getSpaceConfig().subscribe({
+        next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
+      });
+    }
     if (!this.cityOptions.length) {
       this.admin.getCities().subscribe({
         next: (res: any) => {
@@ -328,6 +335,7 @@ export class Manage implements OnInit {
   onSpaceTypeChange() {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
+    this.securityDeposit = 0;
     if (!this.selectedSpaceTypeId) { this.filteredSpaceOptions = []; return; }
     const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
     const filtered = selectedType
@@ -347,10 +355,15 @@ export class Manage implements OnInit {
     const diffMs   = end.getTime() - start.getTime();
     const diffHours = diffMs / 3_600_000;
     const diffDays  = diffMs / 86_400_000;
-    // Use daily rate if >= 1 day, otherwise hourly
     const amount = diffDays >= 1
       ? Math.ceil(diffDays) * Number(space.pricePerDay ?? 0)
       : Math.ceil(diffHours) * Number(space.pricePerHour ?? 0);
+    // Look up security deposit from spaceConfigItems by space type name
+    const typeName = (space.spaceTypeName || space.SpaceTypeName || '').trim().toLowerCase();
+    const configMatch = this.spaceConfigItems().find(
+      (c: any) => typeName.startsWith((c.spaceCategory || '').trim().toLowerCase())
+    );
+    this.securityDeposit = configMatch ? Number(configMatch.securityDeposit ?? 0) : 0;
     this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(amount.toFixed(2)) };
   }
 
