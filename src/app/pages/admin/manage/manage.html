@@ -246,6 +246,17 @@
                   <small style="color:var(--warning,#f59e0b)">No amenities found in database.</small>
                 }
               </div>
+            } @else if (field.type === 'deposit-account-select') {
+              @if (isPrivateOfficeSelected) {
+                <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
+                  <option value="">Select Account...</option>
+                  @for (a of accountOptions; track a.v) {
+                    <option [value]="a.v">{{ a.l }}</option>
+                  }
+                </select>
+              } @else {
+                <input class="form-input-admin" value="N/A — only for Private Office" disabled style="background:#f1f5f9;color:#94a3b8" />
+              }
             } @else if (field.type === 'select') {
               <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" (change)="onFieldChange(field.key)">
                 <option value="">Select...</option>

@@ -148,6 +148,7 @@ export class Checkout implements OnInit {
           capacity:      p.capacity ?? undefined,
           notes:         p.notes || paymentMethod,
           paymentMethod,
+          accountId:     p.accountId ?? undefined,
         })
       : this.bookingService.create(bookingData);
 

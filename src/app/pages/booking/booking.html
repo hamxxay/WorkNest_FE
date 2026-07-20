@@ -235,6 +235,28 @@
           }
         </div>
 
+        <!-- Bank Account -->
+        <div class="form-group">
+          <label class="form-label">Bank Account *</label>
+          @if (accountsLoading()) {
+            <div class="form-input" style="color:var(--text-secondary);font-size:.875rem">Loading accounts...</div>
+          } @else if (accountsError()) {
+            <div class="alert alert-error" style="font-size:.8rem">{{ accountsError() }}</div>
+          } @else if (bankAccounts().length === 0) {
+            <div class="form-input" style="color:var(--text-secondary);font-size:.875rem">No bank accounts available.</div>
+          } @else {
+            <select class="form-input" formControlName="accountId">
+              <option value="">Select bank account...</option>
+              @for (acc of bankAccounts(); track acc.accountId) {
+                <option [value]="acc.accountId">{{ acc.description }}</option>
+              }
+            </select>
+            @if (bookingForm.get('accountId')?.invalid && bookingForm.get('accountId')?.touched) {
+              <small class="form-error">Bank account is required.</small>
+            }
+          }
+        </div>
+
         <!-- Notes -->
         <div class="form-group">
           <label class="form-label">Notes (optional)</label>

@@ -13,8 +13,9 @@ export class AdminLayout {
   userRole = '';
 
   menuItems = [
-    { route: '/admin',           label: 'Dashboard',   icon: 'dashboard'    },
-    { route: '/admin/users',     label: 'Users',       icon: 'users'        },
+    { route: '/admin',              label: 'Dashboard',   icon: 'dashboard'    },
+    { route: '/admin/customers',    label: 'Customers',   icon: 'customers'    },
+    { route: '/admin/users',        label: 'Users',       icon: 'users'        },
     { route: '/admin/locations', label: 'Locations',   icon: 'location'     },
     { route: '/admin/spacetypes',label: 'Space Types', icon: 'spacetype'    },
     { route: '/admin/spaces',    label: 'Spaces',      icon: 'spaces'       },
