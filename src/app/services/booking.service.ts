@@ -58,8 +58,13 @@ export class BookingService {
     notes?: string;
     totalAmount?: number;
     paymentMethod?: string;
+    accountId?: number;
   }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/smart`, booking);
+  }
+
+  getAccountsCoa(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl.replace('/booking', '')}/account-coa`);
   }
 
   getSpaceConfig(): Observable<any> {

@@ -280,6 +280,28 @@ export class AdminService {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/city`);
   }
 
+  // Customers
+  getCustomers(page?: number, limit?: number, search?: string): Observable<ApiResponse<any[]>> {
+    const params = new URLSearchParams();
+    if (page != null) params.set('page', String(page));
+    if (limit != null) params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/customer${qs}`);
+  }
+  searchCustomers(query: string): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/customer/search?q=${encodeURIComponent(query)}`);
+  }
+  createCustomer(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/customer`, data);
+  }
+  updateCustomer(id: string, data: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.api}/customer/${id}`, data);
+  }
+  deleteCustomer(id: string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.api}/customer/${id}`);
+  }
+
   // Admin create booking with customer details
   createAdminBooking(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/booking/create-admin`, data);

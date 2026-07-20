@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
+import { AccountCoaService, AccountCoa } from '../../services/account-coa.service';
 
 
 interface Workspace {
@@ -116,6 +117,11 @@ export class Booking implements OnInit {
     }));
   });
 
+  // Bank accounts
+  bankAccounts      = signal<AccountCoa[]>([]);
+  accountsLoading   = signal(false);
+  accountsError     = signal('');
+
   // T&C modal state
   showTncModal      = false;
   tncAcceptEnabled  = false;
@@ -139,6 +145,7 @@ export class Booking implements OnInit {
     private fb: FormBuilder,
     private spaceService: SpaceService,
     private bookingService: BookingService,
+    private accountCoaService: AccountCoaService,
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute
@@ -148,6 +155,21 @@ export class Booking implements OnInit {
     this.pendingTypeFilter = this.route.snapshot.queryParamMap.get('type') ?? '';
     this.loadSpaces();
     this.loadSpaceConfig();
+    this.loadBankAccounts();
+  }
+
+  private loadBankAccounts() {
+    this.accountsLoading.set(true);
+    this.accountCoaService.getAll().subscribe({
+      next: (accounts) => {
+        this.bankAccounts.set(accounts);
+        this.accountsLoading.set(false);
+      },
+      error: () => {
+        this.accountsError.set('Failed to load bank accounts.');
+        this.accountsLoading.set(false);
+      }
+    });
   }
 
   private loadSpaceConfig() {
@@ -206,6 +228,7 @@ export class Booking implements OnInit {
         startTime:  ['09:00', Validators.required],
         hours:      [1, [Validators.required, Validators.min(1), this.positiveInt]],
         ...(this.isMeeting ? { capacity: [null, Validators.required] } : {}),
+        accountId:  [null, Validators.required],
         notes:      [''],
       });
     } else {
@@ -214,6 +237,7 @@ export class Booking implements OnInit {
         startDate: ['', Validators.required],
         months:    [1, [Validators.required, Validators.min(1), this.positiveInt]],
         capacity:  [null, Validators.required],
+        accountId: [null, Validators.required],
         notes:     [''],
       });
     }
@@ -396,6 +420,8 @@ export class Booking implements OnInit {
     this.showBookingModal = false;
     this.showAuthPrompt  = false;
 
+    const accountId = this.bookingForm.value.accountId ? +this.bookingForm.value.accountId : undefined;
+
     this.router.navigate(['/checkout'], {
       state: {
         pendingBooking: {
@@ -411,6 +437,7 @@ export class Booking implements OnInit {
           pricePerHour:    this.selectedSpace?.pricePerHour ?? 0,
           notes:           this.bookingForm.value.notes || null,
           capacity:        cap,
+          accountId,
           smartBooking:    true,
         }
       }

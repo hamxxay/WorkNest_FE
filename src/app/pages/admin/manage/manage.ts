@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
+import { AccountCoaService } from '../../../services/account-coa.service';
 import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../../utils/constants';
 
 interface ColDef { key: string; label: string; type?: string; }
@@ -115,6 +116,7 @@ export class Manage implements OnInit {
   filteredSpaceOptions: { v: any; l: string }[] = [];
   selectedSpaceTypeId = '';
   securityDeposit = 0;
+  accountOptions: { v: number; l: string }[] = [];
   // customer search
   customerSearchQuery = '';
   customerSearchResults: any[] = [];
@@ -127,6 +129,7 @@ export class Manage implements OnInit {
   private route = inject(ActivatedRoute);
   private admin = inject(AdminService);
   private auth = inject(AuthService);
+  private accountCoa = inject(AccountCoaService);
 
   constructor() {
     this.isSuperAdmin = this.auth.hasRole('super_admin');
@@ -140,6 +143,9 @@ export class Manage implements OnInit {
       if (this.entity === 'spaces') this.loadSpaceDropdowns();
       if (this.entity === 'bookings') this.loadSpacesForDropdown();
       if (this.entity === 'spaceconfig') this.loadSpaceConfig();
+      if (this.entity === 'customers') this.loadCityOptions();
+      if (this.entity === 'users') this.loadCityOptions();
+      if (this.entity === 'spaces') this.loadAccountOptions();
     });
   }
 
@@ -260,6 +266,28 @@ export class Manage implements OnInit {
     });
   }
 
+  private loadAccountOptions() {
+    if (this.accountOptions.length) return;
+    this.accountCoa.getAll().subscribe({
+      next: (accounts) => {
+        this.accountOptions = accounts.map(a => ({ v: a.accountId, l: a.description }));
+        this.config = this.buildConfig('spaces');
+      }
+    });
+  }
+
+  private loadCityOptions() {
+    if (this.cityOptions.length) return;
+    this.admin.getCities().subscribe({
+      next: (res: any) => {
+        this.cityOptions = (res?.data ?? []).map((c: any) => ({ v: c.id, l: c.name }));
+        if (this.entity === 'customers' || this.entity === 'users') {
+          this.config = this.buildConfig(this.entity);
+        }
+      }
+    });
+  }
+
   openAdminBookingForm() {
     this.bookingFormData = {};
     this.bookingFormError = '';
@@ -300,7 +328,7 @@ export class Manage implements OnInit {
     clearTimeout(this.customerSearchTimer);
     if (!this.customerSearchQuery.trim()) { this.customerSearchResults = []; return; }
     this.customerSearchTimer = setTimeout(() => {
-      this.admin.getUsers(1, 20, this.customerSearchQuery).subscribe({
+      this.admin.searchCustomers(this.customerSearchQuery).subscribe({
         next: (res: any) => { this.customerSearchResults = res?.data ?? []; }
       });
     }, 300);
@@ -308,13 +336,14 @@ export class Manage implements OnInit {
 
   selectCustomer(user: any) {
     this.selectedCustomer = user;
-    this.customerSearchQuery = user.name || user.email || '';
+    const fullName = user.fullName || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '';
+    this.customerSearchQuery = fullName;
     this.customerSearchResults = [];
-    this.bookingFormData.customerName   = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || '';
+    this.bookingFormData.customerName   = fullName;
     this.bookingFormData.customerEmail  = user.email || '';
-    this.bookingFormData.customerCode   = user.customerCode || user.code || '';
-    this.bookingFormData.phone          = user.phone || user.phoneNumber || '';
-    this.bookingFormData.cnicOrPassport = user.cnic || user.cnicOrPassport || user.passportNumber || '';
+    this.bookingFormData.customerCode   = user.code || '';
+    this.bookingFormData.phone          = user.phoneNumber || '';
+    this.bookingFormData.cnicOrPassport = user.cnicOrPassport || '';
     this.bookingFormData.address        = user.address || '';
     this.bookingFormData.cityId         = user.cityId || '';
   }
@@ -323,13 +352,18 @@ export class Manage implements OnInit {
     const u = this.selectedCustomer;
     if (!u) return false;
     switch (field) {
-      case 'phone':          return !u.phone && !u.phoneNumber;
-      case 'cnicOrPassport': return !u.cnic && !u.cnicOrPassport && !u.passportNumber;
+      case 'phone':          return !u.phoneNumber;
+      case 'cnicOrPassport': return !u.cnicOrPassport;
       case 'address':        return !u.address;
       case 'cityId':         return !u.cityId;
-      case 'customerCode':   return !u.customerCode && !u.code;
+      case 'customerCode':   return !u.code;
       default: return false;
     }
+  }
+
+  private getCustomerUserId(u: any): string {
+    // WN_Customers has no WN_Users link — use customerEmail to resolve at booking time
+    return u.idGUID ?? u.idGuid ?? String(u.id ?? '');
   }
 
   onSpaceTypeChange() {
@@ -370,20 +404,13 @@ export class Manage implements OnInit {
   submitAdminBooking() {
     this.bookingFormSaving.set(true);
     this.bookingFormError = '';
-
-    // Collect fields that were empty on the user record and have now been filled
     const u = this.selectedCustomer;
-    const patch: any = {};
-    if (!u.phone        && !u.phoneNumber   && this.bookingFormData.phone)          patch.phone          = this.bookingFormData.phone;
-    if (!u.cnic        && !u.cnicOrPassport && !u.passportNumber && this.bookingFormData.cnicOrPassport) patch.cnicOrPassport = this.bookingFormData.cnicOrPassport;
-    if (!u.address     && this.bookingFormData.address)   patch.address  = this.bookingFormData.address;
-    if (!u.cityId      && this.bookingFormData.cityId)    patch.cityId   = Number(this.bookingFormData.cityId);
-    if (!u.customerCode && !u.code && this.bookingFormData.customerCode) patch.customerCode = this.bookingFormData.customerCode;
 
     const doCreate = () => {
       const payload = {
         ...this.bookingFormData,
-        userId: u.idGuid ?? u.id,
+        userId: u.idGUID ?? u.idGuid ?? String(u.id ?? ''),
+        customerEmail: u.email || this.bookingFormData.customerEmail,
         cityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : undefined,
       };
       this.admin.createAdminBooking(payload).subscribe({
@@ -401,11 +428,17 @@ export class Manage implements OnInit {
       });
     };
 
+    // Patch customer record with any newly filled fields
+    const patch: any = {};
+    if (!u.phoneNumber    && this.bookingFormData.phone)          patch.phoneNumber    = this.bookingFormData.phone;
+    if (!u.cnicOrPassport && this.bookingFormData.cnicOrPassport) patch.cnicOrPassport = this.bookingFormData.cnicOrPassport;
+    if (!u.address        && this.bookingFormData.address)        patch.address        = this.bookingFormData.address;
+    if (!u.cityId         && this.bookingFormData.cityId)         patch.cityId         = Number(this.bookingFormData.cityId);
+
     if (Object.keys(patch).length) {
-      // Patch user first, then create booking
-      this.admin.updateUser(u.idGuid ?? u.id, patch).subscribe({
+      this.admin.updateCustomer(u.idGUID ?? u.idGuid ?? u.id, patch).subscribe({
         next: () => doCreate(),
-        error: () => doCreate() // still proceed even if patch fails
+        error: () => doCreate()
       });
     } else {
       doCreate();
@@ -478,7 +511,7 @@ export class Manage implements OnInit {
     this.saving = true; this.error = '';
     if (this.entity === 'spaces') this.override_save_spaces(this.formData);
     const obs = this.editItem
-      ? this.config.updateFn!(this.editItem.idGuid, this.formData)
+      ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID, this.formData)
       : this.config.createFn!(this.formData);
     obs.subscribe({
       next: () => {
@@ -493,7 +526,7 @@ export class Manage implements OnInit {
 
   deleteItem(item: any) {
     if (!confirm('Delete this item?')) return;
-    const id = item.idGuid ?? item.id;
+    const id = item.idGuid ?? item.idGUID ?? item.id;
     this.config.deleteFn!(id).subscribe({ next: () => this.load() });
   }
 
@@ -727,6 +760,11 @@ export class Manage implements OnInit {
     if (key === 'locationId' && this.entity === 'spaces') this.loadFloorsForLocation(this.formData['locationId']);
   }
 
+  get isPrivateOfficeSelected(): boolean {
+    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.formData['spaceTypeId']));
+    return selected ? selected.l.toLowerCase().includes('private') : false;
+  }
+
   override_save_spaces(d: any): any {
     d.amenities = this.selectedAmenityIds.join(',');
     // ensure numeric types for FK fields
@@ -738,6 +776,34 @@ export class Manage implements OnInit {
 
   private buildConfig(entity: string): EntityConfig {
     switch (entity) {
+      case 'customers': return {
+        title: 'Customers',
+        columns: [
+          { key: 'code',        label: 'Code' },
+          { key: 'fullName',    label: 'Name' },
+          { key: 'email',       label: 'Email' },
+          { key: 'phoneNumber', label: 'Phone' },
+          { key: 'cityName',    label: 'City' },
+          { key: 'isActive',    label: 'Active', type: 'boolean' },
+          { key: 'createdAt',   label: 'Created', type: 'date' },
+        ],
+        fields: [
+          { key: 'firstName',      label: 'First Name',      type: 'text' },
+          { key: 'lastName',       label: 'Last Name',       type: 'text' },
+          { key: 'email',          label: 'Email',           type: 'email' },
+          { key: 'phoneNumber',    label: 'Phone Number',    type: 'text' },
+          { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
+          { key: 'address',        label: 'Address',         type: 'text' },
+          { key: 'cityId',         label: 'City',            type: 'select', options: this.cityOptions },
+          { key: 'notes',          label: 'Notes',           type: 'textarea' },
+          { key: 'isActive',       label: 'Active',          type: 'checkbox' },
+        ],
+        getFn:    (p, l, s) => this.admin.getCustomers(p, l, s),
+        createFn: (d) => this.admin.createCustomer(d),
+        updateFn: (id, d) => this.admin.updateCustomer(id, d),
+        deleteFn: (id) => this.admin.deleteCustomer(id),
+      };
+
       case 'users': return {
         title: 'Users',
         columns: [
@@ -749,9 +815,14 @@ export class Manage implements OnInit {
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         fields: [
-          { key: 'email', label: 'Email', type: 'email' },
-          { key: 'name', label: 'Name', type: 'text' },
-          { key: 'password', label: 'Password', type: 'password' },
+          { key: 'name',           label: 'Name',            type: 'text' },
+          { key: 'email',          label: 'Email',           type: 'email' },
+          { key: 'password',       label: 'Password',        type: 'password' },
+          { key: 'code',           label: 'Code',            type: 'text' },
+          { key: 'address',        label: 'Address',         type: 'text' },
+          { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
+          { key: 'cityId',         label: 'City',            type: 'select', options: this.cityOptions },
+          { key: 'phone',          label: 'Phone Number',    type: 'text' },
         ],
         getFn: (p, l, s) => this.admin.getUsers(p, l, s),
         createFn: (d) => this.admin.createUser(d),
@@ -824,6 +895,8 @@ export class Manage implements OnInit {
           { key: 'description', label: 'Description', type: 'textarea' },
           { key: 'imageUrl', label: 'Image URL', type: 'text' },
           { key: 'amenities', label: 'Amenities', type: 'amenities-multicheck' },
+          { key: 'rentAccountId', label: 'Rent Account', type: 'select', options: this.accountOptions },
+          { key: 'depositAccountId', label: 'Security Deposit Account (Private Office only)', type: 'deposit-account-select' },
           { key: 'status', label: 'Status', type: 'select', options: [
             { v: 'Available', l: 'Available' },
             { v: 'Maintenance', l: 'Maintenance' },

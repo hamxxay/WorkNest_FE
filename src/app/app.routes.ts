@@ -17,6 +17,7 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadComponent: () => import('./pages/admin/dashboard/dashboard').then(m => m.Dashboard) },
+      { path: 'customers',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'customers' } },
       { path: 'users',       loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'users' } },
       { path: 'locations',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'locations' } },
       { path: 'spacetypes',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spacetypes' } },
