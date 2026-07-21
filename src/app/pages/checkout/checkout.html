@@ -263,7 +263,7 @@
                   <div class="voucher-meta">
                     <div class="voucher-meta-row">
                       <span>Amount Due</span>
-                      <strong class="total-amount">Rs {{ voucher()!.amount?.toFixed(2) }}</strong>
+                      <strong class="total-amount">Rs {{ voucher()!.amount.toFixed(2) }}</strong>
                     </div>
                     <div class="voucher-meta-row">
                       <span>Booking ID</span>
@@ -342,30 +342,78 @@
                   </button>
                 </div>
               } @else {
-                <div class="voucher-card">
-                  <div class="voucher-card-header">
-                    <div class="voucher-brand">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      <span>Booking Confirmed</span>
+                <div class="voucher-card" id="printable-challan">
+
+                  <!-- Bank Header -->
+                  <div style="background:#1e3a5f;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0;margin:-1px -1px 0">
+                    <div>
+                      <div style="font-size:1.1rem;font-weight:700;letter-spacing:.5px">WORKNEST</div>
+                      <div style="font-size:.72rem;opacity:.8">Payment Challan</div>
                     </div>
-                    <span class="voucher-status-badge">Pending Payment</span>
+                    <div style="text-align:right">
+                      <div style="font-size:.65rem;opacity:.7">Challan No.</div>
+                      <div style="font-size:.95rem;font-weight:700;letter-spacing:1px">{{ challan()?.challanNumber || 'N/A' }}</div>
+                    </div>
                   </div>
-                  <div class="voucher-meta">
-                    <div class="voucher-meta-row"><span>Booking ID</span><strong>#{{ booking()?.id }}</strong></div>
-                    <div class="voucher-meta-row"><span>Space</span><strong>{{ booking()?.spaceName }}</strong></div>
-                    <div class="voucher-meta-row"><span>Amount Due</span><strong class="total-amount">Rs {{ pending()?.totalAmount?.toFixed(2) }}</strong></div>
-                    <div class="voucher-meta-row"><span>Payment Method</span><strong>Pay at Counter</strong></div>
+
+                  <!-- Validity Banner -->
+                  <div style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:7px 20px;display:flex;justify-content:space-between;font-size:.78rem">
+                    <span style="color:#92400e;font-weight:600">⚠ Valid until: {{ challan()?.validity ? (challan()!.validity | date:'MMM d, y') : '5 days from issue' }}</span>
+                    <span style="color:#92400e">Pay before expiry</span>
                   </div>
-                  <div class="voucher-instructions">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                    Please visit our front desk with your Booking ID and pay Rs {{ pending()?.totalAmount?.toFixed(2) }}. Your booking will be confirmed on receipt.
+
+                  <div style="padding:16px 20px">
+
+                    <!-- Space & Period -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;margin-bottom:14px;font-size:.82rem;line-height:1.8">
+                      <div><span style="color:#64748b">Space: </span><strong>{{ challan()?.spaceName }}</strong></div>
+                      <div><span style="color:#64748b">Check-in: </span><strong>{{ challan()?.startDateTime | date:'MMM d, y, h:mm a' }}</strong></div>
+                      <div><span style="color:#64748b">Check-out: </span><strong>{{ challan()?.endDateTime | date:'MMM d, y, h:mm a' }}</strong></div>
+                    </div>
+
+                    <!-- Amount Breakdown -->
+                    <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:14px">
+                      <div style="background:#f1f5f9;padding:7px 14px;font-size:.68rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">Amount Breakdown</div>
+                      <div style="padding:0 14px">
+                        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:.83rem">
+                          <span>Booking Amount</span>
+                          <strong>Rs {{ (challan()?.rentAmount ?? 0).toFixed(2) }}</strong>
+                        </div>
+                        @if ((challan()?.securityDeposit ?? 0) > 0) {
+                          <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:.83rem">
+                            <span>Security Deposit <span style="font-size:.7rem;color:#64748b">(refundable)</span></span>
+                            <strong>Rs {{ (challan()?.securityDeposit ?? 0).toFixed(2) }}</strong>
+                          </div>
+                        }
+                        <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:.92rem;font-weight:700;color:#1e3a5f">
+                          <span>Total Payable</span>
+                          <span>Rs {{ (challan()?.totalAmount ?? 0).toFixed(2) }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Booking Ref -->
+                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:9px 14px;font-size:.8rem;display:flex;justify-content:space-between">
+                      <span style="color:#1e40af">Booking Ref: <strong>#{{ challan()?.bookingId }}</strong></span>
+                      <span style="color:#64748b">{{ challan()?.createdAt | date:'MMM d, y' }}</span>
+                    </div>
+
+                    <div style="font-size:.72rem;color:#94a3b8;text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #e2e8f0">
+                      Present this challan at the WorkNest counter to complete payment.
+                    </div>
                   </div>
+
                   <div class="voucher-actions">
+                    <button class="btn-secondary" (click)="printChallan()">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+                      Print Challan
+                    </button>
                     <a routerLink="/my-bookings" class="btn-secondary">
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
                       My Bookings
                     </a>
                   </div>
+
                 </div>
               }
             </div>

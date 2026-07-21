@@ -1,10 +1,11 @@
 import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
+import { AmountFieldService } from '../../../services/amount-field.service';
 import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../../utils/constants';
 
 interface ColDef { key: string; label: string; type?: string; }
@@ -24,7 +25,7 @@ interface EntityConfig {
 
 @Component({
   selector: 'app-manage',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DatePipe],
   templateUrl: './manage.html',
   styleUrl: './manage.css'
 })
@@ -123,29 +124,40 @@ export class Manage implements OnInit {
   customerSearchTimer: any;
   selectedCustomer: any = null;
 
+  // ── Admin Booking Receipt ─────────────────────────────────
+  showReceiptModal = false;
+  adminBookingReceipt = signal<any>(null);
+  showChallanModal = false;
+  challanData = signal<any>(null);
+
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
+  amountLabels: Record<string, string> = {};
 
   private route = inject(ActivatedRoute);
   private admin = inject(AdminService);
   private auth = inject(AuthService);
   private accountCoa = inject(AccountCoaService);
+  private amountFieldSvc = inject(AmountFieldService);
 
   constructor() {
     this.isSuperAdmin = this.auth.hasRole('super_admin');
   }
 
   ngOnInit() {
-    this.route.data.subscribe(data => {
-      this.entity = data['entity'];
-      this.config = this.buildConfig(this.entity);
-      this.load();
-      if (this.entity === 'spaces') this.loadSpaceDropdowns();
-      if (this.entity === 'bookings') this.loadSpacesForDropdown();
-      if (this.entity === 'spaceconfig') this.loadSpaceConfig();
-      if (this.entity === 'customers') this.loadCityOptions();
-      if (this.entity === 'users') this.loadCityOptions();
-      if (this.entity === 'spaces') this.loadAccountOptions();
+    this.amountFieldSvc.getLabelMap().subscribe(map => {
+      this.amountLabels = map;
+      this.route.data.subscribe(data => {
+        this.entity = data['entity'];
+        this.config = this.buildConfig(this.entity);
+        this.load();
+        if (this.entity === 'spaces') this.loadSpaceDropdowns();
+        if (this.entity === 'bookings') this.loadSpacesForDropdown();
+        if (this.entity === 'spaceconfig') this.loadSpaceConfig();
+        if (this.entity === 'customers') this.loadCityOptions();
+        if (this.entity === 'users') this.loadCityOptions();
+        if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
+      });
     });
   }
 
@@ -155,8 +167,12 @@ export class Manage implements OnInit {
   spaceConfigSuccess = '';
   editingConfig: any = null;
   configFormData: any = {};
+  showConfigModal = false;
   vacantSpaces = signal<any[]>([]);
   vacantLoading = signal(false);
+  generatingInventory = signal<string | null>(null);
+  generateError = '';
+  generateSuccess = '';
 
   private loadSpaceConfig() {
     this.admin.getSpaceConfig().subscribe({
@@ -164,30 +180,33 @@ export class Manage implements OnInit {
       error: () => {}
     });
     this.loadVacantSpaces();
+    if (!this.amenityOptions.length) {
+      this.admin.getAmenities().subscribe({
+        next: (res: any) => { this.amenityOptions = (res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name })); }
+      });
+    }
+    if (!this.spaceTypeOptions.length) {
+      this.admin.getSpaceTypes(1, 1000, '').subscribe({
+        next: (res: any) => { this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.idGuid ?? s.id, l: s.name })); }
+      });
+    }
+    if (!this.locationOptions.length) {
+      this.admin.getLocations(1, 1000, '').subscribe({
+        next: (res: any) => { this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: l.idGuid ?? l.id, l: l.name })); }
+      });
+    }
   }
 
   private loadVacantSpaces() {
     this.vacantLoading.set(true);
-    // Fetch all pages until exhausted
-    const fetchAll = (page: number, acc: any[]) => {
-      this.admin.getSpaces(page, 500, '').subscribe({
-        next: (res: any) => {
-          const chunk: any[] = res?.data ?? [];
-          const combined = [...acc, ...chunk];
-          if (chunk.length === 500) {
-            fetchAll(page + 1, combined);
-          } else {
-            const vacant = combined
-              .filter(s => (s.spaceStatus || '').toLowerCase() === 'available')
-              .sort((a, b) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
-            this.vacantSpaces.set(vacant);
-            this.vacantLoading.set(false);
-          }
-        },
-        error: () => this.vacantLoading.set(false)
-      });
-    };
-    fetchAll(1, []);
+    this.admin.getVacantSpaces().subscribe({
+      next: (res: any) => {
+        const vacant = (res?.data ?? []).sort((a: any, b: any) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
+        this.vacantSpaces.set(vacant);
+        this.vacantLoading.set(false);
+      },
+      error: () => this.vacantLoading.set(false)
+    });
   }
 
   get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
@@ -208,12 +227,17 @@ export class Manage implements OnInit {
       defaultCapacities:  cfg.defaultCapacities,
       openingTime:        cfg.openingTime,
       closingTime:        cfg.closingTime,
+      securityDeposit:    cfg.securityDeposit ?? null,
+      pricePerHour:       cfg.pricePerHour ?? null,
+      pricePerDay:        cfg.pricePerDay ?? null,
+      pricePerMonth:      cfg.pricePerMonth ?? null,
     };
     this.spaceConfigError = '';
     this.spaceConfigSuccess = '';
+    this.showConfigModal = true;
   }
 
-  cancelEditConfig() { this.editingConfig = null; }
+  cancelEditConfig() { this.editingConfig = null; this.showConfigModal = false; }
 
   saveConfig() {
     if (!this.editingConfig) return;
@@ -223,6 +247,7 @@ export class Manage implements OnInit {
         this.spaceConfigSuccess = 'Configuration saved.';
         this.spaceConfigSaving.set(false);
         this.editingConfig = null;
+        this.showConfigModal = false;
         this.loadSpaceConfig();
         setTimeout(() => this.spaceConfigSuccess = '', 3000);
       },
@@ -233,18 +258,73 @@ export class Manage implements OnInit {
     });
   }
 
+  // State for generate-inventory form
+  generateFormCfg: any = null;
+  generateFormSpaceTypeId = '';
+  generateFormLocationId = '';
+  generateFormPricePerHour: number | null = null;
+  generateFormPricePerDay: number | null = null;
+  generateFormPricePerMonth: number | null = null;
+  generateFormAmenityIds: number[] = [];
+
+  openGenerateForm(cfg: any) {
+    this.generateFormCfg = cfg;
+    this.generateFormSpaceTypeId = '';
+    this.generateFormLocationId = '';
+    this.generateFormPricePerHour = cfg.pricePerHour ?? null;
+    this.generateFormPricePerDay = cfg.pricePerDay ?? null;
+    this.generateFormPricePerMonth = cfg.pricePerMonth ?? null;
+    this.generateFormAmenityIds = [];
+    this.generateError = '';
+    this.generateSuccess = '';
+  }
+
+  closeGenerateForm() { this.generateFormCfg = null; }
+
+  submitGenerateInventory() {
+    if (!this.generateFormCfg || !this.generateFormSpaceTypeId || !this.generateFormLocationId) {
+      this.generateError = 'Space Type and Location are required.';
+      return;
+    }
+    const cfg = this.generateFormCfg;
+    this.generatingInventory.set(cfg.spaceCategory);
+    this.generateError = '';
+    this.generateSuccess = '';
+    this.admin.generateSpaceInventory({
+      spaceCategory: cfg.spaceCategory,
+      spaceTypeId: this.generateFormSpaceTypeId,
+      locationId: this.generateFormLocationId,
+      pricePerHour: this.generateFormPricePerHour ?? 0,
+      pricePerDay: this.generateFormPricePerDay ?? 0,
+      pricePerMonth: this.generateFormPricePerMonth ?? 0,
+      amenities: this.generateFormAmenityIds.join(',') || null,
+    }).subscribe({
+      next: (res: any) => {
+        this.generateSuccess = res?.message ?? `Spaces generated for ${cfg.spaceCategory}.`;
+        this.generatingInventory.set(null);
+        this.generateFormCfg = null;
+        this.loadVacantSpaces();
+        setTimeout(() => this.generateSuccess = '', 4000);
+      },
+      error: (e: any) => {
+        this.generateError = e?.error?.message ?? `Failed to generate spaces for ${cfg.spaceCategory}.`;
+        this.generatingInventory.set(null);
+      }
+    });
+  }
+
   private loadSpaceDropdowns() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.locationOptions = items.map((l: any) => ({ v: l.id, l: l.name }));
+        this.locationOptions = items.map((l: any) => ({ v: l.idGuid ?? l.idGUID ?? l.id, l: l.name }));
         this.config = this.buildConfig('spaces');
       }
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.spaceTypeOptions = items.map((s: any) => ({ v: s.id, l: s.name }));
+        this.spaceTypeOptions = items.map((s: any) => ({ v: s.idGuid ?? s.idGUID ?? s.id, l: s.name }));
         this.config = this.buildConfig('spaces');
       }
     });
@@ -271,7 +351,7 @@ export class Manage implements OnInit {
     this.accountCoa.getAll().subscribe({
       next: (accounts) => {
         this.accountOptions = accounts.map(a => ({ v: a.accountId, l: a.description }));
-        this.config = this.buildConfig('spaces');
+        this.config = this.buildConfig(this.entity);
       }
     });
   }
@@ -315,14 +395,14 @@ export class Manage implements OnInit {
         this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.id, l: s.name }));
       }
     });
-    if (!this.allSpaces.length) {
-      this.admin.getSpaces(1, 1000, '').subscribe({
-        next: (res: any) => { this.allSpaces = res?.data ?? []; }
-      });
-    }
+    this.admin.getVacantSpaces().subscribe({
+      next: (res: any) => { this.allSpaces = res?.data ?? []; }
+    });
   }
 
   closeAdminBookingForm() { this.showBookingForm = false; }
+
+  printReceipt() { window.print(); }
 
   onCustomerSearch() {
     clearTimeout(this.customerSearchTimer);
@@ -414,11 +494,34 @@ export class Manage implements OnInit {
         cityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : undefined,
       };
       this.admin.createAdminBooking(payload).subscribe({
-        next: () => {
+        next: (res: any) => {
           this.bookingFormSaving.set(false);
           this.showBookingForm = false;
-          this.success = 'Booking created successfully.';
-          setTimeout(() => this.success = '', 3000);
+          const bookingId = res?.data?.id ?? res?.data?.bookingId ?? res?.id ?? null;
+          const space = this.allSpaces.find((s: any) => s.idGuid === payload.spaceId);
+          const challanNumber = res?.data?.challanNumber ?? null;
+          const validity      = res?.data?.validity ?? null;
+          const receipt = {
+            bookingId,
+            challanNumber,
+            validity,
+            customerName: payload.customerName,
+            customerEmail: payload.customerEmail,
+            customerCode: payload.customerCode,
+            spaceName: space ? `${space.name} (${space.code ?? ''})` : payload.spaceId,
+            locationName: space?.locationName ?? '',
+            spaceTypeName: space?.spaceTypeName ?? '',
+            startDateTime: payload.startDateTime,
+            endDateTime: payload.endDateTime,
+            rentAmount: payload.totalAmount,
+            securityDeposit: this.securityDeposit,
+            totalAmount: (payload.totalAmount ?? 0) + this.securityDeposit,
+            notes: payload.notes,
+            createdAt: new Date().toISOString(),
+          };
+          this.adminBookingReceipt.set(receipt);
+          this.challanData.set(receipt);
+          this.showChallanModal = true;
           this.load();
         },
         error: (e: any) => {
@@ -761,6 +864,9 @@ export class Manage implements OnInit {
   }
 
   get isPrivateOfficeSelected(): boolean {
+    if (this.entity === 'spacetypes') {
+      return (this.formData['name'] || '').toLowerCase().includes('private');
+    }
     const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.formData['spaceTypeId']));
     return selected ? selected.l.toLowerCase().includes('private') : false;
   }
@@ -772,6 +878,10 @@ export class Manage implements OnInit {
     if (d.spaceTypeId) d.spaceTypeId = Number(d.spaceTypeId);
     if (d.floorId) d.floorId = Number(d.floorId);
     return d;
+  }
+
+  private lbl(entity: string, field: string): string {
+    return this.amountLabels[`${entity}.${field}`] ?? field;
   }
 
   private buildConfig(entity: string): EntityConfig {
@@ -866,6 +976,8 @@ export class Manage implements OnInit {
           { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'hourlyAllowed', label: 'Hourly Allowed', type: 'checkbox' },
           { key: 'isActive', label: 'Active', type: 'checkbox' },
+          { key: 'rentAccountId', label: 'Rent Account (applies to all spaces of this type)', type: 'select', options: this.accountOptions },
+          { key: 'depositAccountId', label: 'Security Deposit Account (Private Office only)', type: 'deposit-account-select' },
         ],
         getFn: (p, l, s) => this.admin.getSpaceTypes(p, l, s),
         createFn: (d) => this.admin.createSpaceType(d),
@@ -880,7 +992,7 @@ export class Manage implements OnInit {
           { key: 'code',          label: 'Code' },
           { key: 'locationName',  label: 'Location' },
           { key: 'spaceTypeName', label: 'Type' },
-          { key: 'pricePerDay',   label: 'Price/Day', type: 'currency' },
+          { key: 'pricePerDay',   label: this.lbl('Space', 'pricePerDay'), type: 'currency' },
           { key: 'status',        label: 'Status', type: 'status' },
           { key: 'imageUrl',      label: 'Image', type: 'image' },
         ],
@@ -889,14 +1001,13 @@ export class Manage implements OnInit {
           { key: 'code', label: 'Code', type: 'text' },
           { key: 'locationId', label: 'Location', type: 'select', options: this.locationOptions },
           { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions },
-          { key: 'pricePerHour', label: 'Price/Hour', type: 'number' },
-          { key: 'pricePerDay', label: 'Price/Day', type: 'number' },
+          { key: 'pricePerHour', label: this.lbl('Space', 'pricePerHour'), type: 'number' },
+          { key: 'pricePerDay', label: this.lbl('Space', 'pricePerDay'), type: 'number' },
           { key: 'floorId', label: 'Floor', type: 'floor-select' },
           { key: 'description', label: 'Description', type: 'textarea' },
           { key: 'imageUrl', label: 'Image URL', type: 'text' },
           { key: 'amenities', label: 'Amenities', type: 'amenities-multicheck' },
           { key: 'rentAccountId', label: 'Rent Account', type: 'select', options: this.accountOptions },
-          { key: 'depositAccountId', label: 'Security Deposit Account (Private Office only)', type: 'deposit-account-select' },
           { key: 'status', label: 'Status', type: 'select', options: [
             { v: 'Available', l: 'Available' },
             { v: 'Maintenance', l: 'Maintenance' },
@@ -916,7 +1027,7 @@ export class Manage implements OnInit {
           { key: 'spaceName', label: 'Space' },
           { key: 'startDateTime', label: 'Start', type: 'date' },
           { key: 'endDateTime', label: 'End', type: 'date' },
-          { key: 'totalAmount', label: 'Amount', type: 'currency' },
+          { key: 'totalAmount', label: this.lbl('Booking', 'totalAmount'), type: 'currency' },
           { key: 'bookingStatus', label: 'Status', type: 'status' },
         ],
         fields: [
@@ -935,14 +1046,14 @@ export class Manage implements OnInit {
         title: 'Pricing Plans',
         columns: [
           { key: 'name', label: 'Name' },
-          { key: 'price', label: 'Price', type: 'currency' },
+          { key: 'price', label: this.lbl('PricingPlan', 'price'), type: 'currency' },
           { key: 'billingCycle', label: 'Cycle' },
           { key: 'includesHours', label: 'Hours' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
-          { key: 'price', label: 'Price', type: 'number' },
+          { key: 'price', label: this.lbl('PricingPlan', 'price'), type: 'number' },
           { key: 'billingCycle', label: 'Billing Cycle', type: 'select', options: BILLING_CYCLES },
           { key: 'includesHours', label: 'Includes Hours', type: 'number' },
           { key: 'isActive', label: 'Active', type: 'checkbox' },
@@ -957,13 +1068,13 @@ export class Manage implements OnInit {
         title: 'Payments',
         columns: [
           { key: 'userEmail', label: 'User' },
-          { key: 'amount', label: 'Amount', type: 'currency' },
+          { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'currency' },
           { key: 'paymentMethod', label: 'Method' },
           { key: 'paymentStatus', label: 'Status', type: 'status' },
           { key: 'paidAt', label: 'Paid At', type: 'date' },
         ],
         fields: [
-          { key: 'amount', label: 'Amount', type: 'number' },
+          { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'number' },
           { key: 'paymentMethod', label: 'Method', type: 'select', options: [
             { v: 'Cash', l: 'Cash' },
             { v: 'Card', l: 'Card' },
