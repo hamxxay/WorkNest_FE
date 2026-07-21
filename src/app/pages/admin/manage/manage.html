@@ -345,7 +345,7 @@
         <div class="user-detail-grid">
           <div class="user-line"><span>Plan</span><strong>{{ s.plan?.name }}</strong></div>
           <div class="user-line"><span>Cycle</span><strong>{{ s.plan?.billingCycle }}</strong></div>
-          <div class="user-line"><span>Price</span><strong>PKR {{ (s.plan?.price ?? 0) | number:'1.2-2' }}</strong></div>
+          <div class="user-line"><span>{{ amountLabels['PricingPlan.price'] || 'Price' }}</span><strong>PKR {{ (s.plan?.price ?? 0) | number:'1.2-2' }}</strong></div>
         </div>
         <div class="history-section">
           <h3>Stats</h3>
@@ -374,7 +374,7 @@
       } @else if (paymentSummary(); as s) {
         <div class="user-detail-grid">
           <div class="user-line"><span>User</span><strong>{{ s.payment?.userEmail }}</strong></div>
-          <div class="user-line"><span>Amount</span><strong>PKR {{ (s.payment?.amount ?? 0) | number:'1.2-2' }}</strong></div>
+          <div class="user-line"><span>{{ amountLabels['Payment.amount'] || 'Amount' }}</span><strong>PKR {{ (s.payment?.amount ?? 0) | number:'1.2-2' }}</strong></div>
           <div class="user-line"><span>Method</span><strong>{{ s.payment?.paymentMethod }}</strong></div>
           <div class="user-line"><span>Status</span><strong>{{ s.payment?.paymentStatus }}</strong></div>
           <div class="user-line"><span>Ref</span><strong>{{ s.payment?.transactionRef }}</strong></div>
@@ -426,7 +426,7 @@
               <div class="table-wrap">
                 <table class="admin-table">
                   <thead>
-                    <tr><th>Space</th><th>Start</th><th>End</th><th>Amount</th><th>Status</th></tr>
+                    <tr><th>Space</th><th>Start</th><th>End</th><th>{{ amountLabels['Booking.totalAmount'] || 'Amount' }}</th><th>Status</th></tr>
                   </thead>
                   <tbody>
                     @for (b of history.recentBookings; track b.id) {
@@ -449,7 +449,7 @@
               <div class="table-wrap">
                 <table class="admin-table">
                   <thead>
-                    <tr><th>Amount</th><th>Method</th><th>Status</th><th>Paid At</th></tr>
+                    <tr><th>{{ amountLabels['Payment.amount'] || 'Amount' }}</th><th>Method</th><th>Status</th><th>Paid At</th></tr>
                   </thead>
                   <tbody>
                     @for (p of history.recentPayments; track p.id) {
@@ -481,6 +481,8 @@
     </div>
     @if (spaceConfigSuccess) { <div class="alert-admin alert-success-admin">{{ spaceConfigSuccess }}</div> }
     @if (spaceConfigError)   { <div class="alert-admin alert-error-admin">{{ spaceConfigError }}</div> }
+    @if (generateSuccess) { <div class="alert-admin alert-success-admin">{{ generateSuccess }}</div> }
+    @if (generateError)   { <div class="alert-admin alert-error-admin">{{ generateError }}</div> }
     <div class="admin-card">
       <div class="table-wrap">
         <table class="admin-table">
@@ -493,30 +495,24 @@
           <tbody>
             @for (cfg of spaceConfigItems(); track cfg.id) {
               <tr>
-                @if (editingConfig?.id === cfg.id) {
-                  <td><strong>{{ cfg.spaceCategory }}</strong></td>
-                  <td><input class="form-input-admin" type="number" min="1" [(ngModel)]="configFormData.totalSpaces" name="totalSpaces_{{cfg.id}}" style="width:80px" /></td>
-                  <td>{{ cfg.codePrefix }}</td>
-                  <td><input class="form-input-admin" type="text" [(ngModel)]="configFormData.defaultCapacities" name="caps_{{cfg.id}}" placeholder="e.g. 3,4,5" style="width:100px" /></td>
-                  <td><input class="form-input-admin" type="time" [(ngModel)]="configFormData.openingTime" name="open_{{cfg.id}}" style="width:90px" /></td>
-                  <td><input class="form-input-admin" type="time" [(ngModel)]="configFormData.closingTime" name="close_{{cfg.id}}" style="width:90px" /></td>
-                  <td class="actions-cell">
-                    <button class="action-btn edit" (click)="saveConfig()" [disabled]="spaceConfigSaving()" title="Save">âœ“</button>
-                    <button class="action-btn" (click)="cancelEditConfig()" title="Cancel">âœ—</button>
-                  </td>
-                } @else {
-                  <td><strong>{{ cfg.spaceCategory }}</strong></td>
-                  <td>{{ cfg.totalSpaces }}</td>
-                  <td>{{ cfg.codePrefix }}</td>
-                  <td>{{ cfg.defaultCapacities || 'â€”' }}</td>
-                  <td>{{ cfg.openingTime }}</td>
-                  <td>{{ cfg.closingTime }}</td>
-                  <td class="actions-cell">
-                    <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                    </button>
-                  </td>
-                }
+                <td><strong>{{ cfg.spaceCategory }}</strong></td>
+                <td>{{ cfg.totalSpaces }}</td>
+                <td>{{ cfg.codePrefix }}</td>
+                <td>{{ cfg.defaultCapacities }}</td>
+                <td>{{ cfg.openingTime }}</td>
+                <td>{{ cfg.closingTime }}</td>
+                <td class="actions-cell">
+                  <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button class="btn-admin btn-outline-admin" style="font-size:.8rem;padding:6px 14px;display:inline-flex;align-items:center;gap:6px"
+                    (click)="openGenerateForm(cfg)"
+                    [disabled]="generatingInventory() === cfg.spaceCategory"
+                    title="Re-create spaces from config">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    {{ generatingInventory() === cfg.spaceCategory ? 'Working...' : 'Re-create' }}
+                  </button>
+                </td>
               </tr>
             }
           </tbody>
@@ -543,7 +539,7 @@
         <div class="table-wrap">
           <table class="admin-table">
             <thead>
-              <tr><th>Space ID</th><th>Name</th><th>Location</th><th>Price/Day</th></tr>
+              <tr><th>Space ID</th><th>Name</th><th>Location</th><th>{{ amountLabels['Space.pricePerDay'] || 'Price / Day' }}</th></tr>
             </thead>
             <tbody>
               @for (s of group.spaces; track s.code) {
@@ -560,6 +556,133 @@
       </div>
     }
   }
+}
+
+
+<!-- Space Config Edit Modal -->
+@if (showConfigModal && editingConfig) {
+  <div class="modal-overlay" (click)="cancelEditConfig()">
+    <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px">
+      <button class="modal-close" (click)="cancelEditConfig()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Edit Config &mdash; {{ editingConfig.spaceCategory }}</h2>
+      @if (spaceConfigError) { <div class="alert-admin alert-error-admin">{{ spaceConfigError }}</div> }
+      <form (ngSubmit)="saveConfig()">
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Total Spaces</label>
+            <input class="form-input-admin" type="number" min="1" [(ngModel)]="configFormData.totalSpaces" name="totalSpaces" />
+          </div>
+          <div class="form-group-admin">
+            <label>Default Capacities</label>
+            <input class="form-input-admin" type="text" [(ngModel)]="configFormData.defaultCapacities" name="defaultCapacities" placeholder="e.g. 3,4,5" />
+          </div>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Opening Time</label>
+            <input class="form-input-admin" type="time" [(ngModel)]="configFormData.openingTime" name="openingTime" />
+          </div>
+          <div class="form-group-admin">
+            <label>Closing Time</label>
+            <input class="form-input-admin" type="time" [(ngModel)]="configFormData.closingTime" name="closingTime" />
+          </div>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>{{ amountLabels['SpaceConfig.pricePerHour'] || 'Price / Hour' }}</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="configFormData.pricePerHour" name="pricePerHour" />
+          </div>
+          <div class="form-group-admin">
+            <label>{{ amountLabels['SpaceConfig.pricePerDay'] || 'Price / Day' }}</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="configFormData.pricePerDay" name="pricePerDay" />
+          </div>
+          <div class="form-group-admin">
+            <label>{{ amountLabels['SpaceConfig.pricePerMonth'] || 'Price / Month' }}</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="configFormData.pricePerMonth" name="pricePerMonth" />
+          </div>
+        </div>
+        <div class="form-group-admin">
+          <label>{{ amountLabels['SpaceConfig.securityDeposit'] || 'Security Deposit' }}</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="configFormData.securityDeposit" name="securityDeposit" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-admin btn-outline-admin" (click)="cancelEditConfig()">Cancel</button>
+          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="spaceConfigSaving()">
+            {{ spaceConfigSaving() ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Generate Inventory Modal -->
+@if (generateFormCfg) {
+  <div class="modal-overlay" (click)="closeGenerateForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px">
+      <button class="modal-close" (click)="closeGenerateForm()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>Re-create Spaces — {{ generateFormCfg.spaceCategory }}</h2>
+      @if (generateError) { <div class="alert-admin alert-error-admin">{{ generateError }}</div> }
+      <form (ngSubmit)="submitGenerateInventory()">
+        <div class="form-group-admin">
+          <label>Space Type *</label>
+          <select class="form-input-admin" [(ngModel)]="generateFormSpaceTypeId" name="genSpaceTypeId" required>
+            <option value="">Select Space Type...</option>
+            @for (st of spaceTypeOptions; track st.v) {
+              <option [value]="st.v">{{ st.l }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group-admin">
+          <label>Location *</label>
+          <select class="form-input-admin" [(ngModel)]="generateFormLocationId" name="genLocationId" required>
+            <option value="">Select Location...</option>
+            @for (loc of locationOptions; track loc.v) {
+              <option [value]="loc.v">{{ loc.l }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>{{ amountLabels['SpaceConfig.pricePerHour'] || 'Price / Hour' }}</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="generateFormPricePerHour" name="genPriceHour" />
+          </div>
+          <div class="form-group-admin">
+            <label>{{ amountLabels['SpaceConfig.pricePerDay'] || 'Price / Day' }}</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="generateFormPricePerDay" name="genPriceDay" />
+          </div>
+          <div class="form-group-admin">
+            <label>{{ amountLabels['SpaceConfig.pricePerMonth'] || 'Price / Month' }}</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="generateFormPricePerMonth" name="genPriceMonth" />
+          </div>
+        </div>
+        <div class="form-group-admin">
+          <label>Amenities</label>
+          <div class="amenities-check-grid">
+            @for (a of amenityOptions; track a.id) {
+              <label class="checkbox-label">
+                <input type="checkbox" [checked]="generateFormAmenityIds.includes(a.id)" (change)="generateFormAmenityIds.includes(a.id) ? generateFormAmenityIds.splice(generateFormAmenityIds.indexOf(a.id), 1) : generateFormAmenityIds.push(a.id)" />
+                {{ a.name }}
+              </label>
+            }
+            @if (!amenityOptions.length) {
+              <small style="color:var(--warning,#f59e0b)">No amenities found.</small>
+            }
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-admin btn-outline-admin" (click)="closeGenerateForm()">Cancel</button>
+          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="generatingInventory() === generateFormCfg.spaceCategory">
+            {{ generatingInventory() === generateFormCfg.spaceCategory ? 'Generating...' : 'Generate' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 }
 
 <!-- Reassign Booking Modal -->
@@ -606,6 +729,118 @@
   </div>
 }
 
+<!-- Admin Booking Challan Modal -->
+@if (showChallanModal && challanData()) {
+  <div class="modal-overlay receipt-overlay" (click)="showChallanModal = false">
+    <div class="modal-content receipt-modal" (click)="$event.stopPropagation()" id="admin-receipt-printable" style="max-width:620px;padding:0;border-radius:8px;overflow:hidden">
+
+      <!-- Bank Header -->
+      <div style="background:#1e3a5f;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.25rem;font-weight:700;letter-spacing:.5px">WORKNEST</div>
+          <div style="font-size:.75rem;opacity:.8;margin-top:2px">Payment Challan</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.7rem;opacity:.7">Challan No.</div>
+          <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ challanData().challanNumber || 'N/A' }}</div>
+        </div>
+      </div>
+
+      <!-- Validity Banner -->
+      <div style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:8px 28px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.8rem;color:#92400e;font-weight:600">
+          ⚠ Valid until: {{ challanData().validity ? (challanData().validity | date:'MMM d, y') : '5 days from issue' }}
+        </span>
+        <span style="font-size:.75rem;color:#92400e">Pay before expiry to confirm booking</span>
+      </div>
+
+      <div style="padding:24px 28px">
+
+        <!-- Two column: Customer + Booking -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+          <div>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">Customer Details</div>
+            <div style="font-size:.82rem;line-height:1.8">
+              <div><span style="color:#64748b">Name: </span><strong>{{ challanData().customerName }}</strong></div>
+              <div><span style="color:#64748b">Email: </span><strong>{{ challanData().customerEmail }}</strong></div>
+              @if (challanData().customerCode) {
+                <div><span style="color:#64748b">Code: </span><strong>{{ challanData().customerCode }}</strong></div>
+              }
+            </div>
+          </div>
+          <div>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">Space Details</div>
+            <div style="font-size:.82rem;line-height:1.8">
+              <div><span style="color:#64748b">Space: </span><strong>{{ challanData().spaceName }}</strong></div>
+              @if (challanData().locationName) {
+                <div><span style="color:#64748b">Location: </span><strong>{{ challanData().locationName }}</strong></div>
+              }
+              @if (challanData().spaceTypeName) {
+                <div><span style="color:#64748b">Type: </span><strong>{{ challanData().spaceTypeName }}</strong></div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Booking Period -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px;margin-bottom:20px">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px">Booking Period</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem">
+            <div><span style="color:#64748b">Check-in: </span><strong>{{ challanData().startDateTime | date:'MMM d, y, h:mm a' }}</strong></div>
+            <div><span style="color:#64748b">Check-out: </span><strong>{{ challanData().endDateTime | date:'MMM d, y, h:mm a' }}</strong></div>
+          </div>
+          @if (challanData().notes) {
+            <div style="margin-top:6px;font-size:.8rem"><span style="color:#64748b">Notes: </span>{{ challanData().notes }}</div>
+          }
+        </div>
+
+        <!-- Amount Breakdown -->
+        <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px">
+          <div style="background:#f1f5f9;padding:8px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">Amount Breakdown</div>
+          <div style="padding:0 16px">
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
+              <span>{{ amountLabels['Booking.totalAmount'] || 'Booking Amount' }}</span>
+              <strong>PKR {{ (challanData().rentAmount ?? 0) | number:'1.2-2' }}</strong>
+            </div>
+            @if ((challanData().securityDeposit ?? 0) > 0) {
+              <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
+                <span>{{ amountLabels['SpaceConfig.securityDeposit'] || 'Security Deposit' }} <span style="font-size:.72rem;color:#64748b">(refundable)</span></span>
+                <strong>PKR {{ (challanData().securityDeposit ?? 0) | number:'1.2-2' }}</strong>
+              </div>
+            }
+            <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
+              <span>Total Payable</span>
+              <span>PKR {{ (challanData().totalAmount ?? 0) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Booking Reference -->
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-size:.82rem">
+          <span style="color:#1e40af">Booking Ref: <strong>#{{ challanData().bookingId }}</strong></span>
+          <span style="color:#64748b">Issued: {{ challanData().createdAt | date:'MMM d, y, h:mm a' }}</span>
+        </div>
+
+        <!-- Footer Note -->
+        <div style="font-size:.75rem;color:#94a3b8;text-align:center;border-top:1px dashed #e2e8f0;padding-top:14px">
+          Present this challan at any WorkNest counter or pay via bank transfer using the challan number.<br/>
+          This challan is system-generated and does not require a signature.
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn-admin btn-outline-admin" (click)="showChallanModal = false">Close</button>
+        <button class="btn-admin btn-primary-admin" (click)="printReceipt()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          Print Challan
+        </button>
+      </div>
+
+    </div>
+  </div>
+}
 
 @if (showBookingForm) {
   <div class="modal-overlay" (click)="closeAdminBookingForm()">
@@ -721,11 +956,11 @@
         </div>
         <div class="form-row-admin">
           <div class="form-group-admin">
-            <label>Booking Amount (PKR) <small style="color:#94a3b8">(auto-calculated)</small></label>
+            <label>{{ amountLabels['Booking.totalAmount'] || 'Booking Amount' }} (PKR) <small style="color:#94a3b8">(auto-calculated)</small></label>
             <input class="form-input-admin" type="number" [ngModel]="bookingFormData.totalAmount" name="totalAmount" readonly style="background:#f1f5f9;font-weight:600" placeholder="Select space &amp; dates" />
           </div>
           <div class="form-group-admin">
-            <label>Security Deposit (PKR)</label>
+            <label>{{ amountLabels['SpaceConfig.securityDeposit'] || 'Security Deposit' }} (PKR)</label>
             <input class="form-input-admin" type="number" [ngModel]="securityDeposit" name="securityDeposit" readonly style="background:#f1f5f9;font-weight:600" placeholder="—" />
           </div>
         </div>

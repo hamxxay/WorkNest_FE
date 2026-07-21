@@ -110,7 +110,7 @@ export class Checkout implements OnInit {
   discountAmount = computed(() => { const p = this.pending(); return p ? (p.discountAmount ?? 0) : 0; });
 
   // ── Create booking then act on payment method ───────────────────
-  private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number, assignedSpace?: any) => void) {
+  private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number, assignedSpace?: any, resData?: any) => void) {
     if (!this.pending()) return;
     this.submitting.set(true);
     this.error.set('');
@@ -160,7 +160,7 @@ export class Checkout implements OnInit {
             ? { name: res.data.assignedSpaceName, code: res.data.assignedSpace ?? '' }
             : res.data?.assignedSpace ?? null;
           this.booking.set({ ...this.pending(), id: bookingId, assignedSpace });
-          onSuccess(bookingId, assignedSpace);
+          onSuccess(bookingId, assignedSpace, res.data);
         } else {
           this.submitting.set(false);
           this.error.set(res.message || res.error || 'Booking failed.');
@@ -313,6 +313,9 @@ export class Checkout implements OnInit {
 
   copied = signal(false);
   counterDone = signal(false);
+  challan = signal<any>(null);
+
+  printChallan() { window.print(); }
 
   printVoucher() {
     window.print();
@@ -320,13 +323,26 @@ export class Checkout implements OnInit {
 
   // ── Pay at Counter ─────────────────────────────────────────
   submitCounter() {
-    this.createBookingWith('Payment via Cash on Counter', (bookingId, assignedSpace) => {
+    this.createBookingWith('Payment via Cash on Counter', (bookingId, assignedSpace, resData) => {
       this.submitting.set(false);
       this.counterDone.set(true);
-      // Store assigned space for display
-      if (assignedSpace) {
-        this.booking.update(b => ({ ...b!, assignedSpace }));
-      }
+      if (assignedSpace) this.booking.update(b => ({ ...b!, assignedSpace }));
+      const p = this.pending();
+      this.challan.set({
+        challanNumber:  resData?.challanNumber ?? null,
+        validity:       resData?.validity ?? null,
+        bookingId,
+        spaceName:      assignedSpace ? `${assignedSpace.name ?? ''} (${assignedSpace.code ?? ''})` : (p?.spaceName ?? ''),
+        locationName:   assignedSpace?.locationName ?? '',
+        spaceTypeName:  p?.spaceCategory ?? '',
+        startDateTime:  p?.startDateTime,
+        endDateTime:    p?.endDateTime,
+        rentAmount:     p?.rentAmount ?? p?.totalAmount ?? 0,
+        securityDeposit: p?.securityDeposit ?? resData?.securityDeposit ?? 0,
+        totalAmount:    p?.totalAmount ?? 0,
+        notes:          p?.notes ?? '',
+        createdAt:      new Date().toISOString(),
+      });
     });
   }
 

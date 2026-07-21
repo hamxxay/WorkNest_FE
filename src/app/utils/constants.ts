@@ -12,3 +12,7 @@ export const BILLING_CYCLES: { v: string; l: string }[] = [
   { v: 'Quarterly', l: 'Quarterly' },
   { v: 'Yearly',    l: 'Yearly' },
 ];
+
+// Amount field labels are stored in the DB (WN_AmountFields table).
+// Use AmountFieldService.getLabelMap() to get a Record<'Entity.field', label>
+// and reference via amountLabels['Entity.field'] in templates.

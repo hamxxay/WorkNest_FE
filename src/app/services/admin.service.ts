@@ -122,6 +122,10 @@ export class AdminService {
     return this.http.get<ApiResponse<Space[]>>(`${this.api}/space${qs}`);
   }
 
+  getVacantSpaces(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant`);
+  }
+
   /** Get a specific space by ID (full details with relation IDs) */
   getSpaceById(id: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/space/${id}`);
@@ -268,10 +272,10 @@ export class AdminService {
   getSpaceConfig(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/space-config`);
   }
-  updateSpaceConfig(category: string, data: { totalSpaces: number; defaultCapacities?: string; openingTime?: string; closingTime?: string }): Observable<ApiResponse<any>> {
+  updateSpaceConfig(category: string, data: { totalSpaces: number; defaultCapacities?: string; openingTime?: string; closingTime?: string; securityDeposit?: number | null; pricePerHour?: number | null; pricePerDay?: number | null; pricePerMonth?: number | null }): Observable<ApiResponse<any>> {
     return this.http.put<ApiResponse<any>>(`${this.api}/space-config/${category}`, data);
   }
-  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: number; locationId: number; pricePerHour?: number; pricePerDay?: number }): Observable<ApiResponse<any>> {
+  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: string; locationId: string; pricePerHour?: number; pricePerDay?: number; pricePerMonth?: number; amenities?: string | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/space-config/generate-inventory`, data);
   }
 
