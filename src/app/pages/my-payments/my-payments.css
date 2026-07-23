@@ -159,3 +159,63 @@
   .payments-mobile { display: block; }
   .section-header h1 { font-size: 1.4rem; }
 }
+
+/* Challan button */
+.btn-challan {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px; background: #1e3a5f; color: #fff;
+  border: none; border-radius: 6px; font-size: 0.78rem;
+  font-weight: 600; cursor: pointer; transition: background 0.2s;
+  margin-top: 4px;
+}
+.btn-challan:hover { background: #2d5282; }
+
+/* Challan modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 16px;
+}
+.challan-modal {
+  background: #fff; border-radius: 10px; overflow: hidden;
+  width: 100%; max-width: 560px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.challan-header {
+  background: #1e3a5f; color: #fff;
+  padding: 18px 24px; display: flex; justify-content: space-between; align-items: center;
+}
+.challan-brand { font-size: 1.2rem; font-weight: 700; letter-spacing: .5px; }
+.challan-subtitle { font-size: .72rem; opacity: .75; margin-top: 2px; }
+.challan-number-block { text-align: right; }
+.challan-number-label { font-size: .68rem; opacity: .7; }
+.challan-number { font-size: .95rem; font-weight: 700; letter-spacing: 1px; }
+.challan-validity {
+  background: #fef3c7; border-bottom: 1px solid #fde68a;
+  padding: 8px 24px; font-size: .8rem; color: #92400e; font-weight: 600;
+}
+.challan-body { padding: 20px 24px; }
+.challan-row {
+  display: flex; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: .88rem;
+  color: #475569;
+}
+.challan-row span { color: #94a3b8; }
+.challan-total { font-size: 1rem; font-weight: 700; color: #1e3a5f; border-bottom: none; }
+.challan-footer {
+  font-size: .72rem; color: #94a3b8; text-align: center;
+  border-top: 1px dashed #e2e8f0; padding: 12px 24px;
+}
+.challan-actions {
+  padding: 14px 24px; background: #f8fafc;
+  border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;
+}
+.btn-outline-challan {
+  padding: 8px 18px; border: 1px solid #cbd5e1; background: #fff;
+  border-radius: 6px; font-size: .85rem; cursor: pointer;
+}
+.btn-print-challan {
+  padding: 8px 18px; background: #1e3a5f; color: #fff;
+  border: none; border-radius: 6px; font-size: .85rem;
+  font-weight: 600; cursor: pointer;
+}
+.btn-print-challan:hover { background: #2d5282; }
