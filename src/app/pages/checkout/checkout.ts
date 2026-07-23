@@ -154,6 +154,7 @@ export class Checkout implements OnInit {
 
     createCall.subscribe({
       next: (res) => {
+        console.log('[createBookingWith] raw response:', res);
         if (res.isSuccessful || res.success) {
           const bookingId = res.data?.id ?? (typeof res.data?.bookingId === 'number' ? res.data.bookingId : null) ?? res.id;
           const assignedSpace = res.data?.assignedSpaceName
@@ -328,20 +329,24 @@ export class Checkout implements OnInit {
       this.counterDone.set(true);
       if (assignedSpace) this.booking.update(b => ({ ...b!, assignedSpace }));
       const p = this.pending();
+      // resData is res.data — try all known field name variants
+      const d = resData ?? {};
+      const spaceName = d.assignedSpaceName
+        ? `${d.assignedSpaceName}${d.assignedSpaceCode ? ' (' + d.assignedSpaceCode + ')' : ''}`
+        : assignedSpace
+          ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
+          : (p?.spaceName ?? '');
       this.challan.set({
-        challanNumber:  resData?.challanNumber ?? null,
-        validity:       resData?.validity ?? null,
+        challanNumber:   d.challanNumber ?? d.ChallanNumber ?? null,
+        validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
         bookingId,
-        spaceName:      assignedSpace ? `${assignedSpace.name ?? ''} (${assignedSpace.code ?? ''})` : (p?.spaceName ?? ''),
-        locationName:   assignedSpace?.locationName ?? '',
-        spaceTypeName:  p?.spaceCategory ?? '',
-        startDateTime:  p?.startDateTime,
-        endDateTime:    p?.endDateTime,
-        rentAmount:     p?.rentAmount ?? p?.totalAmount ?? 0,
-        securityDeposit: p?.securityDeposit ?? resData?.securityDeposit ?? 0,
-        totalAmount:    p?.totalAmount ?? 0,
-        notes:          p?.notes ?? '',
-        createdAt:      new Date().toISOString(),
+        spaceName,
+        startDateTime:   p?.startDateTime,
+        endDateTime:     p?.endDateTime,
+        rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
+        securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
+        totalAmount:     p?.totalAmount ?? 0,
+        createdAt:       new Date().toISOString(),
       });
     });
   }

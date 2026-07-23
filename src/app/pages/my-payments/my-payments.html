@@ -42,8 +42,11 @@
               <th>Amount</th>
               <th>Method</th>
               <th>Status</th>
-              <th>Reference</th>
+              <th>Challan No.</th>
+              <th>Space</th>
+              <th>Valid Until</th>
               <th>Date</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -53,8 +56,15 @@
                 <td class="cell-amount">Rs {{ p.amount | number:'1.2-2' }}</td>
                 <td>{{ p.paymentMethod || '—' }}</td>
                 <td><span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p) }}</span></td>
-                <td class="cell-ref">{{ p.transactionRef || '—' }}</td>
-                <td class="cell-date">{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</td>
+                <td class="cell-ref">{{ p.challanNumber || '—' }}</td>
+                <td>{{ p.spaceName || '—' }}</td>
+                <td class="cell-date">{{ (p.validity || p.validityDate) ? tryDate(p.validity || p.validityDate) : '—' }}</td>
+                <td class="cell-date">{{ tryDate(p.paidAt || p.createdAt) }}</td>
+                <td>
+                  @if (p.challanNumber) {
+                    <button class="btn-challan" (click)="printChallan(p)" title="Print Challan">🖨 Challan</button>
+                  }
+                </td>
               </tr>
             }
           </tbody>
@@ -70,10 +80,15 @@
                 <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.2-2' }}</div>
                 <div class="payment-mobile-details">
                   <span>{{ p.paymentMethod || 'N/A' }}</span>
-                  <span>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : (p.createdAt | date:'mediumDate') }}</span>
+                  <span>{{ tryDate(p.paidAt || p.createdAt) }}</span>
                 </div>
-                @if (p.transactionRef) {
-                  <div class="payment-mobile-ref">Ref: {{ p.transactionRef }}</div>
+                @if (p.spaceName) {
+                  <div class="payment-mobile-ref">Space: {{ p.spaceName }}</div>
+                }
+                @if (p.challanNumber) {
+                  <div class="payment-mobile-ref">Challan: {{ p.challanNumber }}</div>
+                  <div class="payment-mobile-ref">Valid until: {{ tryDate(p.validity || p.validityDate) }}</div>
+                  <button class="btn-challan" (click)="printChallan(p)">🖨 Print Challan</button>
                 }
               </div>
               <div class="payment-mobile-right">
@@ -87,3 +102,46 @@
     }
   </div>
 </section>
+
+<!-- Challan Print Modal -->
+@if (challanToPrint()) {
+  <div class="modal-overlay" (click)="challanToPrint.set(null)">
+    <div class="challan-modal" (click)="$event.stopPropagation()" id="user-challan-printable">
+
+      <div class="challan-header">
+        <div>
+          <div class="challan-brand">WORKNEST</div>
+          <div class="challan-subtitle">Payment Challan</div>
+        </div>
+        <div class="challan-number-block">
+          <div class="challan-number-label">Challan No.</div>
+          <div class="challan-number">{{ challanToPrint()!.challanNumber }}</div>
+        </div>
+      </div>
+
+      @if (challanToPrint()!.validity || challanToPrint()!.validityDate) {
+        <div class="challan-validity">
+          ⚠ Valid until: {{ tryDate(challanToPrint()!.validity || challanToPrint()!.validityDate) }} &nbsp;&mdash;&nbsp; Pay before expiry to confirm booking
+        </div>
+      }
+
+      <div class="challan-body">
+        <div class="challan-row"><span>Space</span><strong>{{ challanToPrint()!.spaceName || '—' }}</strong></div>
+        @if (challanToPrint()!.startDateTime) {
+          <div class="challan-row"><span>Check-in</span><strong>{{ tryDate(challanToPrint()!.startDateTime) }}</strong></div>
+          <div class="challan-row"><span>Check-out</span><strong>{{ tryDate(challanToPrint()!.endDateTime) }}</strong></div>
+        }
+        <div class="challan-row"><span>Method</span><strong>{{ challanToPrint()!.paymentMethod || '—' }}</strong></div>
+        <div class="challan-row"><span>Status</span><strong>{{ getDisplayStatus(challanToPrint()!) }}</strong></div>
+        <div class="challan-row challan-total"><span>Amount</span><strong>Rs {{ challanToPrint()!.amount | number:'1.2-2' }}</strong></div>
+      </div>
+
+      <div class="challan-footer">Present this challan at any WorkNest counter. This is a system-generated document.</div>
+
+      <div class="challan-actions">
+        <button class="btn-outline-challan" (click)="challanToPrint.set(null)">Close</button>
+        <button class="btn-print-challan" (click)="printChallanDoc()">&#128424; Print</button>
+      </div>
+    </div>
+  </div>
+}
