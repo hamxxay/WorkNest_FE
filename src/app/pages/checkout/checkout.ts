@@ -329,13 +329,21 @@ export class Checkout implements OnInit {
       this.counterDone.set(true);
       if (assignedSpace) this.booking.update(b => ({ ...b!, assignedSpace }));
       const p = this.pending();
-      // resData is res.data — try all known field name variants
       const d = resData ?? {};
       const spaceName = d.assignedSpaceName
         ? `${d.assignedSpaceName}${d.assignedSpaceCode ? ' (' + d.assignedSpaceCode + ')' : ''}`
         : assignedSpace
           ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
           : (p?.spaceName ?? '');
+
+      // Build bookingDetails array from response or fall back to pending data
+      const details: any[] = Array.isArray(d.bookingDetails) && d.bookingDetails.length
+        ? d.bookingDetails
+        : [
+            { feeType: 'RoomRent', amount: p?.rentAmount ?? p?.totalAmount ?? 0 },
+            ...(p?.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: p.securityDeposit }] : [])
+          ];
+
       this.challan.set({
         challanNumber:   d.challanNumber ?? d.ChallanNumber ?? null,
         validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
@@ -343,9 +351,8 @@ export class Checkout implements OnInit {
         spaceName,
         startDateTime:   p?.startDateTime,
         endDateTime:     p?.endDateTime,
-        rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
-        securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
-        totalAmount:     p?.totalAmount ?? 0,
+        bookingDetails:  details,
+        totalAmount:     details.reduce((s: number, l: any) => s + (l.amount ?? l.Amount ?? 0), 0) || (p?.totalAmount ?? 0),
         createdAt:       new Date().toISOString(),
       });
     });

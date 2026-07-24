@@ -375,14 +375,14 @@
                     <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:14px">
                       <div style="background:#f1f5f9;padding:7px 14px;font-size:.68rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">Amount Breakdown</div>
                       <div style="padding:0 14px">
-                        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:.83rem">
-                          <span>Booking Amount</span>
-                          <strong>Rs {{ (challan()?.rentAmount ?? 0).toFixed(2) }}</strong>
-                        </div>
-                        @if ((challan()?.securityDeposit ?? 0) > 0) {
+                        @for (line of challan()?.bookingDetails ?? []; track line.feeType ?? line.FeeType) {
                           <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:.83rem">
-                            <span>Security Deposit <span style="font-size:.7rem;color:#64748b">(refundable)</span></span>
-                            <strong>Rs {{ (challan()?.securityDeposit ?? 0).toFixed(2) }}</strong>
+                            <span>{{ line.feeType ?? line.FeeType }}
+                              @if ((line.feeType ?? line.FeeType) === 'SecurityDeposit') {
+                                <span style="font-size:.7rem;color:#64748b">(refundable)</span>
+                              }
+                            </span>
+                            <strong>Rs {{ (line.amount ?? line.Amount ?? 0).toFixed(2) }}</strong>
                           </div>
                         }
                         <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:.92rem;font-weight:700;color:#1e3a5f">
