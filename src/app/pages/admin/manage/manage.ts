@@ -404,6 +404,22 @@ export class Manage implements OnInit {
 
   printReceipt() { window.print(); }
 
+  async downloadChallan() {
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const el = document.getElementById('admin-receipt-printable');
+    if (!el) return;
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const imgH = (canvas.height * pageW) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+    const challan = this.challanData();
+    const filename = `Challan-${challan?.challanNumber ?? challan?.bookingId ?? 'WN'}.pdf`;
+    pdf.save(filename);
+  }
+
   onCustomerSearch() {
     clearTimeout(this.customerSearchTimer);
     if (!this.customerSearchQuery.trim()) { this.customerSearchResults = []; return; }
@@ -501,6 +517,13 @@ export class Manage implements OnInit {
           const space = this.allSpaces.find((s: any) => s.idGuid === payload.spaceId);
           const challanNumber = res?.data?.challanNumber ?? null;
           const validity      = res?.data?.validity ?? null;
+          const details: any[] = Array.isArray(res?.data?.bookingDetails) && res.data.bookingDetails.length
+            ? res.data.bookingDetails
+            : [
+                { feeType: 'RoomRent', amount: payload.totalAmount ?? 0 },
+                ...(this.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.securityDeposit }] : [])
+              ];
+          const totalAmount = details.reduce((s: number, l: any) => s + (l.amount ?? l.Amount ?? 0), 0);
           const receipt = {
             bookingId,
             challanNumber,
@@ -513,9 +536,8 @@ export class Manage implements OnInit {
             spaceTypeName: space?.spaceTypeName ?? '',
             startDateTime: payload.startDateTime,
             endDateTime: payload.endDateTime,
-            rentAmount: payload.totalAmount,
-            securityDeposit: this.securityDeposit,
-            totalAmount: (payload.totalAmount ?? 0) + this.securityDeposit,
+            bookingDetails: details,
+            totalAmount,
             notes: payload.notes,
             createdAt: new Date().toISOString(),
           };
