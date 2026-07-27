@@ -311,6 +311,14 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/booking/create-admin`, data);
   }
 
+  // Challan Validity
+  searchChallan(query: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/challan/search?q=${encodeURIComponent(query)}`);
+  }
+  extendChallanValidity(data: { bookingId: number; newExpiryDate: string; remarks?: string }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/challan/extend-validity`, data);
+  }
+
   // Amenities
   getAmenities(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/amenity`);

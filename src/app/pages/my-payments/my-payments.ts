@@ -41,6 +41,8 @@ export class MyPayments implements OnInit {
       paidAt:        this.parseDate(p.paidAt),
       startDateTime: this.parseDate(p.startDateTime),
       endDateTime:   this.parseDate(p.endDateTime),
+      validity:      this.parseDate(p.validity),
+      validityDate:  this.parseDate(p.validityDate),
     };
   }
 
@@ -79,18 +81,40 @@ export class MyPayments implements OnInit {
     this.challanToPrint.set(p);
   }
 
+  async downloadChallan() {
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const el = document.getElementById('user-challan-printable');
+    if (!el) return;
+    // Temporarily hide action buttons
+    const actions = el.querySelector<HTMLElement>('[data-challan-actions]');
+    if (actions) actions.style.display = 'none';
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    if (actions) actions.style.display = '';
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const imgH = (canvas.height * pageW) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+    const p = this.challanToPrint();
+    pdf.save(`Challan-${p?.challanNumber ?? p?.id ?? 'WN'}.pdf`);
+  }
+
   printChallanDoc() {
     const el = document.getElementById('user-challan-printable');
     if (!el) return;
-    const w = window.open('', '_blank', 'width=680,height=600');
+    const w = window.open('', '_blank', 'width=700,height=900');
     if (!w) return;
-    w.document.write(`<html><head><title>Challan</title>
-      <style>body{font-family:sans-serif;padding:24px}*{box-sizing:border-box}</style>
+    w.document.write(`<html><head><title>Challan - ${this.challanToPrint()?.challanNumber ?? ''}</title>
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;background:#fff}
+        button{display:none!important}
+      </style>
       </head><body>${el.innerHTML}</body></html>`);
     w.document.close();
     w.focus();
-    w.print();
-    w.close();
+    setTimeout(() => { w.print(); w.close(); }, 300);
   }
 
   getTotalPaid(): number { return this.totalPaid(); }

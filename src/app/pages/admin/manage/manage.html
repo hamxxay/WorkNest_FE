@@ -864,7 +864,7 @@
             <div class="customer-dropdown">
               @for (u of customerSearchResults; track u.id) {
                 <div class="customer-option" (click)="selectCustomer(u)">
-                  <strong>{{ u.name || u.firstName || u.email }}</strong>
+                  <strong>{{ (u.fullName) || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.name || u.email }}</strong>
                   <span>{{ u.email }}</span>
                   @if (u.customerCode || u.code) {
                     <span class="cust-code">{{ u.customerCode || u.code }}</span>
