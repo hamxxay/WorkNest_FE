@@ -1,0 +1,127 @@
+<div class="cv-page">
+  <div class="cv-header">
+    <h1>Challan Validity Extension</h1>
+    <p>Search a booking by Booking Number or Voucher/Challan Number, then extend its expiry date.</p>
+  </div>
+
+  <!-- Search -->
+  <div class="cv-card">
+    <div class="cv-section-title">Search Booking</div>
+    <div class="cv-search-row">
+      <input
+        type="text"
+        class="cv-input"
+        placeholder="Enter Booking # or Challan Number (e.g. WN-20250729-000001)"
+        [value]="searchQuery"
+        (input)="onSearchInput($any($event.target).value)"
+        (keyup.enter)="search()"
+        maxlength="50"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="cv-btn-primary" (click)="search()" [disabled]="searching() || !searchQuery.trim() || !searchValid">
+        @if (searching()) {
+          <span class="cv-spinner"></span> Searching...
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </svg>
+          Search
+        }
+      </button>
+    </div>
+    @if (searchError) {
+      <div class="cv-alert cv-alert-error">{{ searchError }}</div>
+    }
+  </div>
+
+  <!-- Result -->
+  @if (result()) {
+    <div class="cv-card">
+      <div class="cv-section-title">Booking Details</div>
+
+      <div class="cv-detail-grid">
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Customer Name</span>
+          <span class="cv-detail-value">{{ result()!.customerName || '—' }}</span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Booking Number</span>
+          <span class="cv-detail-value">#{{ result()!.bookingId }}</span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Challan Number</span>
+          <span class="cv-detail-value mono">{{ result()!.challanNumber || '—' }}</span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Consumer / Voucher Number</span>
+          <span class="cv-detail-value mono">{{ result()!.voucherNumber || result()!.consumerNumber || '—' }}</span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Current Expiry Date</span>
+          <span class="cv-detail-value expiry">{{ expiryDisplay() }}</span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Voucher Status</span>
+          <span class="cv-status-badge" [class]="'cv-status-' + (result()!.voucherStatus?.toString() || 'unknown').toLowerCase()">
+            {{ result()!.voucherStatus || '—' }}
+          </span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Booking Status</span>
+          <span class="cv-status-badge" [class]="bookingStatusClass(result()!.bookingStatus)">
+            {{ bookingStatusLabel(result()!.bookingStatus) }}
+          </span>
+        </div>
+        <div class="cv-detail-item">
+          <span class="cv-detail-label">Space</span>
+          <span class="cv-detail-value">{{ result()!.spaceName || '—' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extend Form -->
+    <div class="cv-card">
+      <div class="cv-section-title">Extend Expiry Date</div>
+
+      @if (saveSuccess) {
+        <div class="cv-alert cv-alert-success">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          {{ saveSuccess }}
+        </div>
+      }
+      @if (saveError) {
+        <div class="cv-alert cv-alert-error">{{ saveError }}</div>
+      }
+
+      <div class="cv-form-row">
+        <div class="cv-form-group">
+          <label class="cv-label">New Expiry Date *</label>
+          <input
+            type="date"
+            class="cv-input"
+            [(ngModel)]="newExpiryDate"
+            [min]="minNewExpiry"
+          />
+          <small class="cv-hint">Must be after {{ expiryDisplay() }}</small>
+        </div>
+        <div class="cv-form-group">
+          <label class="cv-label">Remarks (optional)</label>
+          <input type="text" class="cv-input" placeholder="Reason for extension..." [(ngModel)]="remarks" />
+        </div>
+      </div>
+
+      <button class="cv-btn-primary" (click)="extend()" [disabled]="saving() || !newExpiryDate">
+        @if (saving()) {
+          <span class="cv-spinner"></span> Updating...
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+          Update Expiry Date
+        }
+      </button>
+    </div>
+  }
+</div>

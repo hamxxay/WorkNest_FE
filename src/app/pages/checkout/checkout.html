@@ -18,6 +18,12 @@
             <h2>Order Summary</h2>
           </div>
           <div class="summary-body">
+            @if (pending()!.customerName) {
+              <div class="summary-row"><span>Customer</span><strong>{{ pending()!.customerName }}</strong></div>
+            }
+            @if (pending()!.existingBookingId) {
+              <div class="summary-row"><span>Booking #</span><strong>#{{ pending()!.existingBookingId }}</strong></div>
+            }
             <div class="summary-row"><span>Space</span><strong>{{ pending()!.spaceName }}</strong></div>
             @if (booking()?.assignedSpace) {
               <div class="summary-row assigned-space">
@@ -33,41 +39,45 @@
 
             <div class="summary-divider"></div>
 
-            <!-- ── Amount Breakdown ── -->
-            @if (isPrivateBooking()) {
-              <div class="summary-row"><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
-              <div class="summary-row"><span>Monthly Rent</span><strong>Rs {{ monthlyRent().toFixed(2) }}</strong></div>
-              @if (pending()!.discountPercent > 0) {
-                <div class="summary-row discount-row">
-                  <span>Loyalty Discount ({{ pending()!.discountPercent }}%)</span>
-                  <strong class="discount-value">− Rs {{ discountAmount().toFixed(2) }}</strong>
-                </div>
-              }
-              <div class="summary-row"><span>Rent Total</span><strong>Rs {{ (pending()!.rentAmount ?? pending()!.totalAmount ?? 0).toFixed(2) }}</strong></div>
-              @if (pending()!.securityDeposit > 0) {
-                <div class="summary-row">
-                  <span>Security Deposit <span class="refundable-tag">refundable</span></span>
-                  <strong>Rs {{ pending()!.securityDeposit.toFixed(2) }}</strong>
+            <!-- ── BookingDetail lines ── -->
+            @if (bookingDetailsLoading()) {
+              <div style="font-size:.8rem;color:var(--text-muted);padding:8px 0">Loading fee details...</div>
+            } @else if (bookingDetails().length) {
+              @for (d of bookingDetails(); track d.id) {
+                <div class="summary-row detail-fee-row">
+                  <span class="detail-fee-label">
+                    {{ d.feeType ?? d.FeeType ?? 'Fee' }}
+                    @if ((d.feeType ?? d.FeeType) === 'SecurityDeposit') {
+                      <span class="refundable-tag">refundable</span>
+                    }
+                  </span>
+                  <span class="detail-fee-right">
+                    <span class="detail-status-badge" [class]="detailStatusClass(d.status ?? 0)">{{ detailStatusLabel(d.status ?? 0) }}</span>
+                    <strong>Rs {{ (d.amount ?? 0).toFixed(2) }}</strong>
+                  </span>
                 </div>
               }
             } @else {
-              <div class="summary-row"><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
-              @if (pending()!.pricePerHour > 0) {
-                <div class="summary-row"><span>Rate</span><strong>Rs {{ pending()!.pricePerHour.toFixed(2) }} / hr</strong></div>
-              }
-              <div class="summary-row"><span>Base Amount</span><strong>Rs {{ baseAmount().toFixed(2) }}</strong></div>
-              @if (pending()!.discountPercent > 0) {
-                <div class="summary-row discount-row">
-                  <span>Loyalty Discount ({{ pending()!.discountPercent }}%)</span>
-                  <strong class="discount-value">− Rs {{ discountAmount().toFixed(2) }}</strong>
-                </div>
+              <!-- Fallback breakdown when no details loaded -->
+              @if (isPrivateBooking()) {
+                <div class="summary-row"><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
+                <div class="summary-row"><span>Monthly Rent</span><strong>Rs {{ monthlyRent().toFixed(2) }}</strong></div>
+                @if (pending()!.securityDeposit > 0) {
+                  <div class="summary-row">
+                    <span>Security Deposit <span class="refundable-tag">refundable</span></span>
+                    <strong>Rs {{ pending()!.securityDeposit.toFixed(2) }}</strong>
+                  </div>
+                }
+              } @else {
+                <div class="summary-row"><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
+                <div class="summary-row"><span>Base Amount</span><strong>Rs {{ baseAmount().toFixed(2) }}</strong></div>
               }
             }
 
             <div class="summary-divider"></div>
             <div class="summary-row total-row">
-              <span>Total Payable</span>
-              <strong class="total-amount">Rs {{ (pending()!.totalAmount ?? 0).toFixed(2) }}</strong>
+              <span>Grand Total</span>
+              <strong class="total-amount">Rs {{ grandTotal().toFixed(2) }}</strong>
             </div>
           </div>
           <div class="summary-status">
@@ -189,7 +199,7 @@
                     <span class="btn-spinner"></span> Processing...
                   } @else {
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                    Pay Rs {{ pending()?.totalAmount?.toFixed(2) }}
+                    Pay Rs {{ grandTotal().toFixed(2) }}
                   }
                 </button>
 
@@ -329,7 +339,7 @@
                     </div>
                     <div class="channel-item">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      Amount due: Rs {{ pending()?.totalAmount?.toFixed(2) }}
+                      Amount due: Rs {{ grandTotal().toFixed(2) }}
                     </div>
                   </div>
                   <button class="btn-pay" (click)="submitCounter()" [disabled]="submitting()">
@@ -447,7 +457,7 @@
                     <span class="btn-spinner"></span> Redirecting to PayFast...
                   } @else {
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
-                    Pay Rs {{ pending()?.totalAmount?.toFixed(2) }} via PayFast
+                    Pay Rs {{ grandTotal().toFixed(2) }} via PayFast
                   }
                 </button>
                 <p class="payment-note">

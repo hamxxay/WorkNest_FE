@@ -32,6 +32,10 @@ export class BookingService {
     return this.http.get<any>(`${this.apiUrl}/${id}`);
   }
 
+  getBookingDetails(bookingId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${bookingId}/details`);
+  }
+
   /**
    * Get available spaces by type with auto-assignment logic
    * @param spaceType - Type of space (e.g., 'Private Office', 'Shared Space', 'Meeting Room')

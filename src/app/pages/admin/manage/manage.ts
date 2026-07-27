@@ -432,7 +432,11 @@ export class Manage implements OnInit {
 
   selectCustomer(user: any) {
     this.selectedCustomer = user;
-    const fullName = user.fullName || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '';
+    const fullName = user.fullName
+      || [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+      || user.name
+      || user.email
+      || '';
     this.customerSearchQuery = fullName;
     this.customerSearchResults = [];
     this.bookingFormData.customerName   = fullName;

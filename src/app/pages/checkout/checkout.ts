@@ -10,6 +10,9 @@ import { AuthService } from '../../services/auth.service';
 
 type PaymentTab = 'card' | 'voucher' | 'counter' | 'payfast';
 
+// BookingDetail status enum
+export const DETAIL_STATUS: Record<number, string> = { 0: 'Pending', 1: 'Paid', 2: 'Cancelled' };
+
 @Component({
   selector: 'app-checkout',
   imports: [FormsModule, DatePipe, RouterLink],
@@ -21,6 +24,11 @@ export class Checkout implements OnInit {
   loading    = signal(true);
   submitting = signal(false);
   error      = signal('');
+
+  // When navigated from My Bookings (Pay Now)
+  fromBooking = false;
+  bookingDetails = signal<any[]>([]);
+  bookingDetailsLoading = signal(false);
 
   activeTab = signal<PaymentTab>('card');
 
@@ -49,7 +57,6 @@ export class Checkout implements OnInit {
   // ── 1Bill Voucher ──────────────────────────────────────────
   voucher = signal<OneBillVoucherResponse | null>(null);
 
-  // Default channels shown before the real API responds
   readonly defaultChannels = [
     'Any bank branch (over the counter)',
     'ATM (Bill Payment)',
@@ -70,7 +77,30 @@ export class Checkout implements OnInit {
 
   ngOnInit() {
     const navState = this.router.getCurrentNavigation()?.extras?.state ?? history.state;
-    if (navState?.pendingBooking) {
+
+    if (navState?.fromBooking && navState?.bookingId) {
+      // Navigated from My Bookings → Pay Now
+      this.fromBooking = true;
+      const b = navState.bookingData ?? {};
+      this.pending.set({
+        spaceCategory:   b.spaceCategory ?? b.bookingStatus ?? '',
+        spaceName:       b.spaceName ?? '',
+        startDateTime:   b.startDateTime,
+        endDateTime:     b.endDateTime,
+        totalAmount:     b.totalAmount ?? 0,
+        rentAmount:      b.totalAmount ?? 0,
+        baseAmount:      b.totalAmount ?? 0,
+        securityDeposit: 0,
+        notes:           b.notes ?? null,
+        smartBooking:    false,
+        existingBookingId: b.id,
+        customerName:    b.customerName ?? '',
+        challanNumber:   b.challanNumber ?? null,
+      });
+      this.booking.set({ ...this.pending(), id: b.id });
+      this.loading.set(false);
+      this.loadBookingDetails(b.id);
+    } else if (navState?.pendingBooking) {
       this.pending.set(navState.pendingBooking);
       this.loading.set(false);
     } else {
@@ -79,7 +109,33 @@ export class Checkout implements OnInit {
     }
   }
 
+  private loadBookingDetails(bookingId: number) {
+    this.bookingDetailsLoading.set(true);
+    this.bookingService.getBookingDetails(bookingId).subscribe({
+      next: (res: any) => {
+        const details = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        this.bookingDetails.set(details);
+        // Recalculate grand total from details
+        if (details.length) {
+          const total = details.reduce((s: number, d: any) => s + (d.amount ?? 0), 0);
+          this.pending.update(p => ({ ...p, totalAmount: total }));
+        }
+        this.bookingDetailsLoading.set(false);
+      },
+      error: () => this.bookingDetailsLoading.set(false)
+    });
+  }
+
   pending = signal<any>(null);
+
+  detailStatusLabel(status: number): string { return DETAIL_STATUS[status] ?? 'Pending'; }
+  detailStatusClass(status: number): string { return 'detail-status-' + (DETAIL_STATUS[status] ?? 'pending').toLowerCase(); }
+
+  grandTotal = computed(() => {
+    const details = this.bookingDetails();
+    if (details.length) return details.reduce((s, d) => s + (d.amount ?? 0), 0);
+    return this.pending()?.totalAmount ?? 0;
+  });
 
   // ── Breakdown helpers ───────────────────────────────────────
   isPrivateBooking = computed(() => this.pending()?.spaceCategory === 'Private');
@@ -111,34 +167,17 @@ export class Checkout implements OnInit {
 
   // ── Create booking then act on payment method ───────────────────
   private createBookingWith(paymentMethod: string, onSuccess: (bookingId: number, assignedSpace?: any, resData?: any) => void) {
+    // If coming from My Bookings, booking already exists — skip creation
+    if (this.fromBooking && this.pending()?.existingBookingId) {
+      onSuccess(this.pending().existingBookingId, null, null);
+      return;
+    }
+
     if (!this.pending()) return;
     this.submitting.set(true);
     this.error.set('');
 
-    // Use different payload based on whether it's auto-assignment or specific space booking
     const p = this.pending();
-    const bookingData = p.autoAssign ? {
-      spaceType: p.spaceType,
-      startDateTime: p.startDateTime,
-      endDateTime: p.endDateTime,
-      totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
-      notes: p.notes || paymentMethod
-    } : p.smartBooking ? {
-      spaceCategory: p.spaceCategory,
-      startDateTime: p.startDateTime,
-      endDateTime: p.endDateTime,
-      totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
-      capacity: p.capacity ?? undefined,
-      notes: p.notes || paymentMethod,
-      paymentMethod,
-    } : {
-      spaceId: p.spaceId,
-      startDateTime: p.startDateTime,
-      endDateTime: p.endDateTime,
-      totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
-      notes: paymentMethod
-    };
-
     const createCall = p.smartBooking
       ? this.bookingService.createSmart({
           spaceCategory: p.spaceCategory ?? '',
@@ -150,7 +189,13 @@ export class Checkout implements OnInit {
           paymentMethod,
           accountId:     p.accountId ?? undefined,
         })
-      : this.bookingService.create(bookingData);
+      : this.bookingService.create({
+          spaceId: p.spaceId,
+          startDateTime: p.startDateTime,
+          endDateTime: p.endDateTime,
+          totalAmount: parseFloat(Number(p.totalAmount).toFixed(2)),
+          notes: paymentMethod
+        });
 
     createCall.subscribe({
       next: (res) => {
@@ -169,8 +214,7 @@ export class Checkout implements OnInit {
       },
       error: (err: any) => {
         this.submitting.set(false);
-        const errorMsg = err?.error?.message || err?.error?.error || 'Failed to create booking. Please try again.';
-        this.error.set(errorMsg);
+        this.error.set(err?.error?.message || err?.error?.error || 'Failed to create booking. Please try again.');
       }
     });
   }
@@ -249,7 +293,7 @@ export class Checkout implements OnInit {
             queryParams: {
               status:    res.isSuccessful ? 'success' : 'failed',
               bookingId,
-              amount:    this.pending()?.totalAmount,
+              amount:    this.grandTotal(),
               ref:       res.transactionRef ?? '',
               method:    'Card',
               assignedSpace: assignedSpace ? JSON.stringify(assignedSpace) : ''
@@ -281,17 +325,14 @@ export class Checkout implements OnInit {
       const idempotencyKey = `vchr-${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.oneBillService.generateVoucher({
         bookingId,
-        amount: this.pending()?.totalAmount,
+        amount: this.grandTotal(),
         idempotencyKey,
       }).subscribe({
         next: (res) => {
           this.submitting.set(false);
           if (res.isSuccessful) {
             this.voucher.set(res);
-            // Store assigned space info for later display
-            if (assignedSpace) {
-              this.voucher.update(v => ({ ...v!, assignedSpace }));
-            }
+            if (assignedSpace) this.voucher.update(v => ({ ...v!, assignedSpace }));
           } else {
             this.error.set(res.message || 'Failed to generate voucher.');
           }
@@ -317,10 +358,7 @@ export class Checkout implements OnInit {
   challan = signal<any>(null);
 
   printChallan() { window.print(); }
-
-  printVoucher() {
-    window.print();
-  }
+  printVoucher() { window.print(); }
 
   // ── Pay at Counter ─────────────────────────────────────────
   submitCounter() {
@@ -335,24 +373,16 @@ export class Checkout implements OnInit {
         : assignedSpace
           ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
           : (p?.spaceName ?? '');
-
-      // Build bookingDetails array from response or fall back to pending data
-      const details: any[] = Array.isArray(d.bookingDetails) && d.bookingDetails.length
-        ? d.bookingDetails
-        : [
-            { feeType: 'RoomRent', amount: p?.rentAmount ?? p?.totalAmount ?? 0 },
-            ...(p?.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: p.securityDeposit }] : [])
-          ];
-
       this.challan.set({
-        challanNumber:   d.challanNumber ?? d.ChallanNumber ?? null,
+        challanNumber:   d.challanNumber ?? d.ChallanNumber ?? p?.challanNumber ?? null,
         validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
         bookingId,
         spaceName,
         startDateTime:   p?.startDateTime,
         endDateTime:     p?.endDateTime,
-        bookingDetails:  details,
-        totalAmount:     details.reduce((s: number, l: any) => s + (l.amount ?? l.Amount ?? 0), 0) || (p?.totalAmount ?? 0),
+        rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
+        securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
+        totalAmount:     this.grandTotal(),
         createdAt:       new Date().toISOString(),
       });
     });
@@ -375,10 +405,7 @@ export class Checkout implements OnInit {
         next: (res) => {
           this.payfastSubmitting.set(false);
           if (res.isSuccessful && res.data) {
-            // Store assigned space info before redirecting
-            if (assignedSpace) {
-              sessionStorage.setItem(`assignedSpace_${bookingId}`, JSON.stringify(assignedSpace));
-            }
+            if (assignedSpace) sessionStorage.setItem(`assignedSpace_${bookingId}`, JSON.stringify(assignedSpace));
             this.payfastService.redirectToPayFast(res.data);
           } else {
             this.error.set(res.message || 'PayFast initiation failed.');

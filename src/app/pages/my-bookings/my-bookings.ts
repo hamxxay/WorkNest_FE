@@ -76,8 +76,14 @@ export class MyBookings implements OnInit {
     });
   }
 
-  payNow(id: number) {
-    this.router.navigate(['/checkout', id]);
+  payNow(b: any) {
+    this.router.navigate(['/checkout'], {
+      state: {
+        fromBooking: true,
+        bookingId: b.id,
+        bookingData: b
+      }
+    });
   }
 
   getStatusClass(status: string): string {
