@@ -12,6 +12,13 @@
   "exclude": [
     "src/**/*.spec.ts",
     "src/environments/environment.prod.ts",
-    "src/app/services/location.service.ts"
+    "src/app/services/location.service.ts",
+    "src/app/components/policies/policies.component.ts",
+    "src/app/guards/checkout.guard.ts",
+    "src/app/guards/receptionist.guard.ts",
+    "src/app/services/availability.service.ts",
+    "src/app/services/pricing.service.ts",
+    "src/app/utils/space-assignment.ts",
+    "src/app/utils/workspace-discount.ts"
   ]
 }
