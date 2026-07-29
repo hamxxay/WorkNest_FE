@@ -1,8 +1,8 @@
 ﻿<div class="admin-page">
   <div class="page-header">
     <div>
-      <h1>{{ config?.title }}</h1>
-      <p>Manage all {{ config?.title?.toLowerCase() }}</p>
+      <h1>{{ config.title }}</h1>
+      <p>Manage all {{ config.title.toLowerCase() }}</p>
     </div>
     <div class="header-actions">
       @if (entity === 'bookings') {
@@ -24,7 +24,7 @@
           </button>
         }
       }
-      @if (config?.createFn) {
+      @if (config.createFn) {
         <button class="btn-admin btn-primary-admin" (click)="openCreate()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
           Add New
@@ -860,8 +860,11 @@
 
         <div class="form-group-admin" style="position:relative">
           <label>Search Customer *</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="customerSearch"
-            placeholder="Type name or email..." (input)="onCustomerSearch()" autocomplete="off" />
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="customerSearch"
+              placeholder="Type name or email..." (input)="onCustomerSearch()" autocomplete="off" />
+            <button type="button" class="btn-admin btn-outline-admin" (click)="openCreateCustomerFromBooking()" title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create Customer</button>
+          </div>
           @if (customerSearchResults.length) {
             <div class="customer-dropdown">
               @for (u of customerSearchResults; track u.id) {
