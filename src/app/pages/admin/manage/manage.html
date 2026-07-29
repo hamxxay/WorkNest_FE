@@ -11,6 +11,19 @@
           Create Booking
         </button>
       }
+      @if (entity === 'spaces') {
+        @if (showDuplicatesOnly) {
+          <button class="btn-admin btn-outline-admin" (click)="clearDuplicateFilter()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Clear Filter ({{ duplicateCodes.size }} duplicate codes)
+          </button>
+        } @else {
+          <button class="btn-admin btn-outline-admin" (click)="findDuplicates()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            Find Duplicates
+          </button>
+        }
+      }
       @if (config?.createFn) {
         <button class="btn-admin btn-primary-admin" (click)="openCreate()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
@@ -62,7 +75,7 @@
           </thead>
           <tbody>
             @for (item of filtered; track item.id || $index) {
-              <tr>
+              <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
                 @for (col of config.columns; track col.key) {
                   <td>
                     @if (col.type === 'image') {
@@ -478,6 +491,10 @@
   <div class="admin-page">
     <div class="page-header">
       <div><h1>Space Configuration</h1><p>Configure space counts, capacities and operating hours</p></div>
+      <button class="btn-admin btn-primary-admin" (click)="openAddSpaceModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+        Add Space
+      </button>
     </div>
     @if (spaceConfigSuccess) { <div class="alert-admin alert-success-admin">{{ spaceConfigSuccess }}</div> }
     @if (spaceConfigError)   { <div class="alert-admin alert-error-admin">{{ spaceConfigError }}</div> }
@@ -488,7 +505,7 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th>Category</th><th>Total Spaces</th><th>Code Prefix</th>
+              <th>Category</th><th>Spaces in DB</th><th>Code Prefix</th>
               <th>Capacities</th><th>Opens</th><th>Closes</th><th>Actions</th>
             </tr>
           </thead>
@@ -496,7 +513,7 @@
             @for (cfg of spaceConfigItems(); track cfg.id) {
               <tr>
                 <td><strong>{{ cfg.spaceCategory }}</strong></td>
-                <td>{{ cfg.totalSpaces }}</td>
+                <td>{{ actualSpaceCount(cfg) }}</td>
                 <td>{{ cfg.codePrefix }}</td>
                 <td>{{ cfg.defaultCapacities }}</td>
                 <td>{{ cfg.openingTime }}</td>
@@ -504,13 +521,6 @@
                 <td class="actions-cell">
                   <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                  </button>
-                  <button class="btn-admin btn-outline-admin" style="font-size:.8rem;padding:6px 14px;display:inline-flex;align-items:center;gap:6px"
-                    (click)="openGenerateForm(cfg)"
-                    [disabled]="generatingInventory() === cfg.spaceCategory"
-                    title="Re-create spaces from config">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                    {{ generatingInventory() === cfg.spaceCategory ? 'Working...' : 'Re-create' }}
                   </button>
                 </td>
               </tr>
@@ -523,7 +533,16 @@
 
   <div class="page-header" style="margin-top:32px">
     <div><h1>Vacant Spaces</h1><p>All currently available spaces by ID</p></div>
-    <span class="item-count">{{ vacantSpaces().length }} vacant</span>
+    <div style="display:flex;align-items:center;gap:12px">
+      <select class="form-input-admin" style="min-width:180px;font-size:.85rem"
+        [ngModel]="vacantBranchId" (ngModelChange)="vacantBranchId = $event; onVacantBranchChange()">
+        <option [ngValue]="null">All Branches</option>
+        @for (b of vacantBranchOptions; track b.id) {
+          <option [ngValue]="b.id">{{ b.name }}</option>
+        }
+      </select>
+      <span class="item-count">{{ vacantSpaces().length }} vacant</span>
+    </div>
   </div>
   @if (vacantLoading()) {
     <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
@@ -539,7 +558,7 @@
         <div class="table-wrap">
           <table class="admin-table">
             <thead>
-              <tr><th>Space ID</th><th>Name</th><th>Location</th><th>{{ amountLabels['Space.pricePerDay'] || 'Price / Day' }}</th></tr>
+              <tr><th>Space ID</th><th>Name</th><th>Location</th><th>{{ amountLabels['Space.pricePerDay'] || 'Price / Day' }}</th><th></th></tr>
             </thead>
             <tbody>
               @for (s of group.spaces; track s.code) {
@@ -548,6 +567,11 @@
                   <td>{{ s.name }}</td>
                   <td>{{ s.locationName }}</td>
                   <td>PKR {{ (s.pricePerDay ?? 0) | number:'1.2-2' }}</td>
+                  <td>
+                    <button class="action-btn delete" (click)="removeSpace(s)" title="Remove Space">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>
@@ -618,19 +642,19 @@
   </div>
 }
 
-<!-- Generate Inventory Modal -->
-@if (generateFormCfg) {
-  <div class="modal-overlay" (click)="closeGenerateForm()">
-    <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px">
-      <button class="modal-close" (click)="closeGenerateForm()">
+<!-- Add Space Modal -->
+@if (showAddSpaceModal) {
+  <div class="modal-overlay" (click)="closeAddSpaceModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:420px">
+      <button class="modal-close" (click)="closeAddSpaceModal()">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
-      <h2>Re-create Spaces — {{ generateFormCfg.spaceCategory }}</h2>
-      @if (generateError) { <div class="alert-admin alert-error-admin">{{ generateError }}</div> }
-      <form (ngSubmit)="submitGenerateInventory()">
+      <h2>Add Space</h2>
+      @if (addSpaceError) { <div class="alert-admin alert-error-admin">{{ addSpaceError }}</div> }
+      <form (ngSubmit)="submitAddSpace()">
         <div class="form-group-admin">
           <label>Space Type *</label>
-          <select class="form-input-admin" [(ngModel)]="generateFormSpaceTypeId" name="genSpaceTypeId" required>
+          <select class="form-input-admin" [(ngModel)]="addSpaceTypeId" name="addSpaceType" required (change)="onAddSpaceSelectionChange()">
             <option value="">Select Space Type...</option>
             @for (st of spaceTypeOptions; track st.v) {
               <option [value]="st.v">{{ st.l }}</option>
@@ -639,45 +663,23 @@
         </div>
         <div class="form-group-admin">
           <label>Location *</label>
-          <select class="form-input-admin" [(ngModel)]="generateFormLocationId" name="genLocationId" required>
+          <select class="form-input-admin" [(ngModel)]="addSpaceLocationId" name="addSpaceLocation" required (change)="onAddSpaceSelectionChange()">
             <option value="">Select Location...</option>
             @for (loc of locationOptions; track loc.v) {
               <option [value]="loc.v">{{ loc.l }}</option>
             }
           </select>
         </div>
-        <div class="form-row-admin">
-          <div class="form-group-admin">
-            <label>{{ amountLabels['SpaceConfig.pricePerHour'] || 'Price / Hour' }}</label>
-            <input class="form-input-admin" type="number" [(ngModel)]="generateFormPricePerHour" name="genPriceHour" />
+        @if (addSpacePreviewCode) {
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.875rem">
+            <span style="color:#64748b">Auto-assigned Room Number: </span>
+            <strong style="color:#166534;font-size:1rem">{{ addSpacePreviewCode }}</strong>
           </div>
-          <div class="form-group-admin">
-            <label>{{ amountLabels['SpaceConfig.pricePerDay'] || 'Price / Day' }}</label>
-            <input class="form-input-admin" type="number" [(ngModel)]="generateFormPricePerDay" name="genPriceDay" />
-          </div>
-          <div class="form-group-admin">
-            <label>{{ amountLabels['SpaceConfig.pricePerMonth'] || 'Price / Month' }}</label>
-            <input class="form-input-admin" type="number" [(ngModel)]="generateFormPricePerMonth" name="genPriceMonth" />
-          </div>
-        </div>
-        <div class="form-group-admin">
-          <label>Amenities</label>
-          <div class="amenities-check-grid">
-            @for (a of amenityOptions; track a.id) {
-              <label class="checkbox-label">
-                <input type="checkbox" [checked]="generateFormAmenityIds.includes(a.id)" (change)="generateFormAmenityIds.includes(a.id) ? generateFormAmenityIds.splice(generateFormAmenityIds.indexOf(a.id), 1) : generateFormAmenityIds.push(a.id)" />
-                {{ a.name }}
-              </label>
-            }
-            @if (!amenityOptions.length) {
-              <small style="color:var(--warning,#f59e0b)">No amenities found.</small>
-            }
-          </div>
-        </div>
+        }
         <div class="modal-actions">
-          <button type="button" class="btn-admin btn-outline-admin" (click)="closeGenerateForm()">Cancel</button>
-          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="generatingInventory() === generateFormCfg.spaceCategory">
-            {{ generatingInventory() === generateFormCfg.spaceCategory ? 'Generating...' : 'Generate' }}
+          <button type="button" class="btn-admin btn-outline-admin" (click)="closeAddSpaceModal()">Cancel</button>
+          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="addSpaceSaving() || !addSpaceTypeId || !addSpaceLocationId">
+            {{ addSpaceSaving() ? 'Adding...' : 'Add Space' }}
           </button>
         </div>
       </form>
@@ -924,6 +926,15 @@
         <p class="form-section-label" style="margin-top:1.25rem">Space Selection</p>
         <div class="form-row-admin">
           <div class="form-group-admin">
+            <label>Location</label>
+            <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" (change)="onBookingLocationChange()">
+              <option value="">All Locations</option>
+              @for (loc of locationOptions; track loc.v) {
+                <option [value]="loc.v">{{ loc.l }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group-admin">
             <label>Space Type *</label>
             <select class="form-input-admin" [(ngModel)]="selectedSpaceTypeId" name="spaceTypeId" required (change)="onSpaceTypeChange()">
               <option value="">Select Space Type...</option>
@@ -934,8 +945,8 @@
           </div>
           <div class="form-group-admin">
             <label>Space *</label>
-            <select class="form-input-admin" [(ngModel)]="bookingFormData.spaceId" name="spaceId" required [disabled]="!selectedSpaceTypeId" (change)="recalcAmount()">
-              <option value="">{{ selectedSpaceTypeId ? 'Select Space...' : 'Select a type first' }}</option>
+            <select class="form-input-admin" [(ngModel)]="bookingFormData.spaceId" name="spaceId" required (change)="recalcAmount()">
+              <option value="">Select Space...</option>
               @for (sp of filteredSpaceOptions; track sp.v) {
                 <option [value]="sp.v">{{ sp.l }}</option>
               }

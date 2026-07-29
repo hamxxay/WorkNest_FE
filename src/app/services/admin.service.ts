@@ -122,8 +122,9 @@ export class AdminService {
     return this.http.get<ApiResponse<Space[]>>(`${this.api}/space${qs}`);
   }
 
-  getVacantSpaces(): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant`);
+  getVacantSpaces(branchId?: number): Observable<ApiResponse<any[]>> {
+    const qs = branchId ? `?branchId=${branchId}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant${qs}`);
   }
 
   /** Get a specific space by ID (full details with relation IDs) */
@@ -275,7 +276,7 @@ export class AdminService {
   updateSpaceConfig(category: string, data: { totalSpaces: number; defaultCapacities?: string; openingTime?: string; closingTime?: string; securityDeposit?: number | null; pricePerHour?: number | null; pricePerDay?: number | null; pricePerMonth?: number | null }): Observable<ApiResponse<any>> {
     return this.http.put<ApiResponse<any>>(`${this.api}/space-config/${category}`, data);
   }
-  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: string; locationId: string; pricePerHour?: number; pricePerDay?: number; pricePerMonth?: number; amenities?: string | null }): Observable<ApiResponse<any>> {
+  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: string; locationId: string; codePrefix?: string; pricePerHour?: number; pricePerDay?: number; pricePerMonth?: number; amenities?: string | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/space-config/generate-inventory`, data);
   }
 
@@ -317,6 +318,34 @@ export class AdminService {
   }
   extendChallanValidity(data: { bookingId: number; newExpiryDate: string; remarks?: string }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/challan/extend-validity`, data);
+  }
+
+  // Space Config V2 (multi-location)
+  getSpaceConfigsV2(companyId?: number, branchId?: number, locationId?: number): Observable<ApiResponse<any[]>> {
+    const p = new URLSearchParams();
+    if (companyId  != null) p.set('companyId',  String(companyId));
+    if (branchId   != null) p.set('branchId',   String(branchId));
+    if (locationId != null) p.set('locationId', String(locationId));
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space-config/v2${qs}`);
+  }
+  createSpaceConfigV2(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/space-config/v2`, data);
+  }
+  updateSpaceConfigV2(id: number, data: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.api}/space-config/v2/${id}`, data);
+  }
+  deleteSpaceConfigV2(id: number): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.api}/space-config/v2/${id}`);
+  }
+  generateSpacesFromConfig(configId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/space-config/v2/${configId}/generate`, {});
+  }
+  getSpaceStatusForConfig(configId: number): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space-config/v2/${configId}/spaces`);
+  }
+  deleteSpacesFromConfig(configId: number, spaceGuids?: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/space-config/v2/delete-spaces`, { configId, spaceGuids: spaceGuids ?? null });
   }
 
   // Amenities

@@ -1,0 +1,224 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div>
+      <h1>Manage Spaces</h1>
+      <p>Generate or delete spaces based on configuration.</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="admin-card ms-filter-card">
+    <div class="ms-filter-row">
+      <div class="ms-filter-group">
+        <label>Location *</label>
+        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onFilterChange()">
+          <option value="">Select Location...</option>
+          @for (l of locationOptions; track l.v) {
+            <option [value]="l.v">{{ l.l }}</option>
+          }
+        </select>
+      </div>
+      <div class="ms-filter-group">
+        <label>Space Type</label>
+        <select class="form-input-admin" [(ngModel)]="filterSpaceTypeId" (ngModelChange)="onFilterChange()">
+          <option value="">All Types</option>
+          @for (st of spaceTypeOptions; track st.v) {
+            <option [value]="st.v">{{ st.l }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  @if (error)   { <div class="alert-admin alert-error-admin">{{ error }}</div> }
+  @if (success) { <div class="alert-admin alert-success-admin">{{ success }}</div> }
+
+  <!-- Config selector when multiple configs match -->
+  @if (configs().length > 1 && !selectedConfig()) {
+    <div class="admin-card">
+      <div class="ms-section-label">Select Configuration</div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Prefix</th>
+              <th>Start Code</th>
+              <th>Quantity</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cfg of configs(); track cfg.id) {
+              <tr>
+                <td><strong>{{ cfg.spaceCategory }}</strong></td>
+                <td><code class="ms-code">{{ cfg.codePrefix }}</code></td>
+                <td><code class="ms-code">{{ cfg.minCode }}</code></td>
+                <td>{{ cfg.totalSpaces }}</td>
+                <td>
+                  <button class="btn-admin btn-outline-admin ms-select-btn" (click)="selectConfig(cfg)">
+                    Select
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- Config summary + actions -->
+  @if (selectedConfig(); as cfg) {
+
+    <div class="admin-card ms-no-pad">
+      <div class="ms-config-header">
+        <div class="ms-config-title-wrap">
+          <span class="ms-config-title">{{ cfg.spaceCategory }}</span>
+          <span class="ms-config-loc">@ {{ cfg.locationName }}</span>
+        </div>
+        <div class="ms-config-actions">
+          @if (configs().length > 1) {
+            <button class="btn-admin btn-outline-admin" (click)="selectedConfig.set(null)">
+              ← Back
+            </button>
+          }
+          <button class="btn-admin btn-primary-admin" (click)="generateSpaces()" [disabled]="generating()">
+            @if (generating()) {
+              <span class="ms-spinner"></span> Generating...
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+              Generate Spaces
+            }
+          </button>
+        </div>
+      </div>
+
+      <div class="ms-stats-row">
+        <div class="ms-stat">
+          <span class="ms-stat-label">Configured</span>
+          <span class="ms-stat-value">{{ configuredCount }}</span>
+        </div>
+        <div class="ms-stat">
+          <span class="ms-stat-label">Existing</span>
+          <span class="ms-stat-value ms-stat-ok">{{ existingCount }}</span>
+        </div>
+        <div class="ms-stat">
+          <span class="ms-stat-label">Missing</span>
+          <span class="ms-stat-value" [class.ms-stat-warn-val]="missingCount > 0">{{ missingCount }}</span>
+        </div>
+        <div class="ms-stat">
+          <span class="ms-stat-label">Code Range</span>
+          <span class="ms-stat-range">
+            <code class="ms-code">{{ cfg.minCode }}</code>
+            <span class="ms-range-sep">–</span>
+            <code class="ms-code">{{ cfg.minCode + cfg.totalSpaces - 1 }}</code>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blocked spaces warning -->
+    @if (blockedSpaces.length) {
+      <div class="admin-card ms-blocked-card">
+        <div class="ms-blocked-title">
+          The following spaces could not be deleted (active bookings):
+        </div>
+        <div class="ms-blocked-list">
+          @for (s of blockedSpaces; track s.idGuid) {
+            <span class="ms-blocked-badge">{{ s.code }} — {{ s.name }}</span>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Spaces table -->
+    <div class="admin-card ms-no-pad">
+      <div class="ms-table-header">
+        <span class="ms-section-label">Generated Spaces ({{ existingCount }})</span>
+        <div class="ms-table-actions">
+          <button class="btn-admin btn-outline-admin ms-delete-btn"
+            (click)="deleteSelected()"
+            [disabled]="deleting() || selectedGuids.size === 0">
+            @if (deleting()) {
+              <span class="ms-spinner ms-spinner-dark"></span>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            }
+            Delete Selected ({{ selectedGuids.size }})
+          </button>
+          <button class="ms-delete-all-btn"
+            (click)="deleteAll()"
+            [disabled]="deleting() || existingCount === 0">
+            @if (deleting()) { <span class="ms-spinner"></span> }
+            Delete All
+          </button>
+        </div>
+      </div>
+
+      @if (spacesLoading()) {
+        <div class="loading-spinner"><div class="spinner"></div><p>Loading spaces...</p></div>
+      } @else if (spaces().length === 0) {
+        <div class="empty-state">
+          <p>No spaces generated yet.</p>
+          <p class="ms-empty-hint">Click "Generate Spaces" to create them from this configuration.</p>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th class="ms-check-col">
+                  <input type="checkbox" [checked]="allDeletableSelected" (change)="toggleSelectAll()" />
+                </th>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Bookings</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of spaces(); track s.idGuid) {
+                <tr [class.ms-row-booked]="s.hasBookings">
+                  <td class="ms-check-col">
+                    @if (!s.hasBookings) {
+                      <input type="checkbox" [checked]="isSelected(s.idGuid)" (change)="toggleSelect(s.idGuid)" />
+                    }
+                  </td>
+                  <td><code class="ms-code">{{ s.code }}</code></td>
+                  <td>{{ s.name }}</td>
+                  <td>
+                    <span class="status-badge" [class]="s.status === 1 ? 'status-confirmed' : 'status-cancelled'">
+                      {{ s.status === 1 ? 'Active' : 'Inactive' }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (s.hasBookings) {
+                      <span class="ms-booked-badge">Has Bookings</span>
+                    } @else {
+                      <span class="ms-no-bookings">—</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+  } @else if (filterLocationId && configs().length === 0) {
+    <div class="admin-card">
+      <div class="empty-state">
+        <p>No configuration found for the selected filters.</p>
+        <p class="ms-empty-hint">Go to <strong>Space Configuration</strong> to create one first.</p>
+      </div>
+    </div>
+  } @else if (!filterLocationId) {
+    <div class="admin-card">
+      <div class="empty-state">
+        <p>Select a location to view its space configuration.</p>
+      </div>
+    </div>
+  }
+</div>

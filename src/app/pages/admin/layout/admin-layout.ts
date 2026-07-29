@@ -25,9 +25,10 @@ export class AdminLayout {
     { route: '/admin/pricing',        label: 'Pricing',           icon: 'pricing'         },
     { route: '/admin/payments',       label: 'Payments',          icon: 'payments'        },
     { route: '/admin/contacts',       label: 'Contacts',          icon: 'contacts'        },
-    { route: '/admin/gallery',        label: 'Gallery',           icon: 'gallery'         },
-    { route: '/admin/spaceconfig',    label: 'Space Config',      icon: 'spaceconfig'     },
-    { route: '/admin/challan-validity', label: 'Challan Validity', icon: 'challan', superAdminOnly: true },
+    { route: '/admin/gallery',             label: 'Gallery',           icon: 'gallery'                        },
+    { route: '/admin/space-configuration',  label: 'Space Config',      icon: 'spaceconfig',  superAdminOnly: true },
+    { route: '/admin/manage-spaces',        label: 'Manage Spaces',     icon: 'managespaces', superAdminOnly: true },
+    { route: '/admin/challan-validity',     label: 'Challan Validity',  icon: 'challan',      superAdminOnly: true },
   ];
 
   private auth = inject(AuthService);

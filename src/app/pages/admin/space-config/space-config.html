@@ -1,0 +1,230 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div>
+      <h1>Space Configuration</h1>
+      <p>Configure space generation rules per location and space type.</p>
+    </div>
+    <button class="btn-admin btn-primary-admin" (click)="openCreate()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+      Add Configuration
+    </button>
+  </div>
+
+  @if (success) { <div class="alert-admin alert-success-admin">{{ success }}</div> }
+  @if (error && !showModal) { <div class="alert-admin alert-error-admin">{{ error }}</div> }
+
+  <!-- Filters -->
+  <div class="admin-card" style="padding:16px 20px;margin-bottom:16px">
+    <div class="sc-filter-row">
+      <div class="sc-filter-group">
+        <label>Location</label>
+        <select class="form-input-admin" [ngModel]="filterLocationId()" (ngModelChange)="onLocationFilterChange($event)">
+          <option [ngValue]="null">All Locations</option>
+          @for (l of locationOptions; track l.v) {
+            <option [value]="l.v">{{ l.l }}</option>
+          }
+        </select>
+      </div>
+      <button class="btn-admin btn-outline-admin" (click)="load()" style="align-self:flex-end">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    @if (loading()) {
+      <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
+    } @else if (configs().length === 0) {
+      <div class="empty-state"><p>No configurations found. Add one to get started.</p></div>
+    } @else {
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Space Type</th>
+              <th>Prefix</th>
+              <th>Start Code</th>
+              <th>Quantity</th>
+              <th>Opens</th>
+              <th>Closes</th>
+              <th>Price/Month</th>
+              <th>Deposit</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cfg of configs(); track cfg.id) {
+              <tr>
+                <td><strong>{{ cfg.locationName || '—' }}</strong></td>
+                <td>{{ cfg.spaceTypeName || cfg.spaceCategory }}</td>
+                <td><code class="sc-code">{{ cfg.codePrefix }}</code></td>
+                <td><code class="sc-code">{{ cfg.minCode }}</code></td>
+                <td>{{ cfg.totalSpaces }}</td>
+                <td>{{ cfg.openingTime }}</td>
+                <td>{{ cfg.closingTime }}</td>
+                <td>{{ cfg.pricePerMonth ? ('PKR ' + (cfg.pricePerMonth | number:'1.0-0')) : '—' }}</td>
+                <td>{{ cfg.securityDeposit ? ('PKR ' + (cfg.securityDeposit | number:'1.0-0')) : '—' }}</td>
+                <td class="actions-cell">
+                  <button class="action-btn edit" (click)="openEdit(cfg)" title="Edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button class="action-btn delete" (click)="deleteConfig(cfg)" title="Delete">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+@if (showModal) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal-content sc-modal" (click)="$event.stopPropagation()">
+      <button class="modal-close" (click)="closeModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2>{{ editItem ? 'Edit' : 'Add' }} Configuration</h2>
+      @if (error) { <div class="alert-admin alert-error-admin" style="margin-bottom:14px">{{ error }}</div> }
+
+      <form (ngSubmit)="save()">
+        <p class="form-section-label">Location & Type</p>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Location *</label>
+            <select class="form-input-admin" [(ngModel)]="form.locationId" name="locationId" required (change)="onLocationChange()">
+              <option value="">Select Location...</option>
+              @for (l of locationOptions; track l.v) {
+                <option [value]="l.v">{{ l.l }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group-admin">
+            <label>Space Type *</label>
+            <select class="form-input-admin" [(ngModel)]="form.spaceTypeId" name="spaceTypeId" required>
+              <option value="">Select Space Type...</option>
+              @for (st of spaceTypeOptions; track st.v) {
+                <option [value]="st.v">{{ st.l }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Category Label *</label>
+            <input class="form-input-admin" type="text" [(ngModel)]="form.spaceCategory" name="spaceCategory" placeholder="e.g. Shared, Private, Meeting" required />
+          </div>
+          <div class="form-group-admin">
+            <label>Floor</label>
+            <select class="form-input-admin" [(ngModel)]="form.floorId" name="floorId">
+              <option [ngValue]="null">No Floor</option>
+              @for (f of floorOptions; track f.v) {
+                <option [value]="f.v">{{ f.l }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <p class="form-section-label">Code Generation</p>
+        <div class="form-row-admin three">
+          <div class="form-group-admin">
+            <label>Prefix *</label>
+            <input class="form-input-admin" type="text" [(ngModel)]="form.codePrefix" name="codePrefix" placeholder="e.g. 33" required maxlength="5" />
+            <small class="sc-hint">Must be unique within the company.</small>
+          </div>
+          <div class="form-group-admin">
+            <label>Starting Code *</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="form.minCode" name="minCode" placeholder="e.g. 3301" required />
+          </div>
+          <div class="form-group-admin">
+            <label>Quantity *</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="form.totalSpaces" name="totalSpaces" min="1" required />
+          </div>
+        </div>
+
+        <p class="form-section-label">Operating Hours</p>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Opening Time</label>
+            <input class="form-input-admin" type="time" [(ngModel)]="form.openingTime" name="openingTime" />
+          </div>
+          <div class="form-group-admin">
+            <label>Closing Time</label>
+            <input class="form-input-admin" type="time" [(ngModel)]="form.closingTime" name="closingTime" />
+          </div>
+        </div>
+
+        <p class="form-section-label">Pricing</p>
+        <div class="form-row-admin three">
+          <div class="form-group-admin">
+            <label>Price / Hour</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="form.pricePerHour" name="pricePerHour" min="0" />
+          </div>
+          <div class="form-group-admin">
+            <label>Price / Day</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="form.pricePerDay" name="pricePerDay" min="0" />
+          </div>
+          <div class="form-group-admin">
+            <label>Price / Month</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="form.pricePerMonth" name="pricePerMonth" min="0" />
+          </div>
+        </div>
+
+        <p class="form-section-label">Accounts</p>
+        <div class="form-row-admin">
+          <div class="form-group-admin">
+            <label>Rent Account</label>
+            <select class="form-input-admin" [(ngModel)]="form.rentAccountId" name="rentAccountId">
+              <option [ngValue]="null">Select Account...</option>
+              @for (a of accountOptions; track a.v) {
+                <option [value]="a.v">{{ a.l }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group-admin">
+            <label>Deposit Account @if (isPrivate) { <span class="sc-required">required</span> }</label>
+            @if (isPrivate) {
+              <select class="form-input-admin" [(ngModel)]="form.depositAccountId" name="depositAccountId">
+                <option [ngValue]="null">Select Account...</option>
+                @for (a of accountOptions; track a.v) {
+                  <option [value]="a.v">{{ a.l }}</option>
+                }
+              </select>
+            } @else {
+              <input class="form-input-admin" value="N/A — Private only" disabled style="background:#f1f5f9;color:#94a3b8" />
+            }
+          </div>
+          <div class="form-group-admin">
+            <label>Security Deposit (PKR)</label>
+            <input class="form-input-admin" type="number" [(ngModel)]="form.securityDeposit" name="securityDeposit" min="0" [disabled]="!isPrivate" [style.background]="!isPrivate ? '#f1f5f9' : ''" />
+          </div>
+        </div>
+
+        <p class="form-section-label">Amenities</p>
+        <div class="amenities-check-grid">
+          @for (a of amenityOptions; track a.id) {
+            <label class="checkbox-label">
+              <input type="checkbox" [checked]="isAmenitySelected(a.id)" (change)="toggleAmenity(a.id)" />
+              {{ a.name }}
+            </label>
+          }
+          @if (!amenityOptions.length) {
+            <small style="color:var(--warning,#f59e0b)">No amenities found.</small>
+          }
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-admin btn-outline-admin" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="btn-admin btn-primary-admin" [disabled]="saving()">
+            {{ saving() ? 'Saving...' : (editItem ? 'Update' : 'Create') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

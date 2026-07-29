@@ -99,7 +99,8 @@
 .day-cell:disabled{opacity:.4;cursor:not-allowed}
 .calendar-hint{font-size:.75rem;color:#94a3b8;margin-top:8px}
 .calendar-loading{text-align:center;color:#94a3b8;padding:20px;font-size:.85rem}
-.amenities-check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px}
+.duplicate-row td { background: rgba(239,68,68,.06) !important; }
+.duplicate-row td:first-child { border-left: 3px solid #ef4444; }
 
 .form-row-admin{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-section-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0d9488;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
@@ -334,3 +335,6 @@
   .receipt-actions { display: none !important; }
   .modal-close { display: none !important; }
 }
+
+.duplicate-row td { background: rgba(239,68,68,.06) !important; }
+.duplicate-row td:first-child { border-left: 3px solid #ef4444; }

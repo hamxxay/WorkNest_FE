@@ -55,7 +55,7 @@ export class Manage implements OnInit {
     }, 400);
   }
 
-  get filtered() { return this.items(); }
+  get filtered() { return this.entity === 'spaces' ? this.displayedItems : this.items(); }
 
   showModal = false;
   editItem: any = null;
@@ -116,6 +116,7 @@ export class Manage implements OnInit {
   allSpaces: any[] = [];
   filteredSpaceOptions: { v: any; l: string }[] = [];
   selectedSpaceTypeId = '';
+  selectedLocationId = '';
   securityDeposit = 0;
   accountOptions: { v: number; l: string }[] = [];
   // customer search
@@ -153,7 +154,6 @@ export class Manage implements OnInit {
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
         if (this.entity === 'bookings') this.loadSpacesForDropdown();
-        if (this.entity === 'spaceconfig') this.loadSpaceConfig();
         if (this.entity === 'customers') this.loadCityOptions();
         if (this.entity === 'users') this.loadCityOptions();
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
@@ -162,153 +162,112 @@ export class Manage implements OnInit {
   }
 
   spaceConfigItems = signal<any[]>([]);
-  spaceConfigSaving = signal(false);
-  spaceConfigError = '';
-  spaceConfigSuccess = '';
-  editingConfig: any = null;
-  configFormData: any = {};
-  showConfigModal = false;
-  vacantSpaces = signal<any[]>([]);
-  vacantLoading = signal(false);
-  generatingInventory = signal<string | null>(null);
   generateError = '';
   generateSuccess = '';
 
   private loadSpaceConfig() {
+    // Load spaceConfigItems for use in the admin booking form (security deposit lookup)
     this.admin.getSpaceConfig().subscribe({
       next: (res: any) => this.spaceConfigItems.set(res?.data ?? []),
       error: () => {}
     });
-    this.loadVacantSpaces();
-    if (!this.amenityOptions.length) {
-      this.admin.getAmenities().subscribe({
-        next: (res: any) => { this.amenityOptions = (res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name })); }
-      });
-    }
-    if (!this.spaceTypeOptions.length) {
-      this.admin.getSpaceTypes(1, 1000, '').subscribe({
-        next: (res: any) => { this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.idGuid ?? s.id, l: s.name })); }
-      });
-    }
-    if (!this.locationOptions.length) {
-      this.admin.getLocations(1, 1000, '').subscribe({
-        next: (res: any) => { this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: l.idGuid ?? l.id, l: l.name })); }
-      });
-    }
   }
 
-  private loadVacantSpaces() {
-    this.vacantLoading.set(true);
-    this.admin.getVacantSpaces().subscribe({
-      next: (res: any) => {
-        const vacant = (res?.data ?? []).sort((a: any, b: any) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
-        this.vacantSpaces.set(vacant);
-        this.vacantLoading.set(false);
-      },
-      error: () => this.vacantLoading.set(false)
-    });
+  // ── Add / Remove Single Space ─────────────────────────────
+  showAddSpaceModal = false;
+  addSpaceTypeId = '';
+  addSpaceLocationId = '';
+  addSpacePreviewCode = '';
+  addSpaceSaving = signal(false);
+  addSpaceError = '';
+
+  openAddSpaceModal() {
+    this.addSpaceTypeId = '';
+    this.addSpaceLocationId = '';
+    this.addSpacePreviewCode = '';
+    this.addSpaceError = '';
+    this.generateError = '';
+    this.generateSuccess = '';
+    this.showAddSpaceModal = true;
   }
 
-  get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
-    const grouped = new Map<string, any[]>();
-    for (const s of this.vacantSpaces()) {
-      const code = parseInt(s.code, 10);
-      const key = code >= 3200 ? 'Meeting' : code >= 3100 ? 'Private' : code >= 3000 ? 'Shared' : (s.spaceTypeName || 'Other');
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(s);
+  closeAddSpaceModal() { this.showAddSpaceModal = false; }
+
+  onAddSpaceSelectionChange() {
+    this.addSpacePreviewCode = '';
+    if (!this.addSpaceTypeId || !this.addSpaceLocationId) return;
+    // Find the config for the selected space type to get codePrefix
+    const typeName = this.spaceTypeOptions.find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
+    const cfg = this.spaceConfigItems().find((c: any) =>
+      typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
+      (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
+    );
+    const prefix = cfg?.codePrefix ? parseInt(cfg.codePrefix, 10) : 0;
+    // Count existing spaces of this type at this location
+    const existing = this.vacantSpaces().filter((s: any) =>
+      (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
+       String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
+      (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
+    );
+    // Also count from allSpaces for a more accurate next code
+    const allOfType = this.allSpaces.filter((s: any) =>
+      (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
+       String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
+      (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
+    );
+    const count = Math.max(existing.length, allOfType.length);
+    this.addSpacePreviewCode = prefix ? String(prefix + count + 1) : '';
+  }
+
+  submitAddSpace() {
+    if (!this.addSpaceTypeId || !this.addSpaceLocationId) {
+      this.addSpaceError = 'Space type and location are required.';
+      return;
     }
-    return Array.from(grouped.entries()).map(([type, spaces]) => ({ type, spaces }));
-  }
-
-  openEditConfig(cfg: any) {
-    this.editingConfig = cfg;
-    this.configFormData = {
-      totalSpaces:        cfg.totalSpaces,
-      defaultCapacities:  cfg.defaultCapacities,
-      openingTime:        cfg.openingTime,
-      closingTime:        cfg.closingTime,
-      securityDeposit:    cfg.securityDeposit ?? null,
-      pricePerHour:       cfg.pricePerHour ?? null,
-      pricePerDay:        cfg.pricePerDay ?? null,
-      pricePerMonth:      cfg.pricePerMonth ?? null,
+    const typeName = this.spaceTypeOptions.find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
+    const locName  = this.locationOptions.find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
+    const cfg = this.spaceConfigItems().find((c: any) =>
+      typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
+      (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
+    );
+    const payload: Partial<any> = {
+      name: `${typeName} ${this.addSpacePreviewCode || ''}`.trim(),
+      code: this.addSpacePreviewCode || undefined,
+      locationId: Number(this.addSpaceLocationId) || this.addSpaceLocationId,
+      spaceTypeId: Number(this.addSpaceTypeId) || this.addSpaceTypeId,
+      pricePerHour: cfg?.pricePerHour ?? 0,
+      pricePerDay: cfg?.pricePerDay ?? 0,
+      status: 'Available',
     };
-    this.spaceConfigError = '';
-    this.spaceConfigSuccess = '';
-    this.showConfigModal = true;
-  }
-
-  cancelEditConfig() { this.editingConfig = null; this.showConfigModal = false; }
-
-  saveConfig() {
-    if (!this.editingConfig) return;
-    this.spaceConfigSaving.set(true);
-    this.admin.updateSpaceConfig(this.editingConfig.spaceCategory, this.configFormData).subscribe({
+    this.addSpaceSaving.set(true);
+    this.addSpaceError = '';
+    this.admin.createSpace(payload).subscribe({
       next: () => {
-        this.spaceConfigSuccess = 'Configuration saved.';
-        this.spaceConfigSaving.set(false);
-        this.editingConfig = null;
-        this.showConfigModal = false;
-        this.loadSpaceConfig();
-        setTimeout(() => this.spaceConfigSuccess = '', 3000);
+        this.addSpaceSaving.set(false);
+        this.showAddSpaceModal = false;
+        this.generateSuccess = `Space "${payload['name']}" added at ${locName}.`;
+        setTimeout(() => this.generateSuccess = '', 4000);
+        this.loadVacantSpaces();
+        if (this.allSpaces.length) this.loadSpacesForDropdown();
       },
       error: (e: any) => {
-        this.spaceConfigError = e?.error?.detail || 'Failed to save config.';
-        this.spaceConfigSaving.set(false);
+        this.addSpaceSaving.set(false);
+        this.addSpaceError = e?.error?.message ?? 'Failed to add space.';
       }
     });
   }
 
-  // State for generate-inventory form
-  generateFormCfg: any = null;
-  generateFormSpaceTypeId = '';
-  generateFormLocationId = '';
-  generateFormPricePerHour: number | null = null;
-  generateFormPricePerDay: number | null = null;
-  generateFormPricePerMonth: number | null = null;
-  generateFormAmenityIds: number[] = [];
-
-  openGenerateForm(cfg: any) {
-    this.generateFormCfg = cfg;
-    this.generateFormSpaceTypeId = '';
-    this.generateFormLocationId = '';
-    this.generateFormPricePerHour = cfg.pricePerHour ?? null;
-    this.generateFormPricePerDay = cfg.pricePerDay ?? null;
-    this.generateFormPricePerMonth = cfg.pricePerMonth ?? null;
-    this.generateFormAmenityIds = [];
-    this.generateError = '';
-    this.generateSuccess = '';
-  }
-
-  closeGenerateForm() { this.generateFormCfg = null; }
-
-  submitGenerateInventory() {
-    if (!this.generateFormCfg || !this.generateFormSpaceTypeId || !this.generateFormLocationId) {
-      this.generateError = 'Space Type and Location are required.';
-      return;
-    }
-    const cfg = this.generateFormCfg;
-    this.generatingInventory.set(cfg.spaceCategory);
-    this.generateError = '';
-    this.generateSuccess = '';
-    this.admin.generateSpaceInventory({
-      spaceCategory: cfg.spaceCategory,
-      spaceTypeId: this.generateFormSpaceTypeId,
-      locationId: this.generateFormLocationId,
-      pricePerHour: this.generateFormPricePerHour ?? 0,
-      pricePerDay: this.generateFormPricePerDay ?? 0,
-      pricePerMonth: this.generateFormPricePerMonth ?? 0,
-      amenities: this.generateFormAmenityIds.join(',') || null,
-    }).subscribe({
-      next: (res: any) => {
-        this.generateSuccess = res?.message ?? `Spaces generated for ${cfg.spaceCategory}.`;
-        this.generatingInventory.set(null);
-        this.generateFormCfg = null;
-        this.loadVacantSpaces();
+  removeSpace(space: any) {
+    if (!confirm(`Remove space "${space.name} (${space.code})"? This cannot be undone.`)) return;
+    const id = space.idGuid ?? space.idGUID ?? space.id;
+    this.admin.deleteSpace(id).subscribe({
+      next: () => {
+        this.generateSuccess = `Space "${space.name}" removed.`;
         setTimeout(() => this.generateSuccess = '', 4000);
+        this.loadVacantSpaces();
       },
       error: (e: any) => {
-        this.generateError = e?.error?.message ?? `Failed to generate spaces for ${cfg.spaceCategory}.`;
-        this.generatingInventory.set(null);
+        this.generateError = e?.error?.message ?? 'Failed to remove space.';
       }
     });
   }
@@ -317,7 +276,11 @@ export class Manage implements OnInit {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.locationOptions = items.map((l: any) => ({ v: l.idGuid ?? l.idGUID ?? l.id, l: l.name }));
+        this.locationOptions = items.map((l: any) => {
+          const opt: any = { v: l.idGuid ?? l.idGUID ?? l.id, l: l.name };
+          if (l.branchId) { opt.branchId = l.branchId; opt.branchName = l.branchName ?? l.branchCode; }
+          return opt;
+        });
         this.config = this.buildConfig('spaces');
       }
     });
@@ -372,6 +335,7 @@ export class Manage implements OnInit {
     this.bookingFormData = {};
     this.bookingFormError = '';
     this.selectedSpaceTypeId = '';
+    this.selectedLocationId = '';
     this.filteredSpaceOptions = [];
     this.customerSearchQuery = '';
     this.customerSearchResults = [];
@@ -395,9 +359,49 @@ export class Manage implements OnInit {
         this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.id, l: s.name }));
       }
     });
-    this.admin.getVacantSpaces().subscribe({
-      next: (res: any) => { this.allSpaces = res?.data ?? []; }
-    });
+    if (!this.locationOptions.length) {
+      this.admin.getLocations(1, 1000, '').subscribe({
+        next: (res: any) => {
+          this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: l.idGuid ?? l.id, l: l.name }));
+        }
+      });
+    }
+    if (this.allSpaces.length) {
+      this.applyBookingSpaceFilter();
+    } else {
+      this.admin.getSpaces(1, 1000, '').subscribe({
+        next: (res: any) => {
+          this.allSpaces = res?.data ?? [];
+          this.applyBookingSpaceFilter();
+        }
+      });
+    }
+  }
+
+  onBookingLocationChange() {
+    this.bookingFormData.spaceId = '';
+    this.bookingFormData.totalAmount = null;
+    this.securityDeposit = 0;
+    this.applyBookingSpaceFilter();
+  }
+
+  private applyBookingSpaceFilter() {
+    let spaces = this.allSpaces;
+    if (this.selectedLocationId) {
+      spaces = spaces.filter((s: any) =>
+        String(s.locationId ?? '') === String(this.selectedLocationId) ||
+        String(s.locationIdGuid ?? '') === String(this.selectedLocationId)
+      );
+    }
+    if (this.selectedSpaceTypeId) {
+      const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+      if (selectedType) {
+        spaces = spaces.filter((s: any) => (s.spaceTypeName || '').toLowerCase() === selectedType.l.toLowerCase());
+      }
+    }
+    this.filteredSpaceOptions = spaces
+      .filter((s: any) => s.idGuid)
+      .map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) — ${s.locationName ?? ''}` }));
   }
 
   closeAdminBookingForm() { this.showBookingForm = false; }
@@ -470,12 +474,7 @@ export class Manage implements OnInit {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
-    if (!this.selectedSpaceTypeId) { this.filteredSpaceOptions = []; return; }
-    const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-    const filtered = selectedType
-      ? this.allSpaces.filter((s: any) => (s.spaceTypeName || s.SpaceTypeName || '').toLowerCase() === selectedType.l.toLowerCase())
-      : this.allSpaces;
-    this.filteredSpaceOptions = filtered.map((s: any) => ({ v: s.idGuid || s.IdGuid, l: `${s.name || s.Name} (${s.code ?? ''}) — ${s.locationName ?? s.LocationName ?? ''}` }));
+    this.applyBookingSpaceFilter();
   }
 
   recalcAmount() {
@@ -906,6 +905,40 @@ export class Manage implements OnInit {
     return d;
   }
 
+  // ── Duplicate Space Detection ────────────────────────────
+  showDuplicatesOnly = false;
+  duplicateCodes = new Set<string>();
+
+  get displayedItems(): any[] {
+    if (!this.showDuplicatesOnly || !this.duplicateCodes.size) return this.items();
+    return this.items().filter(s => this.duplicateCodes.has((s.code ?? '').toString().trim()));
+  }
+
+  findDuplicates() {
+    const codeCounts = new Map<string, number>();
+    for (const s of this.items()) {
+      const c = (s.code ?? '').toString().trim();
+      if (c) codeCounts.set(c, (codeCounts.get(c) ?? 0) + 1);
+    }
+    this.duplicateCodes = new Set(
+      [...codeCounts.entries()].filter(([, count]) => count > 1).map(([code]) => code)
+    );
+    this.showDuplicatesOnly = this.duplicateCodes.size > 0;
+    if (!this.duplicateCodes.size) {
+      this.success = 'No duplicate codes found.';
+      setTimeout(() => this.success = '', 3000);
+    }
+  }
+
+  clearDuplicateFilter() {
+    this.showDuplicatesOnly = false;
+    this.duplicateCodes.clear();
+  }
+
+  isDuplicate(item: any): boolean {
+    return this.duplicateCodes.has((item.code ?? '').toString().trim());
+  }
+
   private lbl(entity: string, field: string): string {
     return this.amountLabels[`${entity}.${field}`] ?? field;
   }
@@ -1149,19 +1182,6 @@ export class Manage implements OnInit {
         updateFn: (id, d) => this.admin.updateGalleryImage(id, d),
         deleteFn: (id) => this.admin.deleteGalleryImage(id),
       };
-
-      case 'spaceconfig': return {
-        title: 'Space Configuration',
-        columns: [
-          { key: 'spaceCategory',     label: 'Category' },
-          { key: 'totalSpaces',       label: 'Total Spaces' },
-          { key: 'codePrefix',        label: 'Code Prefix' },
-          { key: 'defaultCapacities', label: 'Capacities' },
-          { key: 'openingTime',       label: 'Opens' },
-          { key: 'closingTime',       label: 'Closes' },
-        ],
-        getFn: () => this.admin.getSpaceConfig(),
-      }; 
 
       default: return { title: entity, columns: [], getFn: () => [] };
     }
