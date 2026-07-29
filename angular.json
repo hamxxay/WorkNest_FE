@@ -57,8 +57,17 @@
             ],
             "styles": [
               "src/styles.css"
+            ],
+            "allowedCommonJsDependencies": [
+              "canvg",
+              "html2canvas",
+              "jspdf",
+              "dompurify",
+              "rgbcolor",
+              "raf"
             ]
           },
+
           "configurations": {
             "production": {
               "budgets": [
