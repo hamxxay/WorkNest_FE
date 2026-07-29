@@ -123,6 +123,8 @@ export class Manage implements OnInit {
   customerSearchResults: any[] = [];
   customerSearchTimer: any;
   selectedCustomer: any = null;
+  // When opening customer-create from booking flow, set this to true so save() can inject created customer
+  creatingCustomerFromBooking = false;
 
   // ── Admin Booking Receipt ─────────────────────────────────
   showReceiptModal = false;
@@ -600,6 +602,21 @@ export class Manage implements OnInit {
     if (this.entity === 'gallery') this.formData.isActive = true;
   }
 
+  /** Open the standard customer-create modal from inside the booking flow.
+   *  After customer is created, the save() handler will pick the created customer
+   *  and populate the booking form fields automatically.
+   */
+  openCreateCustomerFromBooking() {
+    // mark that the create modal was opened from booking flow
+    this.creatingCustomerFromBooking = true;
+    // temporarily switch config to customers so showModal renders the customer fields
+    this.editItem = null;
+    this.formData = {};
+    this.error = '';
+    this.config = this.buildConfig('customers');
+    this.showModal = true;
+  }
+
   openEdit(item: any) {
     this.editItem = item;
     this.formData = { ...item };
@@ -642,11 +659,32 @@ export class Manage implements OnInit {
     const obs = this.editItem
       ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID, this.formData)
       : this.config.createFn!(this.formData);
+
     obs.subscribe({
-      next: () => {
-        this.saving = false; this.showModal = false;
+      next: (res: any) => {
+        // Common success handling
+        this.saving = false;
+        this.showModal = false;
         this.success = this.editItem ? 'Updated successfully.' : 'Created successfully.';
         setTimeout(() => this.success = '', 3000);
+
+        // If creating a customer from booking flow, pick the created customer and populate fields
+        if (this.creatingCustomerFromBooking) {
+          try {
+            const created = res?.data ?? res;
+            if (created) {
+              // Make sure booking form is shown and selectedCustomer is set
+              this.selectCustomer(created);
+            }
+          } catch (e) {
+            // ignore; continue
+          }
+          // restore config back to the active entity (bookings)
+          this.config = this.buildConfig(this.entity);
+          this.creatingCustomerFromBooking = false;
+        }
+
+        // reload data for the active entity
         this.load();
       },
       error: (e: any) => { this.saving = false; this.error = e?.error?.message ?? 'An error occurred.'; }
