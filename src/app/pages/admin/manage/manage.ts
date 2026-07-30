@@ -156,23 +156,134 @@ export class Manage implements OnInit {
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
         if (this.entity === 'bookings') this.loadSpacesForDropdown();
+        if (this.entity === 'spaceconfig') {
+          this.loadSpaceDropdowns();
+          this.loadSpaceConfig();
+        }
         if (this.entity === 'customers') this.loadCityOptions();
         if (this.entity === 'users') this.loadCityOptions();
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
       });
     });
   }
-
+ 
   spaceConfigItems = signal<any[]>([]);
+  spaceConfigSaving = signal(false);
+  spaceConfigError = '';
+  spaceConfigSuccess = '';
+  editingConfig: any = null;
+  configFormData: any = {};
+  showConfigModal = false;
+  vacantSpaces = signal<any[]>([]);
+  vacantLoading = signal(false);
+  vacantBranchId: any = null;
+  vacantBranchOptions: { id: any; name: string }[] = [];
   generateError = '';
   generateSuccess = '';
-
+ 
   private loadSpaceConfig() {
-    // Load spaceConfigItems for use in the admin booking form (security deposit lookup)
     this.admin.getSpaceConfig().subscribe({
-      next: (res: any) => this.spaceConfigItems.set(res?.data ?? []),
+      next: (res: any) => {
+        this.spaceConfigItems.set(res?.data ?? []);
+        this.loadSpaceInventoryForConfig();
+      },
       error: () => {}
     });
+    this.loadVacantSpaces();
+  }
+ 
+  private loadSpaceInventoryForConfig() {
+    if (this.allSpaces.length) {
+      return;
+    }
+    this.admin.getSpaces(1, 1000, '').subscribe({
+      next: (res: any) => {
+        this.allSpaces = res?.data ?? res ?? [];
+      }
+    });
+  }
+ 
+  private loadVacantSpaces() {
+    this.vacantLoading.set(true);
+    this.admin.getVacantSpaces(this.vacantBranchId ?? undefined).subscribe({
+      next: (res: any) => {
+        const vacant = (res?.data ?? []).sort((a: any, b: any) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
+        this.vacantSpaces.set(vacant);
+        this.vacantLoading.set(false);
+      },
+      error: () => this.vacantLoading.set(false)
+    });
+  }
+ 
+  get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
+    const grouped = new Map<string, any[]>();
+    for (const s of this.vacantSpaces()) {
+      const code = parseInt(s.code, 10);
+      const key = code >= 3200 ? 'Meeting' : code >= 3100 ? 'Private' : code >= 3000 ? 'Shared' : (s.spaceTypeName || 'Other');
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(s);
+    }
+    return Array.from(grouped.entries()).map(([type, spaces]) => ({ type, spaces }));
+  }
+ 
+  actualSpaceCount(cfg: any): number {
+    if (!cfg) return 0;
+    const category = (cfg.spaceCategory || '').toLowerCase();
+    const prefix = String(cfg.codePrefix || '').trim();
+    const matches = this.allSpaces.filter((s: any) => {
+      const code = String(s.code ?? '');
+      const typeName = String(s.spaceTypeName ?? '').toLowerCase();
+      if (prefix && code.startsWith(prefix)) {
+        return true;
+      }
+      return !!(category && (typeName.includes(category) || category.includes(typeName)));
+    });
+    return matches.length || Number(cfg.totalSpaces ?? 0);
+  }
+ 
+  openEditConfig(cfg: any) {
+    this.editingConfig = cfg;
+    this.configFormData = {
+      totalSpaces:        cfg.totalSpaces,
+      defaultCapacities:  cfg.defaultCapacities,
+      openingTime:        cfg.openingTime,
+      closingTime:        cfg.closingTime,
+      securityDeposit:    cfg.securityDeposit ?? null,
+      pricePerHour:       cfg.pricePerHour ?? null,
+      pricePerDay:        cfg.pricePerDay ?? null,
+      pricePerMonth:      cfg.pricePerMonth ?? null,
+    };
+    this.spaceConfigError = '';
+    this.spaceConfigSuccess = '';
+    this.showConfigModal = true;
+  }
+ 
+  cancelEditConfig() {
+    this.editingConfig = null;
+    this.showConfigModal = false;
+  }
+ 
+  saveConfig() {
+    if (!this.editingConfig) return;
+    this.spaceConfigSaving.set(true);
+    this.admin.updateSpaceConfig(this.editingConfig.spaceCategory, this.configFormData).subscribe({
+      next: () => {
+        this.spaceConfigSuccess = 'Configuration saved.';
+        this.spaceConfigSaving.set(false);
+        this.editingConfig = null;
+        this.showConfigModal = false;
+        this.loadSpaceConfig();
+        setTimeout(() => this.spaceConfigSuccess = '', 3000);
+      },
+      error: (e: any) => {
+        this.spaceConfigError = e?.error?.detail || 'Failed to save config.';
+        this.spaceConfigSaving.set(false);
+      }
+    });
+  }
+ 
+  onVacantBranchChange() {
+    this.loadVacantSpaces();
   }
 
   // ── Add / Remove Single Space ─────────────────────────────
@@ -274,6 +385,18 @@ export class Manage implements OnInit {
     });
   }
 
+  private refreshVacantBranchOptions() {
+    const options = new Map<any, string>();
+    for (const opt of this.locationOptions) {
+      const branchId = (opt as any).branchId;
+      const branchName = (opt as any).branchName ?? '';
+      if (branchId != null && !options.has(branchId)) {
+        options.set(branchId, branchName || String(branchId));
+      }
+    }
+    this.vacantBranchOptions = Array.from(options.entries()).map(([id, name]) => ({ id, name }));
+  }
+ 
   private loadSpaceDropdowns() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
@@ -283,6 +406,7 @@ export class Manage implements OnInit {
           if (l.branchId) { opt.branchId = l.branchId; opt.branchName = l.branchName ?? l.branchCode; }
           return opt;
         });
+        this.refreshVacantBranchOptions();
         this.config = this.buildConfig('spaces');
       }
     });
