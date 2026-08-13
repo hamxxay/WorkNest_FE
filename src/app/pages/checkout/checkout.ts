@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { BookingService } from '../../services/booking.service';
 import { CardPaymentService } from '../../services/card-payment.service';
 import { OneBillService, OneBillVoucherResponse } from '../../services/one-bill.service';
@@ -15,7 +15,7 @@ export const DETAIL_STATUS: Record<number, string> = { 0: 'Pending', 1: 'Paid', 
 
 @Component({
   selector: 'app-checkout',
-  imports: [FormsModule, DatePipe, RouterLink],
+  imports: [FormsModule, DatePipe, DecimalPipe, RouterLink],
   templateUrl: './checkout.html',
   styleUrl: './checkout.css'
 })
@@ -99,6 +99,33 @@ export class Checkout implements OnInit {
       });
       this.booking.set({ ...this.pending(), id: b.id });
       this.loading.set(false);
+
+      if (b.challanNumber) {
+        this.challan.set({
+          challanNumber:   b.challanNumber,
+          validity:        b.challanValidUntil ?? null,
+          bookingId:       b.id,
+          spaceName:       b.spaceName,
+          startDateTime:   b.startDateTime,
+          endDateTime:     b.endDateTime,
+          rentAmount:      b.totalAmount ?? 0,
+          securityDeposit: 0,
+          totalAmount:     b.totalAmount ?? 0,
+          createdAt:       b.createdAt || new Date().toISOString(),
+        });
+        this.counterDone.set(true);
+        this.activeTab.set('counter');
+      } else if (b.voucherNumber) {
+        this.voucher.set({
+          isSuccessful:   true,
+          message:        'Active voucher loaded',
+          voucherNumber:  b.voucherNumber,
+          expiryDate:     b.voucherValidUntil ?? null,
+          amount:         b.totalAmount ?? 0,
+        });
+        this.activeTab.set('voucher');
+      }
+
       this.loadBookingDetails(b.id);
     } else if (navState?.pendingBooking) {
       this.pending.set(navState.pendingBooking);
@@ -180,14 +207,11 @@ export class Checkout implements OnInit {
     const p = this.pending();
     const createCall = p.smartBooking
       ? this.bookingService.createSmart({
-          spaceCategory: p.spaceCategory ?? '',
-          startDateTime: p.startDateTime,
-          endDateTime:   p.endDateTime,
-          totalAmount:   parseFloat(Number(p.totalAmount).toFixed(2)),
+          categoryCode:  p.categoryCode ?? p.spaceCategory ?? '',
+          startDateTime:       p.startDateTime,
+          endDateTime:         p.endDateTime,
           capacity:      p.capacity ?? undefined,
           notes:         p.notes || paymentMethod,
-          paymentMethod,
-          accountId:     p.accountId ?? undefined,
         })
       : this.bookingService.create({
           spaceId: p.spaceId,
@@ -321,17 +345,33 @@ export class Checkout implements OnInit {
   // ── 1Bill voucher ──────────────────────────────────────────
   generateVoucher() {
     if (this.voucher()) return;
-    this.createBookingWith('Voucher', (bookingId, assignedSpace) => {
+    this.createBookingWith('Voucher', (bookingId, assignedSpace, resData) => {
       const idempotencyKey = `vchr-${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.oneBillService.generateVoucher({
         bookingId,
         amount: this.grandTotal(),
         idempotencyKey,
       }).subscribe({
-        next: (res) => {
+        next: (res: any) => {
           this.submitting.set(false);
-          if (res.isSuccessful) {
-            this.voucher.set(res);
+          if (res.isSuccessful && res.data) {
+            const vData = res.data;
+            const p = this.pending();
+            const spaceName = resData?.assignedSpaceName
+              ? `${resData.assignedSpaceName}${resData.assignedSpaceCode ? ' (' + resData.assignedSpaceCode + ')' : ''}`
+              : assignedSpace
+                ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
+                : (p?.spaceName ?? '');
+
+            this.voucher.set({
+              isSuccessful: true,
+              message: res.message || 'Voucher generated.',
+              voucherNumber: vData.voucherNumber ?? vData.VoucherNumber ?? vData.voucherRef ?? vData.VoucherRef ?? '',
+              expiryDate: vData.expiryDate ?? vData.ExpiryDate ?? new Date(Date.now() + 7 * 86400000).toISOString(),
+              amount: vData.amount ?? vData.Amount ?? this.grandTotal(),
+              paymentChannels: vData.paymentChannels ?? vData.PaymentChannels,
+              spaceName: spaceName
+            });
             if (assignedSpace) this.voucher.update(v => ({ ...v!, assignedSpace }));
           } else {
             this.error.set(res.message || 'Failed to generate voucher.');
@@ -364,26 +404,64 @@ export class Checkout implements OnInit {
   submitCounter() {
     this.createBookingWith('Payment via Cash on Counter', (bookingId, assignedSpace, resData) => {
       this.submitting.set(false);
-      this.counterDone.set(true);
-      if (assignedSpace) this.booking.update(b => ({ ...b!, assignedSpace }));
-      const p = this.pending();
-      const d = resData ?? {};
-      const spaceName = d.assignedSpaceName
-        ? `${d.assignedSpaceName}${d.assignedSpaceCode ? ' (' + d.assignedSpaceCode + ')' : ''}`
-        : assignedSpace
-          ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
-          : (p?.spaceName ?? '');
-      this.challan.set({
-        challanNumber:   d.challanNumber ?? d.ChallanNumber ?? p?.challanNumber ?? null,
-        validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
-        bookingId,
-        spaceName,
-        startDateTime:   p?.startDateTime,
-        endDateTime:     p?.endDateTime,
-        rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
-        securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
-        totalAmount:     this.grandTotal(),
-        createdAt:       new Date().toISOString(),
+      this.bookingDetailsLoading.set(true);
+      
+      this.bookingService.getBookingDetails(bookingId).subscribe({
+        next: (detailsRes: any) => {
+          const details = Array.isArray(detailsRes?.data) ? detailsRes.data : (Array.isArray(detailsRes) ? detailsRes : []);
+          this.bookingDetails.set(details);
+          this.bookingDetailsLoading.set(false);
+          this.counterDone.set(true);
+          
+          if (assignedSpace) this.booking.update(b => ({ ...b!, assignedSpace }));
+          const p = this.pending();
+          const d = resData ?? {};
+          const spaceName = d.assignedSpaceName
+            ? `${d.assignedSpaceName}${d.assignedSpaceCode ? ' (' + d.assignedSpaceCode + ')' : ''}`
+            : assignedSpace
+              ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
+              : (p?.spaceName ?? '');
+              
+          const user = this.authService.user();
+          this.challan.set({
+            challanNumber:   d.challanNumber ?? d.ChallanNumber ?? p?.challanNumber ?? null,
+            validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
+            bookingId,
+            spaceName,
+            startDateTime:   p?.startDateTime,
+            endDateTime:     p?.endDateTime,
+            rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
+            securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
+            totalAmount:     this.grandTotal(),
+            createdAt:       new Date().toISOString(),
+            bookingDetails:  details,
+            customerName:    user?.displayName || user?.email?.split('@')[0] || 'Valued Member',
+            customerEmail:   user?.email || '',
+          });
+        },
+        error: () => {
+          this.bookingDetailsLoading.set(false);
+          this.counterDone.set(true);
+          
+          const p = this.pending();
+          const d = resData ?? {};
+          const user = this.authService.user();
+          this.challan.set({
+            challanNumber:   d.challanNumber ?? d.ChallanNumber ?? p?.challanNumber ?? null,
+            validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
+            bookingId,
+            spaceName:       p?.spaceName ?? '',
+            startDateTime:   p?.startDateTime,
+            endDateTime:     p?.endDateTime,
+            rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
+            securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
+            totalAmount:     this.grandTotal(),
+            createdAt:       new Date().toISOString(),
+            bookingDetails:  [],
+            customerName:    user?.displayName || user?.email?.split('@')[0] || 'Valued Member',
+            customerEmail:   user?.email || '',
+          });
+        }
       });
     });
   }

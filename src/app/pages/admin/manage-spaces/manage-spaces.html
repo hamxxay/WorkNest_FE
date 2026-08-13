@@ -12,9 +12,9 @@
       <div class="ms-filter-group">
         <label>Location *</label>
         <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onFilterChange()">
-          <option value="">Select Location...</option>
+          <option value="">All Locations</option>
           @for (l of locationOptions; track l.v) {
-            <option [value]="l.v">{{ l.l }}</option>
+            <option [value]="l.v.toString()">{{ l.l }}</option>
           }
         </select>
       </div>
@@ -23,7 +23,7 @@
         <select class="form-input-admin" [(ngModel)]="filterSpaceTypeId" (ngModelChange)="onFilterChange()">
           <option value="">All Types</option>
           @for (st of spaceTypeOptions; track st.v) {
-            <option [value]="st.v">{{ st.l }}</option>
+            <option [value]="st.v.toString()">{{ st.l }}</option>
           }
         </select>
       </div>
@@ -178,11 +178,11 @@
               </tr>
             </thead>
             <tbody>
-              @for (s of spaces(); track s.idGuid) {
+              @for (s of spaces(); track (s.idGuid || s.publicId || s.id)) {
                 <tr [class.ms-row-booked]="s.hasBookings">
                   <td class="ms-check-col">
                     @if (!s.hasBookings) {
-                      <input type="checkbox" [checked]="isSelected(s.idGuid)" (change)="toggleSelect(s.idGuid)" />
+                      <input type="checkbox" [checked]="isSelected(s.idGuid || s.publicId || s.id)" (change)="toggleSelect(s.idGuid || s.publicId || s.id)" />
                     }
                   </td>
                   <td><code class="ms-code">{{ s.code }}</code></td>
@@ -207,17 +207,11 @@
       }
     </div>
 
-  } @else if (filterLocationId && configs().length === 0) {
+  } @else if (!filterLocationId || configs().length === 0) {
     <div class="admin-card">
       <div class="empty-state">
         <p>No configuration found for the selected filters.</p>
         <p class="ms-empty-hint">Go to <strong>Space Configuration</strong> to create one first.</p>
-      </div>
-    </div>
-  } @else if (!filterLocationId) {
-    <div class="admin-card">
-      <div class="empty-state">
-        <p>Select a location to view its space configuration.</p>
       </div>
     </div>
   }

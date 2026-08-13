@@ -1,11 +1,12 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PaymentService } from '../../services/payment.service';
+import { BookingService } from '../../services/booking.service';
 
 @Component({
   selector: 'app-my-payments',
-  imports: [DecimalPipe, RouterLink],
+  imports: [DatePipe, DecimalPipe, RouterLink],
   templateUrl: './my-payments.html',
   styleUrl: './my-payments.css'
 })
@@ -25,7 +26,10 @@ export class MyPayments implements OnInit {
       .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
   );
 
-  constructor(private paymentService: PaymentService) {}
+  constructor(
+    private paymentService: PaymentService,
+    private bookingService: BookingService
+  ) {}
 
   private parseDate(val: string | null): string | null {
     if (!val) return null;
@@ -78,7 +82,22 @@ export class MyPayments implements OnInit {
   }
 
   printChallan(p: any) {
-    this.challanToPrint.set(p);
+    const bookingId = p.bookingId ?? p.BookingId;
+    if (!bookingId) {
+      alert('No booking associated with this payment.');
+      return;
+    }
+    this.loading.set(true);
+    this.bookingService.getChallan(bookingId).subscribe({
+      next: (res: any) => {
+        this.challanToPrint.set(res?.data);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        alert('Failed to load challan details.');
+      }
+    });
   }
 
   async downloadChallan() {

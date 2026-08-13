@@ -49,9 +49,13 @@ export class ManageSpaces implements OnInit {
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.id, l: s.name }));
+        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({
+          v: s.id,
+          l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
+        }));
       }
     });
+    this.onFilterChange();
   }
 
   onFilterChange() {
@@ -62,17 +66,27 @@ export class ManageSpaces implements OnInit {
     this.success = '';
     this.blockedSpaces = [];
 
-    if (!this.filterLocationId) return;
-
-    const locId = +this.filterLocationId;
+    const locId = this.filterLocationId ? +this.filterLocationId : undefined;
     const stId  = this.filterSpaceTypeId ? +this.filterSpaceTypeId : undefined;
 
     this.admin.getSpaceConfigsV2(undefined, undefined, locId).subscribe({
       next: (res: any) => {
         let cfgs: any[] = res?.data ?? [];
-        if (stId) cfgs = cfgs.filter((c: any) => c.spaceTypeId === stId);
-        this.configs.set(cfgs);
-        if (cfgs.length === 1) this.selectConfig(cfgs[0]);
+        if (cfgs.length) {
+          if (stId) cfgs = cfgs.filter((c: any) => c.spaceTypeId === stId);
+          this.configs.set(cfgs);
+          if (cfgs.length === 1) this.selectConfig(cfgs[0]);
+        } else {
+          // Fall back to legacy endpoint
+          this.admin.getSpaceConfig().subscribe({
+            next: (r: any) => {
+              let legacy: any[] = (r?.data ?? []).map((c: any, i: number) => ({ ...c, id: c.id ?? i + 1 }));
+              if (stId) legacy = legacy.filter((c: any) => c.spaceTypeId === stId);
+              this.configs.set(legacy);
+              if (legacy.length === 1) this.selectConfig(legacy[0]);
+            }
+          });
+        }
       }
     });
   }
@@ -132,7 +146,10 @@ export class ManageSpaces implements OnInit {
     if (this.selectedGuids.size === deletable.length) {
       this.selectedGuids.clear();
     } else {
-      deletable.forEach(s => this.selectedGuids.add(s.idGuid));
+      deletable.forEach(s => {
+        const idKey = s.idGuid || s.publicId || s.id?.toString();
+        if (idKey) this.selectedGuids.add(idKey);
+      });
     }
   }
 

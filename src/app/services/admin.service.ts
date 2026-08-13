@@ -123,8 +123,7 @@ export class AdminService {
   }
 
   getVacantSpaces(branchId?: number): Observable<ApiResponse<any[]>> {
-    const qs = branchId ? `?branchId=${branchId}` : '';
-    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant${qs}`);
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant`);
   }
 
   /** Get a specific space by ID (full details with relation IDs) */
@@ -159,21 +158,21 @@ export class AdminService {
   }
   
   /** Update booking status (e.g., Confirmed, Cancelled) */
-  updateBookingStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${id}/status?status=${encodeURIComponent(status)}`, {}); }
+  updateBookingStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${id}/status`, { statusId }); }
 
   /** Update booking details */
   updateBooking(id: number, data: Partial<Booking>): Observable<ApiResponse<any>> { return this.http.put<ApiResponse<any>>(`${this.api}/booking/${id}`, data); }
 
   /** Reassign booking to different space */
-  reassignBooking(bookingId: number, newSpaceId: number): Observable<ApiResponse<any>> {
-    return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${bookingId}/reassign`, { spaceId: newSpaceId });
+  reassignBooking(bookingId: number, newSpaceId: number, newPricingId: number = 0): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${bookingId}/reassign`, { newSpaceId, newPricingId });
   }
 
   /** Get available spaces for reassignment */
-  getAvailableSpacesForReassignment(spaceType: string, startDateTime: string, endDateTime: string, excludeBookingId?: number): Observable<ApiResponse<any>> {
-    const params = new URLSearchParams({ spaceType, startDateTime, endDateTime });
+  getAvailableSpacesForReassignment(spaceTypeId: number, startOn: string, endOn: string, excludeBookingId?: number): Observable<ApiResponse<any>> {
+    const params = new URLSearchParams({ spaceTypeId: String(spaceTypeId), startOn, endOn });
     if (excludeBookingId) params.set('excludeBookingId', String(excludeBookingId));
-    return this.http.get<ApiResponse<any>>(`${this.api}/booking/available-spaces?${params.toString()}`);
+    return this.http.get<ApiResponse<any>>(`${this.api}/booking/available-spaces-reassignment?${params.toString()}`);
   }
 
   /** Get booking calendar availability for a space */
@@ -217,7 +216,7 @@ export class AdminService {
     return this.http.get<ApiResponse<Membership[]>>(`${this.api}/membership${qs}`);
   }
   createMembership(data: Partial<Membership>): Observable<ApiResponse<Membership>> { return this.http.post<ApiResponse<Membership>>(`${this.api}/membership`, data); }
-  updateMembershipStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/membership/${id}/status?status=${encodeURIComponent(status)}`, {}); }
+  updateMembershipStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/membership/${id}/status`, { statusId }); }
   deleteMembership(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/membership/${id}`); }
 
   /** Get membership payment/history summary */
@@ -233,12 +232,9 @@ export class AdminService {
     return this.http.get<ApiResponse<Payment[]>>(`${this.api}/payment${qs}`);
   }
   createPayment(data: Partial<Payment>): Observable<ApiResponse<Payment>> { return this.http.post<ApiResponse<Payment>>(`${this.api}/payment`, data); }
-  updatePaymentStatus(id: number, status: string, transactionRef?: string): Observable<ApiResponse<any>> {
-    let url = `${this.api}/payment/${id}/status?status=${encodeURIComponent(status)}`;
-    if (transactionRef) url += `&transactionRef=${encodeURIComponent(transactionRef)}`;
-    return this.http.patch<any>(url, {});
+  updatePaymentStatus(id: number, statusId: number): Observable<ApiResponse<any>> {
+    return this.http.patch<any>(`${this.api}/payment/${id}/status`, { statusId });
   }
-  /** Approve a pending cash-on-counter payment */
   approvePayment(id: number): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/payment/${id}/approve`, {});
   }
@@ -257,7 +253,7 @@ export class AdminService {
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
-  updateContactStatus(id: number, status: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status?status=${encodeURIComponent(status)}`, {}); }
+  updateContactStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status`, { statusId }); }
   deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
 
   // Floors

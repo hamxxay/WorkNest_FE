@@ -820,3 +820,10 @@
 .detail-status-pending   { color: #d97706; background: rgba(245,158,11,0.1);  border: 1px solid rgba(245,158,11,0.25); }
 .detail-status-paid      { color: #16a34a; background: rgba(34,197,94,0.1);   border: 1px solid rgba(34,197,94,0.25); }
 .detail-status-cancelled { color: #dc2626; background: rgba(239,68,68,0.1);   border: 1px solid rgba(239,68,68,0.25); }
+
+@media print {
+  body * { display: none !important; }
+  #printable-challan, #printable-challan * { display: block !important; }
+  #printable-challan { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; }
+  .voucher-actions { display: none !important; }
+}

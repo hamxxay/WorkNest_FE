@@ -105,88 +105,133 @@
 
 <!-- Challan Print Modal -->
 @if (challanToPrint()) {
-  <div class="modal-overlay" (click)="challanToPrint.set(null)">
-    <div class="challan-modal" (click)="$event.stopPropagation()" id="user-challan-printable">
+  <div class="modal-overlay" (click)="challanToPrint.set(null)" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.65);display:flex;justify-content:center;align-items:center;z-index:9999;padding:20px;overflow-y:auto">
+    <div class="challan-modal" (click)="$event.stopPropagation()" id="user-challan-printable" style="background:#fff;border-radius:12px;width:100%;max-width:680px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.15),0 10px 10px -5px rgba(0,0,0,0.06);overflow:hidden;border:1px solid #e2e8f0;font-family:Inter,system-ui,-apple-system,sans-serif">
 
       <!-- Bank Header -->
-      <div style="background:#1e3a5f;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
+      <div style="background:#1e3a5f;color:#fff;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #0f172a">
         <div>
-          <div style="font-size:1.25rem;font-weight:700;letter-spacing:.5px">WORKNEST</div>
-          <div style="font-size:.75rem;opacity:.8;margin-top:2px">Payment Challan</div>
+          <div style="font-size:1.5rem;font-weight:800;letter-spacing:1px;color:#ffffff">WORKNEST</div>
+          <div style="font-size:.8rem;opacity:.9;margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px">Official Payment Challan / Bank Voucher</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:.7rem;opacity:.7">Challan No.</div>
-          <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ challanToPrint()!.challanNumber }}</div>
+          <div style="font-size:.75rem;opacity:.8;text-transform:uppercase;letter-spacing:0.5px">Challan / Consumer No.</div>
+          <div style="font-size:1.3rem;font-weight:800;letter-spacing:1px;margin-top:2px;color:#f8fafc">{{ challanToPrint()!.challanNumber }}</div>
         </div>
       </div>
 
-      <!-- Validity Banner -->
-      @if (challanToPrint()!.validity || challanToPrint()!.validityDate) {
-        <div style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:8px 28px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:#92400e;font-weight:600">⚠ Valid until: {{ tryDate(challanToPrint()!.validity || challanToPrint()!.validityDate) }}</span>
-          <span style="font-size:.75rem;color:#92400e">Pay before expiry to confirm booking</span>
-        </div>
-      }
+      <!-- Expiry Alert Banner -->
+      <div style="background:#fffbeb;border-bottom:1px solid #fef3c7;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:#b45309">
+        <span style="font-weight:600;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+          Valid Until: {{ tryDate(challanToPrint()!.validUntil) }}
+        </span>
+        <span>Please pay before due date to avoid cancellation</span>
+      </div>
 
-      <div style="padding:24px 28px">
-
-        <!-- Space Details -->
-        <div style="margin-bottom:20px">
-          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">Space Details</div>
-          <div style="font-size:.82rem;line-height:1.8">
-            <div><span style="color:#64748b">Space: </span><strong>{{ challanToPrint()!.spaceName || '—' }}</strong></div>
-            <div><span style="color:#64748b">Method: </span><strong>{{ challanToPrint()!.paymentMethod || '—' }}</strong></div>
-            <div><span style="color:#64748b">Status: </span><strong>{{ getDisplayStatus(challanToPrint()!) }}</strong></div>
-          </div>
-        </div>
-
-        <!-- Booking Period -->
-        @if (challanToPrint()!.startDateTime) {
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px;margin-bottom:20px">
-            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px">Booking Period</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem">
-              <div><span style="color:#64748b">Check-in: </span><strong>{{ tryDate(challanToPrint()!.startDateTime) }}</strong></div>
-              <div><span style="color:#64748b">Check-out: </span><strong>{{ tryDate(challanToPrint()!.endDateTime) }}</strong></div>
+      <div style="padding:28px;display:grid;grid-template-columns:1fr;gap:24px">
+        
+        <!-- Info Grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px">
+          <div>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Customer Information</div>
+            <div style="font-size:.85rem;color:#0f172a;line-height:1.5">
+              <div><strong>Name:</strong> {{ challanToPrint()!.customerName || 'Valued Member' }}</div>
+              <div><strong>Email:</strong> {{ challanToPrint()!.customerEmail || '—' }}</div>
             </div>
           </div>
-        }
-
-        <!-- Amount Breakdown -->
-        <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px">
-          <div style="background:#f1f5f9;padding:8px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">Amount Breakdown</div>
-          <div style="padding:0 16px">
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
-              <span>Room Rent</span>
-              <strong>Rs {{ challanToPrint()!.amount | number:'1.2-2' }}</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
-              <span>Total Payable</span>
-              <span>Rs {{ challanToPrint()!.amount | number:'1.2-2' }}</span>
+          <div>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Booking Details</div>
+            <div style="font-size:.85rem;color:#0f172a;line-height:1.5">
+              <div><strong>Space/Room:</strong> {{ challanToPrint()!.spaceName }} ({{ challanToPrint()!.spaceCode }})</div>
+              <div><strong>Branch/Location:</strong> {{ challanToPrint()!.branchName || challanToPrint()!.locationName }}</div>
+              <div><strong>Period:</strong> {{ challanToPrint()!.startOn | date:'mediumDate' }} to {{ challanToPrint()!.endOn | date:'mediumDate' }}</div>
+              <div><strong>Billing Cycle:</strong> {{ challanToPrint()!.billingPeriodLabel }}</div>
             </div>
           </div>
         </div>
 
-        <!-- Booking Reference -->
-        <div style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-size:.82rem">
-          <span style="color:#1e40af">Booking Ref: <strong>#{{ challanToPrint()!.id }}</strong></span>
-          <span style="color:#64748b">Date: {{ tryDate(challanToPrint()!.paidAt || challanToPrint()!.createdAt) }}</span>
+        <!-- Financial Breakdown Table -->
+        <div>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#334155;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #334155;padding-bottom:6px">Payment Breakdown</div>
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem;text-align:left">
+            <thead>
+              <tr style="border-bottom:1px solid #e2e8f0;color:#64748b">
+                <th style="padding:8px 0;font-weight:600">Description</th>
+                <th style="padding:8px 0;font-weight:600;text-align:right">Account COA</th>
+                <th style="padding:8px 0;font-weight:600;text-align:right">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of challanToPrint()!.details; track line.lineId) {
+                <tr style="border-bottom:1px solid #f1f5f9;color:#0f172a">
+                  <td style="padding:10px 0">
+                    {{ line.chargeTypeLabel }}
+                    @if (line.description && line.description !== line.chargeTypeLabel) {
+                      <span style="font-size:.75rem;color:#64748b;display:block">{{ line.description }}</span>
+                    }
+                  </td>
+                  <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName || '—' }}</td>
+                  <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.2-2' }}</td>
+                </tr>
+              }
+              @if (!challanToPrint()!.details || challanToPrint()!.details.length === 0) {
+                <tr style="border-bottom:1px solid #f1f5f9;color:#0f172a">
+                  <td style="padding:10px 0">Workspace Fee (Room Rent / Space Booking)</td>
+                  <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">—</td>
+                  <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ challanToPrint()!.amount || challanToPrint()!.totalPayable | number:'1.2-2' }}</td>
+                </tr>
+              }
+              <tr style="font-size:1rem;color:#1e3a5f;font-weight:800;border-top:2px solid #1e3a5f">
+                <td style="padding:14px 0" colspan="2">TOTAL PAYABLE</td>
+                <td style="padding:14px 0;text-align:right">Rs {{ (challanToPrint()!.totalPayable || challanToPrint()!.amount) | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <!-- Footer Note -->
-        <div style="font-size:.75rem;color:#94a3b8;text-align:center;border-top:1px dashed #e2e8f0;padding-top:14px">
-          Present this challan at any WorkNest counter or pay via bank transfer using the challan number.<br/>
-          This challan is system-generated and does not require a signature.
+        <!-- Bank / Payment Information -->
+        <div style="border-top:1px dashed #cbd5e1;padding-top:20px;display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;font-size:.8rem">
+          <div>
+            <div style="font-weight:700;color:#334155;margin-bottom:6px">Bank Payment Instructions</div>
+            <div style="color:#64748b;line-height:1.5">
+              Please pay this voucher at any HBL branch counter, ATM, or via mobile banking app under 1Bill / Bill Payment using the consumer number.<br>
+              <strong>Bank Name:</strong> Habib Bank Limited (HBL)<br>
+              <strong>Account Title:</strong> WorkNest (Private) Limited<br>
+              <strong>Voucher Status:</strong> {{ challanToPrint()!.bookingStatusLabel || 'Pending' }}
+            </div>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#334155;margin-bottom:6px">Important Notice</div>
+            <div style="color:#64748b;line-height:1.5">
+              - Hand over the original copy of this challan at reception if paying in cash.<br>
+              - Retain your receipt for confirmation.<br>
+              - Once paid, your booking is confirmed automatically.
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Seal -->
+        <div style="font-size:.7rem;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px">
+          This is an official system-generated payment voucher. No signature or stamp is required. Powered by WorkNest Financials.
         </div>
 
       </div>
 
       <!-- Actions -->
-      <div data-challan-actions style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:16px">
-        <button class="btn-outline-challan" (click)="challanToPrint.set(null)">Close</button>
-        <button class="btn-print-challan" (click)="downloadChallan()">&#11015; Download PDF</button>
-        <button class="btn-print-challan" (click)="printChallanDoc()">&#128424; Print Challan</button>
+      <div data-challan-actions style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px">
+        <button class="btn-outline-challan" (click)="challanToPrint.set(null)" style="background:#fff;border:1px solid #cbd5e1;color:#334155;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem">Close</button>
+        <button class="btn-print-challan" (click)="downloadChallan()" style="background:#1e3a5f;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download PDF
+        </button>
+        <button class="btn-print-challan" (click)="printChallanDoc()" style="background:#334155;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          Print Voucher
+        </button>
       </div>
 
     </div>
   </div>
 }
+

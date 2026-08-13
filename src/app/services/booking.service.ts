@@ -33,7 +33,11 @@ export class BookingService {
   }
 
   getBookingDetails(bookingId: number): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${bookingId}/details`);
+    return this.http.get<any>(`${this.apiUrl}/${bookingId}`);
+  }
+
+  getChallan(bookingId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${bookingId}/challan`);
   }
 
   /**
@@ -43,26 +47,23 @@ export class BookingService {
    * @param endDateTime - Booking end date/time
    * @returns Observable with available spaces and assignment info
    */
-  getAvailableSpaces(spaceType: string, startDateTime: string, endDateTime: string): Observable<any> {
-    const params = new URLSearchParams({ spaceType, startDateTime, endDateTime });
+  getAvailableSpaces(spaceTypeId: number, startOn: string, endOn: string): Observable<any> {
+    const params = new URLSearchParams({ spaceTypeId: String(spaceTypeId), startOn, endOn });
     return this.http.get<any>(`${this.apiUrl}/available-spaces?${params.toString()}`);
   }
 
-  getSmartAvailableSpaces(spaceCategory: string, startDateTime: string, endDateTime: string, capacity?: number): Observable<any> {
-    const p = new URLSearchParams({ spaceCategory, startDateTime, endDateTime });
+  getSmartAvailableSpaces(categoryCode: string, startOn: string, endOn: string, capacity?: number): Observable<any> {
+    const p = new URLSearchParams({ categoryCode, startOn, endOn });
     if (capacity) p.set('capacity', String(capacity));
     return this.http.get<any>(`${this.apiUrl}/smart/available?${p.toString()}`);
   }
 
   createSmart(booking: {
-    spaceCategory: string;
+    categoryCode: string;
     startDateTime: string;
     endDateTime: string;
     capacity?: number;
     notes?: string;
-    totalAmount?: number;
-    paymentMethod?: string;
-    accountId?: number;
   }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/smart`, booking);
   }
@@ -90,8 +91,8 @@ export class BookingService {
    * @param newSpaceId - New space ID to assign
    * @returns Observable of updated booking
    */
-  reassignSpace(bookingId: number, newSpaceId: number): Observable<any> {
-    return this.http.patch<any>(`${this.apiUrl}/${bookingId}/reassign`, { spaceId: newSpaceId });
+  reassignSpace(bookingId: number, newSpaceId: number, newPricingId: number = 0): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/${bookingId}/reassign`, { newSpaceId, newPricingId });
   }
 
   /**

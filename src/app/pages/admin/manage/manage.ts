@@ -19,7 +19,7 @@ interface EntityConfig {
   createFn?: (data: any) => any;
   updateFn?: (id: any, data: any) => any;
   deleteFn?: (id: any) => any;
-  statusFn?: (id: any, status: string) => any;
+  statusFn?: (id: any, statusId: number) => any;
   statusOptions?: string[];
 }
 
@@ -31,7 +31,7 @@ interface EntityConfig {
 })
 export class Manage implements OnInit {
   entity = '';
-  config!: EntityConfig;
+  config: EntityConfig = { title: '', columns: [], getFn: () => [] };
 
   loading = signal(true);
   items = signal<any[]>([]);
@@ -85,7 +85,7 @@ export class Manage implements OnInit {
   paymentSummary = signal<any>(null);
   paymentSummaryLoading = signal(false);
   paymentSummaryError = '';
-  approvingPaymentId = signal<number | null>(null);
+  approvingPaymentId = signal<any>(null);
 
   showReassignModal = false;
   reassignBooking: any = null;
@@ -119,6 +119,11 @@ export class Manage implements OnInit {
   selectedLocationId = '';
   securityDeposit = 0;
   accountOptions: { v: number; l: string }[] = [];
+
+  // Meeting room slots (admin booking)
+  adminMeetingDate = '';
+  adminMeetingSlots: { label: string; start: string; end: string }[] = [];
+  adminSelectedSlots = new Set<string>();
   // customer search
   customerSearchQuery = '';
   customerSearchResults: any[] = [];
@@ -133,6 +138,7 @@ export class Manage implements OnInit {
   showChallanModal = false;
   challanData = signal<any>(null);
 
+  readonly today = new Date().toISOString().split('T')[0];
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
   amountLabels: Record<string, string> = {};
@@ -151,7 +157,16 @@ export class Manage implements OnInit {
     this.amountFieldSvc.getLabelMap().subscribe(map => {
       this.amountLabels = map;
       this.route.data.subscribe(data => {
-        this.entity = data['entity'];
+        const newEntity = data['entity'];
+        if (newEntity !== this.entity) {
+          // Reset state when switching entities
+          this.items.set([]);
+          this.totalCount.set(0);
+          this.page.set(1);
+          this.searchQuery = '';
+          this.loading.set(true);
+        }
+        this.entity = newEntity;
         this.config = this.buildConfig(this.entity);
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
@@ -413,7 +428,10 @@ export class Manage implements OnInit {
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.spaceTypeOptions = items.map((s: any) => ({ v: s.idGuid ?? s.idGUID ?? s.id, l: s.name }));
+        this.spaceTypeOptions = items.map((s: any) => ({
+          v: s.idGuid ?? s.idGUID ?? s.id,
+          l: s.description || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
+        }));
         this.config = this.buildConfig('spaces');
       }
     });
@@ -467,6 +485,9 @@ export class Manage implements OnInit {
     this.customerSearchResults = [];
     this.selectedCustomer = null;
     this.securityDeposit = 0;
+    this.adminMeetingDate = '';
+    this.adminMeetingSlots = [];
+    this.adminSelectedSlots = new Set();
     this.showBookingForm = true;
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
@@ -482,7 +503,10 @@ export class Manage implements OnInit {
     }
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.id, l: s.name }));
+        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({
+          v: s.id,
+          l: s.description || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
+        }));
       }
     });
     if (!this.locationOptions.length) {
@@ -596,10 +620,61 @@ export class Manage implements OnInit {
     return u.idGUID ?? u.idGuid ?? String(u.id ?? '');
   }
 
+  get isAdminMeetingRoom(): boolean {
+    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+    return selected ? selected.l.toLowerCase().includes('meeting') : false;
+  }
+
+  generateAdminMeetingSlots() {
+    if (!this.adminMeetingDate) { this.adminMeetingSlots = []; return; }
+    const cfg = this.spaceConfigItems().find((c: any) =>
+      (c.spaceCategory || '').toLowerCase() === 'meeting'
+    );
+    const openH  = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
+    const closeH = parseInt((cfg?.closingTime  || '20:00').split(':')[0], 10);
+    this.adminMeetingSlots = [];
+    for (let h = openH; h < closeH; h++) {
+      const start = `${String(h).padStart(2, '0')}:00`;
+      const end   = `${String(h + 1).padStart(2, '0')}:00`;
+      this.adminMeetingSlots.push({ label: `${start} – ${end}`, start, end });
+    }
+    this.adminSelectedSlots = new Set();
+    this.applyAdminSlotsToDates();
+  }
+
+  toggleAdminSlot(slot: { start: string; end: string }) {
+    this.adminSelectedSlots.has(slot.start)
+      ? this.adminSelectedSlots.delete(slot.start)
+      : this.adminSelectedSlots.add(slot.start);
+    this.applyAdminSlotsToDates();
+    this.recalcAmount();
+  }
+
+  isAdminSlotSelected(slot: { start: string }): boolean {
+    return this.adminSelectedSlots.has(slot.start);
+  }
+
+  private applyAdminSlotsToDates() {
+    if (!this.adminMeetingDate || !this.adminSelectedSlots.size) {
+      this.bookingFormData.startDateTime = '';
+      this.bookingFormData.endDateTime   = '';
+      return;
+    }
+    const sorted   = Array.from(this.adminSelectedSlots).sort();
+    const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
+    this.bookingFormData.startDateTime = `${this.adminMeetingDate}T${sorted[0]}:00`;
+    this.bookingFormData.endDateTime   = `${this.adminMeetingDate}T${String(lastHour).padStart(2, '0')}:00:00`;
+  }
+
   onSpaceTypeChange() {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
+    this.adminMeetingDate = '';
+    this.adminMeetingSlots = [];
+    this.adminSelectedSlots = new Set();
+    this.bookingFormData.startDateTime = '';
+    this.bookingFormData.endDateTime   = '';
     this.applyBookingSpaceFilter();
   }
 
@@ -629,12 +704,22 @@ export class Manage implements OnInit {
   submitAdminBooking() {
     this.bookingFormSaving.set(true);
     this.bookingFormError = '';
+
+    if (this.isAdminMeetingRoom && this.adminSelectedSlots.size === 0) {
+      this.bookingFormError = 'Please select at least one time slot.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+
     const u = this.selectedCustomer;
 
     const doCreate = () => {
       const payload = {
         ...this.bookingFormData,
-        userId: u.idGUID ?? u.idGuid ?? String(u.id ?? ''),
+        userId: 0,
+        userIdGuid: u.idGUID ?? u.idGuid ?? String(u.id ?? ''),
+        spaceId: 0,
+        spaceIdGuid: this.bookingFormData.spaceId,
         customerEmail: u.email || this.bookingFormData.customerEmail,
         cityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : undefined,
       };
@@ -741,7 +826,7 @@ export class Manage implements OnInit {
   }
 
   openEdit(item: any) {
-    this.editItem = item;
+    this.editItem = { ...item, idGuid: item.bookingPublicId ?? item.idGuid ?? item.idGUID ?? item.id, id: item.bookingId ?? item.id };
     this.formData = { ...item };
     this.selectedAmenityIds = [];
     if (this.entity === 'spaces') {
@@ -780,7 +865,7 @@ export class Manage implements OnInit {
     this.saving = true; this.error = '';
     if (this.entity === 'spaces') this.override_save_spaces(this.formData);
     const obs = this.editItem
-      ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID, this.formData)
+      ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID ?? this.editItem.id, this.formData)
       : this.config.createFn!(this.formData);
 
     obs.subscribe({
@@ -816,13 +901,21 @@ export class Manage implements OnInit {
 
   deleteItem(item: any) {
     if (!confirm('Delete this item?')) return;
-    const id = item.idGuid ?? item.idGUID ?? item.id;
+    const id = item.bookingId ?? item.idGuid ?? item.idGUID ?? item.id;
     this.config.deleteFn!(id).subscribe({ next: () => this.load() });
   }
 
   changeStatus(item: any, status: string) {
     if (!status) return;
-    this.config.statusFn!(item.idGuid, status).subscribe({ next: () => this.load() });
+    const id = item.bookingId ?? item.bookingPublicId ?? item.idGuid ?? item.id;
+    // Map string status names to numeric statusIds matching WN lookup tables
+    const bookingStatusMap: Record<string, number> = { 'Pending': 1, 'Confirmed': 2, 'Cancelled': 3, 'Completed': 4, 'NoShow': 5 };
+    const paymentStatusMap: Record<string, number> = { 'Pending': 1, 'Paid': 2, 'Failed': 3, 'Refunded': 4, 'Cancelled': 5 };
+    const contactStatusMap: Record<string, number> = { 'New': 1, 'InProgress': 2, 'Resolved': 3, 'Closed': 4 };
+    const membershipStatusMap: Record<string, number> = { 'Active': 1, 'Inactive': 2, 'Suspended': 3, 'Expired': 4 };
+    const allMaps = [bookingStatusMap, paymentStatusMap, contactStatusMap, membershipStatusMap];
+    const statusId = allMaps.reduce((found, map) => found ?? map[status], undefined as number | undefined) ?? 1;
+    this.config.statusFn!(id, statusId).subscribe({ next: () => this.load() });
   }
 
   toggleActive(item: any) {
@@ -842,7 +935,7 @@ export class Manage implements OnInit {
     });
   }
 
-  openBookingUser(item: any) { this.openUserModal(item.userId ?? item.userEmail); }
+  openBookingUser(item: any) { this.openUserModal(item.userEmail ?? item.userPublicId ?? item.userId); }
   openUserFromUsers(item: any) { this.openUserModal(item.idGuid); }
 
   private openUserModal(idOrEmail: any) {
@@ -905,10 +998,11 @@ export class Manage implements OnInit {
 
   approvePayment(item: any) {
     if (item.paymentStatus !== 'Pending') return;
-    if (this.approvingPaymentId() === item.id) return;
+    const itemId = item.idGuid ?? item.id;
+    if (this.approvingPaymentId() === itemId) return;
     if (!confirm(`Approve cash payment of PKR ${item.amount ?? 0} for ${item.userEmail ?? 'this user'}?`)) return;
-    this.approvingPaymentId.set(item.id);
-    this.admin.approvePayment(item.id).subscribe({
+    this.approvingPaymentId.set(itemId);
+    this.admin.approvePayment(itemId).subscribe({
       next: () => {
         this.success = 'Payment approved successfully.';
         setTimeout(() => this.success = '', 3000);
@@ -938,13 +1032,16 @@ export class Manage implements OnInit {
 
   private loadAvailableSpacesForReassign() {
     if (!this.reassignBooking) return;
-    
     this.reassignLoading.set(true);
+    const spaceTypeId = this.reassignBooking.spaceTypeId ?? 0;
+    const bookingId   = this.reassignBooking.bookingId ?? this.reassignBooking.id;
+    const startOn     = this.reassignBooking.startOn ?? this.reassignBooking.startDateTime;
+    const endOn       = this.reassignBooking.endOn   ?? this.reassignBooking.endDateTime;
     this.admin.getAvailableSpacesForReassignment(
-      this.reassignBooking.spaceTypeName || 'Private Office',
-      this.reassignBooking.startDateTime,
-      this.reassignBooking.endDateTime,
-      this.reassignBooking.id
+      spaceTypeId,
+      startOn,
+      endOn,
+      bookingId
     ).subscribe({
       next: (res: any) => {
         this.availableSpacesForReassign.set(res?.data || []);
@@ -964,7 +1061,8 @@ export class Manage implements OnInit {
     }
 
     this.reassignLoading.set(true);
-    this.admin.reassignBooking(this.reassignBooking.idGuid, Number(this.selectedNewSpace)).subscribe({
+    const bookingId = this.reassignBooking.bookingPublicId ?? this.reassignBooking.idGuid;
+    this.admin.reassignBooking(bookingId, Number(this.selectedNewSpace), 0).subscribe({
       next: () => {
         this.success = 'Booking reassigned successfully';
         setTimeout(() => this.success = '', 3000);
@@ -1032,7 +1130,11 @@ export class Manage implements OnInit {
     if (!locationId) return;
     this.admin.getFloors(locationId).subscribe({
       next: (res: any) => {
-        this.floorOptions = (res?.data ?? []).map((f: any) => ({ v: f.id, l: f.floorName }));
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.floorOptions = items.map((f: any) => ({
+          v: f.id ?? f.Id,
+          l: f.name || f.floorName || f.Name || f.FloorName || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
+        }));
       }
     });
   }
@@ -1213,7 +1315,7 @@ export class Manage implements OnInit {
           { key: 'code',          label: 'Code' },
           { key: 'locationName',  label: 'Location' },
           { key: 'spaceTypeName', label: 'Type' },
-          { key: 'pricePerDay',   label: this.lbl('Space', 'pricePerDay'), type: 'currency' },
+          { key: 'pricePerDay',   label: 'Price', type: 'space-prices' },
           { key: 'status',        label: 'Status', type: 'status' },
           { key: 'imageUrl',      label: 'Image', type: 'image' },
         ],
@@ -1246,10 +1348,11 @@ export class Manage implements OnInit {
         columns: [
           { key: 'userEmail', label: 'User' },
           { key: 'spaceName', label: 'Space' },
-          { key: 'startDateTime', label: 'Start', type: 'date' },
-          { key: 'endDateTime', label: 'End', type: 'date' },
-          { key: 'totalAmount', label: this.lbl('Booking', 'totalAmount'), type: 'currency' },
-          { key: 'bookingStatus', label: 'Status', type: 'status' },
+          { key: 'startOn', label: 'Start', type: 'date' },
+          { key: 'endOn', label: 'End', type: 'date' },
+          { key: 'billingPeriodLabel', label: 'Billing' },
+          { key: 'bookingStatusLabel', label: 'Status', type: 'status' },
+          { key: 'challanNumber', label: 'Challan' },
         ],
         fields: [
           { key: 'spaceId', label: 'Space', type: 'select', options: this.spaceOptions },
@@ -1259,7 +1362,7 @@ export class Manage implements OnInit {
         ],
         getFn: (p, l, s) => this.admin.getBookings(p, l, s),
         updateFn: (id, d) => this.admin.updateBooking(id, d),
-        statusFn: (id, status) => this.admin.updateBookingStatus(id, status),
+        statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
         statusOptions: ['Confirmed', 'Cancelled', 'Completed'],
       };
 
@@ -1304,7 +1407,7 @@ export class Manage implements OnInit {
         ],
         getFn: (p, l, s) => this.admin.getPayments(p, l, s),
         createFn: (d) => this.admin.createPayment(d),
-        statusFn: (id, status) => this.admin.updatePaymentStatus(id, status),
+        statusFn: (id, statusId) => this.admin.updatePaymentStatus(id, statusId),
         statusOptions: ['Paid', 'Failed', 'Refunded'],
         deleteFn: (id) => this.admin.deletePayment(id),
       };

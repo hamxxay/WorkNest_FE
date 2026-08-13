@@ -219,3 +219,10 @@
   font-weight: 600; cursor: pointer;
 }
 .btn-print-challan:hover { background: #2d5282; }
+
+@media print {
+  body * { display: none !important; }
+  #user-challan-printable, #user-challan-printable * { display: block !important; }
+  #user-challan-printable { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; }
+  [data-challan-actions] { display: none !important; }
+}

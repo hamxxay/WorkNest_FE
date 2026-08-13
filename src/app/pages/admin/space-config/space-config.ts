@@ -73,7 +73,10 @@ export class SpaceConfig implements OnInit {
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({ v: s.id, l: s.name }));
+        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({
+          v: s.id,
+          l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
+        }));
       }
     });
     this.accountCoa.getAll().subscribe({
@@ -95,8 +98,31 @@ export class SpaceConfig implements OnInit {
       this.filterBranchId()  ?? undefined,
       this.filterLocationId() ?? undefined
     ).subscribe({
-      next: (res: any) => { this.configs.set(res?.data ?? []); this.loading.set(false); },
-      error: () => this.loading.set(false)
+      next: (res: any) => {
+        const v2 = res?.data ?? [];
+        if (v2.length) {
+          this.configs.set(v2);
+          this.loading.set(false);
+        } else {
+          // Fall back to legacy endpoint
+          this.admin.getSpaceConfig().subscribe({
+            next: (r: any) => {
+              this.configs.set((r?.data ?? []).map((c: any, i: number) => ({ ...c, id: c.id ?? i + 1 })));
+              this.loading.set(false);
+            },
+            error: () => this.loading.set(false)
+          });
+        }
+      },
+      error: () => {
+        this.admin.getSpaceConfig().subscribe({
+          next: (r: any) => {
+            this.configs.set((r?.data ?? []).map((c: any, i: number) => ({ ...c, id: c.id ?? i + 1 })));
+            this.loading.set(false);
+          },
+          error: () => this.loading.set(false)
+        });
+      }
     });
   }
 
@@ -108,6 +134,7 @@ export class SpaceConfig implements OnInit {
   openCreate() {
     this.editItem = null;
     this.form = { openingTime: '08:00', closingTime: '20:00', status: 1 };
+    this.floorOptions = [];
     this.selectedAmenityIds = [];
     this.error = '';
     this.showModal = true;
@@ -152,7 +179,11 @@ export class SpaceConfig implements OnInit {
     if (!locationId) return;
     this.admin.getFloors(locationId).subscribe({
       next: (res: any) => {
-        this.floorOptions = (res?.data ?? []).map((f: any) => ({ v: f.id, l: f.floorName }));
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.floorOptions = items.map((f: any) => ({
+          v: f.id ?? f.Id,
+          l: f.name || f.floorName || f.Name || f.FloorName || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
+        }));
       }
     });
   }

@@ -25,7 +25,7 @@ export class SpaceService {
    * @returns Observable of array of all spaces
    */
   getAll(): Observable<any> {
-    return this.http.get<any>(this.apiUrl);
+    return this.http.get<any>(`${this.apiUrl}?limit=1000`);
   }
 
   /**
@@ -36,17 +36,10 @@ export class SpaceService {
     return this.http.get<any>(`${this.apiUrl}/available`);
   }
 
-  /**
-   * Get available spaces by type and time range
-   * @param spaceType - Type of space
-   * @param startDateTime - Start date/time
-   * @param endDateTime - End date/time
-   * @returns Observable of available spaces for the time period
-   */
-  getAvailableByType(spaceType: string, startDateTime?: string, endDateTime?: string): Observable<any> {
-    const params = new URLSearchParams({ spaceType });
-    if (startDateTime) params.set('startDateTime', startDateTime);
-    if (endDateTime) params.set('endDateTime', endDateTime);
+  getAvailableByType(spaceTypeId: number, startOn?: string, endOn?: string): Observable<any> {
+    const params = new URLSearchParams({ spaceTypeId: String(spaceTypeId) });
+    if (startOn) params.set('startOn', startOn);
+    if (endOn) params.set('endOn', endOn);
     return this.http.get<any>(`${this.apiUrl}/available-by-type?${params.toString()}`);
   }
 

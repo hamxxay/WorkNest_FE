@@ -86,6 +86,16 @@
   margin: 0;
 }
 
+.location-company {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid rgba(57,160,203,0.25);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
 .location-count {
   margin-left: auto;
   font-size: 0.8rem;
@@ -436,4 +446,99 @@ button:disabled {
 @media (max-width: 600px) {
   .workspace-grid { grid-template-columns: 1fr; }
   .page-hero h1 { font-size: 2rem; }
+}
+
+/* ========== Meeting Room Slot Grid ========== */
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.slot-btn {
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, color .2s;
+  text-align: center;
+}
+
+.slot-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.slot-btn.slot-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ========== Category Tabs ========== */
+.category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.cat-tab {
+  padding: 8px 20px;
+  border-radius: 24px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.cat-tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cat-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.capacity-select {
+  flex: 0 0 180px;
+  margin-left: 8px;
+}
+
+/* ========== Capacity Badge on Private Cards ========== */
+.ws-capacity-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(57, 160, 203, 0.88);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+/* ========== Starting From Label ========== */
+.ws-starting-from {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
 }

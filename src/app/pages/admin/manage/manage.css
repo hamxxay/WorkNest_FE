@@ -338,3 +338,36 @@
 
 .duplicate-row td { background: rgba(239,68,68,.06) !important; }
 .duplicate-row td:first-child { border-left: 3px solid #ef4444; }
+
+/* ── Admin Meeting Room Slot Grid ─────────────────────── */
+.admin-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 7px;
+  margin-top: 6px;
+}
+
+.admin-slot-btn {
+  padding: 7px 4px;
+  border-radius: 7px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  text-align: center;
+}
+
+.admin-slot-btn:hover {
+  border-color: #0d9488;
+  color: #0d9488;
+}
+
+.admin-slot-btn.admin-slot-selected {
+  background: #0d9488;
+  border-color: #0d9488;
+  color: #fff;
+  font-weight: 600;
+}

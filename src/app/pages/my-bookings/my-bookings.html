@@ -59,19 +59,43 @@
                 <div class="detail-row">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
                   <div>
-                    <span class="detail-label">Paymnet Method</span>
+                    <span class="detail-label">Payment Method</span>
                     <span class="detail-value">{{ b.notes }}</span>
+                  </div>
+                </div>
+              }
+              @if (b.challanNumber) {
+                <div class="detail-row">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
+                  <div>
+                    <span class="detail-label">Bank Challan</span>
+                    <span class="detail-value" style="font-weight:600">{{ b.challanNumber }} <span style="font-weight:400;color:var(--text-muted);font-size:.8rem">(Expiry: {{ b.challanValidUntil | date:'shortDate' }})</span></span>
+                  </div>
+                </div>
+              }
+              @if (b.voucherNumber) {
+                <div class="detail-row">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
+                  <div>
+                    <span class="detail-label">1Bill Voucher</span>
+                    <span class="detail-value" style="font-weight:600">{{ b.voucherNumber }} <span style="font-weight:400;color:var(--text-muted);font-size:.8rem">(Expiry: {{ b.voucherValidUntil | date:'shortDate' }})</span></span>
                   </div>
                 </div>
               }
             </div>
             <div class="booking-footer">
               <span class="booking-date">Booked {{ b.createdAt | date:'mediumDate' }}</span>
-              <div class="booking-footer-actions">
+              <div class="booking-footer-actions" style="display:flex;gap:8px;align-items:center">
+                @if (b.challanNumber) {
+                  <button class="btn-pay-now" (click)="viewChallan(b)" style="background:#334155;border-color:#334155;display:flex;align-items:center;gap:6px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
+                    View Challan
+                  </button>
+                }
                 @if (b.bookingStatus === 'Pending') {
-                  <button class="btn-pay-now" (click)="payNow(b.id)">
+                  <button class="btn-pay-now" (click)="payNow(b)" style="display:flex;align-items:center;gap:6px">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                    Pay Now
+                    Pay Online
                   </button>
                 }
                 @if (b.bookingStatus === 'Pending' || b.bookingStatus === 'Confirmed') {
@@ -87,3 +111,138 @@
     }
   </div>
 </section>
+
+<!-- Challan Print Modal -->
+@if (selectedChallan()) {
+  <div class="modal-overlay" (click)="selectedChallan.set(null)" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.65);display:flex;justify-content:center;align-items:center;z-index:9999;padding:20px;overflow-y:auto">
+    <div class="challan-modal" (click)="$event.stopPropagation()" id="my-bookings-challan-printable" style="background:#fff;border-radius:12px;width:100%;max-width:680px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.15),0 10px 10px -5px rgba(0,0,0,0.06);overflow:hidden;border:1px solid #e2e8f0;font-family:Inter,system-ui,-apple-system,sans-serif">
+
+      <!-- Bank Header -->
+      <div style="background:#1e3a5f;color:#fff;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #0f172a">
+        <div>
+          <div style="font-size:1.5rem;font-weight:800;letter-spacing:1px;color:#ffffff">WORKNEST</div>
+          <div style="font-size:.8rem;opacity:.9;margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px">Official Payment Challan / Bank Voucher</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.75rem;opacity:.8;text-transform:uppercase;letter-spacing:0.5px">Challan / Consumer No.</div>
+          <div style="font-size:1.3rem;font-weight:800;letter-spacing:1px;margin-top:2px;color:#f8fafc">{{ selectedChallan()!.challanNumber }}</div>
+        </div>
+      </div>
+
+      <!-- Expiry Alert Banner -->
+      <div style="background:#fffbeb;border-bottom:1px solid #fef3c7;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:#b45309">
+        <span style="font-weight:600;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+          Valid Until: {{ tryDate(selectedChallan()!.validUntil) }}
+        </span>
+        <span>Please pay before due date to avoid cancellation</span>
+      </div>
+
+      <div style="padding:28px;display:grid;grid-template-columns:1fr;gap:24px">
+        
+        <!-- Info Grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px">
+          <div>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Customer Information</div>
+            <div style="font-size:.85rem;color:#0f172a;line-height:1.5">
+              <div><strong>Name:</strong> {{ selectedChallan()!.customerName || 'Valued Member' }}</div>
+              <div><strong>Email:</strong> {{ selectedChallan()!.customerEmail || '—' }}</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Booking Details</div>
+            <div style="font-size:.85rem;color:#0f172a;line-height:1.5">
+              <div><strong>Space/Room:</strong> {{ selectedChallan()!.spaceName }} ({{ selectedChallan()!.spaceCode }})</div>
+              <div><strong>Branch/Location:</strong> {{ selectedChallan()!.branchName || selectedChallan()!.locationName }}</div>
+              <div><strong>Period:</strong> {{ selectedChallan()!.startOn | date:'mediumDate' }} to {{ selectedChallan()!.endOn | date:'mediumDate' }}</div>
+              <div><strong>Billing Cycle:</strong> {{ selectedChallan()!.billingPeriodLabel }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial Breakdown Table -->
+        <div>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#334155;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #334155;padding-bottom:6px">Payment Breakdown</div>
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem;text-align:left">
+            <thead>
+              <tr style="border-bottom:1px solid #e2e8f0;color:#64748b">
+                <th style="padding:8px 0;font-weight:600">Description</th>
+                <th style="padding:8px 0;font-weight:600;text-align:right">Account COA</th>
+                <th style="padding:8px 0;font-weight:600;text-align:right">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of selectedChallan()!.details; track line.lineId) {
+                <tr style="border-bottom:1px solid #f1f5f9;color:#0f172a">
+                  <td style="padding:10px 0">
+                    {{ line.chargeTypeLabel }}
+                    @if (line.description && line.description !== line.chargeTypeLabel) {
+                      <span style="font-size:.75rem;color:#64748b;display:block">{{ line.description }}</span>
+                    }
+                  </td>
+                  <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName || '—' }}</td>
+                  <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.2-2' }}</td>
+                </tr>
+              }
+              @if (!selectedChallan()!.details || selectedChallan()!.details.length === 0) {
+                <tr style="border-bottom:1px solid #f1f5f9;color:#0f172a">
+                  <td style="padding:10px 0">Workspace Fee (Room Rent / Space Booking)</td>
+                  <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">—</td>
+                  <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ selectedChallan()!.totalPayable || selectedChallan()!.amount || selectedChallan()!.roomPrice | number:'1.2-2' }}</td>
+                </tr>
+              }
+              <tr style="font-size:1rem;color:#1e3a5f;font-weight:800;border-top:2px solid #1e3a5f">
+                <td style="padding:14px 0" colspan="2">TOTAL PAYABLE</td>
+                <td style="padding:14px 0;text-align:right">Rs {{ (selectedChallan()!.totalPayable || selectedChallan()!.amount || selectedChallan()!.roomPrice) | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Bank / Payment Information -->
+        <div style="border-top:1px dashed #cbd5e1;padding-top:20px;display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;font-size:.8rem">
+          <div>
+            <div style="font-weight:700;color:#334155;margin-bottom:6px">Bank Payment Instructions</div>
+            <div style="color:#64748b;line-height:1.5">
+              Please pay this voucher at any HBL branch counter, ATM, or via mobile banking app under 1Bill / Bill Payment using the consumer number.<br>
+              <strong>Bank Name:</strong> Habib Bank Limited (HBL)<br>
+              <strong>Account Title:</strong> WorkNest (Private) Limited<br>
+              <strong>Voucher Status:</strong> {{ selectedChallan()!.bookingStatusLabel || 'Pending' }}
+            </div>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#334155;margin-bottom:6px">Important Notice</div>
+            <div style="color:#64748b;line-height:1.5">
+              - Hand over the original copy of this challan at reception if paying in cash.<br>
+              - Retain your receipt for confirmation.<br>
+              - Once paid, your booking is confirmed automatically.
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Seal -->
+        <div style="font-size:.7rem;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px">
+          This is an official system-generated payment voucher. No signature or stamp is required. Powered by WorkNest Financials.
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div data-challan-actions style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px">
+        <button class="btn-outline-challan" (click)="selectedChallan.set(null)" style="background:#fff;border:1px solid #cbd5e1;color:#334155;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem">Close</button>
+        <button class="btn-print-challan" (click)="downloadChallan()" style="background:#1e3a5f;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download PDF
+        </button>
+        <button class="btn-print-challan" (click)="printChallanDoc()" style="background:#334155;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          Print Voucher
+        </button>
+        @if (selectedChallan()!.bookingStatusCode === 'Pending') {
+          <button class="btn-pay-now" (click)="payOnlineFromChallan()" style="background:#059669;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:.85rem">Pay Online</button>
+        }
+      </div>
+
+    </div>
+  </div>
+}

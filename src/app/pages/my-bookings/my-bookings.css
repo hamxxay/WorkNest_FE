@@ -218,3 +218,10 @@
   .bookings-grid { grid-template-columns: 1fr; }
   .section-header h1 { font-size: 1.4rem; }
 }
+
+@media print {
+  body * { display: none !important; }
+  #my-bookings-challan-printable, #my-bookings-challan-printable * { display: block !important; }
+  #my-bookings-challan-printable { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; }
+  [data-challan-actions] { display: none !important; }
+}

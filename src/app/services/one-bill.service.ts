@@ -62,6 +62,7 @@ export interface OneBillVoucherResponse {
   amount:         number;
   // Human-readable instructions for the user
   paymentChannels?: string[];
+  spaceName?:     string;
 }
 
 @Injectable({ providedIn: 'root' })
