@@ -55,7 +55,15 @@ export class Manage implements OnInit {
     }, 400);
   }
 
-  get filtered() { return this.entity === 'spaces' ? this.displayedItems : this.items(); }
+  get filtered() {
+    let list = this.items();
+    if (this.entity === 'spaces') return this.displayedItems;
+    if (list.length > this.pageSize) {
+      const start = (this.page() - 1) * this.pageSize;
+      return list.slice(start, start + this.pageSize);
+    }
+    return list;
+  }
 
   showModal = false;
   editItem: any = null;
@@ -124,6 +132,12 @@ export class Manage implements OnInit {
   adminMeetingDate = '';
   adminMeetingSlots: { label: string; start: string; end: string }[] = [];
   adminSelectedSlots = new Set<string>();
+
+  // Private Room & Shared Space (admin booking)
+  selectedAdminCapacity: number | string | null = null;
+  availableAdminCapacities: number[] = [];
+  adminStartDate = '';
+  adminMonths = 1;
   // customer search
   customerSearchQuery = '';
   customerSearchResults: any[] = [];
@@ -480,6 +494,10 @@ export class Manage implements OnInit {
     this.bookingFormError = '';
     this.selectedSpaceTypeId = '';
     this.selectedLocationId = '';
+    this.selectedAdminCapacity = null;
+    this.availableAdminCapacities = [];
+    this.adminStartDate = '';
+    this.adminMonths = 1;
     this.filteredSpaceOptions = [];
     this.customerSearchQuery = '';
     this.customerSearchResults = [];
@@ -503,10 +521,13 @@ export class Manage implements OnInit {
     }
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({
-          v: s.id,
-          l: s.description || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
-        }));
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.populateSpaceTypeOptions(items);
+        if (this.allSpaces.length) this.applyBookingSpaceFilter();
+      },
+      error: () => {
+        this.populateSpaceTypeOptions([]);
+        if (this.allSpaces.length) this.applyBookingSpaceFilter();
       }
     });
     if (!this.locationOptions.length) {
@@ -517,41 +538,220 @@ export class Manage implements OnInit {
       });
     }
     if (this.allSpaces.length) {
+      this.populateSpaceTypeOptions(this.spaceTypeOptions);
       this.applyBookingSpaceFilter();
     } else {
       this.admin.getSpaces(1, 1000, '').subscribe({
         next: (res: any) => {
           this.allSpaces = res?.data ?? [];
+          this.populateSpaceTypeOptions(this.spaceTypeOptions);
           this.applyBookingSpaceFilter();
         }
       });
     }
   }
 
+  private populateSpaceTypeOptions(apiTypes: any[]) {
+    const map = new Map<string, { v: any; l: string }>();
+
+    // 1. From /spacetype API
+    (apiTypes || []).forEach((s: any) => {
+      const name = (s.description || s.displayName || s.label || s.typeName || s.name || '').trim();
+      const label = name ? name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : `Space Type ${s.id}`;
+      const key = label.toLowerCase();
+      map.set(key, { v: s.id ?? label, l: label });
+    });
+
+    // 2. From /spaceconfig API
+    (this.spaceConfigItems() || []).forEach((c: any) => {
+      const cat = (c.spaceCategory || c.name || '').trim();
+      if (cat) {
+        let label = cat.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+        if (label.toLowerCase() === 'meeting') label = 'Meeting Room';
+        if (label.toLowerCase() === 'private') label = 'Private Room';
+        if (label.toLowerCase() === 'shared') label = 'Shared Space';
+        const key = label.toLowerCase();
+        if (!map.has(key) && !Array.from(map.values()).some(v => v.l.toLowerCase() === key)) {
+          map.set(key, { v: c.spaceTypeId || label, l: label });
+        }
+      }
+    });
+
+    // 3. From allSpaces items
+    (this.allSpaces || []).forEach((s: any) => {
+      const typeName = (s.spaceTypeName || s.SpaceTypeName || s.spaceType || '').trim();
+      if (typeName) {
+        let label = typeName.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+        if (label.toLowerCase() === 'meeting') label = 'Meeting Room';
+        const key = label.toLowerCase();
+        if (!map.has(key) && !Array.from(map.values()).some(v => v.l.toLowerCase() === key)) {
+          map.set(key, { v: s.spaceTypeId || label, l: label });
+        }
+      }
+    });
+
+    // 4. Guarantee standard core space types exist
+    const standardTypes = [
+      { v: 'Meeting Room', l: 'Meeting Room' },
+      { v: 'Private Room', l: 'Private Room' },
+      { v: 'Shared Space', l: 'Shared Space' }
+    ];
+
+    standardTypes.forEach(std => {
+      const stdLower = std.l.toLowerCase();
+      const exists = Array.from(map.values()).some(item => {
+        const l = item.l.toLowerCase();
+        return l.includes(stdLower.split(' ')[0]) || stdLower.includes(l);
+      });
+      if (!exists) {
+        map.set(stdLower, std);
+      }
+    });
+
+    this.spaceTypeOptions = Array.from(map.values());
+  }
+
   onBookingLocationChange() {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
+    if (this.isAdminPrivateRoom) {
+      this.updateAvailableAdminCapacities();
+    }
     this.applyBookingSpaceFilter();
   }
 
-  private applyBookingSpaceFilter() {
+  getSpaceCapacity(s: any): number {
+    if (s.capacity != null && !isNaN(Number(s.capacity)) && Number(s.capacity) > 0) {
+      return Number(s.capacity);
+    }
+    if (s.Capacity != null && !isNaN(Number(s.Capacity)) && Number(s.Capacity) > 0) {
+      return Number(s.Capacity);
+    }
+    const str = String(s.defaultCapacities || s.defaultCapacity || s.capacity || s.Capacity || '');
+    const num = parseInt(str.replace(/\D/g, ''), 10);
+    return !isNaN(num) && num > 0 ? num : 0;
+  }
+
+  updateAvailableAdminCapacities() {
     let spaces = this.allSpaces;
     if (this.selectedLocationId) {
       spaces = spaces.filter((s: any) =>
-        String(s.locationId ?? '') === String(this.selectedLocationId) ||
-        String(s.locationIdGuid ?? '') === String(this.selectedLocationId)
+        String(s.locationId ?? s.locationIdGuid ?? s.LocationId ?? '') === String(this.selectedLocationId) ||
+        String(s.locationIdGuid ?? s.locationId ?? s.LocationIdGuid ?? '') === String(this.selectedLocationId)
       );
     }
-    if (this.selectedSpaceTypeId) {
-      const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-      if (selectedType) {
-        spaces = spaces.filter((s: any) => (s.spaceTypeName || '').toLowerCase() === selectedType.l.toLowerCase());
+    const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+    if (selectedType) {
+      const typeIdStr = String(selectedType.v);
+      const typeNameLower = selectedType.l.toLowerCase().replace(/\s+/g, '');
+      spaces = spaces.filter((s: any) => {
+        const sTypeId = String(s.spaceTypeId ?? s.SpaceTypeId ?? '');
+        const sTypeName = (s.spaceTypeName || s.SpaceTypeName || s.spaceType || '').toLowerCase().replace(/\s+/g, '');
+        return (sTypeId && sTypeId === typeIdStr) || (sTypeName && (sTypeName === typeNameLower || sTypeName.includes('private')));
+      });
+    }
+
+    const capsSet = new Set<number>();
+    spaces.forEach((s: any) => {
+      const c = this.getSpaceCapacity(s);
+      if (c > 0) capsSet.add(c);
+    });
+
+    const cfg = this.spaceConfigItems().find((c: any) =>
+      (c.spaceCategory || '').toLowerCase().includes('private') ||
+      String(c.spaceTypeId) === String(this.selectedSpaceTypeId)
+    );
+    if (cfg?.defaultCapacities) {
+      String(cfg.defaultCapacities).split(',').forEach((str: string) => {
+        const num = parseInt(str.trim(), 10);
+        if (!isNaN(num) && num > 0) capsSet.add(num);
+      });
+    }
+
+    if (capsSet.size === 0) {
+      [2, 4, 6, 8, 10, 12, 16, 20].forEach(c => capsSet.add(c));
+    }
+
+    this.availableAdminCapacities = Array.from(capsSet).sort((a, b) => a - b);
+  }
+
+  applyBookingSpaceFilter() {
+    if (!this.selectedSpaceTypeId) {
+      this.filteredSpaceOptions = [];
+      return;
+    }
+
+    let spaces = this.allSpaces;
+
+    // 1. Filter by location if selected
+    if (this.selectedLocationId) {
+      spaces = spaces.filter((s: any) =>
+        String(s.locationId ?? s.locationIdGuid ?? s.LocationId ?? '') === String(this.selectedLocationId) ||
+        String(s.locationIdGuid ?? s.locationId ?? s.LocationIdGuid ?? '') === String(this.selectedLocationId)
+      );
+    }
+
+    // 2. Filter by space type (matching spaceTypeId OR spaceTypeName)
+    const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+    if (selectedType) {
+      const typeIdStr = String(selectedType.v);
+      const typeNameClean = selectedType.l.toLowerCase().replace(/space|room|office/g, '').trim();
+
+      spaces = spaces.filter((s: any) => {
+        const sTypeId = String(s.spaceTypeId ?? s.SpaceTypeId ?? '');
+        if (sTypeId && sTypeId === typeIdStr) return true;
+        const sTypeName = (s.spaceTypeName || s.SpaceTypeName || s.spaceType || '').toLowerCase();
+        if ((typeNameClean.includes('meeting') || typeNameClean.includes('conference')) &&
+            (sTypeName.includes('meeting') || sTypeName.includes('conference'))) {
+          return true;
+        }
+        if (sTypeName && typeNameClean && sTypeName.includes(typeNameClean)) return true;
+        return false;
+      });
+    }
+
+    // 3. For Private Room, filter by capacity if selected
+    if (this.isAdminPrivateRoom) {
+      if (!this.selectedAdminCapacity) {
+        this.filteredSpaceOptions = [];
+        return;
+      }
+      const targetCap = Number(this.selectedAdminCapacity);
+
+      const matchingCapSpaces = spaces.filter((s: any) => {
+        const c = this.getSpaceCapacity(s);
+        return c === targetCap;
+      });
+
+      if (matchingCapSpaces.length > 0) {
+        spaces = matchingCapSpaces;
+      } else {
+        spaces = spaces.filter((s: any) => {
+          const c = this.getSpaceCapacity(s);
+          return c === 0 || c === targetCap;
+        });
       }
     }
+
+    // 4. Exclude booked spaces if status field exists
+    spaces = spaces.filter((s: any) => {
+      const st = (s.status || s.Status || '').toString().trim().toLowerCase();
+      return !st || st === 'available' || st === 'active' || st === 'vacant' || st !== 'booked';
+    });
+
     this.filteredSpaceOptions = spaces
-      .filter((s: any) => s.idGuid)
-      .map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) — ${s.locationName ?? ''}` }));
+      .filter((s: any) => s.idGuid || s.id)
+      .map((s: any) => {
+        const cap = this.getSpaceCapacity(s);
+        const capLabel = cap > 0 ? ` — Cap: ${cap}` : '';
+        const codeLabel = s.code ? ` (${s.code})` : '';
+        const locLabel = s.locationName ? ` — ${s.locationName}` : '';
+        return {
+          v: s.idGuid ?? s.id,
+          l: `${s.name}${codeLabel}${capLabel}${locLabel}`
+        };
+      });
   }
 
   closeAdminBookingForm() { this.showBookingForm = false; }
@@ -576,12 +776,62 @@ export class Manage implements OnInit {
 
   onCustomerSearch() {
     clearTimeout(this.customerSearchTimer);
-    if (!this.customerSearchQuery.trim()) { this.customerSearchResults = []; return; }
+    const query = (this.customerSearchQuery || '').trim().toLowerCase();
+
+    // If search text changed from selected customer's name, reset selection
+    if (this.selectedCustomer) {
+      const selectedName = (this.selectedCustomer.fullName || [this.selectedCustomer.firstName, this.selectedCustomer.lastName].filter(Boolean).join(' ') || this.selectedCustomer.name || this.selectedCustomer.email || '').toLowerCase();
+      if (!selectedName || !selectedName.includes(query)) {
+        this.selectedCustomer = null;
+        this.bookingFormData.customerName = '';
+        this.bookingFormData.customerEmail = '';
+        this.bookingFormData.customerCode = '';
+        this.bookingFormData.phone = '';
+        this.bookingFormData.cnicOrPassport = '';
+        this.bookingFormData.address = '';
+        this.bookingFormData.cityId = '';
+      }
+    }
+
+    if (!query) {
+      this.customerSearchResults = [];
+      return;
+    }
+
     this.customerSearchTimer = setTimeout(() => {
-      this.admin.searchCustomers(this.customerSearchQuery).subscribe({
-        next: (res: any) => { this.customerSearchResults = res?.data ?? []; }
+      this.admin.searchCustomers(query).subscribe({
+        next: (res: any) => {
+          const results = res?.data ?? (Array.isArray(res) ? res : []);
+          if (results.length > 0) {
+            this.customerSearchResults = results;
+          } else {
+            this.fallbackCustomerSearch(query);
+          }
+        },
+        error: () => {
+          this.fallbackCustomerSearch(query);
+        }
       });
-    }, 300);
+    }, 250);
+  }
+
+  private fallbackCustomerSearch(query: string) {
+    this.admin.getCustomers(1, 100, query).subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        const filtered = items.filter((u: any) => {
+          const name = (u.fullName || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name || '').toLowerCase();
+          const email = (u.email || '').toLowerCase();
+          const code = (u.customerCode || u.code || '').toLowerCase();
+          const phone = (u.phoneNumber || u.phone || '').toLowerCase();
+          return name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+        });
+        this.customerSearchResults = filtered;
+      },
+      error: () => {
+        this.customerSearchResults = [];
+      }
+    });
   }
 
   selectCustomer(user: any) {
@@ -623,6 +873,23 @@ export class Manage implements OnInit {
   get isAdminMeetingRoom(): boolean {
     const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
     return selected ? selected.l.toLowerCase().includes('meeting') : false;
+  }
+
+  get isAdminPrivateRoom(): boolean {
+    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+    return selected ? selected.l.toLowerCase().includes('private') : false;
+  }
+
+  get isAdminSharedSpace(): boolean {
+    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
+    return selected ? selected.l.toLowerCase().includes('shared') : false;
+  }
+
+  get adminEndDateDisplay(): string {
+    if (!this.bookingFormData.endDateTime) return '';
+    const d = new Date(this.bookingFormData.endDateTime);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().split('T')[0];
   }
 
   generateAdminMeetingSlots() {
@@ -670,74 +937,268 @@ export class Manage implements OnInit {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
+    this.selectedAdminCapacity = null;
     this.adminMeetingDate = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
+    this.adminStartDate = '';
+    this.adminMonths = 1;
     this.bookingFormData.startDateTime = '';
     this.bookingFormData.endDateTime   = '';
+
+    if (this.isAdminPrivateRoom) {
+      this.updateAvailableAdminCapacities();
+    }
     this.applyBookingSpaceFilter();
   }
 
-  recalcAmount() {
-    const { spaceId, startDateTime, endDateTime } = this.bookingFormData;
-    if (!spaceId || !startDateTime || !endDateTime) return;
-    const space = this.allSpaces.find((s: any) => s.idGuid === spaceId);
-    if (!space) return;
-    const start = new Date(startDateTime);
-    const end   = new Date(endDateTime);
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
-    const diffMs   = end.getTime() - start.getTime();
-    const diffHours = diffMs / 3_600_000;
-    const diffDays  = diffMs / 86_400_000;
-    const amount = diffDays >= 1
-      ? Math.ceil(diffDays) * Number(space.pricePerDay ?? 0)
-      : Math.ceil(diffHours) * Number(space.pricePerHour ?? 0);
-    // Look up security deposit from spaceConfigItems by space type name
-    const typeName = (space.spaceTypeName || space.SpaceTypeName || '').trim().toLowerCase();
-    const configMatch = this.spaceConfigItems().find(
-      (c: any) => typeName.startsWith((c.spaceCategory || '').trim().toLowerCase())
+  onAdminCapacityChange() {
+    this.bookingFormData.spaceId = '';
+    this.bookingFormData.totalAmount = null;
+    this.applyBookingSpaceFilter();
+    this.recalcAmount();
+  }
+
+  onAdminMonthPeriodChange() {
+    if (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1) {
+      this.bookingFormData.startDateTime = '';
+      this.bookingFormData.endDateTime   = '';
+      this.recalcAmount();
+      return;
+    }
+    const start = new Date(`${this.adminStartDate}T00:00:00`);
+    if (isNaN(start.getTime())) {
+      this.bookingFormData.startDateTime = '';
+      this.bookingFormData.endDateTime   = '';
+      this.recalcAmount();
+      return;
+    }
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + Number(this.adminMonths));
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const startIso = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T00:00:00`;
+    const endIso   = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T00:00:00`;
+
+    this.bookingFormData.startDateTime = startIso;
+    this.bookingFormData.endDateTime   = endIso;
+    this.recalcAmount();
+  }
+
+  getSpacePrice(space: any): { hourly: number; daily: number; monthly: number } {
+    let hourly  = Number(space?.pricePerHour ?? space?.PricePerHour ?? space?.seatPrice ?? space?.SeatPrice ?? 0);
+    let daily   = Number(space?.pricePerDay ?? space?.PricePerDay ?? space?.seatPrice ?? space?.SeatPrice ?? 0);
+    let monthly = Number(space?.pricePerMonth ?? space?.PricePerMonth ?? space?.pricePerDay ?? space?.PricePerDay ?? space?.seatPrice ?? space?.SeatPrice ?? space?.price ?? space?.Price ?? 0);
+
+    const typeName = (space?.spaceTypeName || space?.SpaceTypeName || '').trim().toLowerCase();
+    const cfg = this.spaceConfigItems().find((c: any) =>
+      (c.spaceCategory || '').trim().toLowerCase() === typeName ||
+      typeName.startsWith((c.spaceCategory || '').trim().toLowerCase()) ||
+      String(c.spaceTypeId) === String(space?.spaceTypeId)
     );
-    this.securityDeposit = configMatch ? Number(configMatch.securityDeposit ?? 0) : 0;
-    this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(amount.toFixed(2)) };
+
+    if (cfg) {
+      if (!hourly  && cfg.pricePerHour)  hourly  = Number(cfg.pricePerHour);
+      if (!daily   && cfg.pricePerDay)   daily   = Number(cfg.pricePerDay);
+      if (!monthly && cfg.pricePerMonth) monthly = Number(cfg.pricePerMonth);
+    }
+
+    if (typeName.includes('private')) {
+      if (!monthly) monthly = 35000;
+    } else if (typeName.includes('shared')) {
+      if (!monthly) monthly = 30000;
+    } else if (typeName.includes('conference')) {
+      if (!daily)   daily  = 20000;
+      if (!hourly)  hourly = 20000;
+    } else if (typeName.includes('meeting')) {
+      if (!hourly)  hourly = 6000;
+    }
+
+    return { hourly, daily, monthly };
+  }
+
+  recalcAmount() {
+    const { spaceId } = this.bookingFormData;
+    if (!spaceId) {
+      this.bookingFormData.totalAmount = null;
+      this.securityDeposit = 0;
+      return;
+    }
+    const space = this.allSpaces.find((s: any) =>
+      String(s.idGuid ?? '') === String(spaceId) ||
+      String(s.id ?? '') === String(spaceId)
+    );
+    if (!space) return;
+
+    const { hourly, daily, monthly } = this.getSpacePrice(space);
+
+    if (this.isAdminMeetingRoom) {
+      const { startDateTime, endDateTime } = this.bookingFormData;
+      if (!startDateTime || !endDateTime) return;
+      const start = new Date(startDateTime);
+      const end   = new Date(endDateTime);
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
+      const diffMs   = end.getTime() - start.getTime();
+      const diffHours = diffMs / 3_600_000;
+      const rate = hourly > 0 ? hourly : (daily > 0 ? daily : (monthly > 0 ? monthly : 0));
+      const amount = Math.ceil(diffHours) * rate;
+
+      this.securityDeposit = 0;
+      this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(amount.toFixed(2)) };
+    } else {
+      if (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1) return;
+      const rate = monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0));
+
+      if (this.isAdminPrivateRoom) {
+        const capacity = this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : Number(space.capacity ?? 1);
+        const oneMonthRentOfRoom = rate * capacity;
+        const totalRent = oneMonthRentOfRoom * Number(this.adminMonths);
+        this.securityDeposit = parseFloat(oneMonthRentOfRoom.toFixed(2));
+        this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(totalRent.toFixed(2)) };
+      } else {
+        // Shared Space — no security deposit
+        const totalRent = rate * Number(this.adminMonths);
+        this.securityDeposit = 0;
+        this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(totalRent.toFixed(2)) };
+      }
+    }
   }
 
   submitAdminBooking() {
     this.bookingFormSaving.set(true);
     this.bookingFormError = '';
 
+    if (!this.selectedCustomer) {
+      this.bookingFormError = 'Please select a customer.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (!this.selectedSpaceTypeId) {
+      this.bookingFormError = 'Please select space type.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (this.isAdminPrivateRoom && !this.selectedAdminCapacity) {
+      this.bookingFormError = 'Please select room capacity.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (!this.bookingFormData.spaceId) {
+      this.bookingFormError = 'Please select a space.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
     if (this.isAdminMeetingRoom && this.adminSelectedSlots.size === 0) {
       this.bookingFormError = 'Please select at least one time slot.';
       this.bookingFormSaving.set(false);
       return;
     }
+    if (!this.isAdminMeetingRoom && (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1)) {
+      this.bookingFormError = 'Please specify start date and number of months.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+
+    if (!this.bookingFormData.totalAmount || this.bookingFormData.totalAmount <= 0) {
+      this.recalcAmount();
+    }
 
     const u = this.selectedCustomer;
 
+    const targetSpace = this.allSpaces.find((s: any) =>
+      String(s.idGuid ?? '') === String(this.bookingFormData.spaceId) ||
+      String(s.id ?? '') === String(this.bookingFormData.spaceId)
+    );
+
+    const numericSpaceId = targetSpace?.id
+      ? Number(targetSpace.id)
+      : (!isNaN(Number(this.bookingFormData.spaceId)) ? Number(this.bookingFormData.spaceId) : 0);
+
+    const spaceGuidStr = targetSpace?.idGuid
+      ? String(targetSpace.idGuid)
+      : String(this.bookingFormData.spaceId);
+
     const doCreate = () => {
+      const nameParts = (u.fullName || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name || this.bookingFormData.customerName || '').trim().split(' ');
+      const customerFirstName = nameParts[0] || 'Customer';
+      const customerLastName = nameParts.slice(1).join(' ') || '';
+      const currentAdminId = Number((this.auth.user() as any)?.id || (this.auth.user() as any)?.userId || 1);
+      const bookingUserId = Number(u.userId || u.id || 0) || currentAdminId;
+
       const payload = {
-        ...this.bookingFormData,
-        userId: 0,
+        userId: bookingUserId,
+        spaceId: numericSpaceId,
+        pricingId: 0,
+        startOn: this.bookingFormData.startDateTime,
+        endOn: this.bookingFormData.endDateTime,
+        startDateTime: this.bookingFormData.startDateTime,
+        endDateTime: this.bookingFormData.endDateTime,
+        notes: this.bookingFormData.notes || null,
+        createdById: currentAdminId,
+        userEmail: u.email || this.bookingFormData.customerEmail || null,
+        customerEmail: u.email || this.bookingFormData.customerEmail || null,
+        customerFirstName,
+        customerLastName,
+        customerPhone: u.phoneNumber || u.phone || this.bookingFormData.phone || null,
+        customerCnic: u.cnicOrPassport || this.bookingFormData.cnicOrPassport || null,
+        customerAddress: u.address || this.bookingFormData.address || null,
+        customerCityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : (u.cityId ? Number(u.cityId) : null),
+        customerNotes: this.bookingFormData.notes || null,
+        // Compatibility properties
+        spaceIdGuid: spaceGuidStr,
         userIdGuid: u.idGUID ?? u.idGuid ?? String(u.id ?? ''),
-        spaceId: 0,
-        spaceIdGuid: this.bookingFormData.spaceId,
-        customerEmail: u.email || this.bookingFormData.customerEmail,
-        cityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : undefined,
+        customerCode: u.customerCode || u.code || '',
+        customerName: `${customerFirstName} ${customerLastName}`.trim(),
+        totalAmount: this.bookingFormData.totalAmount,
       };
+
+      console.log('[BOOKING TEST] Creating admin booking with payload:', payload);
+
       this.admin.createAdminBooking(payload).subscribe({
         next: (res: any) => {
+          console.log('[BOOKING TEST] Raw response from createAdminBooking:', res);
+          const d = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data ?? res ?? {}));
+          console.log('[BOOKING TEST] Unwrapped response object d:', d);
+          const errorMsg = d?.errorMessage || d?.ErrorMessage || res?.errorMessage || (res?.isSuccessful === false ? res?.message : null);
+
+          if (errorMsg) {
+            console.error('[BOOKING TEST] Creation returned error message:', errorMsg);
+            this.bookingFormSaving.set(false);
+            this.bookingFormError = errorMsg;
+            return;
+          }
+
           this.bookingFormSaving.set(false);
           this.showBookingForm = false;
-          const bookingId = res?.data?.id ?? res?.data?.bookingId ?? res?.id ?? null;
-          const space = this.allSpaces.find((s: any) => s.idGuid === payload.spaceId);
-          const challanNumber = res?.data?.challanNumber ?? null;
-          const validity      = res?.data?.validity ?? null;
-          const details: any[] = Array.isArray(res?.data?.bookingDetails) && res.data.bookingDetails.length
-            ? res.data.bookingDetails
-            : [
-                { feeType: 'RoomRent', amount: payload.totalAmount ?? 0 },
-                ...(this.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.securityDeposit }] : [])
-              ];
-          const totalAmount = details.reduce((s: number, l: any) => s + (l.amount ?? l.Amount ?? 0), 0);
+
+          const bookingId = d.bookingId ?? d.BookingId ?? d.id ?? d.Id ?? null;
+          const space = targetSpace || this.allSpaces.find((s: any) => String(s.id) === String(payload.spaceId) || String(s.idGuid) === String(payload.spaceIdGuid));
+
+          const challanNumber = d.challanNumber
+            ?? d.ChallanNumber
+            ?? d.challanNo
+            ?? d.ChallanNo
+            ?? d.code
+            ?? (bookingId ? `WN-CH-${String(bookingId).padStart(6, '0')}` : null);
+
+          const validity = d.challanValidUntil
+            ?? d.ChallanValidUntil
+            ?? d.validity
+            ?? d.Validity
+            ?? d.validityDate
+            ?? null;
+
+          const details: any[] = Array.isArray(d.bookingDetails) && d.bookingDetails.length
+            ? d.bookingDetails
+            : (Array.isArray(d.BookingDetails) && d.BookingDetails.length
+              ? d.BookingDetails
+              : [
+                  { feeType: 'RoomRent', amount: payload.totalAmount ?? 0 },
+                  ...(this.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.securityDeposit }] : [])
+                ]);
+
+          const totalAmount = details.reduce((s: number, l: any) => s + (l.amount ?? l.Amount ?? 0), 0) || ((payload.totalAmount ?? 0) + (this.securityDeposit ?? 0));
+
           const receipt = {
             bookingId,
             challanNumber,
@@ -745,24 +1206,59 @@ export class Manage implements OnInit {
             customerName: payload.customerName,
             customerEmail: payload.customerEmail,
             customerCode: payload.customerCode,
-            spaceName: space ? `${space.name} (${space.code ?? ''})` : payload.spaceId,
+            spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
             locationName: space?.locationName ?? '',
             spaceTypeName: space?.spaceTypeName ?? '',
             startDateTime: payload.startDateTime,
             endDateTime: payload.endDateTime,
             bookingDetails: details,
+            securityDeposit: this.securityDeposit,
             totalAmount,
             notes: payload.notes,
             createdAt: new Date().toISOString(),
           };
+
+          const createdBookingObj = {
+            id: bookingId,
+            bookingId: bookingId,
+            bookingPublicId: d.bookingPublicId || d.publicId,
+            userEmail: payload.customerEmail,
+            userName: payload.customerName,
+            customerName: payload.customerName,
+            customerEmail: payload.customerEmail,
+            spaceId: numericSpaceId,
+            spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
+            spaceTypeName: space?.spaceTypeName ?? '',
+            locationName: space?.locationName ?? '',
+            startOn: payload.startDateTime,
+            endOn: payload.endDateTime,
+            startDateTime: payload.startDateTime,
+            endDateTime: payload.endDateTime,
+            challanNumber: challanNumber,
+            challanValidUntil: validity,
+            bookingStatus: 'Confirmed',
+            bookingStatusLabel: 'Confirmed',
+            bookingStatusCode: 'Confirmed',
+            bookedOn: new Date().toISOString(),
+          };
+
           this.adminBookingReceipt.set(receipt);
           this.challanData.set(receipt);
           this.showChallanModal = true;
-          this.load();
+          this.items.update(curr => [createdBookingObj, ...curr]);
+          this.page.set(1);
+          this.load(() => {
+            if (bookingId) {
+              this.items.update(curr => {
+                const exists = curr.some((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '') === String(bookingId));
+                return exists ? curr : [createdBookingObj, ...curr];
+              });
+            }
+          });
         },
-        error: (e: any) => {
+        error: (err: any) => {
           this.bookingFormSaving.set(false);
-          this.bookingFormError = e?.error?.message ?? 'Failed to create booking.';
+          this.bookingFormError = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
         }
       });
     };
@@ -784,16 +1280,47 @@ export class Manage implements OnInit {
     }
   }
 
-  private load() {
+  private load(cb?: () => void) {
     this.loading.set(true);
     this.config.getFn(this.page(), this.pageSize, this.searchQuery).subscribe({
       next: (res: any) => {
-        const data = Array.isArray(res) ? res : (res?.data ?? []);
-        this.items.set(data);
-        this.totalCount.set(res?.total ?? data.length);
+        if (this.entity === 'bookings') {
+          console.log('[BOOKING TEST] getBookings raw response:', res);
+        }
+        let data = Array.isArray(res) ? res
+          : Array.isArray(res?.data) ? res.data
+          : Array.isArray(res?.data?.items) ? res.data.items
+          : Array.isArray(res?.items) ? res.items
+          : Array.isArray(res?.data?.bookings) ? res.data.bookings
+          : Array.isArray(res?.bookings) ? res.bookings
+          : (res?.data ?? []);
+
+        // Merge API data with any locally created admin bookings not yet returned by backend API
+        this.items.update(currentItems => {
+          const backendIds = new Set(data.map((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '')));
+          const localOnly = currentItems.filter((x: any) => {
+            const id = String(x.bookingId ?? x.id ?? x.BookingId ?? '');
+            return id && !backendIds.has(id);
+          });
+          const merged = [...localOnly, ...data].sort((a: any, b: any) => {
+            const idA = Number(a.id ?? a.bookingId ?? a.Id ?? a.BookingId ?? 0);
+            const idB = Number(b.id ?? b.bookingId ?? b.Id ?? b.BookingId ?? 0);
+            if (idA && idB) return idB - idA;
+            const dateA = new Date(a.createdOn || a.createdAt || a.startDateTime || a.startOn || a.bookedOn || 0).getTime();
+            const dateB = new Date(b.createdOn || b.createdAt || b.startDateTime || a.startOn || a.bookedOn || 0).getTime();
+            return dateB - dateA;
+          });
+          return merged;
+        });
+
+        this.totalCount.set(res?.total ?? res?.totalCount ?? res?.data?.total ?? res?.data?.totalCount ?? this.items().length);
         this.loading.set(false);
+        if (cb) cb();
       },
-      error: () => this.loading.set(false)
+      error: () => {
+        this.loading.set(false);
+        if (cb) cb();
+      }
     });
   }
 
@@ -801,7 +1328,66 @@ export class Manage implements OnInit {
   prevPage() { if (this.canPrev()) { this.page.update(p => p - 1); this.load(); } }
   nextPage() { if (this.canNext()) { this.page.update(p => p + 1); this.load(); } }
 
-  getCellValue(item: any, col: ColDef): any { return item[col.key] ?? ''; }
+  getCellValue(item: any, col: ColDef): any {
+    if (!item) return '';
+
+    if (this.entity === 'bookings') {
+      if (col.key === 'userEmail') {
+        return item.customerEmail || item.userEmail || item.customerName || item.CustomerEmail || item.UserEmail || item.CustomerName || item.userId || '-';
+      }
+      if (col.key === 'spaceName') {
+        return item.spaceName || item.SpaceName || item.spaceCode || item.SpaceCode || (item.spaceId || item.SpaceId ? `Space ${item.spaceId || item.SpaceId}` : '-');
+      }
+      if (col.key === 'startOn') {
+        return item.startOn || item.StartOn || item.startDateTime || item.StartDateTime || '';
+      }
+      if (col.key === 'endOn') {
+        return item.endOn || item.EndOn || item.endDateTime || item.EndDateTime || '';
+      }
+      if (col.key === 'billingPeriodLabel') {
+        return item.billingPeriodLabel || item.billingPeriod || item.BillingPeriod || item.spaceCategory || item.SpaceCategory || '-';
+      }
+      if (col.key === 'bookingStatusLabel') {
+        const st = item.bookingStatusLabel || item.bookingStatus || item.BookingStatus || item.status || item.Status;
+        if (typeof st === 'number') {
+          const statusNames: Record<number, string> = { 1: 'Confirmed', 2: 'Pending', 3: 'Cancelled', 4: 'Completed' };
+          return statusNames[st] || 'Confirmed';
+        }
+        return st || 'Confirmed';
+      }
+      if (col.key === 'challanNumber') {
+        return item.challanNumber || item.ChallanNumber || item.challanNo || item.ChallanNo || item.code || '-';
+      }
+      if (col.key === 'totalAmount') {
+        const directVal = item.totalAmount ?? item.TotalAmount ?? item.rentAmount ?? item.RentAmount ?? item.amount ?? item.Amount;
+        if (directVal != null && directVal > 0) return Number(directVal);
+
+        const secDeposit = Number(item.securityDeposit ?? item.SecurityDeposit ?? 0);
+        const seatPrice = Number(item.seatPrice ?? item.SeatPrice ?? 0);
+        const capacity = Number(item.spaceCapacity ?? item.SpaceCapacity ?? item.capacity ?? 1);
+        const cat = (item.spaceTypeName || item.spaceCategory || item.billingPeriodCode || '').toLowerCase();
+        const isPrivate = cat.includes('private');
+
+        if (seatPrice > 0) {
+          return (isPrivate ? seatPrice * capacity : seatPrice) + secDeposit;
+        }
+
+        const roomPrice = Number(item.roomPrice ?? item.RoomPrice ?? 0);
+        if (roomPrice > 0) {
+          return (isPrivate ? roomPrice : (roomPrice / (capacity || 1))) + secDeposit;
+        }
+
+        if (isPrivate) return (35000 * capacity) + (35000 * capacity);
+        if (cat.includes('shared') || cat.includes('co-working')) return 30000;
+        if (cat.includes('conference')) return 20000;
+        if (cat.includes('meeting')) return 6000;
+
+        return 0;
+      }
+    }
+
+    return item[col.key] ?? '';
+  }
 
   openCreate() {
     this.editItem = null; this.formData = {}; this.error = ''; this.showModal = true;
@@ -1315,6 +1901,7 @@ export class Manage implements OnInit {
           { key: 'code',          label: 'Code' },
           { key: 'locationName',  label: 'Location' },
           { key: 'spaceTypeName', label: 'Type' },
+          { key: 'capacity',      label: 'Capacity' },
           { key: 'pricePerDay',   label: 'Price', type: 'space-prices' },
           { key: 'status',        label: 'Status', type: 'status' },
           { key: 'imageUrl',      label: 'Image', type: 'image' },
@@ -1322,6 +1909,7 @@ export class Manage implements OnInit {
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'code', label: 'Code', type: 'text' },
+          { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'locationId', label: 'Location', type: 'select', options: this.locationOptions },
           { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions },
           { key: 'pricePerHour', label: this.lbl('Space', 'pricePerHour'), type: 'number' },
@@ -1346,13 +1934,13 @@ export class Manage implements OnInit {
       case 'bookings': return {
         title: 'Bookings',
         columns: [
-          { key: 'userEmail', label: 'User' },
+          { key: 'userEmail', label: 'Customer / User' },
           { key: 'spaceName', label: 'Space' },
-          { key: 'startOn', label: 'Start', type: 'date' },
-          { key: 'endOn', label: 'End', type: 'date' },
-          { key: 'billingPeriodLabel', label: 'Billing' },
-          { key: 'bookingStatusLabel', label: 'Status', type: 'status' },
+          { key: 'startOn', label: 'Start Date', type: 'datetime' },
+          { key: 'endOn', label: 'End Date', type: 'datetime' },
+          { key: 'totalAmount', label: 'Amount (PKR)', type: 'currency' },
           { key: 'challanNumber', label: 'Challan' },
+          { key: 'bookingStatusLabel', label: 'Status', type: 'booking-status' },
         ],
         fields: [
           { key: 'spaceId', label: 'Space', type: 'select', options: this.spaceOptions },
@@ -1360,7 +1948,7 @@ export class Manage implements OnInit {
           { key: 'endDateTime', label: 'End Date & Time', type: 'datetime-local' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
-        getFn: (p, l, s) => this.admin.getBookings(p, l, s),
+        getFn: (p, l, s) => this.admin.getBookings(1, 1000, s),
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
         statusOptions: ['Confirmed', 'Cancelled', 'Completed'],

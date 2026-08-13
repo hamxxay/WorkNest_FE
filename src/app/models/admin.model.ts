@@ -64,6 +64,7 @@ export interface Space {
   locationName?: string;
   spaceTypeName?: string;
   code?: string;
+  capacity?: number;
   pricePerHour?: number;
   pricePerDay?: number;
   status?: string;

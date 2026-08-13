@@ -50,13 +50,20 @@ const CATEGORY_CODE_MAP: Record<string, string> = {
 };
 
 const CATEGORY_MAP: Record<string, string> = {
-  'shared space': 'Shared', 'co-working space': 'Shared', 'coworking': 'Shared',
-  'private office': 'Private', 'private room': 'Private',
-  'meeting room': 'Meeting', 'conference room': 'Meeting',
+  'shared space': 'Shared', 'co-working space': 'Shared', 'coworking': 'Shared', 'shared': 'Shared',
+  'private office': 'Private', 'private room': 'Private', 'private': 'Private',
+  'meeting room': 'Meeting', 'conference room': 'Meeting', 'meeting/conference room': 'Meeting',
+  'meeting / conference room': 'Meeting', 'meeting/conference': 'Meeting', 'meeting': 'Meeting', 'conference': 'Meeting'
 };
 
 function getCategory(spaceTypeName: string): string {
-  return CATEGORY_MAP[spaceTypeName.toLowerCase()] ?? 'Shared';
+  if (!spaceTypeName) return 'Shared';
+  const name = spaceTypeName.toLowerCase().trim();
+  if (CATEGORY_MAP[name]) return CATEGORY_MAP[name];
+  if (name.includes('meeting') || name.includes('conference')) return 'Meeting';
+  if (name.includes('private') || name.includes('office')) return 'Private';
+  if (name.includes('shared') || name.includes('working') || name.includes('desk')) return 'Shared';
+  return 'Shared';
 }
 
 // Convert PascalCase/camelCase → spaced words: "PrivateOffice" → "Private Office"
@@ -104,14 +111,20 @@ export class Booking implements OnInit {
 
   filteredWorkspaces = computed(() => {
     const query    = this.workspaceType().toLowerCase();
-    const search   = this.searchQuery().toLowerCase();
+    const search   = this.searchQuery().toLowerCase().trim();
     const location = this.locationFilter().toLowerCase();
     const cat      = this.categoryFilter();
     const capFilter = this.privateCapacityFilter();
     return this.workspaces().filter(ws => {
-      const matchSearch   = !search   || ws.name.toLowerCase().includes(search) || ws.locationName.toLowerCase().includes(search);
-      const matchType     = !query    || ws.spaceTypeName.toLowerCase().includes(query);
-      const matchLocation = !location || ws.locationName.toLowerCase() === location;
+      const matchSearch = !search ||
+        (ws.name || '').toLowerCase().includes(search) ||
+        (ws.locationName || '').toLowerCase().includes(search) ||
+        (ws.spaceTypeName || '').toLowerCase().includes(search) ||
+        (ws.companyName || '').toLowerCase().includes(search) ||
+        (ws.code || '').toLowerCase().includes(search) ||
+        (ws.floor || '').toLowerCase().includes(search);
+      const matchType     = !query    || (ws.spaceTypeName || '').toLowerCase().includes(query);
+      const matchLocation = !location || (ws.locationName || '').toLowerCase() === location;
       const matchCat      = !cat      || getCategory(ws.spaceTypeName) === cat;
       const matchCap      = !capFilter || cat !== 'Private' || ws.capacity === capFilter;
       return matchSearch && matchType && matchLocation && matchCat && matchCap;

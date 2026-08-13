@@ -15,7 +15,7 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, catchError, of } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage } from '../models/admin.model';
 
@@ -28,11 +28,8 @@ export class AdminService {
   constructor(private http: HttpClient) {}
 
   // ============= USER MANAGEMENT =============
-  
-  /**
-   * Get users with optional pagination and search filtering.
-   * Backend should honor page, limit and search query parameters.
-   */
+
+  /** Get paginated list of users */
   getUsers(page?: number, limit?: number, search?: string): Observable<ApiResponse<User[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
@@ -42,35 +39,45 @@ export class AdminService {
     return this.http.get<ApiResponse<User[]>>(`${this.api}/user${qs}`);
   }
   
-  /** Get a specific user by ID */
+  /** Get user details by ID */
   getUserById(id: string): Observable<ApiResponse<User>> { return this.http.get<ApiResponse<User>>(`${this.api}/user/${id}`); }
 
-  /** Get full booking/payment history for a user */
+  /** Get complete user activity history (bookings + payments + stats) */
   getUserHistory(id: string): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/user/${id}/history`); }
-  
-  /** Create a new user */
-  createUser(data: Partial<User>): Observable<ApiResponse<User>> { return this.http.post<ApiResponse<User>>(`${this.api}/user`, data); }
-  
-  /** Update an existing user */
-  updateUser(id: string, data: Partial<User>): Observable<ApiResponse<User>> { return this.http.put<ApiResponse<User>>(`${this.api}/user/${id}`, data); }
-  
-  /** Delete a user */
-  deleteUser(id: string): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/user/${id}`); }
-  
-  /** Activate a user account */
-  activateUser(id: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/user/${id}/activate`, {}); }
-  
-  /** Deactivate a user account */
-  deactivateUser(id: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/user/${id}/deactivate`, {}); }
 
-  /** Update user role */
-  updateUserRole(id: string, role: string): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/user/${id}/role`, { role }); }
+  /** Update user details (for superadmin editing user details) */
+  updateUser(id: string, data: Partial<User>): Observable<ApiResponse<User>> {
+    return this.http.put<ApiResponse<User>>(`${this.api}/user/${id}`, data);
+  }
+
+  /** Activate a deactivated user */
+  activateUser(id: string): Observable<ApiResponse<void>> {
+    return this.http.patch<ApiResponse<void>>(`${this.api}/user/${id}/activate`, {});
+  }
+
+  /** Deactivate an active user */
+  deactivateUser(id: string): Observable<ApiResponse<void>> {
+    return this.http.patch<ApiResponse<void>>(`${this.api}/user/${id}/deactivate`, {});
+  }
+
+  /** Update a user's role (SuperAdmin only) */
+  updateUserRole(userId: string, role: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/user/${userId}/role`, { role });
+  }
+
+  /** Create user (SuperAdmin only) */
+  createUser(data: any): Observable<ApiResponse<User>> {
+    return this.http.post<ApiResponse<User>>(`${this.api}/user`, data);
+  }
+
+  /** Delete user (SuperAdmin only) */
+  deleteUser(id: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.api}/user/${id}`);
+  }
 
   // ============= LOCATION MANAGEMENT =============
-  
-  /**
-   * List locations with pagination/search support.
-   */
+
+  /** Get paginated list of locations */
   getLocations(page?: number, limit?: number, search?: string): Observable<ApiResponse<Location[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
@@ -79,19 +86,25 @@ export class AdminService {
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Location[]>>(`${this.api}/location${qs}`);
   }
-  
-  /** Create a new location */
-  createLocation(data: Partial<Location>): Observable<ApiResponse<Location>> { return this.http.post<ApiResponse<Location>>(`${this.api}/location`, data); }
-  
-  /** Update location details */
-  updateLocation(id: number, data: Partial<Location>): Observable<ApiResponse<Location>> { return this.http.put<ApiResponse<Location>>(`${this.api}/location/${id}`, data); }
-  
-  /** Delete a location */
-  deleteLocation(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/location/${id}`); }
+
+  /** Create location */
+  createLocation(data: Partial<Location>): Observable<ApiResponse<Location>> {
+    return this.http.post<ApiResponse<Location>>(`${this.api}/location`, data);
+  }
+
+  /** Update location */
+  updateLocation(id: number, data: Partial<Location>): Observable<ApiResponse<Location>> {
+    return this.http.put<ApiResponse<Location>>(`${this.api}/location/${id}`, data);
+  }
+
+  /** Delete location */
+  deleteLocation(id: number): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.api}/location/${id}`);
+  }
 
   // ============= SPACE TYPE MANAGEMENT =============
-  
-  /** List space types with optional paging/search. */
+
+  /** Get paginated list of space types */
   getSpaceTypes(page?: number, limit?: number, search?: string): Observable<ApiResponse<SpaceType[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
@@ -100,19 +113,25 @@ export class AdminService {
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<SpaceType[]>>(`${this.api}/spacetype${qs}`);
   }
-  
-  /** Create a new space type */
-  createSpaceType(data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> { return this.http.post<ApiResponse<SpaceType>>(`${this.api}/spacetype`, data); }
-  
+
+  /** Create space type */
+  createSpaceType(data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> {
+    return this.http.post<ApiResponse<SpaceType>>(`${this.api}/spacetype`, data);
+  }
+
   /** Update space type */
-  updateSpaceType(id: number, data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> { return this.http.put<ApiResponse<SpaceType>>(`${this.api}/spacetype/${id}`, data); }
-  
+  updateSpaceType(id: number, data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> {
+    return this.http.put<ApiResponse<SpaceType>>(`${this.api}/spacetype/${id}`, data);
+  }
+
   /** Delete space type */
-  deleteSpaceType(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/spacetype/${id}`); }
+  deleteSpaceType(id: number): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.api}/spacetype/${id}`);
+  }
 
   // ============= SPACE MANAGEMENT =============
-  
-  /** Retrieve spaces with pagination/search. */
+
+  /** Get paginated list of spaces */
   getSpaces(page?: number, limit?: number, search?: string): Observable<ApiResponse<Space[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
@@ -122,32 +141,38 @@ export class AdminService {
     return this.http.get<ApiResponse<Space[]>>(`${this.api}/space${qs}`);
   }
 
+  /** Get vacant spaces list */
   getVacantSpaces(branchId?: number): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant`);
+    const qs = branchId ? `?branchId=${branchId}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/space/vacant${qs}`);
   }
 
-  /** Get a specific space by ID (full details with relation IDs) */
-  getSpaceById(id: number): Observable<ApiResponse<any>> {
+  /** Get space by ID */
+  getSpaceById(id: string): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/space/${id}`);
   }
-  
-  /** Create a new space (desk, office, etc.) */
-  createSpace(data: Partial<Space>): Observable<ApiResponse<Space>> { return this.http.post<ApiResponse<Space>>(`${this.api}/space`, data); }
-  
-  /** Update space details */
-  updateSpace(id: number, data: Partial<Space>): Observable<ApiResponse<Space>> { return this.http.put<ApiResponse<Space>>(`${this.api}/space/${id}`, data); }
-  
-  /** Delete a space */
-  deleteSpace(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/space/${id}`); }
 
-  /** Get space reservation summary */
+  /** Create space */
+  createSpace(data: Partial<Space>): Observable<ApiResponse<Space>> {
+    return this.http.post<ApiResponse<Space>>(`${this.api}/space`, data);
+  }
+
+  /** Update space */
+  updateSpace(id: number, data: Partial<Space>): Observable<ApiResponse<Space>> {
+    return this.http.put<ApiResponse<Space>>(`${this.api}/space/${id}`, data);
+  }
+
+  /** Delete space */
+  deleteSpace(id: number | string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.api}/space/${id}`);
+  }
+
+  /** Get detailed summary for a specific space */
   getSpaceSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/space/${id}/summary`); }
 
   // ============= BOOKING MANAGEMENT =============
-  
-  /**
-   * List bookings; allows paging/search as well, even if not used in UI yet.
-   */
+
+  /** Get paginated list of bookings */
   getBookings(page?: number, limit?: number, search?: string): Observable<ApiResponse<Booking[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
