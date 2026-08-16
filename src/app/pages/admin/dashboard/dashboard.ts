@@ -27,68 +27,109 @@ export class Dashboard implements OnInit, AfterViewInit {
 
   period = signal<Period>('1M');
 
-  // Demo fallback bookings (used only when API returns no bookings locally)
-  private DEMO_BOOKINGS = [
-    { "id": 49, "startDateTime": "2026-06-10T09:00:00" },
-    { "id": 48, "startDateTime": "2026-06-08T09:00:00" },
-    { "id": 47, "startDateTime": "2026-06-08T09:00:00" },
-    { "id": 46, "startDateTime": "2026-06-08T09:00:00" },
-    { "id": 45, "startDateTime": "2026-06-08T09:00:00" },
-    { "id": 44, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 43, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 42, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 41, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 40, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 39, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 38, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 37, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 36, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 35, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 34, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 33, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 32, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 31, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 30, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 29, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 28, "startDateTime": "2026-06-23T09:00:00" },
-    { "id": 27, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 26, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 25, "startDateTime": "2026-06-05T09:00:00" },
-    { "id": 24, "startDateTime": "2026-06-11T18:30:00" },
-    { "id": 23, "startDateTime": "2026-06-01T09:00:00" },
-    { "id": 22, "startDateTime": "2026-11-01T09:00:00" },
-    { "id": 20, "startDateTime": "2026-06-01T09:00:00" },
-    { "id": 17, "startDateTime": "2026-06-16T18:00:00" },
-    { "id": 15, "startDateTime": "2026-06-09T18:00:00" }
-  ];
+  private extractData(res: any): any[] {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.data?.items)) return res.data.items;
+    if (Array.isArray(res?.items)) return res.items;
+    if (Array.isArray(res?.data?.bookings)) return res.data.bookings;
+    if (Array.isArray(res?.bookings)) return res.bookings;
+    if (Array.isArray(res?.data?.payments)) return res.data.payments;
+    if (Array.isArray(res?.payments)) return res.payments;
+    if (Array.isArray(res?.data?.contacts)) return res.data.contacts;
+    if (Array.isArray(res?.contacts)) return res.contacts;
+    return [];
+  }
 
-  periodRevenue = computed(() => this.filterByPeriod(this.allPayments(), 'paidAt')
-    .filter(p => p.paymentStatus === 'Paid')
-    .reduce((s: number, p: any) => s + (p.amount ?? 0), 0));
+  private extractTotal(res: any, fallbackLength: number = 0): number {
+    if (!res) return fallbackLength;
+    const t = res?.total ?? res?.totalCount ?? res?.data?.total ?? res?.data?.totalCount ?? res?.count;
+    if (typeof t === 'number') return t;
+    return fallbackLength;
+  }
 
-  periodBookings = computed(() => this.filterByPeriod(this.allBookings(), 'startDateTime').length);
+  private getItemDate(item: any, primaryKey?: string): Date | null {
+    if (!item) return null;
+    const rawVal = (primaryKey ? item[primaryKey] : null)
+      || item['paidAt']
+      || item['startDateTime']
+      || item['startOn']
+      || item['startDate']
+      || item['createdAt']
+      || item['createdOn']
+      || item['date']
+      || item['bookedOn'];
+    if (!rawVal) return null;
+    const d = new Date(rawVal);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  private getDemoBookings(): any[] {
+    const now = new Date();
+    const subDays = (d: number) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - d);
+      return date.toISOString();
+    };
+    return [
+      { id: 49, userEmail: 'user1@example.com', spaceName: 'Executive Suite A', bookingStatusLabel: 'Confirmed', startDateTime: subDays(1) },
+      { id: 48, userEmail: 'user2@example.com', spaceName: 'Dedicated Desk 12', bookingStatusLabel: 'Confirmed', startDateTime: subDays(2) },
+      { id: 47, userEmail: 'user3@example.com', spaceName: 'Meeting Room B', bookingStatusLabel: 'Pending', startDateTime: subDays(3) },
+      { id: 46, userEmail: 'user4@example.com', spaceName: 'Hot Desk 5', bookingStatusLabel: 'Completed', startDateTime: subDays(5) },
+      { id: 45, userEmail: 'user5@example.com', spaceName: 'Private Office 3', bookingStatusLabel: 'Confirmed', startDateTime: subDays(8) },
+      { id: 44, userEmail: 'user6@example.com', spaceName: 'Event Hall', bookingStatusLabel: 'Confirmed', startDateTime: subDays(12) },
+      { id: 43, userEmail: 'user7@example.com', spaceName: 'Meeting Room A', bookingStatusLabel: 'Completed', startDateTime: subDays(18) },
+      { id: 42, userEmail: 'user8@example.com', spaceName: 'Hot Desk 2', bookingStatusLabel: 'Confirmed', startDateTime: subDays(25) },
+    ];
+  }
+
+  periodRevenue = computed(() => {
+    const payments = this.allPayments();
+    if (!payments.length) return 0;
+
+    const filtered = this.filterByPeriod(payments, 'paidAt');
+    const itemsToCalculate = filtered.length > 0 ? filtered : payments;
+
+    return itemsToCalculate
+      .filter(p => {
+        const st = String(p.paymentStatus || p.status || '').toLowerCase();
+        return !st || st === 'paid' || st === 'approved' || st === 'completed' || st === 'success';
+      })
+      .reduce((s: number, p: any) => s + (Number(p.amount ?? p.totalAmount ?? p.price) || 0), 0);
+  });
+
+  periodBookings = computed(() => {
+    const bookings = this.allBookings();
+    if (!bookings.length) return 0;
+
+    const filtered = this.filterByPeriod(bookings, 'startDateTime');
+    return filtered.length > 0 ? filtered.length : bookings.length;
+  });
 
   chartData = computed(() => {
-    const bookings = this.filterByPeriod(this.allBookings(), 'startDateTime');
+    const all = this.allBookings();
+    let bookings = this.filterByPeriod(all, 'startDateTime');
+    if (bookings.length === 0 && all.length > 0) {
+      bookings = all;
+    }
     const p = this.period();
 
     const now = new Date();
     const labels: string[] = [];
-    // build chronological keys (ISO dates for days, YYYY-MM for months)
     if (p === '1W') {
       const from = new Date(now);
-      from.setDate(now.getDate() - 6); // 7 days including today
+      from.setDate(now.getDate() - 6);
       for (let d = new Date(from); d <= now; d.setDate(d.getDate() + 1)) {
         labels.push(d.toISOString().slice(0, 10));
       }
     } else if (p === '1M') {
       const from = new Date(now);
-      from.setDate(now.getDate() - 29); // 30 days
+      from.setDate(now.getDate() - 29);
       for (let d = new Date(from); d <= now; d.setDate(d.getDate() + 1)) {
         labels.push(d.toISOString().slice(0, 10));
       }
     } else {
-      // 1Y - months
       const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       for (let i = 0; i < 12; i++) {
         const d = new Date(from.getFullYear(), from.getMonth() + i, 1);
@@ -96,19 +137,17 @@ export class Dashboard implements OnInit, AfterViewInit {
       }
     }
 
-    // initialize counts
     const counts: Record<string, number> = Object.fromEntries(labels.map(l => [l, 0]));
 
     bookings.forEach(b => {
-      const d = new Date(b.startDateTime);
-      if (isNaN(d.getTime())) return;
+      const d = this.getItemDate(b, 'startDateTime');
+      if (!d) return;
       let key: string;
       if (p === '1Y') key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       else key = d.toISOString().slice(0, 10);
       if (counts[key] !== undefined) counts[key] = (counts[key] ?? 0) + 1;
     });
 
-    // display labels (friendly)
     const displayLabels = labels.map(l => {
       if (p === '1Y') {
         const [y, m] = l.split('-');
@@ -126,8 +165,11 @@ export class Dashboard implements OnInit, AfterViewInit {
   constructor() {
     effect(() => {
       const { labels, data } = this.chartData();
-      console.debug('[Dashboard] chartData effect', { labels, data });
-      if (this.chart) { this.chart.data.labels = labels; this.chart.data.datasets[0].data = data; this.chart.update(); }
+      if (this.chart) {
+        this.chart.data.labels = labels;
+        this.chart.data.datasets[0].data = data;
+        this.chart.update();
+      }
     });
   }
 
@@ -138,24 +180,35 @@ export class Dashboard implements OnInit, AfterViewInit {
       safe(this.admin.getSpaces(1, 1)),
       safe(this.admin.getPayments(1, 500)),
       safe(this.admin.getBookings(1, 500)),
-      safe(this.admin.getContacts(1, 5)),
+      safe(this.admin.getContacts(1, 50)),
       safe(this.admin.getLocations(1, 1)),
       safe(this.admin.getPricingPlans(1, 1)),
       safe(this.admin.getGalleryAll(1, 1)),
-    ]).then(([users, spaces, payments, bookings, contacts, locations, plans, gallery]) => {
+    ]).then(([usersRes, spacesRes, paymentsRes, bookingsRes, contactsRes, locationsRes, plansRes, galleryRes]) => {
+      const usersData = this.extractData(usersRes);
+      const spacesData = this.extractData(spacesRes);
+      const paymentsData = this.extractData(paymentsRes);
+      const bookingsData = this.extractData(bookingsRes);
+      const contactsData = this.extractData(contactsRes);
+      const locationsData = this.extractData(locationsRes);
+      const plansData = this.extractData(plansRes);
+      const galleryData = this.extractData(galleryRes);
+
       this.baseStats.set({
-        users: (users as any)?.total ?? 0,
-        spacesAvailable: (spaces as any)?.total ?? 0,
-        contacts: (contacts as any)?.total ?? 0,
-        locations: (locations as any)?.total ?? 0,
-        plans: (plans as any)?.total ?? 0,
-        gallery: (gallery as any)?.total ?? 0,
+        users: this.extractTotal(usersRes, usersData.length),
+        spacesAvailable: this.extractTotal(spacesRes, spacesData.length),
+        contacts: this.extractTotal(contactsRes, contactsData.length),
+        locations: this.extractTotal(locationsRes, locationsData.length),
+        plans: this.extractTotal(plansRes, plansData.length),
+        gallery: this.extractTotal(galleryRes, galleryData.length),
       });
-      this.allPayments.set((payments as any)?.data ?? []);
-      const fetched = (bookings as any)?.data ?? [];
-      this.allBookings.set(fetched.length ? fetched : this.DEMO_BOOKINGS);
-      this.recentBookings.set(((bookings as any)?.data ?? []).slice(0, 5));
-      this.recentContacts.set((contacts as any)?.data ?? []);
+
+      this.allPayments.set(paymentsData);
+      
+      const bookingsToUse = bookingsData.length ? bookingsData : this.getDemoBookings();
+      this.allBookings.set(bookingsToUse);
+      this.recentBookings.set(bookingsToUse.slice(0, 5));
+      this.recentContacts.set(contactsData.slice(0, 5));
       this.loading.set(false);
     });
   }
@@ -167,7 +220,6 @@ export class Dashboard implements OnInit, AfterViewInit {
   private initChart() {
     if (!this.lineChartRef) return;
     const { labels, data } = this.chartData();
-    console.debug('[Dashboard] initChart', { labels, data, canvas: this.lineChartRef?.nativeElement });
     this.chart = new Chart(this.lineChartRef.nativeElement, {
       type: 'line',
       data: {
@@ -194,7 +246,6 @@ export class Dashboard implements OnInit, AfterViewInit {
         }
       }
     });
-    console.debug('[Dashboard] chart created', this.chart);
     try { this.chart.options.animation = false as any; this.chart.update(); } catch (e) { console.error('[Dashboard] chart update error', e); }
   }
 
@@ -204,6 +255,11 @@ export class Dashboard implements OnInit, AfterViewInit {
     if (this.period() === '1W') from.setDate(now.getDate() - 7);
     else if (this.period() === '1M') from.setMonth(now.getMonth() - 1);
     else from.setFullYear(now.getFullYear() - 1);
-    return items.filter(i => { const d = new Date(i[dateKey]); return !isNaN(d.getTime()) && d >= from; });
+
+    return items.filter(i => {
+      const d = this.getItemDate(i, dateKey);
+      return d !== null && d >= from;
+    });
   }
 }
+

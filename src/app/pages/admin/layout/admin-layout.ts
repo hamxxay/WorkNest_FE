@@ -23,7 +23,9 @@ export class AdminLayout {
     { route: '/admin/spaces',         label: 'Spaces',            icon: 'spaces'          },
     { route: '/admin/bookings',       label: 'Bookings',          icon: 'bookings'        },
     { route: '/admin/pricing',        label: 'Pricing',           icon: 'pricing'         },
+    { route: '/admin/quotations',     label: 'Quotations',        icon: 'pricing'         },
     { route: '/admin/payments',       label: 'Payments',          icon: 'payments'        },
+
     { route: '/admin/contacts',       label: 'Contacts',          icon: 'contacts'        },
     { route: '/admin/gallery',             label: 'Gallery',           icon: 'gallery'                        },
     { route: '/admin/space-configuration',  label: 'Space Config',      icon: 'spaceconfig',  superAdminOnly: true },

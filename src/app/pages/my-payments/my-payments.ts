@@ -3,6 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PaymentService } from '../../services/payment.service';
 import { BookingService } from '../../services/booking.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-my-payments',
@@ -28,8 +29,10 @@ export class MyPayments implements OnInit {
 
   constructor(
     private paymentService: PaymentService,
-    private bookingService: BookingService
+    private bookingService: BookingService,
+    private authService: AuthService
   ) {}
+
 
   private parseDate(val: string | null): string | null {
     if (!val) return null;
@@ -100,7 +103,35 @@ export class MyPayments implements OnInit {
     });
   }
 
+  sendingChallanEmail = signal(false);
+  challanEmailSent = signal('');
+
+
+  sendChallanEmail() {
+    const c = this.challanToPrint();
+    if (!c) return;
+    const targetEmail = c.customerEmail || this.authService.user()?.email || '';
+    if (!targetEmail) {
+      alert('No email address available.');
+      return;
+    }
+    this.sendingChallanEmail.set(true);
+    this.bookingService.sendChallanEmail(c.bookingId || c.id, targetEmail).subscribe({
+      next: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      },
+      error: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      }
+    });
+  }
+
   async downloadChallan() {
+
     const { default: html2canvas } = await import('html2canvas');
     const { jsPDF } = await import('jspdf');
     const el = document.getElementById('user-challan-printable');

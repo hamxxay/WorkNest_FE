@@ -222,8 +222,11 @@
             } @else {
               <div class="slot-grid">
                 @for (slot of meetingSlots; track slot.start) {
-                  <button type="button" class="slot-btn" [class.slot-selected]="isSlotSelected(slot)" (click)="toggleSlot(slot)">
+                  <button type="button" class="slot-btn" [class.slot-selected]="isSlotSelected(slot)" [class.slot-locked]="slot.isLocked" [disabled]="slot.isLocked" (click)="!slot.isLocked && toggleSlot(slot)">
                     {{ slot.label }}
+                    @if (slot.isLocked) {
+                      <span class="slot-locked-tag">Booked</span>
+                    }
                   </button>
                 }
               </div>
@@ -296,10 +299,10 @@
         }
 
         <button type="button" class="btn btn-primary btn-block btn-lg"
-          [disabled]="bookingForm.invalid || availabilityLoading()"
+          [disabled]="bookingForm.invalid || availabilityLoading() || isSpaceFull() || availableCount() === 0"
           (click)="openTncModal()">
           @if (availabilityLoading()) { Checking... }
-          @else if (isSpaceFull()) { No spaces found &mdash; submit anyway }
+          @else if (isSpaceFull() || availableCount() === 0) { No Spaces Available }
           @else { Proceed to Payment }
         </button>
       </form>

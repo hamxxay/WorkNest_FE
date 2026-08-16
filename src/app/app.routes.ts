@@ -25,7 +25,9 @@ export const routes: Routes = [
       { path: 'spaces',      loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spaces' } },
       { path: 'bookings',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'bookings' } },
       { path: 'pricing',     loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'pricing' } },
+      { path: 'quotations',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'quotations' } },
       { path: 'payments',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'payments' } },
+
       { path: 'contacts',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'contacts' } },
       { path: 'gallery',      loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'gallery' } },
       { path: 'space-configuration', loadComponent: () => import('./pages/admin/space-config/space-config').then(m => m.SpaceConfig), canActivate: [superAdminGuard] },

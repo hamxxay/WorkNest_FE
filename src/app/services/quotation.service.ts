@@ -1,0 +1,59 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class QuotationService {
+  private apiUrl = `${environment.apiUrl}/quotation`;
+
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Create a new quotation version
+   */
+  createQuotation(quotation: any): Observable<any> {
+    return this.http.post<any>(this.apiUrl, quotation);
+  }
+
+  /**
+   * Retrieve a quotation by its ID
+   */
+  getQuotationById(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Get paginated list of quotations (admin only)
+   */
+  getQuotations(page: number, limit: number, search?: string): Observable<any> {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    return this.http.get<any>(`${this.apiUrl}?${params.toString()}`);
+  }
+
+  /**
+   * Get version history of quotations for a customer and space
+   */
+  getQuotationHistory(customerId: number, spaceId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/history?customerId=${customerId}&spaceId=${spaceId}`);
+  }
+
+  /**
+   * Email a quotation PDF to the customer
+   */
+  sendQuotationEmail(id: number, email: string, pdfBase64: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${id}/send-email`, { email, pdfBase64 });
+  }
+
+  /**
+   * Convert an approved quotation to a confirmed booking
+   */
+  convertToBooking(id: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${id}/convert`, {});
+  }
+}

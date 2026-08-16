@@ -72,7 +72,7 @@
     </div>
 
     <!-- Analytics Chart -->
-    <!-- <div class="admin-card analytics-card">
+    <div class="admin-card analytics-card">
       <div class="analytics-header">
         <div>
           <h3>Bookings Over Time</h3>
@@ -85,7 +85,7 @@
           <p class="empty" style="text-align:center;padding:32px 0;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">No booking data for this period.</p>
         }
       </div>
-    </div> -->
+    </div>
 
     <div class="tables-row">
       <div class="admin-card">
@@ -96,12 +96,12 @@
           <table class="admin-table">
             <thead><tr><th>User</th><th>Space</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
-              @for (b of recentBookings(); track b.id) {
+              @for (b of recentBookings(); track (b.id || b.bookingId || $index)) {
                 <tr>
-                  <td>{{ b.userEmail }}</td>
-                  <td>{{ b.spaceName }}</td>
-                  <td><span class="status-badge" [class]="'status-' + b.bookingStatus?.toString()?.toLowerCase()">{{ b.bookingStatus }}</span></td>
-                  <td>{{ b.startDateTime | date:'short' }}</td>
+                  <td>{{ b.userEmail || b.customerEmail || b.userName || b.userFullName || b.email || ('User #' + (b.userId || b.id || '')) }}</td>
+                  <td>{{ b.spaceName || b.spaceTitle || b.space || ('Space #' + (b.spaceId || '')) }}</td>
+                  <td><span class="status-badge" [class]="'status-' + (b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase()">{{ b.bookingStatusLabel || b.bookingStatus || b.status || 'Confirmed' }}</span></td>
+                  <td>{{ (b.startDateTime || b.startOn || b.createdAt || b.createdOn) | date:'short' }}</td>
                 </tr>
               }
             </tbody>
@@ -114,13 +114,14 @@
           <p class="empty">No messages yet.</p>
         } @else {
           <table class="admin-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Status</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Status</th></tr></thead>
             <tbody>
-              @for (c of recentContacts(); track c.id) {
+              @for (c of recentContacts(); track (c.id || $index)) {
                 <tr>
-                  <td>{{ c.fullName }}</td>
-                  <td>{{ c.email }}</td>
-                  <td><span class="status-badge" [class]="'status-' + c.status?.toString()?.toLowerCase()">{{ c.status }}</span></td>
+                  <td>{{ c.fullName || c.name || 'N/A' }}</td>
+                  <td>{{ c.email || 'N/A' }}</td>
+                  <td class="message-cell" [title]="c.message || ''">{{ c.message ? (c.message.length > 35 ? (c.message | slice:0:35) + '...' : c.message) : '—' }}</td>
+                  <td><span class="status-badge" [class]="'status-' + (c.status || '').toLowerCase()">{{ c.status || 'New' }}</span></td>
                 </tr>
               }
             </tbody>
@@ -130,3 +131,4 @@
     </div>
   }
 </div>
+

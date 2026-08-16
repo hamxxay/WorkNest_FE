@@ -32,6 +32,10 @@ export const USER_ROUTES: Routes = [
     path: 'my-payments',
     loadComponent: () => import('./my-payments/my-payments').then(m => m.MyPayments),
     canActivate: [authGuard, userGuard]
+  },
+  {
+    path: 'my-meeting-rooms',
+    loadComponent: () => import('./my-meeting-rooms/my-meeting-rooms').then(m => m.MyMeetingRooms),
+    canActivate: [authGuard, userGuard]
   }
-
-];
+];

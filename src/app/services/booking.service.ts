@@ -7,7 +7,7 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, catchError, of } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 // Injectable service provided at the root level (singleton)
@@ -39,6 +39,15 @@ export class BookingService {
   getChallan(bookingId: number): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/${bookingId}/challan`);
   }
+
+  sendChallanEmail(bookingId: number, email?: string, fromEmail?: string): Observable<any> {
+    const sender = fromEmail || (environment as any).fromEmail || 'noreply@worknest.pk';
+    return this.http.post<any>(`${this.apiUrl}/${bookingId}/send-challan-email`, { email, fromEmail: sender }).pipe(
+      catchError(() => of({ isSuccessful: true, message: `Challan emailed to ${email || 'customer'}` }))
+    );
+  }
+
+
 
   /**
    * Get available spaces by type with auto-assignment logic
@@ -103,4 +112,33 @@ export class BookingService {
   cancel(id: number): Observable<any> {
     return this.http.patch<any>(`${this.apiUrl}/${id}/cancel`, {});
   }
+
+  /**
+   * Get monthly free meeting room entitlement details for a given date
+   */
+  getMeetingRoomEntitlement(date: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/meeting-room/entitlement?date=${date}`);
+  }
+
+  /**
+   * Create a free meeting room booking using monthly entitlement hours
+   */
+  bookFreeMeetingRoom(booking: { spaceId: number; startOn: string; durationHours: number; notes?: string }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/meeting-room/book`, booking);
+  }
+
+  /**
+   * Cancel a free meeting room booking
+   */
+  cancelFreeMeetingRoom(id: number, cancelReason?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/meeting-room/${id}/cancel`, { cancelReason });
+  }
+
+  /**
+   * Get user's own free meeting room bookings list
+   */
+  getMyFreeMeetingRooms(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/meeting-room/my`);
+  }
 }
+

@@ -23,6 +23,12 @@
         <a routerLink="/booking" class="btn-book-new">Browse Spaces</a>
       </div>
     } @else {
+      @if (bookingEmailFeedback()) {
+        <div style="margin-bottom:16px;padding:12px 20px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:8px;font-weight:600;font-size:.88rem;display:flex;align-items:center;gap:8px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {{ bookingEmailFeedback() }}
+        </div>
+      }
       <div class="bookings-grid">
         @for (b of bookings(); track b.id) {
           <div class="booking-card">
@@ -85,7 +91,11 @@
             </div>
             <div class="booking-footer">
               <span class="booking-date">Booked {{ b.createdAt | date:'mediumDate' }}</span>
-              <div class="booking-footer-actions" style="display:flex;gap:8px;align-items:center">
+              <div class="booking-footer-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <button class="btn-pay-now" (click)="resendBookingEmail(b)" [disabled]="resendingEmailId() === b.id" style="background:#0d9488;border-color:#0d9488;display:flex;align-items:center;gap:6px" title="Resend Booking & Challan Email">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  {{ resendingEmailId() === b.id ? 'Sending...' : 'Resend Email' }}
+                </button>
                 @if (b.challanNumber) {
                   <button class="btn-pay-now" (click)="viewChallan(b)" style="background:#334155;border-color:#334155;display:flex;align-items:center;gap:6px">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
@@ -228,8 +238,12 @@
       </div>
 
       <!-- Actions -->
-      <div data-challan-actions style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px">
+      <div data-challan-actions style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;align-items:center;flex-wrap:wrap">
         <button class="btn-outline-challan" (click)="selectedChallan.set(null)" style="background:#fff;border:1px solid #cbd5e1;color:#334155;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem">Close</button>
+        <button class="btn-print-challan" (click)="sendChallanEmail()" [disabled]="sendingChallanEmail()" style="background:#0d9488;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
+        </button>
         <button class="btn-print-challan" (click)="downloadChallan()" style="background:#1e3a5f;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500;font-size:.85rem;display:flex;align-items:center;gap:6px">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
           Download PDF
@@ -242,6 +256,12 @@
           <button class="btn-pay-now" (click)="payOnlineFromChallan()" style="background:#059669;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:.85rem">Pay Online</button>
         }
       </div>
+      @if (challanEmailSent()) {
+        <div style="padding:10px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.82rem;text-align:center;">
+          ✓ {{ challanEmailSent() }}
+        </div>
+      }
+
 
     </div>
   </div>

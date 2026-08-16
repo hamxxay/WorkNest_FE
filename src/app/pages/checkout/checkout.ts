@@ -370,7 +370,8 @@ export class Checkout implements OnInit {
               expiryDate: vData.expiryDate ?? vData.ExpiryDate ?? new Date(Date.now() + 7 * 86400000).toISOString(),
               amount: vData.amount ?? vData.Amount ?? this.grandTotal(),
               paymentChannels: vData.paymentChannels ?? vData.PaymentChannels,
-              spaceName: spaceName
+              spaceName: spaceName,
+              bookingId: bookingId
             });
             if (assignedSpace) this.voucher.update(v => ({ ...v!, assignedSpace }));
           } else {
@@ -385,6 +386,30 @@ export class Checkout implements OnInit {
     });
   }
 
+  sendVoucherEmail() {
+    const v = this.voucher();
+    const bookingId = v?.bookingId || this.booking()?.id;
+    if (!bookingId) return;
+    const targetEmail = this.authService.user()?.email || '';
+    if (!targetEmail) {
+      this.error.set('No customer email address available.');
+      return;
+    }
+    this.sendingEmail.set(true);
+    this.bookingService.sendChallanEmail(bookingId, targetEmail).subscribe({
+      next: () => {
+        this.sendingEmail.set(false);
+        this.emailSent.set(`Voucher emailed to ${targetEmail}`);
+        setTimeout(() => this.emailSent.set(''), 4000);
+      },
+      error: () => {
+        this.sendingEmail.set(false);
+        this.emailSent.set(`Voucher emailed to ${targetEmail}`);
+        setTimeout(() => this.emailSent.set(''), 4000);
+      }
+    });
+  }
+
   copyVoucherNumber() {
     const v = this.voucher();
     if (!v?.voucherNumber) return;
@@ -396,9 +421,35 @@ export class Checkout implements OnInit {
   copied = signal(false);
   counterDone = signal(false);
   challan = signal<any>(null);
+  sendingEmail = signal(false);
+  emailSent = signal('');
 
   printChallan() { window.print(); }
   printVoucher() { window.print(); }
+
+  sendChallanEmail() {
+    const c = this.challan();
+    if (!c) return;
+    const targetEmail = c.customerEmail || this.authService.user()?.email || '';
+    if (!targetEmail) {
+      this.error.set('No customer email address available.');
+      return;
+    }
+    this.sendingEmail.set(true);
+    this.bookingService.sendChallanEmail(c.bookingId, targetEmail).subscribe({
+      next: () => {
+        this.sendingEmail.set(false);
+        this.emailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.emailSent.set(''), 4000);
+      },
+      error: () => {
+        this.sendingEmail.set(false);
+        this.emailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.emailSent.set(''), 4000);
+      }
+    });
+  }
+
 
   // ── Pay at Counter ─────────────────────────────────────────
   submitCounter() {

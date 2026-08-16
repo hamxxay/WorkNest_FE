@@ -7,6 +7,8 @@ import { AuthService } from '../../../services/auth.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AmountFieldService } from '../../../services/amount-field.service';
 import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../../utils/constants';
+import { BookingService } from '../../../services/booking.service';
+import { QuotationService } from '../../../services/quotation.service';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; }
@@ -126,11 +128,14 @@ export class Manage implements OnInit {
   selectedSpaceTypeId = '';
   selectedLocationId = '';
   securityDeposit = 0;
+  bookingDiscountPercentage = 0;
+  bookingSubtotal = 0;
+  bookingDiscountAmount = 0;
   accountOptions: { v: number; l: string }[] = [];
 
   // Meeting room slots (admin booking)
   adminMeetingDate = '';
-  adminMeetingSlots: { label: string; start: string; end: string }[] = [];
+  adminMeetingSlots: { label: string; start: string; end: string; isLocked?: boolean }[] = [];
   adminSelectedSlots = new Set<string>();
 
   // Private Room & Shared Space (admin booking)
@@ -152,6 +157,68 @@ export class Manage implements OnInit {
   showChallanModal = false;
   challanData = signal<any>(null);
 
+  showQuotationForm = false;
+  quotationFormData: any = {};
+  quotationFormSaving = signal(false);
+  quotationFormError = '';
+  showQuotationPreviewModal = false;
+  selectedQuotation = signal<any>(null);
+  quotationEmailSent = signal<string>('');
+
+  selectedQuotationLocationId = '';
+  selectedQuotationSpaceTypeId = '';
+  selectedQuotationCapacity: number | string | null = null;
+  quotationSubtotal = 0;
+  quotationSecurityDeposit = 0;
+  quotationTotal = 0;
+  quotationMonths = 1;
+  quotationStartDate = '';
+  quotationEndDateDisplay = '';
+  quotationValidUntil = '';
+  quotationRemarks = '';
+  quotationDiscountPercentage = 0;
+
+  sendingChallanEmail = signal(false);
+  challanEmailSent = signal('');
+
+  resendingBookingEmailId = signal<number | null>(null);
+  bookingEmailFeedback = signal('');
+
+  resendBookingEmail(item: any) {
+    const bookingId = item.id ?? item.bookingId;
+    if (!bookingId) return;
+    this.resendingBookingEmailId.set(bookingId);
+
+    // Load challan to get the correct customerEmail from DB (same as sendChallanEmail)
+    this.bookingService.getChallan(bookingId).subscribe({
+      next: (res: any) => {
+        const challan = res?.data ?? res;
+        const targetEmail = challan?.customerEmail || challan?.userEmail || '';
+        if (!targetEmail) {
+          this.resendingBookingEmailId.set(null);
+          alert('No customer email address found for this booking.');
+          return;
+        }
+        this.bookingService.sendChallanEmail(bookingId, targetEmail).subscribe({
+          next: () => {
+            this.resendingBookingEmailId.set(null);
+            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+          },
+          error: () => {
+            this.resendingBookingEmailId.set(null);
+            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+          }
+        });
+      },
+      error: () => {
+        this.resendingBookingEmailId.set(null);
+        alert('Failed to load booking details. Please try again.');
+      }
+    });
+  }
+
   readonly today = new Date().toISOString().split('T')[0];
   isSuperAdmin = false;
   assignableRoles = ASSIGNABLE_ROLES;
@@ -162,6 +229,8 @@ export class Manage implements OnInit {
   private auth = inject(AuthService);
   private accountCoa = inject(AccountCoaService);
   private amountFieldSvc = inject(AmountFieldService);
+  private bookingService = inject(BookingService);
+  private quotationSvc = inject(QuotationService);
 
   constructor() {
     this.isSuperAdmin = this.auth.hasRole('super_admin');
@@ -442,10 +511,7 @@ export class Manage implements OnInit {
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.spaceTypeOptions = items.map((s: any) => ({
-          v: s.idGuid ?? s.idGUID ?? s.id,
-          l: s.description || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
-        }));
+        this.populateSpaceTypeOptions(items);
         this.config = this.buildConfig('spaces');
       }
     });
@@ -503,6 +569,9 @@ export class Manage implements OnInit {
     this.customerSearchResults = [];
     this.selectedCustomer = null;
     this.securityDeposit = 0;
+    this.bookingDiscountPercentage = 0;
+    this.bookingSubtotal = 0;
+    this.bookingDiscountAmount = 0;
     this.adminMeetingDate = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
@@ -554,12 +623,29 @@ export class Manage implements OnInit {
   private populateSpaceTypeOptions(apiTypes: any[]) {
     const map = new Map<string, { v: any; l: string }>();
 
+    const getGroup = (label: string): string => {
+      const l = label.toLowerCase();
+      if (l.includes('private') || l.includes('office') || l.includes('desk')) return 'private';
+      if (l.includes('meeting') || l.includes('conference') || l.includes('board')) return 'meeting';
+      if (l.includes('shared') || l.includes('co-working') || l.includes('coworking') || l.includes('open')) return 'shared';
+      return l;
+    };
+
+    const addedGroups = new Set<string>();
+
     // 1. From /spacetype API
     (apiTypes || []).forEach((s: any) => {
-      const name = (s.description || s.displayName || s.label || s.typeName || s.name || '').trim();
-      const label = name ? name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : `Space Type ${s.id}`;
-      const key = label.toLowerCase();
-      map.set(key, { v: s.id ?? label, l: label });
+      const name = (s.description || s.displayName || s.label || s.typeName || s.name || s.l || '').trim();
+      const label = name ? name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : '';
+      if (!label) return;
+
+      const group = getGroup(label);
+      if (!addedGroups.has(group)) {
+        const key = label.toLowerCase();
+        const val = s.idGuid ?? s.idGUID ?? s.id ?? s.v ?? label;
+        map.set(key, { v: val, l: label });
+        addedGroups.add(group);
+      }
     });
 
     // 2. From /spaceconfig API
@@ -570,9 +656,12 @@ export class Manage implements OnInit {
         if (label.toLowerCase() === 'meeting') label = 'Meeting Room';
         if (label.toLowerCase() === 'private') label = 'Private Room';
         if (label.toLowerCase() === 'shared') label = 'Shared Space';
-        const key = label.toLowerCase();
-        if (!map.has(key) && !Array.from(map.values()).some(v => v.l.toLowerCase() === key)) {
+
+        const group = getGroup(label);
+        if (!addedGroups.has(group)) {
+          const key = label.toLowerCase();
           map.set(key, { v: c.spaceTypeId || label, l: label });
+          addedGroups.add(group);
         }
       }
     });
@@ -583,9 +672,12 @@ export class Manage implements OnInit {
       if (typeName) {
         let label = typeName.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
         if (label.toLowerCase() === 'meeting') label = 'Meeting Room';
-        const key = label.toLowerCase();
-        if (!map.has(key) && !Array.from(map.values()).some(v => v.l.toLowerCase() === key)) {
+
+        const group = getGroup(label);
+        if (!addedGroups.has(group)) {
+          const key = label.toLowerCase();
           map.set(key, { v: s.spaceTypeId || label, l: label });
+          addedGroups.add(group);
         }
       }
     });
@@ -598,13 +690,11 @@ export class Manage implements OnInit {
     ];
 
     standardTypes.forEach(std => {
-      const stdLower = std.l.toLowerCase();
-      const exists = Array.from(map.values()).some(item => {
-        const l = item.l.toLowerCase();
-        return l.includes(stdLower.split(' ')[0]) || stdLower.includes(l);
-      });
-      if (!exists) {
-        map.set(stdLower, std);
+      const group = getGroup(std.l);
+      if (!addedGroups.has(group)) {
+        const key = std.l.toLowerCase();
+        map.set(key, std);
+        addedGroups.add(group);
       }
     });
 
@@ -734,12 +824,7 @@ export class Manage implements OnInit {
       }
     }
 
-    // 4. Exclude booked spaces if status field exists
-    spaces = spaces.filter((s: any) => {
-      const st = (s.status || s.Status || '').toString().trim().toLowerCase();
-      return !st || st === 'available' || st === 'active' || st === 'vacant' || st !== 'booked';
-    });
-
+    // 4. Map space options with [Booked] or [Available] tag
     this.filteredSpaceOptions = spaces
       .filter((s: any) => s.idGuid || s.id)
       .map((s: any) => {
@@ -747,14 +832,24 @@ export class Manage implements OnInit {
         const capLabel = cap > 0 ? ` — Cap: ${cap}` : '';
         const codeLabel = s.code ? ` (${s.code})` : '';
         const locLabel = s.locationName ? ` — ${s.locationName}` : '';
+        
+        const st = (s.status || s.Status || '').toString().trim().toLowerCase();
+        const isBooked = st === 'booked' || st === 'occupied';
+        const tag = isBooked ? ' [Booked]' : ' [Available]';
+
         return {
           v: s.idGuid ?? s.id,
-          l: `${s.name}${codeLabel}${capLabel}${locLabel}`
+          l: `${s.name}${codeLabel}${capLabel}${locLabel}${tag}`
         };
       });
   }
 
-  closeAdminBookingForm() { this.showBookingForm = false; }
+  closeAdminBookingForm() {
+    this.showBookingForm = false;
+    this.bookingDiscountPercentage = 0;
+    this.bookingSubtotal = 0;
+    this.bookingDiscountAmount = 0;
+  }
 
   printReceipt() { window.print(); }
 
@@ -909,7 +1004,7 @@ export class Manage implements OnInit {
     this.applyAdminSlotsToDates();
   }
 
-  toggleAdminSlot(slot: { start: string; end: string }) {
+  toggleAdminSlot(slot: { start: string; end: string; isLocked?: boolean }) {
     this.adminSelectedSlots.has(slot.start)
       ? this.adminSelectedSlots.delete(slot.start)
       : this.adminSelectedSlots.add(slot.start);
@@ -917,7 +1012,7 @@ export class Manage implements OnInit {
     this.recalcAmount();
   }
 
-  isAdminSlotSelected(slot: { start: string }): boolean {
+  isAdminSlotSelected(slot: { start: string; isLocked?: boolean }): boolean {
     return this.adminSelectedSlots.has(slot.start);
   }
 
@@ -1022,6 +1117,8 @@ export class Manage implements OnInit {
     if (!spaceId) {
       this.bookingFormData.totalAmount = null;
       this.securityDeposit = 0;
+      this.bookingSubtotal = 0;
+      this.bookingDiscountAmount = 0;
       return;
     }
     const space = this.allSpaces.find((s: any) =>
@@ -1044,7 +1141,7 @@ export class Manage implements OnInit {
       const amount = Math.ceil(diffHours) * rate;
 
       this.securityDeposit = 0;
-      this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(amount.toFixed(2)) };
+      this.bookingSubtotal = parseFloat(amount.toFixed(2));
     } else {
       if (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1) return;
       const rate = monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0));
@@ -1054,14 +1151,19 @@ export class Manage implements OnInit {
         const oneMonthRentOfRoom = rate * capacity;
         const totalRent = oneMonthRentOfRoom * Number(this.adminMonths);
         this.securityDeposit = parseFloat(oneMonthRentOfRoom.toFixed(2));
-        this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(totalRent.toFixed(2)) };
+        this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
       } else {
         // Shared Space — no security deposit
         const totalRent = rate * Number(this.adminMonths);
         this.securityDeposit = 0;
-        this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(totalRent.toFixed(2)) };
+        this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
       }
     }
+
+    const discPercent = Math.min(100, Math.max(0, Number(this.bookingDiscountPercentage || 0)));
+    this.bookingDiscountAmount = parseFloat(((this.bookingSubtotal * discPercent) / 100).toFixed(2));
+    const finalRent = Math.max(0, this.bookingSubtotal - this.bookingDiscountAmount);
+    this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(finalRent.toFixed(2)) };
   }
 
   submitAdminBooking() {
@@ -1095,6 +1197,11 @@ export class Manage implements OnInit {
     }
     if (!this.isAdminMeetingRoom && (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1)) {
       this.bookingFormError = 'Please specify start date and number of months.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (this.bookingDiscountPercentage < 0 || this.bookingDiscountPercentage > 100) {
+      this.bookingFormError = 'Discount must be between 0% and 100%.';
       this.bookingFormSaving.set(false);
       return;
     }
@@ -1150,6 +1257,10 @@ export class Manage implements OnInit {
         customerCode: u.customerCode || u.code || '',
         customerName: `${customerFirstName} ${customerLastName}`.trim(),
         totalAmount: this.bookingFormData.totalAmount,
+        subtotalAmount: this.bookingSubtotal,
+        discountPercentage: Number(this.bookingDiscountPercentage || 0),
+        discountAmount: this.bookingDiscountAmount,
+        securityDeposit: this.securityDeposit,
       };
 
       console.log('[BOOKING TEST] Creating admin booking with payload:', payload);
@@ -1213,6 +1324,9 @@ export class Manage implements OnInit {
             endDateTime: payload.endDateTime,
             bookingDetails: details,
             securityDeposit: this.securityDeposit,
+            subtotalAmount: this.bookingSubtotal,
+            discountPercentage: Number(this.bookingDiscountPercentage || 0),
+            discountAmount: this.bookingDiscountAmount,
             totalAmount,
             notes: payload.notes,
             createdAt: new Date().toISOString(),
@@ -1293,24 +1407,29 @@ export class Manage implements OnInit {
           : Array.isArray(res?.items) ? res.items
           : Array.isArray(res?.data?.bookings) ? res.data.bookings
           : Array.isArray(res?.bookings) ? res.bookings
+          : Array.isArray(res?.data?.quotations) ? res.data.quotations
+          : Array.isArray(res?.quotations) ? res.quotations
           : (res?.data ?? []);
 
         // Merge API data with any locally created admin bookings not yet returned by backend API
         this.items.update(currentItems => {
-          const backendIds = new Set(data.map((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '')));
-          const localOnly = currentItems.filter((x: any) => {
-            const id = String(x.bookingId ?? x.id ?? x.BookingId ?? '');
-            return id && !backendIds.has(id);
-          });
-          const merged = [...localOnly, ...data].sort((a: any, b: any) => {
-            const idA = Number(a.id ?? a.bookingId ?? a.Id ?? a.BookingId ?? 0);
-            const idB = Number(b.id ?? b.bookingId ?? b.Id ?? b.BookingId ?? 0);
-            if (idA && idB) return idB - idA;
-            const dateA = new Date(a.createdOn || a.createdAt || a.startDateTime || a.startOn || a.bookedOn || 0).getTime();
-            const dateB = new Date(b.createdOn || b.createdAt || b.startDateTime || a.startOn || a.bookedOn || 0).getTime();
-            return dateB - dateA;
-          });
-          return merged;
+          if (this.entity === 'bookings') {
+            const backendIds = new Set(data.map((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '')));
+            const localOnly = currentItems.filter((x: any) => {
+              const id = String(x.bookingId ?? x.id ?? x.BookingId ?? '');
+              return id && !backendIds.has(id);
+            });
+            const merged = [...localOnly, ...data].sort((a: any, b: any) => {
+              const idA = Number(a.id ?? a.bookingId ?? a.Id ?? a.BookingId ?? 0);
+              const idB = Number(b.id ?? b.bookingId ?? b.Id ?? b.BookingId ?? 0);
+              if (idA && idB) return idB - idA;
+              const dateA = new Date(a.createdOn || a.createdAt || a.startDateTime || a.startOn || a.bookedOn || 0).getTime();
+              const dateB = new Date(b.createdOn || b.createdAt || b.startDateTime || a.startOn || a.bookedOn || 0).getTime();
+              return dateB - dateA;
+            });
+            return merged;
+          }
+          return data;
         });
 
         this.totalCount.set(res?.total ?? res?.totalCount ?? res?.data?.total ?? res?.data?.totalCount ?? this.items().length);
@@ -1330,6 +1449,36 @@ export class Manage implements OnInit {
 
   getCellValue(item: any, col: ColDef): any {
     if (!item) return '';
+
+    if (this.entity === 'quotations') {
+      if (col.key === 'quotationNumber') {
+        return item.quotationNumber || item.QuotationNumber || item.code || item.id || '-';
+      }
+      if (col.key === 'customerName') {
+        return item.customerName || item.customer?.fullName || item.CustomerName || item.customer?.name || '-';
+      }
+      if (col.key === 'customerEmail') {
+        return item.customerEmail || item.customer?.email || item.CustomerEmail || '-';
+      }
+      if (col.key === 'spaceName') {
+        return item.spaceName || item.space?.name || item.SpaceName || '-';
+      }
+      if (col.key === 'totalAmount') {
+        return item.totalAmount ?? item.TotalAmount ?? item.finalTotal ?? item.quotationTotal ?? 0;
+      }
+      if (col.key === 'validUntil') {
+        return item.validUntil || item.ValidUntil || '';
+      }
+      if (col.key === 'versionNumber') {
+        return item.versionNumber ? `v${item.versionNumber}` : (item.version ? `v${item.version}` : 'v1');
+      }
+      if (col.key === 'status') {
+        return item.status || item.Status || (item.isActive ? 'Active' : 'Pending');
+      }
+      if (col.key === 'createdAt') {
+        return item.createdAt || item.CreatedAt || item.quotationDate || item.QuotationDate || '';
+      }
+    }
 
     if (this.entity === 'bookings') {
       if (col.key === 'userEmail') {
@@ -1394,6 +1543,10 @@ export class Manage implements OnInit {
     this.selectedAmenityIds = [];
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
+    if (this.entity === 'quotations') {
+      this.showModal = false;
+      this.openAdminQuotationForm();
+    }
   }
 
   /** Open the standard customer-create modal from inside the booking flow.
@@ -2036,7 +2189,370 @@ export class Manage implements OnInit {
         deleteFn: (id) => this.admin.deleteGalleryImage(id),
       };
 
+      case 'quotations': return {
+        title: 'Quotations',
+        columns: [
+          { key: 'quotationNumber', label: 'Quotation #' },
+          { key: 'customerName',    label: 'Customer' },
+          { key: 'customerEmail',   label: 'Email' },
+          { key: 'spaceName',       label: 'Space' },
+          { key: 'totalAmount',     label: 'Total (PKR)', type: 'currency' },
+          { key: 'validUntil',      label: 'Valid Until', type: 'date' },
+          { key: 'versionNumber',   label: 'Version' },
+          { key: 'status',          label: 'Status', type: 'status' },
+          { key: 'createdAt',       label: 'Created', type: 'date' },
+        ],
+        getFn: (p, l, s) => this.quotationSvc.getQuotations(p, l, s),
+        createFn: (d) => this.quotationSvc.createQuotation(d),
+      };
+
       default: return { title: entity, columns: [], getFn: () => [] };
     }
+  }
+
+  openAdminQuotationForm() {
+    this.showQuotationForm = true;
+    this.quotationFormData = {};
+    this.quotationFormError = '';
+    this.selectedCustomer = null;
+    this.customerSearchQuery = '';
+    this.customerSearchResults = [];
+    this.selectedQuotationLocationId = '';
+    this.selectedQuotationSpaceTypeId = '';
+    this.selectedQuotationCapacity = null;
+    this.quotationSubtotal = 0;
+    this.quotationSecurityDeposit = 0;
+    this.quotationTotal = 0;
+    this.quotationMonths = 1;
+    this.quotationStartDate = this.today;
+    this.quotationValidUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    this.quotationRemarks = '';
+    this.quotationDiscountPercentage = 0;
+
+    this.admin.getLocations(1, 1000, '').subscribe({
+      next: (res: any) => {
+        this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: l.idGuid ?? l.id, l: l.name }));
+      }
+    });
+
+    this.admin.getSpaceTypes(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.populateSpaceTypeOptions(items);
+      }
+    });
+
+    this.admin.getSpaces(1, 1000, '').subscribe({
+      next: (res: any) => {
+        this.allSpaces = res?.data ?? [];
+      }
+    });
+  }
+
+  closeAdminQuotationForm() {
+    this.showQuotationForm = false;
+    this.quotationFormData = {};
+  }
+
+  onQuotationLocationChange() {
+    this.quotationFormData.spaceId = '';
+    this.recalcQuotationAmount();
+  }
+
+  onQuotationSpaceTypeChange() {
+    this.quotationFormData.spaceId = '';
+    this.selectedQuotationCapacity = null;
+    this.recalcQuotationAmount();
+  }
+
+  onQuotationCapacityChange() {
+    this.quotationFormData.spaceId = '';
+    this.recalcQuotationAmount();
+  }
+
+  onQuotationMonthPeriodChange() {
+    if (!this.quotationStartDate || !this.quotationMonths || this.quotationMonths < 1) {
+      this.quotationEndDateDisplay = '';
+      this.recalcQuotationAmount();
+      return;
+    }
+    const start = new Date(`${this.quotationStartDate}T00:00:00`);
+    if (isNaN(start.getTime())) {
+      this.quotationEndDateDisplay = '';
+      this.recalcQuotationAmount();
+      return;
+    }
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + Number(this.quotationMonths));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    this.quotationEndDateDisplay = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+    this.recalcQuotationAmount();
+  }
+
+  get isQuotationPrivateRoom() {
+    const matched = this.spaceTypeOptions.find(o => String(o.v) === String(this.selectedQuotationSpaceTypeId));
+    const label = (matched?.l ?? '').toLowerCase();
+    return label.includes('private') || label.includes('office');
+  }
+
+  get isQuotationMeetingRoom() {
+    const matched = this.spaceTypeOptions.find(o => String(o.v) === String(this.selectedQuotationSpaceTypeId));
+    const label = (matched?.l ?? '').toLowerCase();
+    return label.includes('meeting') || label.includes('conference');
+  }
+
+  get availableQuotationCapacities(): number[] {
+    if (!this.isQuotationPrivateRoom) return [];
+    const caps = new Set<number>();
+    this.allSpaces.forEach(s => {
+      const isPrivate = (s.spaceTypeName ?? s.spaceType ?? '').toLowerCase().includes('private');
+      if (isPrivate && s.capacity > 0) {
+        if (!this.selectedQuotationLocationId || String(s.locationIdInt ?? s.locationId) === String(this.selectedQuotationLocationId)) {
+          caps.add(s.capacity);
+        }
+      }
+    });
+    return Array.from(caps).sort((a, b) => a - b);
+  }
+
+  get filteredQuotationSpaceOptions(): { v: any; l: string }[] {
+    if (!this.selectedQuotationSpaceTypeId) return [];
+    let spaces = this.allSpaces;
+
+    if (this.selectedQuotationLocationId) {
+      spaces = spaces.filter(s => 
+        String(s.locationIdInt ?? s.locationId) === String(this.selectedQuotationLocationId) ||
+        String(s.locationIdGuid ?? s.locationGuid ?? s.locationId) === String(this.selectedQuotationLocationId)
+      );
+    }
+
+    spaces = spaces.filter(s => 
+      String(s.spaceTypeIdInt ?? s.spaceTypeId) === String(this.selectedQuotationSpaceTypeId) ||
+      String(s.spaceTypeGuid ?? s.spaceTypeGroupId ?? s.spaceTypeId) === String(this.selectedQuotationSpaceTypeId)
+    );
+
+    if (this.isQuotationPrivateRoom && this.selectedQuotationCapacity) {
+      spaces = spaces.filter(s => Number(s.capacity) === Number(this.selectedQuotationCapacity));
+    }
+
+    return spaces.map(s => {
+      const st = (s.status || s.Status || '').toString().trim().toLowerCase();
+      const isBooked = st === 'booked' || st === 'occupied';
+      const tag = isBooked ? ' [Booked]' : ' [Available]';
+      return { v: s.id, l: `${s.name}${tag}` };
+    });
+  }
+
+  recalcQuotationAmount() {
+    this.quotationSubtotal = 0;
+    this.quotationSecurityDeposit = 0;
+    this.quotationTotal = 0;
+
+    const spaceId = this.quotationFormData.spaceId;
+    if (!spaceId) return;
+
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId));
+    if (!space) return;
+
+    const category = (space.spaceTypeName || '').toLowerCase();
+    const rate = Number(space.pricePerMonth || space.pricePerHour || space.pricePerDay || 0);
+    const capacity = Number(space.capacity || 1);
+
+    if (category.includes('private')) {
+      const monthlyRate = rate || 35000;
+      const rent = monthlyRate * capacity * Number(this.quotationMonths);
+      const security = monthlyRate * capacity;
+      this.quotationSubtotal = rent;
+      this.quotationSecurityDeposit = security;
+    } else if (category.includes('meeting') || category.includes('conference')) {
+      const hourlyRate = rate || 6000;
+      this.quotationSubtotal = hourlyRate;
+      this.quotationSecurityDeposit = 0;
+    } else {
+      const monthlyRate = rate || 30000;
+      const rent = monthlyRate * Number(this.quotationMonths);
+      this.quotationSubtotal = rent;
+      this.quotationSecurityDeposit = 0;
+    }
+
+    const discPercent = Number(this.quotationDiscountPercentage || 0);
+    const discAmount = this.quotationSubtotal * (discPercent / 100);
+    this.quotationTotal = (this.quotationSubtotal - discAmount) + this.quotationSecurityDeposit;
+  }
+
+  submitAdminQuotation(sendEmail: boolean = false) {
+    this.quotationFormSaving.set(true);
+    this.quotationFormError = '';
+
+    if (!this.selectedCustomer) {
+      this.quotationFormError = 'Please select a customer.';
+      this.quotationFormSaving.set(false);
+      return;
+    }
+    if (!this.quotationFormData.spaceId) {
+      this.quotationFormError = 'Please select a space.';
+      this.quotationFormSaving.set(false);
+      return;
+    }
+    if (this.quotationDiscountPercentage < 0 || this.quotationDiscountPercentage > 100) {
+      this.quotationFormError = 'Discount must be between 0% and 100%.';
+      this.quotationFormSaving.set(false);
+      return;
+    }
+
+    const payload = {
+      customerId: this.selectedCustomer.customerId || this.selectedCustomer.id,
+      spaceId: Number(this.quotationFormData.spaceId),
+      startDateTime: new Date(this.quotationStartDate).toISOString(),
+      endDateTime: this.isQuotationMeetingRoom 
+        ? new Date(new Date(this.quotationStartDate).getTime() + 60*60*1000).toISOString()
+        : new Date(this.quotationEndDateDisplay).toISOString(),
+      validUntil: new Date(this.quotationValidUntil).toISOString(),
+      discountPercentage: Number(this.quotationDiscountPercentage),
+      remarks: this.quotationRemarks || 'Generated via admin panel.'
+    };
+
+    this.quotationSvc.createQuotation(payload).subscribe({
+      next: (res: any) => {
+        this.quotationFormSaving.set(false);
+        this.closeAdminQuotationForm();
+        this.success = 'Quotation generated successfully!';
+        setTimeout(() => this.success = '', 3000);
+        this.load();
+
+        if (sendEmail) {
+          const createdQ = res?.data ?? res;
+          if (createdQ) {
+            this.previewQuotation(createdQ);
+            setTimeout(() => this.sendQuotationEmailNow(), 1500);
+          }
+        }
+      },
+      error: (err: any) => {
+        this.quotationFormSaving.set(false);
+        this.quotationFormError = err?.error?.message || err?.message || 'Failed to generate quotation.';
+      }
+    });
+  }
+
+  previewQuotation(item: any) {
+    this.selectedQuotation.set(null);
+    this.showQuotationPreviewModal = true;
+    this.quotationEmailSent.set('');
+
+    const id = item.id || item.quotationId;
+    this.quotationSvc.getQuotationById(id).subscribe({
+      next: (res: any) => {
+        this.selectedQuotation.set(res?.data ?? res);
+      }
+    });
+  }
+
+  closeQuotationPreviewModal() {
+    this.showQuotationPreviewModal = false;
+    this.selectedQuotation.set(null);
+  }
+
+  async downloadQuotationPdf() {
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const el = document.getElementById('quotation-printable');
+    if (!el) return;
+
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const imgH = (canvas.height * pageW) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+
+    const q = this.selectedQuotation();
+    const filename = `Quotation-${q?.quotationNumber || 'WN'}.pdf`;
+    pdf.save(filename);
+  }
+
+  async emailQuotation(item: any) {
+    if (!this.selectedQuotation() || this.selectedQuotation().id !== item.id) {
+      this.previewQuotation(item);
+      setTimeout(() => this.sendQuotationEmailNow(), 1500);
+      return;
+    }
+    await this.sendQuotationEmailNow();
+  }
+
+  private async sendQuotationEmailNow() {
+    const q = this.selectedQuotation();
+    if (!q) return;
+
+    this.quotationEmailSent.set('Generating PDF snapshot...');
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const el = document.getElementById('quotation-printable');
+    if (!el) {
+      this.quotationEmailSent.set('Print element not found.');
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+
+      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+      this.quotationEmailSent.set('Sending email...');
+
+      this.quotationSvc.sendQuotationEmail(q.id, q.customerEmail, pdfBase64).subscribe({
+        next: () => {
+          this.quotationEmailSent.set('Email sent successfully!');
+          setTimeout(() => this.quotationEmailSent.set(''), 3000);
+        },
+        error: (err: any) => {
+          this.quotationEmailSent.set(`Failed to send email: ${err?.error?.message || err?.message}`);
+        }
+      });
+    } catch (e: any) {
+      this.quotationEmailSent.set(`Error capturing PDF: ${e.message}`);
+    }
+  }
+
+  sendChallanEmail() {
+    const c = this.challanData();
+    if (!c) return;
+    const targetEmail = c.customerEmail || c.userEmail || '';
+    if (!targetEmail) {
+      alert('No customer email address available for this challan.');
+      return;
+    }
+    this.sendingChallanEmail.set(true);
+    this.bookingService.sendChallanEmail(c.bookingId, targetEmail).subscribe({
+      next: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      },
+      error: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      }
+    });
+  }
+
+  convertQuotationToBooking(item: any) {
+    if (!confirm(`Are you sure you want to convert Quotation ${item.quotationNumber} into a Confirmed Booking?`)) return;
+
+    this.quotationSvc.convertToBooking(item.id).subscribe({
+      next: (res: any) => {
+        this.success = 'Quotation successfully converted to Booking!';
+        setTimeout(() => this.success = '', 3000);
+        this.load();
+      },
+      error: (err: any) => {
+        alert(err?.error?.message || err?.message || 'Failed to convert quotation.');
+      }
+    });
   }
 }

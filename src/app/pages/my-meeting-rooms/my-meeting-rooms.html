@@ -1,0 +1,226 @@
+<div class="container py-5">
+  <!-- Title Header -->
+  <div class="row mb-5 text-center text-md-start align-items-center">
+    <div class="col-md-8">
+      <h1 class="display-5 fw-bold text-white tracking-tight">Meeting Room Allowance</h1>
+      <p class="text-light-muted mb-0 fs-5">Complimentary reservation hours for Private-Space members</p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+      <div class="badge bg-blur px-3 py-2 fs-6 rounded-pill border-glass">
+        <span class="text-primary-accent">&#9679;</span> Active Plan: {{ currentMonthName }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages Alert -->
+  <div *ngIf="errorMessage()" class="alert alert-danger-glass border-danger-glass mb-4 animate-fade-in" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ errorMessage() }}
+  </div>
+  <div *ngIf="successMessage()" class="alert alert-success-glass border-success-glass mb-4 animate-fade-in" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i> {{ successMessage() }}
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="entitlementLoading()" class="text-center py-5">
+    <div class="spinner-border text-primary-accent" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-3 text-light-muted">Verifying room entitlement...</p>
+  </div>
+
+  <ng-container *ngIf="!entitlementLoading()">
+    <!-- Customer NOT Eligible -->
+    <div *ngIf="!hasEntitlement()" class="card-glass border-glass p-5 text-center text-white max-w-600 mx-auto animate-scale-in">
+      <div class="icon-circle mx-auto mb-4 bg-danger-soft text-danger">
+        <i class="bi bi-shield-lock-fill fs-1"></i>
+      </div>
+      <h2 class="fw-bold mb-3">No Active Meeting-Room Entitlement</h2>
+      <p class="text-light-muted mb-4">
+        Free meeting-room hours are exclusively available to customers with an active **Private Office** booking. Subscribe or renew to unlock your 6 hours monthly allowance.
+      </p>
+      <a href="/booking?type=PrivateOffice" class="btn btn-primary-accent btn-lg px-4 rounded-pill">Explore Private Offices</a>
+    </div>
+
+    <!-- Customer Eligible -->
+    <div *ngIf="hasEntitlement()" class="row g-4 animate-fade-in">
+      <!-- Top Metrics Dashboard -->
+      <div class="col-12">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="card-glass border-glass p-4 text-white text-center">
+              <span class="text-light-muted uppercase small tracking-wider">Allocated Allowance</span>
+              <h2 class="display-4 fw-extrabold my-2 text-white">{{ allocatedHours }} <span class="fs-4 fw-normal">Hrs</span></h2>
+              <p class="text-light-muted mb-0 small">Reset monthly on calendar month start</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card-glass border-glass p-4 text-white text-center position-relative overflow-hidden">
+              <span class="text-light-muted uppercase small tracking-wider">Hours Used</span>
+              <h2 class="display-4 fw-extrabold my-2 text-warning">{{ usedHours() }} <span class="fs-4 fw-normal">Hrs</span></h2>
+              <div class="progress-glass rounded-pill overflow-hidden mt-3">
+                <div class="progress-bar bg-warning" [style.width.%]="(usedHours() / allocatedHours) * 100"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card-glass border-glass p-4 text-white text-center">
+              <span class="text-light-muted uppercase small tracking-wider">Remaining Allowance</span>
+              <h2 class="display-4 fw-extrabold my-2 text-success-accent">{{ remainingHours() }} <span class="fs-4 fw-normal">Hrs</span></h2>
+              <p class="text-light-muted mb-0 small" *ngIf="remainingHours() > 0">Available for immediate booking</p>
+              <p class="text-danger mb-0 small fw-bold" *ngIf="remainingHours() === 0">Monthly allowance fully consumed</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Body Columns -->
+      <!-- Left Form Column -->
+      <div class="col-lg-5">
+        <div class="card-glass border-glass p-4 text-white">
+          <h3 class="fw-bold mb-4 border-bottom-glass pb-2">Book a Room</h3>
+          
+          <form [formGroup]="bookingForm" (ngSubmit)="submitBooking()">
+            <!-- Space Picker -->
+            <div class="mb-3">
+              <label class="form-label text-light-muted small fw-bold">Select Meeting Room</label>
+              <select formControlName="spaceId" class="form-select input-glass text-white">
+                <option value="" disabled selected class="bg-dark-select">Choose a room...</option>
+                <option *ngFor="let room of meetingRooms()" [value]="room.id" class="bg-dark-select">
+                  {{ room.name }} (Capacity: {{ room.capacity }})
+                </option>
+              </select>
+            </div>
+
+            <!-- Date Picker -->
+            <div class="mb-3">
+              <label class="form-label text-light-muted small fw-bold">Booking Date</label>
+              <input type="date" formControlName="date" [min]="todayStr" class="form-control input-glass text-white" />
+            </div>
+
+            <!-- Slots Grid -->
+            <div class="mb-3">
+              <label class="form-label text-light-muted small fw-bold d-block">Available Time Slots (Hourly)</label>
+              <div *ngIf="!availableSlots().length" class="text-center py-3 text-light-muted border-glass rounded p-2">
+                Select a space and date to display slots
+              </div>
+              <div class="row g-2 max-h-200 overflow-y-auto" *ngIf="availableSlots().length">
+                <div class="col-6" *ngFor="let slot of availableSlots()">
+                  <input type="radio" 
+                         formControlName="startSlot" 
+                         [id]="'slot_' + slot.start" 
+                         [value]="slot.start" 
+                         [disabled]="!!slot.isLocked"
+                         class="btn-check" />
+
+                  <label class="btn btn-outline-glass w-100 py-2 small text-truncate" 
+                         [class.btn-locked]="slot.isLocked" 
+                         [for]="'slot_' + slot.start">
+                    {{ slot.label }}
+                    <span *ngIf="slot.isLocked" class="d-block text-xxs text-danger">Booked</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Duration Picker -->
+            <div class="mb-4">
+              <label class="form-label text-light-muted small fw-bold">Duration (Hours)</label>
+              <select formControlName="durationHours" class="form-select input-glass text-white">
+                <option [value]="1" [disabled]="remainingHours() < 1">1 Hour</option>
+                <option [value]="2" [disabled]="remainingHours() < 2">2 Hours</option>
+                <option [value]="3" [disabled]="remainingHours() < 3">3 Hours</option>
+              </select>
+              <span class="text-xxs text-light-muted mt-1 d-block">Limit: Max 3 hours per booking</span>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" 
+                    [disabled]="bookingForm.invalid || submitting() || remainingHours() === 0" 
+                    class="btn btn-primary-accent w-100 rounded-pill py-2.5 fw-bold transition-all position-relative overflow-hidden">
+              <span *ngIf="!submitting()">Reserve with Allowance</span>
+              <span *ngIf="submitting()" class="spinner-border spinner-border-sm" role="status"></span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right History Column -->
+      <div class="col-lg-7">
+        <div class="card-glass border-glass p-4 text-white h-100">
+          <h3 class="fw-bold mb-4 border-bottom-glass pb-2">Reservation History</h3>
+          
+          <div *ngIf="loadingHistory()" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-light-muted small">Loading history...</p>
+          </div>
+
+          <div *ngIf="!loadingHistory() && !bookingHistory().length" class="text-center py-5 text-light-muted">
+            <i class="bi bi-calendar2-x fs-1 mb-3 d-block"></i>
+            No free meeting room bookings found for this month.
+          </div>
+
+          <div class="history-list max-h-500 overflow-y-auto" *ngIf="!loadingHistory() && bookingHistory().length">
+            <div class="history-item p-3 mb-3 card-glass border-glass border-start-3"
+                 [class.border-start-success]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Confirmed'"
+                 [class.border-start-danger]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Cancelled'"
+                 [class.border-start-info]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Completed'"
+                 *ngFor="let b of bookingHistory()">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <h5 class="fw-bold mb-1 text-white">{{ b.spaceName || 'Meeting Room' }}</h5>
+                  <p class="text-light-muted mb-0 small">
+                    <i class="bi bi-calendar3 me-1"></i> {{ b.startDateTime || b.startOn | date:'dd MMM yyyy' }}
+                    <span class="mx-2">|</span>
+                    <i class="bi bi-clock me-1"></i> {{ b.startDateTime || b.startOn | date:'HH:mm' }} - {{ b.endDateTime || b.endOn | date:'HH:mm' }}
+                    <span class="mx-2">|</span>
+                    <i class="bi bi-hourglass-split me-1"></i> {{ getBookingDuration(b) }}
+                  </p>
+                  <p class="text-xxs text-light-muted mb-0 mt-1" *ngIf="b.challanNumber">Challan Ref: {{ b.challanNumber }}</p>
+                </div>
+                <div class="text-end">
+                  <span class="badge"
+                        [class.bg-success-soft]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Confirmed'"
+                        [class.text-success]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Confirmed'"
+                        [class.bg-danger-soft]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Cancelled'"
+                        [class.text-danger]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Cancelled'"
+                        [class.bg-info-soft]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Completed'"
+                        [class.text-info]="(b.bookingStatusLabel || b.bookingStatus || b.status) === 'Completed'">
+                    {{ b.bookingStatusLabel || b.bookingStatus || b.status }}
+                  </span>
+                  <button *ngIf="canCancel(b)" 
+                          (click)="openCancelModal(b)" 
+                          class="btn btn-outline-danger btn-sm rounded-pill mt-2 d-block ms-auto py-1 px-2.5">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>
+
+<!-- Cancellation Modal Overlay -->
+<div class="modal-overlay animate-fade-in" *ngIf="cancelModalOpen()">
+  <div class="modal-dialog-glass border-glass p-4 text-white max-w-500 mx-auto mt-5">
+    <div class="modal-header d-flex justify-content-between align-items-center mb-3">
+      <h4 class="modal-title fw-bold">Cancel Free Meeting Booking</h4>
+      <button type="button" class="btn-close btn-close-white" (click)="closeCancelModal()"></button>
+    </div>
+    <div class="modal-body mb-4">
+      <p class="text-light-muted small">
+        Cancelling this booking will restore your monthly meeting room allowance hours. Please provide a cancel reason below:
+      </p>
+      <textarea [(ngModel)]="cancelReason" 
+                placeholder="Reason for cancellation..." 
+                class="form-control input-glass text-white" 
+                rows="3"></textarea>
+    </div>
+    <div class="modal-footer d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-glass rounded-pill px-4" (click)="closeCancelModal()">Keep Booking</button>
+      <button type="button" class="btn btn-danger rounded-pill px-4" (click)="confirmCancelBooking()">Confirm Cancel</button>
+    </div>
+  </div>
+</div>

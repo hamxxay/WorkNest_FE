@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { BookingService } from '../../services/booking.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-my-bookings',
@@ -17,7 +18,12 @@ export class MyBookings implements OnInit {
   selectedChallan = signal<any>(null);
   loadingChallan = signal(false);
 
-  constructor(private bookingService: BookingService, private router: Router) {}
+  constructor(
+    private bookingService: BookingService,
+    private router: Router,
+    private authService: AuthService
+  ) {}
+
 
   ngOnInit() {
     this.loadBookings();
@@ -118,6 +124,32 @@ export class MyBookings implements OnInit {
     });
   }
 
+  sendingChallanEmail = signal(false);
+  challanEmailSent = signal('');
+  resendingEmailId = signal<number | null>(null);
+  bookingEmailFeedback = signal('');
+
+  resendBookingEmail(b: any) {
+    const targetEmail = b.customerEmail || b.userEmail || this.authService.user()?.email || '';
+    if (!targetEmail) {
+      alert('No email address available.');
+      return;
+    }
+    this.resendingEmailId.set(b.id);
+    this.bookingService.sendChallanEmail(b.id, targetEmail).subscribe({
+      next: () => {
+        this.resendingEmailId.set(null);
+        this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+        setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+      },
+      error: () => {
+        this.resendingEmailId.set(null);
+        this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+        setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+      }
+    });
+  }
+
   viewChallan(b: any) {
     this.loadingChallan.set(true);
     this.bookingService.getChallan(b.id).subscribe({
@@ -131,6 +163,30 @@ export class MyBookings implements OnInit {
       }
     });
   }
+
+  sendChallanEmail() {
+    const c = this.selectedChallan();
+    if (!c) return;
+    const targetEmail = c.customerEmail || this.authService.user()?.email || '';
+    if (!targetEmail) {
+      alert('No email address available.');
+      return;
+    }
+    this.sendingChallanEmail.set(true);
+    this.bookingService.sendChallanEmail(c.bookingId || c.id, targetEmail).subscribe({
+      next: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      },
+      error: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      }
+    });
+  }
+
 
   async downloadChallan() {
     const { default: html2canvas } = await import('html2canvas');

@@ -308,6 +308,10 @@
                 </div>
 
                 <div class="voucher-actions">
+                  <button class="btn-secondary" (click)="sendVoucherEmail()" [disabled]="sendingEmail()" style="background:#0d9488;color:#fff;border:none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    {{ sendingEmail() ? 'Sending Email...' : 'Email Voucher to Customer' }}
+                  </button>
                   <button class="btn-secondary" (click)="printVoucher()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
                     Print Voucher
@@ -317,6 +321,11 @@
                     My Bookings
                   </a>
                 </div>
+                @if (emailSent()) {
+                  <div style="padding:12px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.85rem;text-align:center;">
+                    ✓ {{ emailSent() }}
+                  </div>
+                }
               }
 
             </div>
@@ -469,6 +478,10 @@
 
                   <!-- Actions -->
                   <div class="voucher-actions">
+                    <button class="btn-secondary" (click)="sendChallanEmail()" [disabled]="sendingEmail()" style="background:#0d9488;color:#fff;border:none;">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      {{ sendingEmail() ? 'Sending Email...' : 'Email Challan to Customer' }}
+                    </button>
                     <button class="btn-secondary" (click)="printChallan()">
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
                       Print Challan
@@ -478,6 +491,12 @@
                       My Bookings
                     </a>
                   </div>
+                  @if (emailSent()) {
+                    <div style="padding:12px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.85rem;text-align:center;">
+                      ✓ {{ emailSent() }}
+                    </div>
+                  }
+
 
                 </div>
               }

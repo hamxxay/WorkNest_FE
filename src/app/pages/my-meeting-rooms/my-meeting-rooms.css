@@ -1,0 +1,271 @@
+/* Glassmorphism Design Theme for My Meeting Rooms Page */
+
+.container {
+  max-width: 1200px;
+}
+
+/* Deep blur background effects */
+.card-glass {
+  background: rgba(30, 41, 59, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-glass:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35);
+}
+
+.border-glass {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bg-blur {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+}
+
+/* Accent Colors */
+.text-primary-accent {
+  color: #3b82f6;
+}
+
+.text-success-accent {
+  color: #10b981;
+}
+
+.text-light-muted {
+  color: #94a3b8;
+}
+
+/* Alerts styling */
+.alert-danger-glass {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-radius: 12px;
+}
+
+.alert-success-glass {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border-radius: 12px;
+}
+
+/* Big Metrics radial progress bar */
+.progress-glass {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Circular Icon Badge */
+.icon-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bg-danger-soft {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.max-w-600 {
+  max-width: 600px;
+}
+
+.max-w-500 {
+  max-width: 500px;
+}
+
+/* Form Controls */
+.input-glass {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.input-glass:focus {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  color: #fff;
+}
+
+.bg-dark-select {
+  background-color: #0f172a;
+  color: #fff;
+}
+
+/* Slots Grid Checkboxes */
+.btn-outline-glass {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+  border-radius: 8px;
+}
+
+.btn-outline-glass:hover:not(.btn-locked) {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.btn-check:checked + .btn-outline-glass {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-locked {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Button primary styles */
+.btn-primary-accent {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary-accent:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.btn-primary-accent:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* History list items */
+.history-item {
+  border-left: 4px solid transparent;
+  transition: all 0.25s ease;
+}
+
+.history-item:hover {
+  transform: translateX(4px);
+}
+
+.border-start-3 {
+  border-left-width: 3px !important;
+}
+
+.border-start-success {
+  border-left-color: #10b981 !important;
+}
+
+.border-start-danger {
+  border-left-color: #ef4444 !important;
+}
+
+.border-start-info {
+  border-left-color: #3b82f6 !important;
+}
+
+/* Soft badge background colors */
+.bg-success-soft {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.bg-danger-soft {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.bg-info-soft {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+/* Modal Overlay screen */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1050;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.modal-dialog-glass {
+  width: 90%;
+  margin-top: 10%;
+  background: rgba(30, 41, 59, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Scrolling utilities */
+.max-h-200 {
+  max-height: 200px;
+}
+
+.max-h-500 {
+  max-height: 500px;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Tiny typography details */
+.text-xxs {
+  font-size: 0.7rem;
+}
+
+.border-bottom-glass {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

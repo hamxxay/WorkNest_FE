@@ -206,7 +206,7 @@ export class Booking implements OnInit {
   availableCapacities: number[] = [];
 
   // Meeting room slots
-  meetingSlots: { label: string; start: string; end: string }[] = [];
+  meetingSlots: { label: string; start: string; end: string; isLocked?: boolean }[] = [];
   selectedSlots = signal<Set<string>>(new Set());
 
   readonly today = new Date().toISOString().split('T')[0];
@@ -235,6 +235,7 @@ export class Booking implements OnInit {
       error: () => this.loadSpaces()
     });
     this.loadSpaceConfig();
+    this.loadExistingBookings();
   }
 
   private loadSpaceConfig() {
@@ -319,7 +320,39 @@ export class Booking implements OnInit {
     this.bookingForm.get('startTime')?.valueChanges.subscribe(recalc$);
     this.bookingForm.get('hours')?.valueChanges.subscribe(recalc$);
     this.bookingForm.get('months')?.valueChanges.subscribe(recalc$);
-    this.bookingForm.get('capacity')?.valueChanges.subscribe(recalc$);
+    this.bookingForm.get('capacity')?.valueChanges.subscribe(v => {
+      if (this.isMeeting) {
+        const d = this.bookingForm.get('startDate')?.value;
+        if (d) this.checkLockedSlots(d);
+      }
+      recalc$();
+    });
+  }
+
+  existingBookings: any[] = [];
+
+  loadExistingBookings() {
+    this.adminService.getBookings(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        this.existingBookings = list;
+        if (this.bookingForm?.get('startDate')?.value) {
+          this.checkLockedSlots(this.bookingForm.get('startDate')?.value);
+        }
+      },
+      error: () => {
+        this.bookingService.getMyBookings().subscribe({
+          next: (res: any) => {
+            const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+            this.existingBookings = list;
+            if (this.bookingForm?.get('startDate')?.value) {
+              this.checkLockedSlots(this.bookingForm.get('startDate')?.value);
+            }
+          },
+          error: () => {}
+        });
+      }
+    });
   }
 
   generateMeetingSlots(date: string) {
@@ -330,11 +363,95 @@ export class Booking implements OnInit {
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2,'0')}:00`;
       const end   = `${String(h + 1).padStart(2,'0')}:00`;
-      this.meetingSlots.push({ label: `${start} – ${end}`, start, end });
+      this.meetingSlots.push({ label: `${start} – ${end}`, start, end, isLocked: false });
     }
+    this.checkLockedSlots(date);
   }
 
-  toggleSlot(slot: { start: string; end: string }) {
+  private checkLockedSlots(date: string) {
+    if (!date || !this.meetingSlots.length) return;
+
+    const targetSpaceId   = this.selectedSpace?.id ? String(this.selectedSpace.id) : '';
+    const targetSpaceGuid = this.selectedSpace?.idGuid ? String(this.selectedSpace.idGuid) : '';
+    const targetSpaceTypeId = this.selectedSpace?.spaceTypeId ? Number(this.selectedSpace.spaceTypeId) : 0;
+
+    this.meetingSlots.forEach(slot => {
+      const slotStartStr = `${date}T${slot.start}:00`;
+      const slotEndStr   = `${date}T${slot.end}:00`;
+      const slotStart = new Date(slotStartStr).getTime();
+      const slotEnd   = new Date(slotEndStr).getTime();
+
+      // Check overlap against existing active bookings
+      const isBookedInDB = this.existingBookings.some((b: any) => {
+        const status = String(b.bookingStatus || b.bookingStatusCode || b.status || '').toLowerCase();
+        if (status === 'cancelled' || status === 'rejected') return false;
+
+        const bStartStr = b.startDateTime || b.startOn || b.startDate;
+        const bEndStr   = b.endDateTime   || b.endOn   || b.endDate;
+        if (!bStartStr || !bEndStr) return false;
+
+        const bStart = new Date(bStartStr).getTime();
+        const bEnd   = new Date(bEndStr).getTime();
+        if (isNaN(bStart) || isNaN(bEnd)) return false;
+
+        const overlaps = (bStart < slotEnd) && (bEnd > slotStart);
+        if (!overlaps) return false;
+
+        const bSpaceId   = String(b.spaceId ?? b.spaceIdGuid ?? '');
+        const bSpaceGuid = String(b.spaceIdGuid ?? b.spacePublicId ?? b.publicId ?? '');
+        const bSpaceCode = String(b.spaceCode ?? b.code ?? '').toLowerCase();
+        const targetCode = String(this.selectedSpace?.code ?? '').toLowerCase();
+
+        // If a specific room/space is selected, match strictly by space ID, GUID, or Code
+        if (targetSpaceId || targetSpaceGuid || targetCode) {
+          if (targetSpaceId && bSpaceId === targetSpaceId) return true;
+          if (targetSpaceGuid && (bSpaceId === targetSpaceGuid || bSpaceGuid === targetSpaceGuid)) return true;
+          if (targetCode && bSpaceCode && bSpaceCode === targetCode) return true;
+          return false;
+        }
+
+        // Fallback to space type matching only if no specific room/space is selected
+        const bSpaceTypeId = Number(b.spaceTypeId ?? 0);
+        if (targetSpaceTypeId > 0 && bSpaceTypeId === targetSpaceTypeId) return true;
+
+        return false;
+      });
+
+      slot.isLocked = isBookedInDB;
+
+      if (slot.isLocked && this.selectedSlots().has(slot.start)) {
+        const set = new Set(this.selectedSlots());
+        set.delete(slot.start);
+        this.selectedSlots.set(set);
+        this.checkAvailability();
+      }
+    });
+  }
+
+  private parseAvailableCount(res: any): number {
+    if (res == null) return 0;
+    if (typeof res === 'number') return res;
+    if (typeof res === 'boolean') return res ? 1 : 0;
+    if (Array.isArray(res)) return res.length;
+
+    const d = res?.data ?? res;
+    if (typeof d === 'number') return d;
+    if (typeof d === 'boolean') return d ? 1 : 0;
+    if (Array.isArray(d)) return d.length;
+    if (Array.isArray(d?.items)) return d.items.length;
+    if (Array.isArray(d?.spaces)) return d.spaces.length;
+    if (Array.isArray(d?.availableSpaces)) return d.availableSpaces.length;
+    if (typeof d?.availableSpaces === 'number') return d.availableSpaces;
+    if (typeof d?.availableCount === 'number') return d.availableCount;
+    if (typeof d?.count === 'number') return d.count;
+    if (typeof d?.isAvailable === 'boolean') return d.isAvailable ? 1 : 0;
+    if (typeof d?.available === 'boolean') return d.available ? 1 : 0;
+
+    return 0;
+  }
+
+  toggleSlot(slot: { start: string; end: string; isLocked?: boolean }) {
+    if (slot.isLocked) return;
     const set = new Set(this.selectedSlots());
     set.has(slot.start) ? set.delete(slot.start) : set.add(slot.start);
     this.selectedSlots.set(set);
@@ -391,12 +508,15 @@ export class Booking implements OnInit {
       end.toISOString().slice(0, 19),
       cap
     ).subscribe({
-      next: (res) => {
-        const spaces = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-        this.availableCount.set(spaces.length);
+      next: (res: any) => {
+        const count = this.parseAvailableCount(res);
+        this.availableCount.set(count);
         this.availabilityLoading.set(false);
       },
-      error: () => { this.availableCount.set(1); this.availabilityLoading.set(false); }
+      error: () => {
+        this.availableCount.set(1);
+        this.availabilityLoading.set(false);
+      }
     });
   }
 
@@ -418,6 +538,7 @@ export class Booking implements OnInit {
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
     this.bookingForm.patchValue({ startDate: tomorrowStr });
     if (preselectedCapacity) this.bookingForm.patchValue({ capacity: preselectedCapacity });
+    this.loadExistingBookings();
     if (this.isMeeting) this.generateMeetingSlots(tomorrowStr);
     this.showBookingModal = true;
     this.checkAvailability();
@@ -438,6 +559,10 @@ export class Booking implements OnInit {
     }
     if (this.isMeeting && this.selectedSlots().size === 0) {
       this.bookingError.set('Please select at least one time slot.');
+      return;
+    }
+    if (this.isSpaceFull() || this.availableCount() === 0) {
+      this.bookingError.set('No available spaces found for the selected time slot. Please choose another date or time.');
       return;
     }
     const [start, end] = this.calcDateRange();
@@ -511,6 +636,10 @@ export class Booking implements OnInit {
     }
     if (this.isMeeting && this.selectedSlots().size === 0) {
       this.bookingError.set('Please select at least one time slot.');
+      return;
+    }
+    if (this.isSpaceFull() || this.availableCount() === 0) {
+      this.bookingError.set('No available spaces found for the selected time slot. Please choose another date or time.');
       return;
     }
 

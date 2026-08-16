@@ -371,3 +371,54 @@
   color: #fff;
   font-weight: 600;
 }
+
+.admin-slot-btn.slot-locked {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.admin-slot-locked-tag {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #dc2626;
+  margin-top: 1px;
+  text-transform: uppercase;
+}
+
+/* Status badges for Quotation */
+.status-badge.status-approved,
+.status-badge.status-active {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-badge.status-inactive,
+.status-badge.status-expired {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.status-badge.status-converted {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* Print rule for Quotation Preview */
+@media print {
+  #quotation-printable,
+  #quotation-printable * { visibility: visible !important; }
+  #quotation-printable {
+    position: fixed !important;
+    inset: 0 !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+}
+
