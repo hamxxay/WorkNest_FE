@@ -3,10 +3,11 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "dev": "ng serve",
-    "start": "ng serve",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
+    "set-env": "node set-env.js",
+    "dev": "npm run set-env && ng serve",
+    "start": "npm run set-env && ng serve",
+    "build": "npm run set-env && ng build",
+    "watch": "npm run set-env && ng build --watch --configuration development",
     "test": "node -e \"console.log('No unit tests configured'); process.exit(0)\"",
     "lint": "eslint \"src/**/*.ts\" --fix"
   },
