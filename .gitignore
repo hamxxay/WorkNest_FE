@@ -2,8 +2,7 @@
 .env
 .env.*
 
-# Angular environments
-src/environments/environment.ts
+# Angular environments (prod only — base environment.ts is tracked with placeholders)
 src/environments/environment.prod.ts
 
 # Build output
