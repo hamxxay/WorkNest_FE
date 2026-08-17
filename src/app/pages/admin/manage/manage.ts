@@ -137,11 +137,13 @@ export class Manage implements OnInit {
   adminMeetingDate = '';
   adminMeetingSlots: { label: string; start: string; end: string; isLocked?: boolean }[] = [];
   adminSelectedSlots = new Set<string>();
+  meetingRoomBookingMode: 'day' | 'slot' = 'slot';
 
   // Private Room & Shared Space (admin booking)
   selectedAdminCapacity: number | string | null = null;
   availableAdminCapacities: number[] = [];
   adminStartDate = '';
+  adminMeetingDayEnd = '';
   adminMonths = 1;
   // customer search
   customerSearchQuery = '';
@@ -150,6 +152,12 @@ export class Manage implements OnInit {
   selectedCustomer: any = null;
   // When opening customer-create from booking flow, set this to true so save() can inject created customer
   creatingCustomerFromBooking = false;
+
+  // ── Quick Create Customer (from booking form) ─────────────
+  showQuickCreateCustomer = false;
+  quickCustomerForm = { firstName: '', lastName: '', email: '', phoneNumber: '' };
+  quickCustomerSaving = signal(false);
+  quickCustomerError = '';
 
   // ── Admin Booking Receipt ─────────────────────────────────
   showReceiptModal = false;
@@ -178,20 +186,25 @@ export class Manage implements OnInit {
   quotationRemarks = '';
   quotationDiscountPercentage = 0;
 
+  // Meeting room slots for quotation
+  quotationMeetingSlots: { label: string; start: string; end: string }[] = [];
+  quotationSelectedSlots = new Set<string>();
+  quotationMeetingRoomMode: 'day' | 'slot' = 'slot';
+  quotationMeetingDayEnd = '';
+
   sendingChallanEmail = signal(false);
   challanEmailSent = signal('');
 
   resendingBookingEmailId = signal<number | null>(null);
   bookingEmailFeedback = signal('');
 
-  resendBookingEmail(item: any) {
+  async resendBookingEmail(item: any) {
     const bookingId = item.id ?? item.bookingId;
     if (!bookingId) return;
     this.resendingBookingEmailId.set(bookingId);
 
-    // Load challan to get the correct customerEmail from DB (same as sendChallanEmail)
     this.bookingService.getChallan(bookingId).subscribe({
-      next: (res: any) => {
+      next: async (res: any) => {
         const challan = res?.data ?? res;
         const targetEmail = challan?.customerEmail || challan?.userEmail || '';
         if (!targetEmail) {
@@ -199,18 +212,64 @@ export class Manage implements OnInit {
           alert('No customer email address found for this booking.');
           return;
         }
-        this.bookingService.sendChallanEmail(bookingId, targetEmail).subscribe({
-          next: () => {
-            this.resendingBookingEmailId.set(null);
-            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
-          },
-          error: () => {
-            this.resendingBookingEmailId.set(null);
-            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
-          }
+
+        // Temporarily show challan modal to capture PDF
+        this.challanData.set({
+          bookingId,
+          challanNumber: challan.challanNumber,
+          validity: challan.validUntil ?? challan.challanValidUntil,
+          customerName: challan.customerName,
+          customerEmail: challan.customerEmail,
+          customerCode: challan.customerCode,
+          spaceName: challan.spaceName,
+          locationName: challan.locationName,
+          spaceTypeName: challan.spaceTypeName,
+          startDateTime: challan.startOn,
+          endDateTime: challan.endOn,
+          bookingDetails: challan.details ?? [],
+          securityDeposit: challan.securityDeposit ?? 0,
+          subtotalAmount: challan.roomPrice ?? 0,
+          discountPercentage: 0,
+          discountAmount: 0,
+          totalAmount: challan.totalPayable ?? 0,
+          createdAt: new Date().toISOString(),
         });
+        this.showChallanModal = true;
+
+        // Wait for DOM to render then capture
+        setTimeout(async () => {
+          try {
+            const { default: html2canvas } = await import('html2canvas');
+            const { jsPDF } = await import('jspdf');
+            const el = document.getElementById('admin-receipt-printable');
+            let pdfBase64 = '';
+            if (el) {
+              const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+              const imgData = canvas.toDataURL('image/png');
+              const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+              const pageW = pdf.internal.pageSize.getWidth();
+              const imgH = (canvas.height * pageW) / canvas.width;
+              pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+              pdfBase64 = pdf.output('datauristring').split(',')[1];
+            }
+            this.showChallanModal = false;
+            this.bookingService.sendChallanEmail(bookingId, targetEmail, pdfBase64).subscribe({
+              next: () => {
+                this.resendingBookingEmailId.set(null);
+                this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+                setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+              },
+              error: () => {
+                this.resendingBookingEmailId.set(null);
+                this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+                setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+              }
+            });
+          } catch {
+            this.showChallanModal = false;
+            this.resendingBookingEmailId.set(null);
+          }
+        }, 300);
       },
       error: () => {
         this.resendingBookingEmailId.set(null);
@@ -575,6 +634,7 @@ export class Manage implements OnInit {
     this.adminMeetingDate = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
+    this.meetingRoomBookingMode = 'slot';
     this.showBookingForm = true;
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
@@ -633,17 +693,18 @@ export class Manage implements OnInit {
 
     const addedGroups = new Set<string>();
 
-    // 1. From /spacetype API
+    // 1. From /spacetype API — use categoryCode as value so all types in same category are matched
     (apiTypes || []).forEach((s: any) => {
-      const name = (s.description || s.displayName || s.label || s.typeName || s.name || s.l || '').trim();
+      // Prefer name over description so "Meeting/Conference" is not reduced to just "Conference"
+      const name = (s.name || s.displayName || s.label || s.typeName || s.description || s.l || '').trim();
       const label = name ? name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : '';
       if (!label) return;
 
       const group = getGroup(label);
       if (!addedGroups.has(group)) {
         const key = label.toLowerCase();
-        const val = s.idGuid ?? s.idGUID ?? s.id ?? s.v ?? label;
-        map.set(key, { v: val, l: label });
+        // Use group name as value so all space types in same category share one dropdown option
+        map.set(key, { v: group, l: group === 'meeting' ? 'Meeting Room' : group === 'private' ? 'Private Room' : group === 'shared' ? 'Shared Space' : label });
         addedGroups.add(group);
       }
     });
@@ -660,7 +721,7 @@ export class Manage implements OnInit {
         const group = getGroup(label);
         if (!addedGroups.has(group)) {
           const key = label.toLowerCase();
-          map.set(key, { v: c.spaceTypeId || label, l: label });
+          map.set(key, { v: group, l: label });
           addedGroups.add(group);
         }
       }
@@ -676,7 +737,7 @@ export class Manage implements OnInit {
         const group = getGroup(label);
         if (!addedGroups.has(group)) {
           const key = label.toLowerCase();
-          map.set(key, { v: s.spaceTypeId || label, l: label });
+          map.set(key, { v: group, l: label });
           addedGroups.add(group);
         }
       }
@@ -684,9 +745,9 @@ export class Manage implements OnInit {
 
     // 4. Guarantee standard core space types exist
     const standardTypes = [
-      { v: 'Meeting Room', l: 'Meeting Room' },
-      { v: 'Private Room', l: 'Private Room' },
-      { v: 'Shared Space', l: 'Shared Space' }
+      { v: 'meeting', l: 'Meeting Room' },
+      { v: 'private', l: 'Private Room' },
+      { v: 'shared',  l: 'Shared Space' }
     ];
 
     standardTypes.forEach(std => {
@@ -731,14 +792,11 @@ export class Manage implements OnInit {
         String(s.locationIdGuid ?? s.locationId ?? s.LocationIdGuid ?? '') === String(this.selectedLocationId)
       );
     }
-    const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-    if (selectedType) {
-      const typeIdStr = String(selectedType.v);
-      const typeNameLower = selectedType.l.toLowerCase().replace(/\s+/g, '');
+    if (this.selectedSpaceTypeId) {
       spaces = spaces.filter((s: any) => {
-        const sTypeId = String(s.spaceTypeId ?? s.SpaceTypeId ?? '');
-        const sTypeName = (s.spaceTypeName || s.SpaceTypeName || s.spaceType || '').toLowerCase().replace(/\s+/g, '');
-        return (sTypeId && sTypeId === typeIdStr) || (sTypeName && (sTypeName === typeNameLower || sTypeName.includes('private')));
+        const categoryCode = (s.categoryCode || '').toLowerCase();
+        const sTypeName = (s.spaceTypeName || '').toLowerCase();
+        return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
       });
     }
 
@@ -782,21 +840,15 @@ export class Manage implements OnInit {
       );
     }
 
-    // 2. Filter by space type (matching spaceTypeId OR spaceTypeName)
-    const selectedType = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-    if (selectedType) {
-      const typeIdStr = String(selectedType.v);
-      const typeNameClean = selectedType.l.toLowerCase().replace(/space|room|office/g, '').trim();
-
+    // 2. Filter by space type using categoryCode
+    if (this.selectedSpaceTypeId) {
       spaces = spaces.filter((s: any) => {
-        const sTypeId = String(s.spaceTypeId ?? s.SpaceTypeId ?? '');
-        if (sTypeId && sTypeId === typeIdStr) return true;
-        const sTypeName = (s.spaceTypeName || s.SpaceTypeName || s.spaceType || '').toLowerCase();
-        if ((typeNameClean.includes('meeting') || typeNameClean.includes('conference')) &&
-            (sTypeName.includes('meeting') || sTypeName.includes('conference'))) {
-          return true;
-        }
-        if (sTypeName && typeNameClean && sTypeName.includes(typeNameClean)) return true;
+        const categoryCode = (s.categoryCode || '').toLowerCase();
+        const sTypeName = (s.spaceTypeName || '').toLowerCase();
+        const sName = (s.name || '').toLowerCase();
+        if (this.selectedSpaceTypeId === 'meeting') return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
+        if (this.selectedSpaceTypeId === 'private') return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
+        if (this.selectedSpaceTypeId === 'shared')  return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
         return false;
       });
     }
@@ -945,6 +997,8 @@ export class Manage implements OnInit {
     this.bookingFormData.cnicOrPassport = user.cnicOrPassport || '';
     this.bookingFormData.address        = user.address || '';
     this.bookingFormData.cityId         = user.cityId || '';
+    this.quotationFormData.customerName  = fullName;
+    this.quotationFormData.customerEmail = user.email || '';
   }
 
   isCustomerFieldEmpty(field: string): boolean {
@@ -966,18 +1020,23 @@ export class Manage implements OnInit {
   }
 
   get isAdminMeetingRoom(): boolean {
-    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-    return selected ? selected.l.toLowerCase().includes('meeting') : false;
+    return this.selectedSpaceTypeId === 'meeting';
+  }
+
+  get isAdminMeetingRoomDayMode(): boolean {
+    return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day';
+  }
+
+  get isAdminMeetingRoomSlotMode(): boolean {
+    return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot';
   }
 
   get isAdminPrivateRoom(): boolean {
-    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-    return selected ? selected.l.toLowerCase().includes('private') : false;
+    return this.selectedSpaceTypeId === 'private';
   }
 
   get isAdminSharedSpace(): boolean {
-    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.selectedSpaceTypeId));
-    return selected ? selected.l.toLowerCase().includes('shared') : false;
+    return this.selectedSpaceTypeId === 'shared';
   }
 
   get adminEndDateDisplay(): string {
@@ -1028,14 +1087,39 @@ export class Manage implements OnInit {
     this.bookingFormData.endDateTime   = `${this.adminMeetingDate}T${String(lastHour).padStart(2, '0')}:00:00`;
   }
 
+  onAdminMeetingModeChange() {
+    this.adminMeetingDate = '';
+    this.adminMeetingDayEnd = '';
+    this.adminMeetingSlots = [];
+    this.adminSelectedSlots = new Set();
+    this.adminStartDate = '';
+    this.bookingFormData.startDateTime = '';
+    this.bookingFormData.endDateTime = '';
+    this.recalcAmount();
+  }
+
+  onAdminMeetingDayChange() {
+    if (!this.adminStartDate || !this.adminMeetingDayEnd) {
+      this.bookingFormData.startDateTime = '';
+      this.bookingFormData.endDateTime = '';
+      this.recalcAmount();
+      return;
+    }
+    this.bookingFormData.startDateTime = `${this.adminStartDate}T00:00:00`;
+    this.bookingFormData.endDateTime = `${this.adminMeetingDayEnd}T23:59:59`;
+    this.recalcAmount();
+  }
+
   onSpaceTypeChange() {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
     this.selectedAdminCapacity = null;
     this.adminMeetingDate = '';
+    this.adminMeetingDayEnd = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
+    this.meetingRoomBookingMode = 'slot';
     this.adminStartDate = '';
     this.adminMonths = 1;
     this.bookingFormData.startDateTime = '';
@@ -1102,10 +1186,7 @@ export class Manage implements OnInit {
       if (!monthly) monthly = 35000;
     } else if (typeName.includes('shared')) {
       if (!monthly) monthly = 30000;
-    } else if (typeName.includes('conference')) {
-      if (!daily)   daily  = 20000;
-      if (!hourly)  hourly = 20000;
-    } else if (typeName.includes('meeting')) {
+    } else if (typeName.includes('meeting') || typeName.includes('conference')) {
       if (!hourly)  hourly = 6000;
     }
 
@@ -1135,10 +1216,16 @@ export class Manage implements OnInit {
       const start = new Date(startDateTime);
       const end   = new Date(endDateTime);
       if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
-      const diffMs   = end.getTime() - start.getTime();
-      const diffHours = diffMs / 3_600_000;
       const rate = hourly > 0 ? hourly : (daily > 0 ? daily : (monthly > 0 ? monthly : 0));
-      const amount = Math.ceil(diffHours) * rate;
+      let amount: number;
+      if (this.meetingRoomBookingMode === 'day') {
+        // Full-day: count calendar days × 9 hours/day × hourly rate
+        const diffDays = Math.ceil((end.getTime() - start.getTime()) / 86_400_000);
+        amount = diffDays * 9 * rate;
+      } else {
+        const diffHours = (end.getTime() - start.getTime()) / 3_600_000;
+        amount = Math.ceil(diffHours) * rate;
+      }
 
       this.securityDeposit = 0;
       this.bookingSubtotal = parseFloat(amount.toFixed(2));
@@ -1190,13 +1277,18 @@ export class Manage implements OnInit {
       this.bookingFormSaving.set(false);
       return;
     }
-    if (this.isAdminMeetingRoom && this.adminSelectedSlots.size === 0) {
+    if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot' && this.adminSelectedSlots.size === 0) {
       this.bookingFormError = 'Please select at least one time slot.';
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.isAdminMeetingRoom && (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1)) {
       this.bookingFormError = 'Please specify start date and number of months.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && (!this.adminStartDate || !this.adminMeetingDayEnd)) {
+      this.bookingFormError = 'Please specify start and end date for the meeting room booking.';
       this.bookingFormSaving.set(false);
       return;
     }
@@ -1304,11 +1396,20 @@ export class Manage implements OnInit {
             : (Array.isArray(d.BookingDetails) && d.BookingDetails.length
               ? d.BookingDetails
               : [
-                  { feeType: 'RoomRent', amount: payload.totalAmount ?? 0 },
+                  (() => {
+                    if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && this.adminStartDate && this.adminMeetingDayEnd) {
+                      const start = new Date(this.adminStartDate);
+                      const end   = new Date(this.adminMeetingDayEnd);
+                      const days  = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
+                      return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room — Full Day (${days} day${days > 1 ? 's' : ''} × 9 hrs/day)` };
+                    }
+                    return { feeType: 'RoomRent', amount: this.bookingSubtotal };
+                  })(),
+                  ...(this.bookingDiscountAmount > 0 ? [{ feeType: 'DISCOUNT', amount: -this.bookingDiscountAmount, notes: `Discount applied: ${Number(this.bookingDiscountPercentage).toFixed(2)}%` }] : []),
                   ...(this.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.securityDeposit }] : [])
                 ]);
 
-          const totalAmount = details.reduce((s: number, l: any) => s + (l.amount ?? l.Amount ?? 0), 0) || ((payload.totalAmount ?? 0) + (this.securityDeposit ?? 0));
+          const totalAmount = (payload.totalAmount ?? 0) + (this.securityDeposit ?? 0);
 
           const receipt = {
             bookingId,
@@ -1549,19 +1650,32 @@ export class Manage implements OnInit {
     }
   }
 
-  /** Open the standard customer-create modal from inside the booking flow.
-   *  After customer is created, the save() handler will pick the created customer
-   *  and populate the booking form fields automatically.
-   */
   openCreateCustomerFromBooking() {
-    // mark that the create modal was opened from booking flow
-    this.creatingCustomerFromBooking = true;
-    // temporarily switch config to customers so showModal renders the customer fields
-    this.editItem = null;
-    this.formData = {};
-    this.error = '';
-    this.config = this.buildConfig('customers');
-    this.showModal = true;
+    this.quickCustomerForm = { firstName: '', lastName: '', email: '', phoneNumber: '' };
+    this.quickCustomerError = '';
+    this.showQuickCreateCustomer = true;
+  }
+
+  submitQuickCreateCustomer() {
+    const { firstName, email, phoneNumber } = this.quickCustomerForm;
+    if (!firstName.trim() || !email.trim()) {
+      this.quickCustomerError = 'First name and email are required.';
+      return;
+    }
+    this.quickCustomerSaving.set(true);
+    this.quickCustomerError = '';
+    this.admin.createCustomer(this.quickCustomerForm).subscribe({
+      next: (res: any) => {
+        this.quickCustomerSaving.set(false);
+        this.showQuickCreateCustomer = false;
+        const created = res?.data ?? res;
+        if (created) this.selectCustomer(created);
+      },
+      error: (e: any) => {
+        this.quickCustomerSaving.set(false);
+        this.quickCustomerError = e?.error?.message ?? 'Failed to create customer.';
+      }
+    });
   }
 
   openEdit(item: any) {
@@ -2210,6 +2324,34 @@ export class Manage implements OnInit {
     }
   }
 
+  generateQuotationMeetingSlots() {
+    if (!this.quotationStartDate) { this.quotationMeetingSlots = []; return; }
+    const cfg = this.spaceConfigItems().find((c: any) =>
+      (c.spaceCategory || '').toLowerCase() === 'meeting'
+    );
+    const openH  = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
+    const closeH = parseInt((cfg?.closingTime  || '20:00').split(':')[0], 10);
+    this.quotationMeetingSlots = [];
+    for (let h = openH; h < closeH; h++) {
+      const start = `${String(h).padStart(2, '0')}:00`;
+      const end   = `${String(h + 1).padStart(2, '0')}:00`;
+      this.quotationMeetingSlots.push({ label: `${start} – ${end}`, start, end });
+    }
+    this.quotationSelectedSlots = new Set();
+    this.recalcQuotationAmount();
+  }
+
+  toggleQuotationSlot(slot: { start: string; end: string }) {
+    this.quotationSelectedSlots.has(slot.start)
+      ? this.quotationSelectedSlots.delete(slot.start)
+      : this.quotationSelectedSlots.add(slot.start);
+    this.recalcQuotationAmount();
+  }
+
+  isQuotationSlotSelected(slot: { start: string }): boolean {
+    return this.quotationSelectedSlots.has(slot.start);
+  }
+
   openAdminQuotationForm() {
     this.showQuotationForm = true;
     this.quotationFormData = {};
@@ -2228,6 +2370,16 @@ export class Manage implements OnInit {
     this.quotationValidUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     this.quotationRemarks = '';
     this.quotationDiscountPercentage = 0;
+    this.quotationMeetingSlots = [];
+    this.quotationSelectedSlots = new Set();
+    this.quotationMeetingRoomMode = 'slot';
+    this.quotationMeetingDayEnd = '';
+
+    if (!this.spaceConfigItems().length) {
+      this.admin.getSpaceConfig().subscribe({
+        next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
+      });
+    }
 
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
@@ -2262,6 +2414,18 @@ export class Manage implements OnInit {
   onQuotationSpaceTypeChange() {
     this.quotationFormData.spaceId = '';
     this.selectedQuotationCapacity = null;
+    this.quotationMeetingSlots = [];
+    this.quotationSelectedSlots = new Set();
+    this.quotationMeetingRoomMode = 'slot';
+    this.quotationMeetingDayEnd = '';
+    this.recalcQuotationAmount();
+  }
+
+  onQuotationMeetingModeChange() {
+    this.quotationMeetingSlots = [];
+    this.quotationSelectedSlots = new Set();
+    this.quotationStartDate = this.today;
+    this.quotationMeetingDayEnd = '';
     this.recalcQuotationAmount();
   }
 
@@ -2290,15 +2454,11 @@ export class Manage implements OnInit {
   }
 
   get isQuotationPrivateRoom() {
-    const matched = this.spaceTypeOptions.find(o => String(o.v) === String(this.selectedQuotationSpaceTypeId));
-    const label = (matched?.l ?? '').toLowerCase();
-    return label.includes('private') || label.includes('office');
+    return this.selectedQuotationSpaceTypeId === 'private';
   }
 
   get isQuotationMeetingRoom() {
-    const matched = this.spaceTypeOptions.find(o => String(o.v) === String(this.selectedQuotationSpaceTypeId));
-    const label = (matched?.l ?? '').toLowerCase();
-    return label.includes('meeting') || label.includes('conference');
+    return this.selectedQuotationSpaceTypeId === 'meeting';
   }
 
   get availableQuotationCapacities(): number[] {
@@ -2320,16 +2480,25 @@ export class Manage implements OnInit {
     let spaces = this.allSpaces;
 
     if (this.selectedQuotationLocationId) {
-      spaces = spaces.filter(s => 
+      spaces = spaces.filter(s =>
         String(s.locationIdInt ?? s.locationId) === String(this.selectedQuotationLocationId) ||
         String(s.locationIdGuid ?? s.locationGuid ?? s.locationId) === String(this.selectedQuotationLocationId)
       );
     }
 
-    spaces = spaces.filter(s => 
-      String(s.spaceTypeIdInt ?? s.spaceTypeId) === String(this.selectedQuotationSpaceTypeId) ||
-      String(s.spaceTypeGuid ?? s.spaceTypeGroupId ?? s.spaceTypeId) === String(this.selectedQuotationSpaceTypeId)
-    );
+    const isMeeting = this.selectedQuotationSpaceTypeId === 'meeting';
+    const isPrivate = this.selectedQuotationSpaceTypeId === 'private';
+    const isShared  = this.selectedQuotationSpaceTypeId === 'shared';
+
+    spaces = spaces.filter(s => {
+      const categoryCode = (s.categoryCode || '').toLowerCase();
+      const sTypeName = (s.spaceTypeName || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      if (isMeeting) return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
+      if (isPrivate) return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
+      if (isShared)  return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+      return false;
+    });
 
     if (this.isQuotationPrivateRoom && this.selectedQuotationCapacity) {
       spaces = spaces.filter(s => Number(s.capacity) === Number(this.selectedQuotationCapacity));
@@ -2366,7 +2535,16 @@ export class Manage implements OnInit {
       this.quotationSecurityDeposit = security;
     } else if (category.includes('meeting') || category.includes('conference')) {
       const hourlyRate = rate || 6000;
-      this.quotationSubtotal = hourlyRate;
+      if (this.quotationMeetingRoomMode === 'day' && this.quotationStartDate && this.quotationMeetingDayEnd) {
+        // Full-day: count calendar days × 9 hours/day × hourly rate
+        const start = new Date(this.quotationStartDate);
+        const end   = new Date(this.quotationMeetingDayEnd);
+        const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
+        this.quotationSubtotal = hourlyRate * 9 * diffDays;
+      } else {
+        const hours = this.quotationSelectedSlots.size || 1;
+        this.quotationSubtotal = hourlyRate * hours;
+      }
       this.quotationSecurityDeposit = 0;
     } else {
       const monthlyRate = rate || 30000;
@@ -2394,23 +2572,56 @@ export class Manage implements OnInit {
       this.quotationFormSaving.set(false);
       return;
     }
+    if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'slot' && this.quotationSelectedSlots.size === 0) {
+      this.quotationFormError = 'Please select at least one time slot.';
+      this.quotationFormSaving.set(false);
+      return;
+    }
+    if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'day' && (!this.quotationStartDate || !this.quotationMeetingDayEnd)) {
+      this.quotationFormError = 'Please specify start and end date for the meeting room booking.';
+      this.quotationFormSaving.set(false);
+      return;
+    }
     if (this.quotationDiscountPercentage < 0 || this.quotationDiscountPercentage > 100) {
       this.quotationFormError = 'Discount must be between 0% and 100%.';
       this.quotationFormSaving.set(false);
       return;
     }
 
-    const payload = {
-      customerId: this.selectedCustomer.customerId || this.selectedCustomer.id,
-      spaceId: Number(this.quotationFormData.spaceId),
-      startDateTime: new Date(this.quotationStartDate).toISOString(),
-      endDateTime: this.isQuotationMeetingRoom 
-        ? new Date(new Date(this.quotationStartDate).getTime() + 60*60*1000).toISOString()
-        : new Date(this.quotationEndDateDisplay).toISOString(),
-      validUntil: new Date(this.quotationValidUntil).toISOString(),
-      discountPercentage: Number(this.quotationDiscountPercentage),
-      remarks: this.quotationRemarks || 'Generated via admin panel.'
+    let startDT: string;
+    let endDT: string;
+    if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'slot' && this.quotationSelectedSlots.size > 0) {
+      const sorted = Array.from(this.quotationSelectedSlots).sort();
+      const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
+      startDT = `${this.quotationStartDate}T${sorted[0]}:00`;
+      endDT   = `${this.quotationStartDate}T${String(lastHour).padStart(2, '0')}:00:00`;
+    } else if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'day') {
+      startDT = `${this.quotationStartDate}T00:00:00`;
+      endDT   = `${this.quotationMeetingDayEnd}T23:59:59`;
+    } else {
+      startDT = new Date(this.quotationStartDate).toISOString();
+      endDT   = new Date(this.quotationEndDateDisplay || this.quotationStartDate).toISOString();
+    }
+
+    const u = this.selectedCustomer;
+    const currentAdminId = Number((this.auth.user() as any)?.id || (this.auth.user() as any)?.userId || 1);
+    const now = new Date();
+    const quotationNumber = `WN-Q-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getTime()).slice(-5)}`;
+
+    const payload: any = {
+      QuotationNumber:    quotationNumber,
+      CustomerId:         Number(u.customerId || u.id || 0),
+      SpaceId:            Number(this.quotationFormData.spaceId),
+      StartDateTime:      startDT,
+      EndDateTime:        endDT,
+      ValidUntil:         new Date(this.quotationValidUntil).toISOString().split('T')[0],
+      SubtotalAmount:     this.quotationSubtotal,
+      DiscountPercentage: Number(this.quotationDiscountPercentage),
     };
+    if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
+    if (currentAdminId) payload.CreatedById = currentAdminId;
+
+    console.log('[QUOTATION] Sending payload:', JSON.stringify(payload));
 
     this.quotationSvc.createQuotation(payload).subscribe({
       next: (res: any) => {
@@ -2420,10 +2631,10 @@ export class Manage implements OnInit {
         setTimeout(() => this.success = '', 3000);
         this.load();
 
-        if (sendEmail) {
-          const createdQ = res?.data ?? res;
-          if (createdQ) {
-            this.previewQuotation(createdQ);
+        const createdQ = res?.data ?? res;
+        if (createdQ) {
+          this.previewQuotation(createdQ);
+          if (sendEmail) {
             setTimeout(() => this.sendQuotationEmailNow(), 1500);
           }
         }
@@ -2440,10 +2651,21 @@ export class Manage implements OnInit {
     this.showQuotationPreviewModal = true;
     this.quotationEmailSent.set('');
 
-    const id = item.id || item.quotationId;
+    const id = item.id || item.quotationId || item.Id;
+    if (!id) {
+      // item itself may already be the full quotation object
+      this.selectedQuotation.set(item);
+      return;
+    }
     this.quotationSvc.getQuotationById(id).subscribe({
       next: (res: any) => {
-        this.selectedQuotation.set(res?.data ?? res);
+        // Handle both { data: {...} } envelope and raw object
+        const q = res?.data ?? res;
+        this.selectedQuotation.set(q);
+      },
+      error: () => {
+        // Fallback: show whatever we already have from the list
+        this.selectedQuotation.set(item);
       }
     });
   }
@@ -2480,7 +2702,7 @@ export class Manage implements OnInit {
     await this.sendQuotationEmailNow();
   }
 
-  private async sendQuotationEmailNow() {
+  async sendQuotationEmailNow() {
     const q = this.selectedQuotation();
     if (!q) return;
 
@@ -2504,7 +2726,7 @@ export class Manage implements OnInit {
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
       this.quotationEmailSent.set('Sending email...');
 
-      this.quotationSvc.sendQuotationEmail(q.id, q.customerEmail, pdfBase64).subscribe({
+      this.quotationSvc.sendQuotationEmail(q.id, q.customerEmail, pdfBase64, q.quotationNumber).subscribe({
         next: () => {
           this.quotationEmailSent.set('Email sent successfully!');
           setTimeout(() => this.quotationEmailSent.set(''), 3000);
@@ -2518,7 +2740,7 @@ export class Manage implements OnInit {
     }
   }
 
-  sendChallanEmail() {
+  async sendChallanEmail() {
     const c = this.challanData();
     if (!c) return;
     const targetEmail = c.customerEmail || c.userEmail || '';
@@ -2527,18 +2749,38 @@ export class Manage implements OnInit {
       return;
     }
     this.sendingChallanEmail.set(true);
-    this.bookingService.sendChallanEmail(c.bookingId, targetEmail).subscribe({
-      next: () => {
-        this.sendingChallanEmail.set(false);
-        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-        setTimeout(() => this.challanEmailSent.set(''), 4000);
-      },
-      error: () => {
-        this.sendingChallanEmail.set(false);
-        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-        setTimeout(() => this.challanEmailSent.set(''), 4000);
+    this.challanEmailSent.set('Generating PDF...');
+
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const { jsPDF } = await import('jspdf');
+      const el = document.getElementById('admin-receipt-printable');
+      let pdfBase64 = '';
+      if (el) {
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const imgH = (canvas.height * pageW) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+        pdfBase64 = pdf.output('datauristring').split(',')[1];
       }
-    });
+      this.bookingService.sendChallanEmail(c.bookingId, targetEmail, pdfBase64).subscribe({
+        next: () => {
+          this.sendingChallanEmail.set(false);
+          this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+          setTimeout(() => this.challanEmailSent.set(''), 4000);
+        },
+        error: () => {
+          this.sendingChallanEmail.set(false);
+          this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+          setTimeout(() => this.challanEmailSent.set(''), 4000);
+        }
+      });
+    } catch {
+      this.sendingChallanEmail.set(false);
+      this.challanEmailSent.set('Failed to generate PDF.');
+    }
   }
 
   convertQuotationToBooking(item: any) {

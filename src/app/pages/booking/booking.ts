@@ -227,7 +227,7 @@ export class Booking implements OnInit {
     this.adminService.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         (res?.data ?? []).forEach((st: any) => {
-          const displayName = st.description || st.displayName || st.label || st.typeName || st.name || '';
+          const displayName = st.name || st.displayName || st.label || st.typeName || st.description || '';
           this.spaceTypeMap.set(st.id, displayName);
         });
         this.loadSpaces();

@@ -422,9 +422,10 @@
                         </thead>
                         <tbody>
                           @for (line of challan()!.bookingDetails; track line.feeType ?? line.FeeType) {
-                            <tr style="border-bottom:1px solid #f1f5f9;color:#0f172a">
+                            <tr style="border-bottom:1px solid #f1f5f9;color:#0f172a"
+                              [style.color]="(line.feeType ?? line.FeeType) === 'DISCOUNT' ? '#ef4444' : '#0f172a'">
                               <td style="padding:10px 0">
-                                {{ line.feeType ?? line.FeeType }}
+                                {{ (line.feeType ?? line.FeeType) === 'DISCOUNT' ? 'Discount (' + (challan()!.discountPercentage ?? 0) + '%)' : (line.feeType ?? line.FeeType) }}
                                 @if ((line.feeType ?? line.FeeType) === 'SecurityDeposit') {
                                   <span style="font-size:.75rem;color:#64748b;display:block">(refundable)</span>
                                 }

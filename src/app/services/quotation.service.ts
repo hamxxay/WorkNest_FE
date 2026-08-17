@@ -46,8 +46,11 @@ export class QuotationService {
   /**
    * Email a quotation PDF to the customer
    */
-  sendQuotationEmail(id: number, email: string, pdfBase64: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/${id}/send-email`, { email, pdfBase64 });
+  sendQuotationEmail(id: number, email: string, pdfBase64: string, quotationNumber?: string): Observable<any> {
+    const quotationLink = quotationNumber
+      ? `https://work-nest-3936a.web.app/quotation/${quotationNumber}`
+      : undefined;
+    return this.http.post<any>(`${this.apiUrl}/${id}/send-email`, { email, pdfBase64, quotationLink });
   }
 
   /**
