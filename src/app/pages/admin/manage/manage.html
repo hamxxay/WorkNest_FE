@@ -1095,7 +1095,31 @@
         <span style="color:#64748b">Issued: {{ challanData().createdAt | date:'MMM d, y, h:mm a' }}</span>
       </div>
 
+      <!-- Terms & Conditions -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;padding:10px 14px;margin-bottom:16px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Terms &amp; Conditions</div>
+        <div style="font-size:.72rem;color:#6c757d;line-height:1.6">
+          <div>1. All prices are exclusive of applicable taxes. Any applicable taxes will be charged separately.</div>
+          <div>2. Payment must be made before the challan expiry date to confirm the booking.</div>
+          <div>3. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
+          <div>4. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.</div>
+          <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+        </div>
+      </div>
+
       <!-- Footer Note -->
+      <!-- Terms & Conditions -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;padding:10px 14px;margin-bottom:16px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Terms &amp; Conditions</div>
+        <div style="font-size:.72rem;color:#6c757d;line-height:1.6">
+          <div>1. All prices are exclusive of applicable taxes. Any applicable taxes will be charged separately.</div>
+          <div>2. This quotation is valid until the date specified above. Prices are subject to change after expiry.</div>
+          <div>3. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
+          <div>4. Booking confirmation is subject to space availability at the time of payment.</div>
+          <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+        </div>
+      </div>
+
       <div style="font-size:.75rem;color:#94a3b8;text-align:center;border-top:1px dashed #e2e8f0;padding-top:14px">
         Present this challan at any WorkNest counter or pay via bank transfer using the challan number.<br />
         This challan is system-generated and does not require a signature.
@@ -1217,9 +1241,9 @@
             <strong>PKR {{ (line.amount ?? 0) | number:'1.2-2' }}</strong>
           </div>
           }
-          @if (q.discountPercentage > 0) {
+          @if ((q.discountAmount ?? 0) > 0) {
           <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
-            <span style="color:#ef4444">Discount ({{ q.discountPercentage }}%)</span>
+            <span style="color:#ef4444">Discount {{ q.discountType === 'Amount' ? '(Fixed Amount)' : '(' + (q.discountPercentage ?? 0) + '%)'}}</span>
             <strong style="color:#ef4444">- PKR {{ (q.discountAmount ?? 0) | number:'1.2-2' }}</strong>
           </div>
           }
@@ -1283,8 +1307,8 @@
 }
 
 @if (showQuotationForm) {
-<div class="modal-overlay">
-  <div class="modal-content booking-modal" style="max-width:660px">
+<div class="modal-overlay" style="align-items:flex-start;padding:0">
+  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0">
     <button class="modal-close" (click)="closeAdminQuotationForm()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1371,9 +1395,9 @@
         </div>
         }
         <div class="form-group-admin">
-          <label>Space *</label>
+          <label>{{ isQuotationPrivateRoom ? 'Office No.' : (isQuotationMeetingRoom ? 'Space' : 'Space No.') }} *</label>
           <select class="form-input-admin" [(ngModel)]="quotationFormData.spaceId" name="qSpaceId" required
-            (change)="recalcQuotationAmount()">
+            (change)="onQuotationSpaceSelected()">
             @if (!selectedQuotationSpaceTypeId) {
             <option value="">Select Space Type first...</option>
             } @else if (isQuotationPrivateRoom && !selectedQuotationCapacity) {
@@ -1388,6 +1412,17 @@
             }
           </select>
         </div>
+        @if (quotationFloorOptions.length) {
+        <div class="form-group-admin">
+          <label>Floor</label>
+          <select class="form-input-admin" [(ngModel)]="quotationFloorId" name="qFloorId">
+            <option [ngValue]="null">Select Floor (optional)...</option>
+            @for (f of quotationFloorOptions; track f.v) {
+            <option [ngValue]="f.v">{{ f.l }}</option>
+            }
+          </select>
+        </div>
+        }
       </div>
 
       <p class="form-section-label" style="margin-top:1.25rem">Quotation Period</p>
@@ -1437,7 +1472,7 @@
       } @else {
       <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>Start Date *</label>
+          <label>Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" [min]="today"
             required (change)="onQuotationMonthPeriodChange()" />
         </div>
@@ -1456,22 +1491,38 @@
       }
       }
 
-      <p class="form-section-label" style="margin-top:1.25rem">Discount & Remarks</p>
+      <p class="form-section-label" style="margin-top:1.25rem">Discount, Security Deposit & Remarks</p>
       <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>Discount Percentage (0–100%)</label>
-          <input class="form-input-admin" type="number" min="0" max="100" step="1"
-            [(ngModel)]="quotationDiscountPercentage" name="qDiscount" (input)="recalcQuotationAmount()" placeholder="0" />
+          <label>Discount Type</label>
+          <select class="form-input-admin" [(ngModel)]="quotationDiscountType" name="qDiscountType" (change)="recalcQuotationAmount()">
+            <option value="Percentage">Percentage (%)</option>
+            <option value="Amount">Fixed Amount (PKR)</option>
+          </select>
         </div>
+        <div class="form-group-admin">
+          <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+          <input class="form-input-admin" type="number" min="0" [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1"
+            [(ngModel)]="quotationDiscountValue" name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
+        </div>
+      </div>
+      @if (!isQuotationMeetingRoom) {
+      <div class="form-group-admin">
+        <label>Security Deposit Months <small style="color:#94a3b8">(number of months)</small></label>
+        <input class="form-input-admin" type="number" min="0" step="1"
+          [(ngModel)]="quotationSecurityDepositMonthsOverride" name="qSecDepMonthsOverride" (input)="recalcQuotationAmount()" placeholder="Default: 1 month" />
+      </div>
+      }
+      <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Valid Until *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" [min]="today" required />
         </div>
-      </div>
-      <div class="form-group-admin">
-        <label>Remarks</label>
-        <input class="form-input-admin" type="text" [(ngModel)]="quotationRemarks" name="qRemarks"
-          placeholder="Optional remarks" />
+        <div class="form-group-admin">
+          <label>Remarks</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="quotationRemarks" name="qRemarks"
+            placeholder="Optional remarks" />
+        </div>
       </div>
 
       @if (quotationSubtotal > 0) {
@@ -1481,16 +1532,16 @@
           <span style="color:#64748b">Subtotal:</span>
           <strong>PKR {{ quotationSubtotal | number:'1.2-2' }}</strong>
         </div>
-        @if (quotationDiscountPercentage > 0) {
+        @if (quotationDiscountAmount > 0) {
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px">
-          <span style="color:#64748b">Discount ({{ quotationDiscountPercentage }}%):</span>
-          <strong style="color:#ef4444">- PKR {{ (quotationSubtotal * quotationDiscountPercentage / 100) | number:'1.2-2' }}</strong>
+          <span style="color:#64748b">Discount @if (quotationDiscountType === 'Percentage') { ({{ quotationDiscountValue }}%) } @else { (Fixed) }:</span>
+          <strong style="color:#ef4444">PKR {{ quotationDiscountAmount | number:'1.2-2' }}</strong>
         </div>
         }
-        @if (quotationSecurityDeposit > 0) {
+        @if (effectiveQuotationSecurityDeposit > 0) {
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px">
           <span style="color:#64748b">Security Deposit (Refundable):</span>
-          <strong>PKR {{ quotationSecurityDeposit | number:'1.2-2' }}</strong>
+          <strong>PKR {{ effectiveQuotationSecurityDeposit | number:'1.2-2' }}</strong>
         </div>
         }
         <hr style="margin:6px 0;border:0;border-top:1px solid #e2e8f0" />
@@ -1518,8 +1569,8 @@
 }
 
 @if (showBookingForm) {
-<div class="modal-overlay">
-  <div class="modal-content booking-modal" style="max-width:660px">
+<div class="modal-overlay" style="align-items:flex-start;padding:0">
+  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0">
     <button class="modal-close" (click)="closeAdminBookingForm()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1655,9 +1706,9 @@
         </div>
         }
         <div class="form-group-admin">
-          <label>Space *</label>
+          <label>{{ isAdminPrivateRoom ? 'Office No.' : (isAdminMeetingRoom ? 'Space' : 'Space No.') }} *</label>
           <select class="form-input-admin" [(ngModel)]="bookingFormData.spaceId" name="spaceId" required
-            (change)="recalcAmount()">
+            (change)="onBookingSpaceSelected()">
             @if (!selectedSpaceTypeId) {
             <option value="">Select Space Type first...</option>
             } @else if (isAdminPrivateRoom && !selectedAdminCapacity) {
@@ -1672,6 +1723,17 @@
             }
           </select>
         </div>
+        @if (bookingFloorOptions.length) {
+        <div class="form-group-admin">
+          <label>Floor</label>
+          <select class="form-input-admin" [(ngModel)]="bookingFloorId" name="bookingFloorId">
+            <option [ngValue]="null">Select Floor (optional)...</option>
+            @for (f of bookingFloorOptions; track f.v) {
+            <option [ngValue]="f.v">{{ f.l }}</option>
+            }
+          </select>
+        </div>
+        }
       </div>
 
       <p class="form-section-label" style="margin-top:1.25rem">Booking Period</p>
@@ -1722,7 +1784,7 @@
       } @else {
       <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>Start Date *</label>
+          <label>Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminStartDate" [min]="today"
             required (change)="onAdminMonthPeriodChange()" />
         </div>
@@ -1740,18 +1802,32 @@
       </div>
       }
       }
-      <p class="form-section-label" style="margin-top:1.25rem">Discount & Notes</p>
+      <p class="form-section-label" style="margin-top:1.25rem">Discount, Security Deposit & Notes</p>
       <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>Discount Percentage (0% to 100%)</label>
-          <input class="form-input-admin" type="number" min="0" max="100" step="1" [(ngModel)]="bookingDiscountPercentage"
-            name="bookingDiscountPercentage" (input)="recalcAmount()" placeholder="0" />
+          <label>Discount Type</label>
+          <select class="form-input-admin" [(ngModel)]="bookingDiscountType" name="bookingDiscountType" (change)="recalcAmount()">
+            <option value="Percentage">Percentage (%)</option>
+            <option value="Amount">Fixed Amount (PKR)</option>
+          </select>
         </div>
         <div class="form-group-admin">
-          <label>Notes</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="bookingFormData.notes" name="notes"
-            placeholder="Optional notes" />
+          <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+          <input class="form-input-admin" type="number" min="0" [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1"
+            [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
         </div>
+      </div>
+      @if (!isAdminMeetingRoom) {
+      <div class="form-group-admin">
+        <label>Security Deposit Months <small style="color:#94a3b8">(number of months)</small></label>
+        <input class="form-input-admin" type="number" min="0" step="1"
+          [(ngModel)]="securityDepositMonthsOverride" name="securityDepositMonthsOverride" (input)="recalcAmount()" placeholder="Default: 1 month" />
+      </div>
+      }
+      <div class="form-group-admin">
+        <label>Notes</label>
+        <input class="form-input-admin" type="text" [(ngModel)]="bookingFormData.notes" name="notes"
+          placeholder="Optional notes" />
       </div>
 
       <!-- Realtime Pricing Summary -->
@@ -1766,26 +1842,26 @@
           </span>
           <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
         </div>
-        @if (bookingDiscountPercentage > 0) {
+        @if (bookingDiscountAmount > 0) {
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px">
-          <span style="color:#64748b">Discount ({{ bookingDiscountPercentage }}% on room rent only):</span>
-          <strong style="color:#ef4444">- PKR {{ bookingDiscountAmount | number:'1.2-2' }}</strong>
+          <span style="color:#64748b">Discount @if (bookingDiscountType === 'Percentage') { ({{ bookingDiscountValue }}%) } @else { (Fixed) }:</span>
+          <strong style="color:#ef4444">PKR {{ bookingDiscountAmount | number:'1.2-2' }}</strong>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px">
           <span style="color:#64748b">Net Room Rent:</span>
           <strong style="color:#166534">PKR {{ bookingFormData.totalAmount | number:'1.2-2' }}</strong>
         </div>
         }
-        @if (securityDeposit > 0) {
+        @if (effectiveSecurityDeposit > 0) {
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px">
           <span style="color:#64748b">{{ amountLabels['SpaceConfig.securityDeposit'] || 'Security Deposit' }} (Refundable):</span>
-          <strong style="color:#0f172a">PKR {{ securityDeposit | number:'1.2-2' }}</strong>
+          <strong style="color:#0f172a">PKR {{ effectiveSecurityDeposit | number:'1.2-2' }}</strong>
         </div>
         }
         <hr style="margin:6px 0;border:0;border-top:1px solid #e2e8f0" />
         <div style="display:flex;justify-content:space-between;font-size:.9rem">
           <span style="color:#0f172a;font-weight:600">Total Charged (Booking + Deposit):</span>
-          <strong style="color:#166534;font-size:1.05rem">PKR {{ ((bookingFormData.totalAmount ?? 0) + securityDeposit) | number:'1.2-2' }}</strong>
+          <strong style="color:#166534;font-size:1.05rem">PKR {{ ((bookingFormData.totalAmount ?? 0) + effectiveSecurityDeposit) | number:'1.2-2' }}</strong>
         </div>
       </div>
       }

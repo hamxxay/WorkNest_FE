@@ -8,7 +8,7 @@ if (fs.existsSync(envPath)) {
     .split('\n')
     .forEach(line => {
       const [key, ...rest] = line.trim().split('=');
-      if (key && !key.startsWith('#') && !(key in process.env)) {
+      if (key && !key.startsWith('#')) {
         process.env[key.trim()] = rest.join('=').trim();
       }
     });

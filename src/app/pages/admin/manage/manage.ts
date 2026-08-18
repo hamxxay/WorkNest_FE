@@ -128,9 +128,21 @@ export class Manage implements OnInit {
   selectedSpaceTypeId = '';
   selectedLocationId = '';
   securityDeposit = 0;
+  securityDepositMonthsOverride: number | null = null;
+  bookingDiscountType = 'Percentage';
   bookingDiscountPercentage = 0;
+  bookingDiscountValue = 0;
   bookingSubtotal = 0;
   bookingDiscountAmount = 0;
+  bookingFloorId: number | null = null;
+  bookingFloorOptions: { v: any; l: string }[] = [];
+
+  get effectiveSecurityDeposit(): number {
+    const months = this.securityDepositMonthsOverride;
+    return months != null && months >= 0
+      ? parseFloat((this.securityDeposit * Math.floor(months)).toFixed(2))
+      : this.securityDeposit;
+  }
   accountOptions: { v: number; l: string }[] = [];
 
   // Meeting room slots (admin booking)
@@ -178,13 +190,31 @@ export class Manage implements OnInit {
   selectedQuotationCapacity: number | string | null = null;
   quotationSubtotal = 0;
   quotationSecurityDeposit = 0;
+  quotationSecurityDepositMonthsOverride: number | null = null;
   quotationTotal = 0;
-  quotationMonths = 1;
+  quotationMonths = 12;
   quotationStartDate = '';
   quotationEndDateDisplay = '';
   quotationValidUntil = '';
   quotationRemarks = '';
+  quotationDiscountType = 'Percentage';
   quotationDiscountPercentage = 0;
+  quotationDiscountValue = 0;
+  quotationFloorId: number | null = null;
+  quotationFloorOptions: { v: any; l: string }[] = [];
+
+  get effectiveQuotationSecurityDeposit(): number {
+    const months = this.quotationSecurityDepositMonthsOverride;
+    return months != null && months >= 0
+      ? parseFloat((this.quotationSecurityDeposit * Math.floor(months)).toFixed(2))
+      : this.quotationSecurityDeposit;
+  }
+
+  get quotationDiscountAmount(): number {
+    const val = Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0);
+    if (this.quotationDiscountType === 'Amount') return parseFloat(Math.max(0, val).toFixed(2));
+    return parseFloat((this.quotationSubtotal * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
+  }
 
   // Meeting room slots for quotation
   quotationMeetingSlots: { label: string; start: string; end: string }[] = [];
@@ -622,15 +652,20 @@ export class Manage implements OnInit {
     this.selectedAdminCapacity = null;
     this.availableAdminCapacities = [];
     this.adminStartDate = '';
-    this.adminMonths = 1;
+    this.adminMonths = 12;
     this.filteredSpaceOptions = [];
     this.customerSearchQuery = '';
     this.customerSearchResults = [];
     this.selectedCustomer = null;
     this.securityDeposit = 0;
+    this.securityDepositMonthsOverride = null;
+    this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
+    this.bookingDiscountValue = 0;
     this.bookingSubtotal = 0;
     this.bookingDiscountAmount = 0;
+    this.bookingFloorId = null;
+    this.bookingFloorOptions = [];
     this.adminMeetingDate = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
@@ -762,14 +797,37 @@ export class Manage implements OnInit {
     this.spaceTypeOptions = Array.from(map.values());
   }
 
+  onBookingSpaceSelected() { this.recalcAmount(); }
+
+  onQuotationSpaceSelected() { this.recalcQuotationAmount(); }
+
   onBookingLocationChange() {
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
+    this.bookingFloorId = null;
+    this.bookingFloorOptions = [];
+    if (this.selectedLocationId) {
+      this.loadBookingFloors(this.selectedLocationId);
+    }
     if (this.isAdminPrivateRoom) {
       this.updateAvailableAdminCapacities();
     }
     this.applyBookingSpaceFilter();
+  }
+
+  loadBookingFloors(locationId: any) {
+    const locInt = parseInt(String(locationId), 10);
+    if (!locInt) return;
+    this.admin.getFloors(locInt).subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.bookingFloorOptions = items.map((f: any) => ({
+          v: f.id ?? f.Id,
+          l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
+        }));
+      }
+    });
   }
 
   getSpaceCapacity(s: any): number {
@@ -898,9 +956,14 @@ export class Manage implements OnInit {
 
   closeAdminBookingForm() {
     this.showBookingForm = false;
+    this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
+    this.bookingDiscountValue = 0;
     this.bookingSubtotal = 0;
     this.bookingDiscountAmount = 0;
+    this.securityDepositMonthsOverride = null;
+    this.bookingFloorId = null;
+    this.bookingFloorOptions = [];
   }
 
   printReceipt() { window.print(); }
@@ -1121,7 +1184,7 @@ export class Manage implements OnInit {
     this.adminSelectedSlots = new Set();
     this.meetingRoomBookingMode = 'slot';
     this.adminStartDate = '';
-    this.adminMonths = 1;
+    this.adminMonths = (this.selectedSpaceTypeId === 'shared' || this.selectedSpaceTypeId === 'private') ? 12 : 1;
     this.bookingFormData.startDateTime = '';
     this.bookingFormData.endDateTime   = '';
 
@@ -1247,8 +1310,15 @@ export class Manage implements OnInit {
       }
     }
 
-    const discPercent = Math.min(100, Math.max(0, Number(this.bookingDiscountPercentage || 0)));
-    this.bookingDiscountAmount = parseFloat(((this.bookingSubtotal * discPercent) / 100).toFixed(2));
+    const discVal = Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0);
+    if (this.bookingDiscountType === 'Percentage') {
+      const pct = Math.min(100, Math.max(0, discVal));
+      this.bookingDiscountAmount = parseFloat(((this.bookingSubtotal * pct) / 100).toFixed(2));
+      this.bookingDiscountPercentage = pct;
+    } else {
+      this.bookingDiscountAmount = parseFloat(Math.max(0, discVal).toFixed(2));
+      this.bookingDiscountPercentage = 0;
+    }
     const finalRent = Math.max(0, this.bookingSubtotal - this.bookingDiscountAmount);
     this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(finalRent.toFixed(2)) };
   }
@@ -1292,8 +1362,13 @@ export class Manage implements OnInit {
       this.bookingFormSaving.set(false);
       return;
     }
-    if (this.bookingDiscountPercentage < 0 || this.bookingDiscountPercentage > 100) {
-      this.bookingFormError = 'Discount must be between 0% and 100%.';
+    if (this.bookingDiscountType === 'Percentage' && (this.bookingDiscountValue < 0 || this.bookingDiscountValue > 100)) {
+      this.bookingFormError = 'Percentage discount must be between 0% and 100%.';
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (this.bookingDiscountType === 'Amount' && this.bookingDiscountValue < 0) {
+      this.bookingFormError = 'Discount amount cannot be negative.';
       this.bookingFormSaving.set(false);
       return;
     }
@@ -1350,9 +1425,15 @@ export class Manage implements OnInit {
         customerName: `${customerFirstName} ${customerLastName}`.trim(),
         totalAmount: this.bookingFormData.totalAmount,
         subtotalAmount: this.bookingSubtotal,
-        discountPercentage: Number(this.bookingDiscountPercentage || 0),
+        discountType: this.bookingDiscountType,
+        discountPercentage: this.bookingDiscountType === 'Percentage' ? Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0) : 0,
+        discountValue: Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0),
         discountAmount: this.bookingDiscountAmount,
-        securityDeposit: this.securityDeposit,
+        securityDeposit: this.effectiveSecurityDeposit,
+        securityDepositOverride: this.securityDepositMonthsOverride != null
+          ? this.effectiveSecurityDeposit
+          : null,
+        floorId: this.bookingFloorId ?? null,
       };
 
       console.log('[BOOKING TEST] Creating admin booking with payload:', payload);
@@ -1406,10 +1487,10 @@ export class Manage implements OnInit {
                     return { feeType: 'RoomRent', amount: this.bookingSubtotal };
                   })(),
                   ...(this.bookingDiscountAmount > 0 ? [{ feeType: 'DISCOUNT', amount: -this.bookingDiscountAmount, notes: `Discount applied: ${Number(this.bookingDiscountPercentage).toFixed(2)}%` }] : []),
-                  ...(this.securityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.securityDeposit }] : [])
+                  ...(this.effectiveSecurityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.effectiveSecurityDeposit }] : [])
                 ]);
 
-          const totalAmount = (payload.totalAmount ?? 0) + (this.securityDeposit ?? 0);
+          const totalAmount = (payload.totalAmount ?? 0) + this.effectiveSecurityDeposit;
 
           const receipt = {
             bookingId,
@@ -1424,7 +1505,7 @@ export class Manage implements OnInit {
             startDateTime: payload.startDateTime,
             endDateTime: payload.endDateTime,
             bookingDetails: details,
-            securityDeposit: this.securityDeposit,
+            securityDeposit: this.effectiveSecurityDeposit,
             subtotalAmount: this.bookingSubtotal,
             discountPercentage: Number(this.bookingDiscountPercentage || 0),
             discountAmount: this.bookingDiscountAmount,
@@ -2364,8 +2445,14 @@ export class Manage implements OnInit {
     this.selectedQuotationCapacity = null;
     this.quotationSubtotal = 0;
     this.quotationSecurityDeposit = 0;
+    this.quotationSecurityDepositMonthsOverride = null;
     this.quotationTotal = 0;
-    this.quotationMonths = 1;
+    this.quotationMonths = 12;
+    this.quotationDiscountType = 'Percentage';
+    this.quotationDiscountValue = 0;
+    this.quotationDiscountPercentage = 0;
+    this.quotationFloorId = null;
+    this.quotationFloorOptions = [];
     this.quotationStartDate = this.today;
     this.quotationValidUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     this.quotationRemarks = '';
@@ -2408,6 +2495,22 @@ export class Manage implements OnInit {
 
   onQuotationLocationChange() {
     this.quotationFormData.spaceId = '';
+    this.quotationFloorId = null;
+    this.quotationFloorOptions = [];
+    if (this.selectedQuotationLocationId) {
+      const locInt = parseInt(String(this.selectedQuotationLocationId), 10);
+      if (locInt) {
+        this.admin.getFloors(locInt).subscribe({
+          next: (res: any) => {
+            const items = res?.data ?? (Array.isArray(res) ? res : []);
+            this.quotationFloorOptions = items.map((f: any) => ({
+              v: f.id ?? f.Id,
+              l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
+            }));
+          }
+        });
+      }
+    }
     this.recalcQuotationAmount();
   }
 
@@ -2418,6 +2521,9 @@ export class Manage implements OnInit {
     this.quotationSelectedSlots = new Set();
     this.quotationMeetingRoomMode = 'slot';
     this.quotationMeetingDayEnd = '';
+    if (this.selectedQuotationSpaceTypeId === 'shared' || this.selectedQuotationSpaceTypeId === 'private') {
+      this.quotationMonths = 12;
+    }
     this.recalcQuotationAmount();
   }
 
@@ -2553,9 +2659,7 @@ export class Manage implements OnInit {
       this.quotationSecurityDeposit = 0;
     }
 
-    const discPercent = Number(this.quotationDiscountPercentage || 0);
-    const discAmount = this.quotationSubtotal * (discPercent / 100);
-    this.quotationTotal = (this.quotationSubtotal - discAmount) + this.quotationSecurityDeposit;
+    this.quotationTotal = (this.quotationSubtotal - this.quotationDiscountAmount) + this.effectiveQuotationSecurityDeposit;
   }
 
   submitAdminQuotation(sendEmail: boolean = false) {
@@ -2615,8 +2719,14 @@ export class Manage implements OnInit {
       StartDateTime:      startDT,
       EndDateTime:        endDT,
       ValidUntil:         new Date(this.quotationValidUntil).toISOString().split('T')[0],
-      SubtotalAmount:     this.quotationSubtotal,
-      DiscountPercentage: Number(this.quotationDiscountPercentage),
+      SubtotalAmount:          this.quotationSubtotal,
+      DiscountPercentage:      this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) : 0,
+      DiscountType:            this.quotationDiscountType,
+      DiscountValue:           Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0),
+      SecurityDepositOverride: this.quotationSecurityDepositMonthsOverride != null
+        ? this.effectiveQuotationSecurityDeposit
+        : null,
+      FloorId:                 this.quotationFloorId ?? null,
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;

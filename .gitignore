@@ -4,6 +4,8 @@
 !.env.example
 
 # Angular environments (prod only — base environment.ts is tracked with placeholders)
+
+src/enviroments/src/enviroments.ts
 src/environments/environment.prod.ts
 
 # Build output
