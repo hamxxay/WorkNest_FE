@@ -459,67 +459,76 @@ export class Checkout implements OnInit {
     this.createBookingWith('Payment via Cash on Counter', (bookingId, assignedSpace, resData) => {
       this.submitting.set(false);
       this.bookingDetailsLoading.set(true);
-      
-      this.bookingService.getBookingDetails(bookingId).subscribe({
-        next: (detailsRes: any) => {
-          const details = Array.isArray(detailsRes?.data) ? detailsRes.data : (Array.isArray(detailsRes) ? detailsRes : []);
-          this.bookingDetails.set(details);
+
+      this.bookingService.getChallan(bookingId).subscribe({
+        next: (challanRes: any) => {
           this.bookingDetailsLoading.set(false);
           this.counterDone.set(true);
-          
           if (assignedSpace) this.booking.update(b => ({ ...b!, assignedSpace }));
+
+          const cd = challanRes?.data ?? {};
           const p = this.pending();
           const d = resData ?? {};
-          const spaceName = d.assignedSpaceName
-            ? `${d.assignedSpaceName}${d.assignedSpaceCode ? ' (' + d.assignedSpaceCode + ')' : ''}`
-            : assignedSpace
-              ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}`
-              : (p?.spaceName ?? '');
-              
+
+          const spaceName = cd.spaceName
+            || (d.assignedSpaceName ? `${d.assignedSpaceName}${d.assignedSpaceCode ? ' (' + d.assignedSpaceCode + ')' : ''}` : '')
+            || (assignedSpace ? `${assignedSpace.name ?? ''}${assignedSpace.code ? ' (' + assignedSpace.code + ')' : ''}` : '')
+            || (p?.spaceName ?? '');
+
+          const details = (cd.details ?? []).map((line: any) => ({
+            feeType:     line.chargeTypeLabel ?? line.chargeTypeCode ?? line.description ?? 'Fee',
+            amount:      line.lineTotal ?? line.amount ?? 0,
+            accountName: line.accountName ?? '—',
+          }));
+
+          const totalPayable = cd.totalPayable ?? cd.subtotalAmount ?? this.grandTotal();
+          this.bookingDetails.set(details);
+
           const user = this.authService.user();
           this.challan.set({
-            challanNumber:   d.challanNumber ?? d.ChallanNumber ?? p?.challanNumber ?? null,
-            validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
+            challanNumber:      cd.challanNumber ?? d.challanNumber ?? p?.challanNumber ?? null,
+            validity:           cd.validUntil ?? d.validityDate ?? null,
             bookingId,
             spaceName,
-            startDateTime:   p?.startDateTime,
-            endDateTime:     p?.endDateTime,
-            rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
-            securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
-            totalAmount:     this.grandTotal(),
-            subtotalAmount:  p?.baseAmount ?? p?.rentAmount ?? this.grandTotal(),
-            discountAmount:  p?.discountAmount ?? 0,
-            discountPercentage: p?.discountPercent ?? 0,
-            createdAt:       new Date().toISOString(),
-            bookingDetails:  details,
-            customerName:    user?.displayName || user?.email?.split('@')[0] || 'Valued Member',
-            customerEmail:   user?.email || '',
+            branchName:         cd.branchName ?? cd.locationName ?? '',
+            locationName:       cd.locationName ?? '',
+            startDateTime:      cd.startOn ?? p?.startDateTime,
+            endDateTime:        cd.endOn ?? p?.endDateTime,
+            rentAmount:         cd.roomPrice ?? p?.rentAmount ?? 0,
+            securityDeposit:    cd.securityDeposit ?? p?.securityDeposit ?? 0,
+            totalAmount:        totalPayable,
+            subtotalAmount:     cd.subtotalAmount ?? 0,
+            discountAmount:     cd.discountAmount ?? 0,
+            discountPercentage: cd.discountPercentage ?? 0,
+            createdAt:          cd.issuedOn ?? new Date().toISOString(),
+            bookingDetails:     details,
+            customerName:       cd.customerName || user?.displayName || user?.email?.split('@')[0] || 'Valued Member',
+            customerEmail:      cd.customerEmail || user?.email || '',
           });
         },
         error: () => {
           this.bookingDetailsLoading.set(false);
           this.counterDone.set(true);
-          
           const p = this.pending();
           const d = resData ?? {};
           const user = this.authService.user();
           this.challan.set({
-            challanNumber:   d.challanNumber ?? d.ChallanNumber ?? p?.challanNumber ?? null,
-            validity:        d.validityDate ?? d.ValidityDate ?? d.validity ?? null,
+            challanNumber:      d.challanNumber ?? p?.challanNumber ?? null,
+            validity:           d.validityDate ?? null,
             bookingId,
-            spaceName:       p?.spaceName ?? '',
-            startDateTime:   p?.startDateTime,
-            endDateTime:     p?.endDateTime,
-            rentAmount:      p?.rentAmount ?? p?.totalAmount ?? 0,
-            securityDeposit: p?.securityDeposit ?? d.securityDeposit ?? 0,
-            totalAmount:     this.grandTotal(),
-            subtotalAmount:  p?.baseAmount ?? p?.rentAmount ?? this.grandTotal(),
-            discountAmount:  p?.discountAmount ?? 0,
+            spaceName:          p?.spaceName ?? '',
+            startDateTime:      p?.startDateTime,
+            endDateTime:        p?.endDateTime,
+            rentAmount:         p?.rentAmount ?? p?.totalAmount ?? 0,
+            securityDeposit:    p?.securityDeposit ?? 0,
+            totalAmount:        this.grandTotal(),
+            subtotalAmount:     p?.baseAmount ?? this.grandTotal(),
+            discountAmount:     p?.discountAmount ?? 0,
             discountPercentage: p?.discountPercent ?? 0,
-            createdAt:       new Date().toISOString(),
-            bookingDetails:  [],
-            customerName:    user?.displayName || user?.email?.split('@')[0] || 'Valued Member',
-            customerEmail:   user?.email || '',
+            createdAt:          new Date().toISOString(),
+            bookingDetails:     [],
+            customerName:       user?.displayName || user?.email?.split('@')[0] || 'Valued Member',
+            customerEmail:      user?.email || '',
           });
         }
       });

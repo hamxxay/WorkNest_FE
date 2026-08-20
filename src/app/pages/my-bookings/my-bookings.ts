@@ -193,30 +193,44 @@ export class MyBookings implements OnInit {
     const { jsPDF } = await import('jspdf');
     const el = document.getElementById('my-bookings-challan-printable');
     if (!el) return;
-    // Hide actions for snapshot
     const actions = el.querySelector<HTMLElement>('[data-challan-actions]');
+    const bodyEl = el.querySelector<HTMLElement>('[data-challan-body]');
+    
+    const origMaxHeight = el.style.maxHeight;
+    const origBodyOverflow = bodyEl ? bodyEl.style.overflowY : '';
+    
     if (actions) actions.style.display = 'none';
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-    if (actions) actions.style.display = '';
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const imgH = (canvas.height * pageW) / canvas.width;
-    pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-    const c = this.selectedChallan();
-    pdf.save(`Challan-${c?.challanNumber ?? c?.bookingId ?? 'WN'}.pdf`);
+    el.style.maxHeight = 'none';
+    if (bodyEl) bodyEl.style.overflowY = 'visible';
+    
+    try {
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+      const c = this.selectedChallan();
+      pdf.save(`Challan-${c?.challanNumber ?? c?.bookingId ?? 'WN'}.pdf`);
+    } finally {
+      if (actions) actions.style.display = '';
+      el.style.maxHeight = origMaxHeight;
+      if (bodyEl) bodyEl.style.overflowY = origBodyOverflow;
+    }
   }
 
   printChallanDoc() {
     const el = document.getElementById('my-bookings-challan-printable');
     if (!el) return;
-    const w = window.open('', '_blank', 'width=700,height=900');
+    const w = window.open('', '_blank', 'width=800,height=900');
     if (!w) return;
     w.document.write(`<html><head><title>Challan - ${this.selectedChallan()?.challanNumber ?? ''}</title>
       <style>
         *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;background:#fff}
-        button{display:none!important}
+        body{font-family:Inter,Arial,sans-serif;background:#fff;padding:20px}
+        [data-challan-actions], button{display:none!important}
+        .challan-modal{max-height:none!important;border:none!important;box-shadow:none!important}
+        .challan-modal-body{overflow:visible!important;padding:16px 0!important}
       </style>
       </head><body>${el.innerHTML}</body></html>`);
     w.document.close();

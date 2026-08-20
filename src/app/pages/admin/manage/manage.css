@@ -19,22 +19,6 @@
 .admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
 .admin-table th{text-align:left;padding:10px 12px;color:#64748b;font-weight:500;font-size:.78rem;border-bottom:2px solid #e2e8f0;background:#f8fafc;white-space:nowrap}
 .admin-table td{padding:12px;border-bottom:1px solid #f1f5f9;color:#0f172a;vertical-align:middle}
-.admin-table tr:last-child td{border-bottom:none}
-.admin-table tr:hover td{background:#f8fafc}
-.actions-col{width:1%;white-space:nowrap}
-.actions-cell{display:flex;align-items:center;gap:6px}
-.thumb{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0}
-.status-badge{padding:3px 8px;border-radius:20px;font-size:.75rem;font-weight:500;white-space:nowrap}
-.status-confirmed,.status-paid,.status-resolved,.status-available{background:rgba(16,185,129,.1);color:#059669}
-.status-cancelled,.status-failed{background:rgba(239,68,68,.1);color:#dc2626}
-.status-pending,.status-inprogress,.status-maintenance{background:rgba(245,158,11,.1);color:#d97706}
-.status-completed,.status-refunded{background:rgba(99,102,241,.1);color:#6366f1}
-.status-new{background:rgba(59,130,246,.1);color:#3b82f6}
-.status-inactive{background:rgba(100,116,139,.1);color:#64748b}
-.bool-badge{padding:3px 8px;border-radius:20px;font-size:.75rem;font-weight:500;background:rgba(239,68,68,.1);color:#dc2626}
-.bool-badge.active{background:rgba(16,185,129,.1);color:#059669}
-.role-tag{display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,.1);color:#6366f1;font-size:.72rem;margin-right:3px}
-.role-badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:capitalize}
 .role-super_admin{background:rgba(168,85,247,.12);color:#7c3aed}
 .role-admin{background:rgba(13,148,136,.12);color:#0d9488}
 .role-general{background:rgba(100,116,139,.1);color:#475569}
@@ -43,7 +27,7 @@
 .action-btn.info{color:#3b82f6}.action-btn.info:hover{background:rgba(59,130,246,.08);border-color:#3b82f6}
 .action-btn.edit{color:#0d9488}.action-btn.edit:hover{background:rgba(13,148,136,.08);border-color:#0d9488}
 .action-btn.delete{color:#ef4444}.action-btn.delete:hover{background:rgba(239,68,68,.08);border-color:#ef4444}
-.action-btn.deactivate{color:#f59e0b}.action-btn.activate{color:#10b981}
+.action-btn.deactivate{color:#f59e0b}.action-btn.deactivate:hover{background:rgba(245,158,11,.08);border-color:#f59e0b}.action-btn.activate{color:#10b981}.action-btn.activate:hover{background:rgba(16,185,129,.08);border-color:#10b981}
 .action-btn.approve{color:#059669}.action-btn.approve:hover:not(:disabled){background:rgba(16,185,129,.08);border-color:#059669}.action-btn.approve:disabled{opacity:.6;cursor:not-allowed}
 .status-select{border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:.78rem;color:#475569;background:#fff;cursor:pointer}
 .admin-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;font-size:.875rem;color:#64748b}
@@ -420,5 +404,11 @@
     box-shadow: none !important;
     background: #ffffff !important;
   }
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 

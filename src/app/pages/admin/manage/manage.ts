@@ -6,12 +6,13 @@ import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AmountFieldService } from '../../../services/amount-field.service';
-import { ASSIGNABLE_ROLES, BILLING_CYCLES } from '../../../utils/constants';
+import { ASSIGNABLE_ROLES, BILLING_CYCLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
 import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
+import { BookingBillingSummary } from '../../../models/admin.model';
 
 interface ColDef { key: string; label: string; type?: string; }
-interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; }
+interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
 
 interface EntityConfig {
   title: string;
@@ -97,6 +98,13 @@ export class Manage implements OnInit {
   paymentSummaryError = '';
   approvingPaymentId = signal<any>(null);
 
+  // Invoice Details & Record Payment Modals
+  showInvoiceDetailsModal = false;
+  selectedInvoiceDetails = signal<any>(null);
+  showRecordPaymentModal = false;
+  recordPaymentFormData: any = { paidAmount: 0, paymentMethod: 'Bank Transfer', transactionRef: '', notes: '' };
+  recordPaymentSaving = signal(false);
+
   showReassignModal = false;
   reassignBooking: any = null;
   availableSpacesForReassign = signal<any[]>([]);
@@ -132,16 +140,33 @@ export class Manage implements OnInit {
   bookingDiscountType = 'Percentage';
   bookingDiscountPercentage = 0;
   bookingDiscountValue = 0;
+  bookingChallanMode: 'initial' | 'full' = 'initial';
   bookingSubtotal = 0;
   bookingDiscountAmount = 0;
   bookingFloorId: number | null = null;
   bookingFloorOptions: { v: any; l: string }[] = [];
 
+  bookingBillingPeriodMonths = 3;
+  bookingSecurityDepositMonths = 2;
+  readonly billingPeriodOptions = BILLING_PERIOD_OPTIONS;
+
   get effectiveSecurityDeposit(): number {
-    const months = this.securityDepositMonthsOverride;
-    return months != null && months >= 0
-      ? parseFloat((this.securityDeposit * Math.floor(months)).toFixed(2))
-      : this.securityDeposit;
+    if (!this.isAdminPrivateRoom) return 0;
+    return parseFloat((this.securityDeposit * this.bookingSecurityDepositMonths).toFixed(2));
+  }
+
+  get bookingMonthlyRent(): number {
+    const months = Number(this.adminMonths || 1);
+    return parseFloat(((this.bookingSubtotal || 0) / months).toFixed(2));
+  }
+
+  get bookingBillingAmount(): number {
+    return Math.max(0, this.bookingBillingPeriodMonths * this.bookingMonthlyRent);
+  }
+
+  get bookingFirstInvoiceTotal(): number {
+    const subtotal = this.bookingBillingAmount + this.effectiveSecurityDeposit;
+    return parseFloat(Math.max(0, subtotal - this.bookingDiscountAmount).toFixed(2));
   }
   accountOptions: { v: number; l: string }[] = [];
 
@@ -165,9 +190,45 @@ export class Manage implements OnInit {
   // When opening customer-create from booking flow, set this to true so save() can inject created customer
   creatingCustomerFromBooking = false;
 
+  // ── Country Codes & Dropdowns ─────────────────────────────
+  countryCodeOptions: { v: string; l: string }[] = [
+    { v: '+92', l: 'PK (+92)' },
+    { v: '+1', l: 'US/CA (+1)' },
+    { v: '+44', l: 'UK (+44)' },
+    { v: '+971', l: 'UAE (+971)' },
+    { v: '+966', l: 'KSA (+966)' },
+    { v: '+91', l: 'IN (+91)' },
+    { v: '+61', l: 'AU (+61)' },
+    { v: '+49', l: 'DE (+49)' },
+    { v: '+33', l: 'FR (+33)' },
+    { v: '+81', l: 'JP (+81)' },
+    { v: '+86', l: 'CN (+86)' },
+    { v: '+974', l: 'QA (+974)' },
+    { v: '+968', l: 'OM (+968)' },
+    { v: '+965', l: 'KW (+965)' },
+    { v: '+90', l: 'TR (+90)' },
+    { v: '+60', l: 'MY (+60)' },
+    { v: '+65', l: 'SG (+65)' },
+  ];
+  selectedCountryCode = '+92';
+  branchOptions: { v: any; l: string }[] = [];
+  branchesLoading = signal(false);
+  branchesError = '';
+  citiesLoading = signal(false);
+  citiesError = '';
+
   // ── Quick Create Customer (from booking form) ─────────────
   showQuickCreateCustomer = false;
-  quickCustomerForm = { firstName: '', lastName: '', email: '', phoneNumber: '' };
+  quickCustomerForm: any = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    countryCode: '+92',
+    phoneNumber: '',
+    addressLine1: '',
+    addressLine2: '',
+    cityId: ''
+  };
   quickCustomerSaving = signal(false);
   quickCustomerError = '';
 
@@ -202,11 +263,25 @@ export class Manage implements OnInit {
   quotationDiscountValue = 0;
   quotationFloorId: number | null = null;
   quotationFloorOptions: { v: any; l: string }[] = [];
+  quotationBillingPeriodMonths = 3;
+  quotationSecurityDepositMonths = 2;
+
+  get quotationMonthlyRent(): number {
+    const spaceId = this.quotationFormData?.spaceId;
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId));
+    if (!space) return 0;
+    return Number(space.pricePerMonth ?? space.PricePerMonth ?? space.pricePerDay ?? space.PricePerDay ?? space.pricePerHour ?? space.PricePerHour ?? space.seatPrice ?? space.SeatPrice ?? space.price ?? space.Price ?? 0);
+  }
+
+  get quotationBillingAmount(): number {
+    return Math.max(0, this.quotationBillingPeriodMonths * this.quotationMonthlyRent);
+  }
 
   get effectiveQuotationSecurityDeposit(): number {
-    const months = this.quotationSecurityDepositMonthsOverride;
+    if (!this.isQuotationPrivateRoom) return 0;
+    const months = this.quotationSecurityDepositMonthsOverride ?? this.quotationSecurityDepositMonths;
     return months != null && months >= 0
-      ? parseFloat((this.quotationSecurityDeposit * Math.floor(months)).toFixed(2))
+      ? parseFloat((this.quotationMonthlyRent * Math.floor(months)).toFixed(2))
       : this.quotationSecurityDeposit;
   }
 
@@ -215,6 +290,12 @@ export class Manage implements OnInit {
     if (this.quotationDiscountType === 'Amount') return parseFloat(Math.max(0, val).toFixed(2));
     return parseFloat((this.quotationSubtotal * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
   }
+
+  get quotationFirstInvoiceTotal(): number {
+    const subtotal = this.quotationBillingAmount + this.effectiveQuotationSecurityDeposit;
+    return parseFloat(Math.max(0, subtotal - this.quotationDiscountAmount).toFixed(2));
+  }
+
 
   // Meeting room slots for quotation
   quotationMeetingSlots: { label: string; start: string; end: string }[] = [];
@@ -274,7 +355,20 @@ export class Manage implements OnInit {
             const el = document.getElementById('admin-receipt-printable');
             let pdfBase64 = '';
             if (el) {
+              const actions = el.querySelector<HTMLElement>('[data-challan-actions]');
+              const bodyEl = el.querySelector<HTMLElement>('[data-challan-body]');
+              const origMaxHeight = el.style.maxHeight;
+              const origBodyOverflow = bodyEl ? bodyEl.style.overflowY : '';
+              if (actions) actions.style.display = 'none';
+              el.style.maxHeight = 'none';
+              if (bodyEl) bodyEl.style.overflowY = 'visible';
+
               const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+
+              if (actions) actions.style.display = '';
+              el.style.maxHeight = origMaxHeight;
+              if (bodyEl) bodyEl.style.overflowY = origBodyOverflow;
+
               const imgData = canvas.toDataURL('image/png');
               const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
               const pageW = pdf.internal.pageSize.getWidth();
@@ -347,13 +441,16 @@ export class Manage implements OnInit {
           this.loadSpaceDropdowns();
           this.loadSpaceConfig();
         }
-        if (this.entity === 'customers') this.loadCityOptions();
-        if (this.entity === 'users') this.loadCityOptions();
+        if (this.entity === 'customers' || this.entity === 'users') this.loadCityOptions();
+        if (this.entity === 'locations') {
+          this.loadCityOptions();
+          this.loadBranchOptions();
+        }
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
       });
     });
   }
- 
+
   spaceConfigItems = signal<any[]>([]);
   spaceConfigSaving = signal(false);
   spaceConfigError = '';
@@ -367,18 +464,18 @@ export class Manage implements OnInit {
   vacantBranchOptions: { id: any; name: string }[] = [];
   generateError = '';
   generateSuccess = '';
- 
+
   private loadSpaceConfig() {
     this.admin.getSpaceConfig().subscribe({
       next: (res: any) => {
         this.spaceConfigItems.set(res?.data ?? []);
         this.loadSpaceInventoryForConfig();
       },
-      error: () => {}
+      error: () => { }
     });
     this.loadVacantSpaces();
   }
- 
+
   private loadSpaceInventoryForConfig() {
     if (this.allSpaces.length) {
       return;
@@ -389,7 +486,7 @@ export class Manage implements OnInit {
       }
     });
   }
- 
+
   private loadVacantSpaces() {
     this.vacantLoading.set(true);
     this.admin.getVacantSpaces(this.vacantBranchId ?? undefined).subscribe({
@@ -401,7 +498,7 @@ export class Manage implements OnInit {
       error: () => this.vacantLoading.set(false)
     });
   }
- 
+
   get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
     const grouped = new Map<string, any[]>();
     for (const s of this.vacantSpaces()) {
@@ -412,7 +509,7 @@ export class Manage implements OnInit {
     }
     return Array.from(grouped.entries()).map(([type, spaces]) => ({ type, spaces }));
   }
- 
+
   actualSpaceCount(cfg: any): number {
     if (!cfg) return 0;
     const category = (cfg.spaceCategory || '').toLowerCase();
@@ -427,29 +524,29 @@ export class Manage implements OnInit {
     });
     return matches.length || Number(cfg.totalSpaces ?? 0);
   }
- 
+
   openEditConfig(cfg: any) {
     this.editingConfig = cfg;
     this.configFormData = {
-      totalSpaces:        cfg.totalSpaces,
-      defaultCapacities:  cfg.defaultCapacities,
-      openingTime:        cfg.openingTime,
-      closingTime:        cfg.closingTime,
-      securityDeposit:    cfg.securityDeposit ?? null,
-      pricePerHour:       cfg.pricePerHour ?? null,
-      pricePerDay:        cfg.pricePerDay ?? null,
-      pricePerMonth:      cfg.pricePerMonth ?? null,
+      totalSpaces: cfg.totalSpaces,
+      defaultCapacities: cfg.defaultCapacities,
+      openingTime: cfg.openingTime,
+      closingTime: cfg.closingTime,
+      securityDeposit: cfg.securityDeposit ?? null,
+      pricePerHour: cfg.pricePerHour ?? null,
+      pricePerDay: cfg.pricePerDay ?? null,
+      pricePerMonth: cfg.pricePerMonth ?? null,
     };
     this.spaceConfigError = '';
     this.spaceConfigSuccess = '';
     this.showConfigModal = true;
   }
- 
+
   cancelEditConfig() {
     this.editingConfig = null;
     this.showConfigModal = false;
   }
- 
+
   saveConfig() {
     if (!this.editingConfig) return;
     this.spaceConfigSaving.set(true);
@@ -468,7 +565,7 @@ export class Manage implements OnInit {
       }
     });
   }
- 
+
   onVacantBranchChange() {
     this.loadVacantSpaces();
   }
@@ -506,13 +603,13 @@ export class Manage implements OnInit {
     // Count existing spaces of this type at this location
     const existing = this.vacantSpaces().filter((s: any) =>
       (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
-       String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
+        String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
       (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
     );
     // Also count from allSpaces for a more accurate next code
     const allOfType = this.allSpaces.filter((s: any) =>
       (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
-       String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
+        String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
       (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
     );
     const count = Math.max(existing.length, allOfType.length);
@@ -525,7 +622,7 @@ export class Manage implements OnInit {
       return;
     }
     const typeName = this.spaceTypeOptions.find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
-    const locName  = this.locationOptions.find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
+    const locName = this.locationOptions.find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
     const cfg = this.spaceConfigItems().find((c: any) =>
       typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
       (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
@@ -583,7 +680,7 @@ export class Manage implements OnInit {
     }
     this.vacantBranchOptions = Array.from(options.entries()).map(([id, name]) => ({ id, name }));
   }
- 
+
   private loadSpaceDropdowns() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
@@ -634,12 +731,62 @@ export class Manage implements OnInit {
 
   private loadCityOptions() {
     if (this.cityOptions.length) return;
+    this.citiesLoading.set(true);
+    this.citiesError = '';
     this.admin.getCities().subscribe({
       next: (res: any) => {
-        this.cityOptions = (res?.data ?? []).map((c: any) => ({ v: c.id, l: c.name }));
-        if (this.entity === 'customers' || this.entity === 'users') {
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.cityOptions = items.map((c: any) => ({ v: c.id, l: c.name }));
+        this.citiesLoading.set(false);
+        if (this.entity === 'customers' || this.entity === 'users' || this.entity === 'locations') {
           this.config = this.buildConfig(this.entity);
         }
+      },
+      error: () => {
+        this.citiesError = 'Failed to load cities.';
+        this.citiesLoading.set(false);
+      }
+    });
+  }
+
+  private loadBranchOptions() {
+    if (this.branchOptions.length) return;
+    this.branchesLoading.set(true);
+    this.branchesError = '';
+    this.admin.getBranches().subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.branchOptions = items.map((b: any) => ({ v: b.id ?? b.branchId ?? b.v, l: b.name || b.branchName || b.l }));
+        this.branchesLoading.set(false);
+        if (this.entity === 'locations') {
+          this.config = this.buildConfig(this.entity);
+        }
+      },
+      error: () => {
+        // Fallback: extract distinct branches from locations list
+        this.admin.getLocations(1, 1000, '').subscribe({
+          next: (locRes: any) => {
+            const locs = locRes?.data ?? (Array.isArray(locRes) ? locRes : []);
+            const map = new Map<any, string>();
+            locs.forEach((l: any) => {
+              const bId = l.branchId ?? l.branchCode ?? l.id;
+              const bName = l.branchName ?? l.branchCode ?? `Branch ${bId}`;
+              if (bId && !map.has(bId)) map.set(bId, bName);
+            });
+            if (map.size === 0) {
+              map.set(1, 'Main Branch');
+            }
+            this.branchOptions = Array.from(map.entries()).map(([v, l]) => ({ v, l }));
+            this.branchesLoading.set(false);
+            if (this.entity === 'locations') {
+              this.config = this.buildConfig(this.entity);
+            }
+          },
+          error: () => {
+            this.branchesError = 'Failed to load branches.';
+            this.branchesLoading.set(false);
+          }
+        });
       }
     });
   }
@@ -782,7 +929,7 @@ export class Manage implements OnInit {
     const standardTypes = [
       { v: 'meeting', l: 'Meeting Room' },
       { v: 'private', l: 'Private Room' },
-      { v: 'shared',  l: 'Shared Space' }
+      { v: 'shared', l: 'Shared Space' }
     ];
 
     standardTypes.forEach(std => {
@@ -906,7 +1053,7 @@ export class Manage implements OnInit {
         const sName = (s.name || '').toLowerCase();
         if (this.selectedSpaceTypeId === 'meeting') return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
         if (this.selectedSpaceTypeId === 'private') return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
-        if (this.selectedSpaceTypeId === 'shared')  return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+        if (this.selectedSpaceTypeId === 'shared') return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
         return false;
       });
     }
@@ -942,7 +1089,7 @@ export class Manage implements OnInit {
         const capLabel = cap > 0 ? ` — Cap: ${cap}` : '';
         const codeLabel = s.code ? ` (${s.code})` : '';
         const locLabel = s.locationName ? ` — ${s.locationName}` : '';
-        
+
         const st = (s.status || s.Status || '').toString().trim().toLowerCase();
         const isBooked = st === 'booked' || st === 'occupied';
         const tag = isBooked ? ' [Booked]' : ' [Available]';
@@ -1053,14 +1200,14 @@ export class Manage implements OnInit {
       || '';
     this.customerSearchQuery = fullName;
     this.customerSearchResults = [];
-    this.bookingFormData.customerName   = fullName;
-    this.bookingFormData.customerEmail  = user.email || '';
-    this.bookingFormData.customerCode   = user.code || '';
-    this.bookingFormData.phone          = user.phoneNumber || '';
+    this.bookingFormData.customerName = fullName;
+    this.bookingFormData.customerEmail = user.email || '';
+    this.bookingFormData.customerCode = user.code || '';
+    this.bookingFormData.phone = user.phoneNumber || '';
     this.bookingFormData.cnicOrPassport = user.cnicOrPassport || '';
-    this.bookingFormData.address        = user.address || '';
-    this.bookingFormData.cityId         = user.cityId || '';
-    this.quotationFormData.customerName  = fullName;
+    this.bookingFormData.address = user.address || '';
+    this.bookingFormData.cityId = user.cityId || '';
+    this.quotationFormData.customerName = fullName;
     this.quotationFormData.customerEmail = user.email || '';
   }
 
@@ -1068,11 +1215,11 @@ export class Manage implements OnInit {
     const u = this.selectedCustomer;
     if (!u) return false;
     switch (field) {
-      case 'phone':          return !u.phoneNumber;
+      case 'phone': return !u.phoneNumber;
       case 'cnicOrPassport': return !u.cnicOrPassport;
-      case 'address':        return !u.address;
-      case 'cityId':         return !u.cityId;
-      case 'customerCode':   return !u.code;
+      case 'address': return !u.address;
+      case 'cityId': return !u.cityId;
+      case 'customerCode': return !u.code;
       default: return false;
     }
   }
@@ -1114,12 +1261,12 @@ export class Manage implements OnInit {
     const cfg = this.spaceConfigItems().find((c: any) =>
       (c.spaceCategory || '').toLowerCase() === 'meeting'
     );
-    const openH  = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
-    const closeH = parseInt((cfg?.closingTime  || '20:00').split(':')[0], 10);
+    const openH = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
+    const closeH = parseInt((cfg?.closingTime || '20:00').split(':')[0], 10);
     this.adminMeetingSlots = [];
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
-      const end   = `${String(h + 1).padStart(2, '0')}:00`;
+      const end = `${String(h + 1).padStart(2, '0')}:00`;
       this.adminMeetingSlots.push({ label: `${start} – ${end}`, start, end });
     }
     this.adminSelectedSlots = new Set();
@@ -1141,13 +1288,13 @@ export class Manage implements OnInit {
   private applyAdminSlotsToDates() {
     if (!this.adminMeetingDate || !this.adminSelectedSlots.size) {
       this.bookingFormData.startDateTime = '';
-      this.bookingFormData.endDateTime   = '';
+      this.bookingFormData.endDateTime = '';
       return;
     }
-    const sorted   = Array.from(this.adminSelectedSlots).sort();
+    const sorted = Array.from(this.adminSelectedSlots).sort();
     const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
     this.bookingFormData.startDateTime = `${this.adminMeetingDate}T${sorted[0]}:00`;
-    this.bookingFormData.endDateTime   = `${this.adminMeetingDate}T${String(lastHour).padStart(2, '0')}:00:00`;
+    this.bookingFormData.endDateTime = `${this.adminMeetingDate}T${String(lastHour).padStart(2, '0')}:00:00`;
   }
 
   onAdminMeetingModeChange() {
@@ -1186,7 +1333,12 @@ export class Manage implements OnInit {
     this.adminStartDate = '';
     this.adminMonths = (this.selectedSpaceTypeId === 'shared' || this.selectedSpaceTypeId === 'private') ? 12 : 1;
     this.bookingFormData.startDateTime = '';
-    this.bookingFormData.endDateTime   = '';
+    this.bookingFormData.endDateTime = '';
+
+    const isPrivate = this.isAdminPrivateRoom;
+    const isShared = this.isAdminSharedSpace;
+    this.bookingBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
+    this.bookingSecurityDepositMonths = isPrivate ? 2 : 0;
 
     if (this.isAdminPrivateRoom) {
       this.updateAvailableAdminCapacities();
@@ -1204,14 +1356,17 @@ export class Manage implements OnInit {
   onAdminMonthPeriodChange() {
     if (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1) {
       this.bookingFormData.startDateTime = '';
-      this.bookingFormData.endDateTime   = '';
+      this.bookingFormData.endDateTime = '';
       this.recalcAmount();
       return;
+    }
+    if (this.bookingBillingPeriodMonths > Number(this.adminMonths)) {
+      this.bookingBillingPeriodMonths = Number(this.adminMonths);
     }
     const start = new Date(`${this.adminStartDate}T00:00:00`);
     if (isNaN(start.getTime())) {
       this.bookingFormData.startDateTime = '';
-      this.bookingFormData.endDateTime   = '';
+      this.bookingFormData.endDateTime = '';
       this.recalcAmount();
       return;
     }
@@ -1220,16 +1375,16 @@ export class Manage implements OnInit {
 
     const pad = (n: number) => String(n).padStart(2, '0');
     const startIso = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T00:00:00`;
-    const endIso   = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T00:00:00`;
+    const endIso = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T00:00:00`;
 
     this.bookingFormData.startDateTime = startIso;
-    this.bookingFormData.endDateTime   = endIso;
+    this.bookingFormData.endDateTime = endIso;
     this.recalcAmount();
   }
 
   getSpacePrice(space: any): { hourly: number; daily: number; monthly: number } {
-    let hourly  = Number(space?.pricePerHour ?? space?.PricePerHour ?? space?.seatPrice ?? space?.SeatPrice ?? 0);
-    let daily   = Number(space?.pricePerDay ?? space?.PricePerDay ?? space?.seatPrice ?? space?.SeatPrice ?? 0);
+    let hourly = Number(space?.pricePerHour ?? space?.PricePerHour ?? space?.seatPrice ?? space?.SeatPrice ?? 0);
+    let daily = Number(space?.pricePerDay ?? space?.PricePerDay ?? space?.seatPrice ?? space?.SeatPrice ?? 0);
     let monthly = Number(space?.pricePerMonth ?? space?.PricePerMonth ?? space?.pricePerDay ?? space?.PricePerDay ?? space?.seatPrice ?? space?.SeatPrice ?? space?.price ?? space?.Price ?? 0);
 
     const typeName = (space?.spaceTypeName || space?.SpaceTypeName || '').trim().toLowerCase();
@@ -1240,17 +1395,9 @@ export class Manage implements OnInit {
     );
 
     if (cfg) {
-      if (!hourly  && cfg.pricePerHour)  hourly  = Number(cfg.pricePerHour);
-      if (!daily   && cfg.pricePerDay)   daily   = Number(cfg.pricePerDay);
+      if (!hourly && cfg.pricePerHour) hourly = Number(cfg.pricePerHour);
+      if (!daily && cfg.pricePerDay) daily = Number(cfg.pricePerDay);
       if (!monthly && cfg.pricePerMonth) monthly = Number(cfg.pricePerMonth);
-    }
-
-    if (typeName.includes('private')) {
-      if (!monthly) monthly = 35000;
-    } else if (typeName.includes('shared')) {
-      if (!monthly) monthly = 30000;
-    } else if (typeName.includes('meeting') || typeName.includes('conference')) {
-      if (!hourly)  hourly = 6000;
     }
 
     return { hourly, daily, monthly };
@@ -1277,7 +1424,7 @@ export class Manage implements OnInit {
       const { startDateTime, endDateTime } = this.bookingFormData;
       if (!startDateTime || !endDateTime) return;
       const start = new Date(startDateTime);
-      const end   = new Date(endDateTime);
+      const end = new Date(endDateTime);
       if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
       const rate = hourly > 0 ? hourly : (daily > 0 ? daily : (monthly > 0 ? monthly : 0));
       let amount: number;
@@ -1430,9 +1577,9 @@ export class Manage implements OnInit {
         discountValue: Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0),
         discountAmount: this.bookingDiscountAmount,
         securityDeposit: this.effectiveSecurityDeposit,
-        securityDepositOverride: this.securityDepositMonthsOverride != null
-          ? this.effectiveSecurityDeposit
-          : null,
+        billingPeriodMonths: this.bookingBillingPeriodMonths,
+        securityDepositMonths: this.bookingSecurityDepositMonths,
+        securityDepositOverride: this.effectiveSecurityDeposit,
         floorId: this.bookingFloorId ?? null,
       };
 
@@ -1477,42 +1624,106 @@ export class Manage implements OnInit {
             : (Array.isArray(d.BookingDetails) && d.BookingDetails.length
               ? d.BookingDetails
               : [
-                  (() => {
-                    if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && this.adminStartDate && this.adminMeetingDayEnd) {
-                      const start = new Date(this.adminStartDate);
-                      const end   = new Date(this.adminMeetingDayEnd);
-                      const days  = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
-                      return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room — Full Day (${days} day${days > 1 ? 's' : ''} × 9 hrs/day)` };
-                    }
-                    return { feeType: 'RoomRent', amount: this.bookingSubtotal };
-                  })(),
-                  ...(this.bookingDiscountAmount > 0 ? [{ feeType: 'DISCOUNT', amount: -this.bookingDiscountAmount, notes: `Discount applied: ${Number(this.bookingDiscountPercentage).toFixed(2)}%` }] : []),
-                  ...(this.effectiveSecurityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.effectiveSecurityDeposit }] : [])
-                ]);
+                (() => {
+                  if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && this.adminStartDate && this.adminMeetingDayEnd) {
+                    const start = new Date(this.adminStartDate);
+                    const end = new Date(this.adminMeetingDayEnd);
+                    const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
+                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room — Full Day (${days} day${days > 1 ? 's' : ''} × 9 hrs/day)` };
+                  }
+                  return { feeType: 'RoomRent', amount: this.bookingSubtotal };
+                })(),
+                ...(this.bookingDiscountAmount > 0 ? [{ feeType: 'DISCOUNT', amount: -this.bookingDiscountAmount, notes: `Discount applied: ${Number(this.bookingDiscountPercentage).toFixed(2)}%` }] : []),
+                ...(this.effectiveSecurityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.effectiveSecurityDeposit }] : [])
+              ]);
 
-          const totalAmount = (payload.totalAmount ?? 0) + this.effectiveSecurityDeposit;
+          let receipt;
+          if (!this.isAdminMeetingRoom) {
+            const billingMonths = payload.billingPeriodMonths || 3;
+            const secMonths = payload.securityDepositMonths || 0;
+            const billingRentAmount = this.bookingBillingAmount;
+            const secDepositAmount = this.effectiveSecurityDeposit;
+            const discount = this.bookingDiscountAmount;
+            const firstInvoiceTotal = this.bookingFirstInvoiceTotal;
 
-          const receipt = {
-            bookingId,
-            challanNumber,
-            validity,
-            customerName: payload.customerName,
-            customerEmail: payload.customerEmail,
-            customerCode: payload.customerCode,
-            spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
-            locationName: space?.locationName ?? '',
-            spaceTypeName: space?.spaceTypeName ?? '',
-            startDateTime: payload.startDateTime,
-            endDateTime: payload.endDateTime,
-            bookingDetails: details,
-            securityDeposit: this.effectiveSecurityDeposit,
-            subtotalAmount: this.bookingSubtotal,
-            discountPercentage: Number(this.bookingDiscountPercentage || 0),
-            discountAmount: this.bookingDiscountAmount,
-            totalAmount,
-            notes: payload.notes,
-            createdAt: new Date().toISOString(),
-          };
+            const billingDetails = [
+              { feeType: 'RoomRent', description: `Room Rent (${billingMonths} Month(s))`, amount: billingRentAmount }
+            ];
+            if (secMonths > 0) {
+              billingDetails.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDepositAmount });
+            }
+            if (discount > 0) {
+              billingDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: discount });
+            }
+
+            receipt = {
+              bookingId,
+              challanNumber: challanNumber || `WN-BK-${bookingId}`,
+              validity,
+              customerName: payload.customerName,
+              customerEmail: payload.customerEmail,
+              customerCode: payload.customerCode,
+              spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
+              locationName: space?.locationName ?? '',
+              spaceTypeName: space?.spaceTypeName ?? '',
+              contractStartDateTime: payload.startDateTime,
+              contractEndDateTime: payload.endDateTime,
+              billingPeriodStart: payload.startDateTime,
+              billingPeriodEnd: this.calcBillingPeriodEnd(payload.startDateTime, billingMonths),
+              startDateTime: payload.startDateTime,
+              endDateTime: payload.endDateTime,
+              bookingDetails: billingDetails,
+              securityDeposit: secDepositAmount,
+              subtotalAmount: billingRentAmount,
+              discountPercentage: Number(this.bookingDiscountPercentage || 0),
+              discountAmount: discount,
+              totalAmount: firstInvoiceTotal,
+              notes: payload.notes,
+              createdAt: new Date().toISOString(),
+            };
+          } else {
+            const secMonths = payload.securityDepositMonths || 0;
+            const secDepositAmount = this.effectiveSecurityDeposit;
+            const billingMonths = payload.billingPeriodMonths || 3;
+            const billingRentAmount = this.bookingBillingAmount;
+            const firstInvoiceTotal = billingRentAmount + secDepositAmount - this.bookingDiscountAmount;
+
+            const fullDetails = [
+              { feeType: 'RoomRent', description: `Room Rent (${billingMonths} Month(s))`, amount: billingRentAmount }
+            ];
+            if (secMonths > 0) {
+              fullDetails.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDepositAmount });
+            }
+            if (this.bookingDiscountAmount > 0) {
+              fullDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: this.bookingDiscountAmount });
+            }
+
+            receipt = {
+              bookingId,
+              challanNumber: challanNumber || `WN-BK-${bookingId}`,
+              validity,
+              customerName: payload.customerName,
+              customerEmail: payload.customerEmail,
+              customerCode: payload.customerCode,
+              spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
+              locationName: space?.locationName ?? '',
+              spaceTypeName: space?.spaceTypeName ?? '',
+              contractStartDateTime: payload.startDateTime,
+              contractEndDateTime: payload.endDateTime,
+              billingPeriodStart: payload.startDateTime,
+              billingPeriodEnd: this.calcBillingPeriodEnd(payload.startDateTime, billingMonths),
+              startDateTime: payload.startDateTime,
+              endDateTime: payload.endDateTime,
+              bookingDetails: fullDetails,
+              securityDeposit: secDepositAmount,
+              subtotalAmount: billingRentAmount,
+              discountPercentage: Number(this.bookingDiscountPercentage || 0),
+              discountAmount: this.bookingDiscountAmount,
+              totalAmount: Math.max(0, firstInvoiceTotal),
+              notes: payload.notes,
+              createdAt: new Date().toISOString(),
+            };
+          }
 
           const createdBookingObj = {
             id: bookingId,
@@ -1561,10 +1772,10 @@ export class Manage implements OnInit {
 
     // Patch customer record with any newly filled fields
     const patch: any = {};
-    if (!u.phoneNumber    && this.bookingFormData.phone)          patch.phoneNumber    = this.bookingFormData.phone;
+    if (!u.phoneNumber && this.bookingFormData.phone) patch.phoneNumber = this.bookingFormData.phone;
     if (!u.cnicOrPassport && this.bookingFormData.cnicOrPassport) patch.cnicOrPassport = this.bookingFormData.cnicOrPassport;
-    if (!u.address        && this.bookingFormData.address)        patch.address        = this.bookingFormData.address;
-    if (!u.cityId         && this.bookingFormData.cityId)         patch.cityId         = Number(this.bookingFormData.cityId);
+    if (!u.address && this.bookingFormData.address) patch.address = this.bookingFormData.address;
+    if (!u.cityId && this.bookingFormData.cityId) patch.cityId = Number(this.bookingFormData.cityId);
 
     if (Object.keys(patch).length) {
       this.admin.updateCustomer(u.idGUID ?? u.idGuid ?? u.id, patch).subscribe({
@@ -1585,13 +1796,13 @@ export class Manage implements OnInit {
         }
         let data = Array.isArray(res) ? res
           : Array.isArray(res?.data) ? res.data
-          : Array.isArray(res?.data?.items) ? res.data.items
-          : Array.isArray(res?.items) ? res.items
-          : Array.isArray(res?.data?.bookings) ? res.data.bookings
-          : Array.isArray(res?.bookings) ? res.bookings
-          : Array.isArray(res?.data?.quotations) ? res.data.quotations
-          : Array.isArray(res?.quotations) ? res.quotations
-          : (res?.data ?? []);
+            : Array.isArray(res?.data?.items) ? res.data.items
+              : Array.isArray(res?.items) ? res.items
+                : Array.isArray(res?.data?.bookings) ? res.data.bookings
+                  : Array.isArray(res?.bookings) ? res.bookings
+                    : Array.isArray(res?.data?.quotations) ? res.data.quotations
+                      : Array.isArray(res?.quotations) ? res.quotations
+                        : (res?.data ?? []);
 
         // Merge API data with any locally created admin bookings not yet returned by backend API
         this.items.update(currentItems => {
@@ -1708,10 +1919,10 @@ export class Manage implements OnInit {
           return (isPrivate ? roomPrice : (roomPrice / (capacity || 1))) + secDeposit;
         }
 
-        if (isPrivate) return (35000 * capacity) + (35000 * capacity);
-        if (cat.includes('shared') || cat.includes('co-working')) return 30000;
-        if (cat.includes('conference')) return 20000;
-        if (cat.includes('meeting')) return 6000;
+        if (isPrivate) return 0;
+        if (cat.includes('shared') || cat.includes('co-working')) return 0;
+        if (cat.includes('conference')) return 0;
+        if (cat.includes('meeting')) return 0;
 
         return 0;
       }
@@ -1720,9 +1931,27 @@ export class Manage implements OnInit {
     return item[col.key] ?? '';
   }
 
+  onPhoneInput(event: any, key: string = 'phoneNumber') {
+    const input = event.target as HTMLInputElement;
+    const clean = input.value.replace(/\D/g, '').slice(0, 11);
+    this.formData[key] = clean;
+    input.value = clean;
+  }
+
+  onQuickPhoneInput(event: any) {
+    const input = event.target as HTMLInputElement;
+    const clean = input.value.replace(/\D/g, '').slice(0, 11);
+    this.quickCustomerForm.phoneNumber = clean;
+    input.value = clean;
+  }
+
   openCreate() {
     this.editItem = null; this.formData = {}; this.error = ''; this.showModal = true;
     this.selectedAmenityIds = [];
+    if (this.entity === 'customers') {
+      this.selectedCountryCode = '+92';
+      this.formData.countryCode = '+92';
+    }
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
     if (this.entity === 'quotations') {
@@ -1732,20 +1961,72 @@ export class Manage implements OnInit {
   }
 
   openCreateCustomerFromBooking() {
-    this.quickCustomerForm = { firstName: '', lastName: '', email: '', phoneNumber: '' };
+    this.quickCustomerForm = {
+      firstName: '',
+      lastName: '',
+      email: '',
+      countryCode: '+92',
+      phoneNumber: '',
+      addressLine1: '',
+      addressLine2: '',
+      cityId: ''
+    };
     this.quickCustomerError = '';
     this.showQuickCreateCustomer = true;
   }
 
   submitQuickCreateCustomer() {
-    const { firstName, email, phoneNumber } = this.quickCustomerForm;
-    if (!firstName.trim() || !email.trim()) {
-      this.quickCustomerError = 'First name and email are required.';
+    const { firstName, email, phoneNumber, countryCode, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
+    const fn = (firstName || '').trim();
+    const em = (email || '').trim();
+    const phoneDigits = (phoneNumber || '').replace(/\D/g, '');
+    const addr1 = (addressLine1 || '').trim();
+
+    if (!fn) {
+      this.quickCustomerError = 'First Name is required.';
       return;
     }
+    if (!em) {
+      this.quickCustomerError = 'Email address is required.';
+      return;
+    }
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(em)) {
+      this.quickCustomerError = 'Please enter a valid email address (e.g. user@example.com).';
+      return;
+    }
+    if (!phoneDigits || phoneDigits.length !== 11) {
+      this.quickCustomerError = 'Phone number must contain exactly 11 digits.';
+      return;
+    }
+    if (!addr1) {
+      this.quickCustomerError = 'Address Line 1 is required.';
+      return;
+    }
+
     this.quickCustomerSaving.set(true);
     this.quickCustomerError = '';
-    this.admin.createCustomer(this.quickCustomerForm).subscribe({
+
+    const code = countryCode || '+92';
+    const fullPhone = `${code}${phoneDigits}`;
+    const fullAddress = addr1 + (addressLine2 ? ', ' + addressLine2.trim() : '');
+
+    const payload = {
+      ...this.quickCustomerForm,
+      firstName: fn,
+      lastName: (this.quickCustomerForm.lastName || '').trim(),
+      email: em,
+      countryCode: code,
+      phoneNumber: fullPhone,
+      phone: fullPhone,
+      addressLine1: addr1,
+      addressLine2: (addressLine2 || '').trim(),
+      address: fullAddress,
+      cityId: cityId ? Number(cityId) : null,
+      isActive: true
+    };
+
+    this.admin.createCustomer(payload).subscribe({
       next: (res: any) => {
         this.quickCustomerSaving.set(false);
         this.showQuickCreateCustomer = false;
@@ -1754,7 +2035,7 @@ export class Manage implements OnInit {
       },
       error: (e: any) => {
         this.quickCustomerSaving.set(false);
-        this.quickCustomerError = e?.error?.message ?? 'Failed to create customer.';
+        this.quickCustomerError = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to create customer.';
       }
     });
   }
@@ -1763,19 +2044,37 @@ export class Manage implements OnInit {
     this.editItem = { ...item, idGuid: item.bookingPublicId ?? item.idGuid ?? item.idGUID ?? item.id, id: item.bookingId ?? item.id };
     this.formData = { ...item };
     this.selectedAmenityIds = [];
+    if (this.entity === 'customers') {
+      if (!this.formData.addressLine1 && this.formData.address) {
+        const parts = this.formData.address.split(',');
+        this.formData.addressLine1 = parts[0]?.trim() || '';
+        this.formData.addressLine2 = parts.slice(1).join(',').trim() || '';
+      }
+      const rawPhone = (this.formData.phoneNumber || this.formData.phone || '').trim();
+      if (rawPhone.startsWith('+')) {
+        const match = this.countryCodeOptions.find(c => rawPhone.startsWith(c.v));
+        if (match) {
+          this.selectedCountryCode = match.v;
+          this.formData.phoneNumber = rawPhone.slice(match.v.length).replace(/\D/g, '').slice(0, 11);
+        } else {
+          this.selectedCountryCode = '+92';
+          this.formData.phoneNumber = rawPhone.replace(/\D/g, '').slice(0, 11);
+        }
+      } else {
+        this.selectedCountryCode = '+92';
+        this.formData.phoneNumber = rawPhone.replace(/\D/g, '').slice(0, 11);
+      }
+    }
     if (this.entity === 'spaces') {
-      // Use amenityIds (comma-sep int IDs) returned by the API
       const savedIds: string = item.amenityIds || '';
       this.selectedAmenityIds = savedIds
         ? savedIds.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))
         : [];
       if (item.locationId) this.loadFloorsForLocation(item.locationId);
     }
-    // Format datetimes for datetime-local input (needs 'YYYY-MM-DDTHH:mm')
     if (this.entity === 'bookings') {
       this.formData['startDateTime'] = this.toDatetimeLocal(item.startDateTime);
-      this.formData['endDateTime']   = this.toDatetimeLocal(item.endDateTime);
-      // Pre-select current space in dropdown
+      this.formData['endDateTime'] = this.toDatetimeLocal(item.endDateTime);
       if (!this.formData['spaceId'] && item.spaceGuid) {
         this.formData['spaceId'] = item.spaceGuid;
       }
@@ -1796,40 +2095,131 @@ export class Manage implements OnInit {
   closeModal() { this.showModal = false; }
 
   save() {
-    this.saving = true; this.error = '';
+    this.saving = true;
+    this.error = '';
+
+    if (this.entity === 'customers') {
+      const fn = (this.formData.firstName || '').trim();
+      const em = (this.formData.email || '').trim();
+      const phoneDigits = (this.formData.phoneNumber || '').replace(/\D/g, '');
+      const addr1 = (this.formData.addressLine1 || '').trim();
+
+      if (!fn) {
+        this.error = 'First Name is required.';
+        this.saving = false;
+        return;
+      }
+      if (!em) {
+        this.error = 'Email address is required.';
+        this.saving = false;
+        return;
+      }
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(em)) {
+        this.error = 'Please enter a valid email address (e.g. user@example.com).';
+        this.saving = false;
+        return;
+      }
+      if (!phoneDigits || phoneDigits.length !== 11) {
+        this.error = 'Phone number must contain exactly 11 digits.';
+        this.saving = false;
+        return;
+      }
+      if (!addr1) {
+        this.error = 'Address Line 1 is required.';
+        this.saving = false;
+        return;
+      }
+
+      const fullAddress = addr1 + (this.formData.addressLine2 ? ', ' + this.formData.addressLine2.trim() : '');
+      const countryCode = this.selectedCountryCode || '+92';
+      const fullPhone = `${countryCode}${phoneDigits}`;
+
+      this.formData = {
+        ...this.formData,
+        firstName: fn,
+        lastName: (this.formData.lastName || '').trim(),
+        email: em,
+        countryCode: countryCode,
+        phoneNumber: fullPhone,
+        phone: fullPhone,
+        addressLine1: addr1,
+        addressLine2: (this.formData.addressLine2 || '').trim(),
+        address: fullAddress,
+        cityId: this.formData.cityId ? Number(this.formData.cityId) : null,
+        isActive: this.editItem ? (this.formData.isActive ?? true) : true
+      };
+    }
+
+    if (this.entity === 'locations') {
+      const name = (this.formData.name || '').trim();
+      const branchId = this.formData.branchId ? Number(this.formData.branchId) : 0;
+      const cityId = this.formData.cityId ? Number(this.formData.cityId) : 0;
+      const address = (this.formData.address || '').trim();
+
+      if (!name) {
+        this.error = 'Location name is required.';
+        this.saving = false;
+        return;
+      }
+      if (!branchId) {
+        this.error = 'Please select a Branch.';
+        this.saving = false;
+        return;
+      }
+      if (!cityId) {
+        this.error = 'Please select a City.';
+        this.saving = false;
+        return;
+      }
+      if (!address) {
+        this.error = 'Address is required.';
+        this.saving = false;
+        return;
+      }
+
+      this.formData = {
+        ...this.formData,
+        name: name,
+        branchId: branchId,
+        cityId: cityId,
+        address: address,
+        isActive: this.editItem ? (this.formData.isActive ?? true) : true
+      };
+    }
+
     if (this.entity === 'spaces') this.override_save_spaces(this.formData);
+
     const obs = this.editItem
       ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID ?? this.editItem.id, this.formData)
       : this.config.createFn!(this.formData);
 
     obs.subscribe({
       next: (res: any) => {
-        // Common success handling
         this.saving = false;
         this.showModal = false;
         this.success = this.editItem ? 'Updated successfully.' : 'Created successfully.';
         setTimeout(() => this.success = '', 3000);
 
-        // If creating a customer from booking flow, pick the created customer and populate fields
         if (this.creatingCustomerFromBooking) {
           try {
             const created = res?.data ?? res;
             if (created) {
-              // Make sure booking form is shown and selectedCustomer is set
               this.selectCustomer(created);
             }
           } catch (e) {
-            // ignore; continue
+            // ignore
           }
-          // restore config back to the active entity (bookings)
           this.config = this.buildConfig(this.entity);
           this.creatingCustomerFromBooking = false;
         }
 
-        // reload data for the active entity
         this.load();
       },
-      error: (e: any) => { this.saving = false; this.error = e?.error?.message ?? 'An error occurred.'; }
+      error: (e: any) => {
+        this.saving = false;
+        this.error = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'An error occurred.';
+      }
     });
   }
 
@@ -1968,9 +2358,9 @@ export class Manage implements OnInit {
     if (!this.reassignBooking) return;
     this.reassignLoading.set(true);
     const spaceTypeId = this.reassignBooking.spaceTypeId ?? 0;
-    const bookingId   = this.reassignBooking.bookingId ?? this.reassignBooking.id;
-    const startOn     = this.reassignBooking.startOn ?? this.reassignBooking.startDateTime;
-    const endOn       = this.reassignBooking.endOn   ?? this.reassignBooking.endDateTime;
+    const bookingId = this.reassignBooking.bookingId ?? this.reassignBooking.id;
+    const startOn = this.reassignBooking.startOn ?? this.reassignBooking.startDateTime;
+    const endOn = this.reassignBooking.endOn ?? this.reassignBooking.endDateTime;
     this.admin.getAvailableSpacesForReassignment(
       spaceTypeId,
       startOn,
@@ -2146,26 +2536,26 @@ export class Manage implements OnInit {
       case 'customers': return {
         title: 'Customers',
         columns: [
-          { key: 'code',        label: 'Code' },
-          { key: 'fullName',    label: 'Name' },
-          { key: 'email',       label: 'Email' },
+          { key: 'code', label: 'Code' },
+          { key: 'fullName', label: 'Name' },
+          { key: 'email', label: 'Email' },
           { key: 'phoneNumber', label: 'Phone' },
-          { key: 'cityName',    label: 'City' },
-          { key: 'isActive',    label: 'Active', type: 'boolean' },
-          { key: 'createdAt',   label: 'Created', type: 'date' },
+          { key: 'cityName', label: 'City' },
+          { key: 'isActive', label: 'Active', type: 'boolean' },
+          { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         fields: [
-          { key: 'firstName',      label: 'First Name',      type: 'text' },
-          { key: 'lastName',       label: 'Last Name',       type: 'text' },
-          { key: 'email',          label: 'Email',           type: 'email' },
-          { key: 'phoneNumber',    label: 'Phone Number',    type: 'text' },
+          { key: 'firstName', label: 'First Name', type: 'text', required: true },
+          { key: 'lastName', label: 'Last Name', type: 'text' },
+          { key: 'email', label: 'Email', type: 'email', required: true },
+          { key: 'phoneNumber', label: 'Phone Number', type: 'phone-split', required: true },
+          { key: 'addressLine1', label: 'Address Line 1', type: 'text', required: true },
+          { key: 'addressLine2', label: 'Address Line 2', type: 'text' },
+          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
-          { key: 'address',        label: 'Address',         type: 'text' },
-          { key: 'cityId',         label: 'City',            type: 'select', options: this.cityOptions },
-          { key: 'notes',          label: 'Notes',           type: 'textarea' },
-          { key: 'isActive',       label: 'Active',          type: 'checkbox' },
+          { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
-        getFn:    (p, l, s) => this.admin.getCustomers(p, l, s),
+        getFn: (p, l, s) => this.admin.getCustomers(p, l, s),
         createFn: (d) => this.admin.createCustomer(d),
         updateFn: (id, d) => this.admin.updateCustomer(id, d),
         deleteFn: (id) => this.admin.deleteCustomer(id),
@@ -2182,14 +2572,14 @@ export class Manage implements OnInit {
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         fields: [
-          { key: 'name',           label: 'Name',            type: 'text' },
-          { key: 'email',          label: 'Email',           type: 'email' },
-          { key: 'password',       label: 'Password',        type: 'password' },
-          { key: 'code',           label: 'Code',            type: 'text' },
-          { key: 'address',        label: 'Address',         type: 'text' },
+          { key: 'name', label: 'Name', type: 'text' },
+          { key: 'email', label: 'Email', type: 'email' },
+          { key: 'password', label: 'Password', type: 'password' },
+          { key: 'code', label: 'Code', type: 'text' },
+          { key: 'address', label: 'Address', type: 'text' },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
-          { key: 'cityId',         label: 'City',            type: 'select', options: this.cityOptions },
-          { key: 'phone',          label: 'Phone Number',    type: 'text' },
+          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions },
+          { key: 'phone', label: 'Phone Number', type: 'text' },
         ],
         getFn: (p, l, s) => this.admin.getUsers(p, l, s),
         createFn: (d) => this.admin.createUser(d),
@@ -2199,20 +2589,21 @@ export class Manage implements OnInit {
       case 'locations': return {
         title: 'Locations',
         columns: [
-          { key: 'name',        label: 'Name' },
-          { key: 'address',     label: 'Address' },
-          { key: 'cityName',    label: 'City' },
+          { key: 'name', label: 'Name' },
+          { key: 'branchName', label: 'Branch' },
+          { key: 'cityName', label: 'City' },
+          { key: 'address', label: 'Address' },
           { key: 'openingTime', label: 'Opens' },
           { key: 'closingTime', label: 'Closes' },
-          { key: 'status',      label: 'Active', type: 'boolean' },
+          { key: 'status', label: 'Active', type: 'boolean' },
         ],
         fields: [
-          { key: 'name', label: 'Name', type: 'text' },
-          { key: 'address', label: 'Address', type: 'text' },
-          { key: 'cityId', label: 'City ID', type: 'number' },
+          { key: 'name', label: 'Name', type: 'text', required: true },
+          { key: 'branchId', label: 'Branch', type: 'select', options: this.branchOptions, required: true },
+          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions, required: true },
+          { key: 'address', label: 'Address', type: 'text', required: true },
           { key: 'openingTime', label: 'Opening Time', type: 'time' },
           { key: 'closingTime', label: 'Closing Time', type: 'time' },
-          { key: 'isActive', label: 'Active', type: 'checkbox' },
         ],
         getFn: (p, l, s) => this.admin.getLocations(p, l, s),
         createFn: (d) => this.admin.createLocation(d),
@@ -2223,10 +2614,10 @@ export class Manage implements OnInit {
       case 'spacetypes': return {
         title: 'Space Types',
         columns: [
-          { key: 'name',         label: 'Name' },
-          { key: 'capacity',     label: 'Capacity' },
-          { key: 'hourlyAllowed',label: 'Hourly', type: 'boolean' },
-          { key: 'status',       label: 'Active', type: 'boolean' },
+          { key: 'name', label: 'Name' },
+          { key: 'capacity', label: 'Capacity' },
+          { key: 'hourlyAllowed', label: 'Hourly', type: 'boolean' },
+          { key: 'status', label: 'Active', type: 'boolean' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
@@ -2245,14 +2636,14 @@ export class Manage implements OnInit {
       case 'spaces': return {
         title: 'Spaces',
         columns: [
-          { key: 'name',          label: 'Name' },
-          { key: 'code',          label: 'Code' },
-          { key: 'locationName',  label: 'Location' },
+          { key: 'name', label: 'Name' },
+          { key: 'code', label: 'Code' },
+          { key: 'locationName', label: 'Location' },
           { key: 'spaceTypeName', label: 'Type' },
-          { key: 'capacity',      label: 'Capacity' },
-          { key: 'pricePerDay',   label: 'Price', type: 'space-prices' },
-          { key: 'status',        label: 'Status', type: 'status' },
-          { key: 'imageUrl',      label: 'Image', type: 'image' },
+          { key: 'capacity', label: 'Capacity' },
+          { key: 'pricePerDay', label: 'Price', type: 'space-prices' },
+          { key: 'status', label: 'Status', type: 'status' },
+          { key: 'imageUrl', label: 'Image', type: 'image' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
@@ -2267,11 +2658,13 @@ export class Manage implements OnInit {
           { key: 'imageUrl', label: 'Image URL', type: 'text' },
           { key: 'amenities', label: 'Amenities', type: 'amenities-multicheck' },
           { key: 'rentAccountId', label: 'Rent Account', type: 'select', options: this.accountOptions },
-          { key: 'status', label: 'Status', type: 'select', options: [
-            { v: 'Available', l: 'Available' },
-            { v: 'Maintenance', l: 'Maintenance' },
-            { v: 'Inactive', l: 'Inactive' },
-          ]},
+          {
+            key: 'status', label: 'Status', type: 'select', options: [
+              { v: 'Available', l: 'Available' },
+              { v: 'Maintenance', l: 'Maintenance' },
+              { v: 'Inactive', l: 'Inactive' },
+            ]
+          },
         ],
         getFn: (p, l, s) => this.admin.getSpaces(p, l, s),
         createFn: (d) => this.admin.createSpace(d),
@@ -2335,11 +2728,13 @@ export class Manage implements OnInit {
         ],
         fields: [
           { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'number' },
-          { key: 'paymentMethod', label: 'Method', type: 'select', options: [
-            { v: 'Cash', l: 'Cash' },
-            { v: 'Card', l: 'Card' },
-            { v: 'BankTransfer', l: 'Bank Transfer' },
-          ]},
+          {
+            key: 'paymentMethod', label: 'Method', type: 'select', options: [
+              { v: 'Cash', l: 'Cash' },
+              { v: 'Card', l: 'Card' },
+              { v: 'BankTransfer', l: 'Bank Transfer' },
+            ]
+          },
         ],
         getFn: (p, l, s) => this.admin.getPayments(p, l, s),
         createFn: (d) => this.admin.createPayment(d),
@@ -2369,7 +2764,7 @@ export class Manage implements OnInit {
         columns: [
           { key: 'title', label: 'Title' },
           { key: 'imageUrl', label: 'Image', type: 'image' },
-      
+
 
         ],
         fields: [
@@ -2388,14 +2783,14 @@ export class Manage implements OnInit {
         title: 'Quotations',
         columns: [
           { key: 'quotationNumber', label: 'Quotation #' },
-          { key: 'customerName',    label: 'Customer' },
-          { key: 'customerEmail',   label: 'Email' },
-          { key: 'spaceName',       label: 'Space' },
-          { key: 'totalAmount',     label: 'Total (PKR)', type: 'currency' },
-          { key: 'validUntil',      label: 'Valid Until', type: 'date' },
-          { key: 'versionNumber',   label: 'Version' },
-          { key: 'status',          label: 'Status', type: 'status' },
-          { key: 'createdAt',       label: 'Created', type: 'date' },
+          { key: 'customerName', label: 'Customer' },
+          { key: 'customerEmail', label: 'Email' },
+          { key: 'spaceName', label: 'Space' },
+          { key: 'totalAmount', label: 'Total (PKR)', type: 'currency' },
+          { key: 'validUntil', label: 'Valid Until', type: 'date' },
+          { key: 'versionNumber', label: 'Version' },
+          { key: 'status', label: 'Status', type: 'status' },
+          { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         getFn: (p, l, s) => this.quotationSvc.getQuotations(p, l, s),
         createFn: (d) => this.quotationSvc.createQuotation(d),
@@ -2410,12 +2805,12 @@ export class Manage implements OnInit {
     const cfg = this.spaceConfigItems().find((c: any) =>
       (c.spaceCategory || '').toLowerCase() === 'meeting'
     );
-    const openH  = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
-    const closeH = parseInt((cfg?.closingTime  || '20:00').split(':')[0], 10);
+    const openH = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
+    const closeH = parseInt((cfg?.closingTime || '20:00').split(':')[0], 10);
     this.quotationMeetingSlots = [];
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
-      const end   = `${String(h + 1).padStart(2, '0')}:00`;
+      const end = `${String(h + 1).padStart(2, '0')}:00`;
       this.quotationMeetingSlots.push({ label: `${start} – ${end}`, start, end });
     }
     this.quotationSelectedSlots = new Set();
@@ -2461,6 +2856,7 @@ export class Manage implements OnInit {
     this.quotationSelectedSlots = new Set();
     this.quotationMeetingRoomMode = 'slot';
     this.quotationMeetingDayEnd = '';
+    this.onQuotationMonthPeriodChange();
 
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
@@ -2524,6 +2920,10 @@ export class Manage implements OnInit {
     if (this.selectedQuotationSpaceTypeId === 'shared' || this.selectedQuotationSpaceTypeId === 'private') {
       this.quotationMonths = 12;
     }
+    const isPrivate = this.isQuotationPrivateRoom;
+    const isShared = this.isQuotationSharedSpace;
+    this.quotationBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
+    this.quotationSecurityDepositMonths = isPrivate ? 2 : 0;
     this.recalcQuotationAmount();
   }
 
@@ -2546,6 +2946,9 @@ export class Manage implements OnInit {
       this.recalcQuotationAmount();
       return;
     }
+    if (this.quotationBillingPeriodMonths > Number(this.quotationMonths)) {
+      this.quotationBillingPeriodMonths = Number(this.quotationMonths);
+    }
     const start = new Date(`${this.quotationStartDate}T00:00:00`);
     if (isNaN(start.getTime())) {
       this.quotationEndDateDisplay = '';
@@ -2559,12 +2962,16 @@ export class Manage implements OnInit {
     this.recalcQuotationAmount();
   }
 
-  get isQuotationPrivateRoom() {
-    return this.selectedQuotationSpaceTypeId === 'private';
+  get isQuotationPrivateRoom(): boolean {
+    return (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('private');
   }
 
-  get isQuotationMeetingRoom() {
-    return this.selectedQuotationSpaceTypeId === 'meeting';
+  get isQuotationSharedSpace(): boolean {
+    return (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('shared') || (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('desk');
+  }
+
+  get isQuotationMeetingRoom(): boolean {
+    return (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('meeting') || (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('conference');
   }
 
   get availableQuotationCapacities(): number[] {
@@ -2594,7 +3001,7 @@ export class Manage implements OnInit {
 
     const isMeeting = this.selectedQuotationSpaceTypeId === 'meeting';
     const isPrivate = this.selectedQuotationSpaceTypeId === 'private';
-    const isShared  = this.selectedQuotationSpaceTypeId === 'shared';
+    const isShared = this.selectedQuotationSpaceTypeId === 'shared';
 
     spaces = spaces.filter(s => {
       const categoryCode = (s.categoryCode || '').toLowerCase();
@@ -2602,7 +3009,7 @@ export class Manage implements OnInit {
       const sName = (s.name || '').toLowerCase();
       if (isMeeting) return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
       if (isPrivate) return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
-      if (isShared)  return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+      if (isShared) return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
       return false;
     });
 
@@ -2634,17 +3041,17 @@ export class Manage implements OnInit {
     const capacity = Number(space.capacity || 1);
 
     if (category.includes('private')) {
-      const monthlyRate = rate || 35000;
+      const monthlyRate = rate;
       const rent = monthlyRate * capacity * Number(this.quotationMonths);
       const security = monthlyRate * capacity;
       this.quotationSubtotal = rent;
       this.quotationSecurityDeposit = security;
     } else if (category.includes('meeting') || category.includes('conference')) {
-      const hourlyRate = rate || 6000;
+      const hourlyRate = rate;
       if (this.quotationMeetingRoomMode === 'day' && this.quotationStartDate && this.quotationMeetingDayEnd) {
         // Full-day: count calendar days × 9 hours/day × hourly rate
         const start = new Date(this.quotationStartDate);
-        const end   = new Date(this.quotationMeetingDayEnd);
+        const end = new Date(this.quotationMeetingDayEnd);
         const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
         this.quotationSubtotal = hourlyRate * 9 * diffDays;
       } else {
@@ -2653,7 +3060,7 @@ export class Manage implements OnInit {
       }
       this.quotationSecurityDeposit = 0;
     } else {
-      const monthlyRate = rate || 30000;
+      const monthlyRate = rate;
       const rent = monthlyRate * Number(this.quotationMonths);
       this.quotationSubtotal = rent;
       this.quotationSecurityDeposit = 0;
@@ -2698,35 +3105,37 @@ export class Manage implements OnInit {
       const sorted = Array.from(this.quotationSelectedSlots).sort();
       const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
       startDT = `${this.quotationStartDate}T${sorted[0]}:00`;
-      endDT   = `${this.quotationStartDate}T${String(lastHour).padStart(2, '0')}:00:00`;
+      endDT = `${this.quotationStartDate}T${String(lastHour).padStart(2, '0')}:00:00`;
     } else if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'day') {
       startDT = `${this.quotationStartDate}T00:00:00`;
-      endDT   = `${this.quotationMeetingDayEnd}T23:59:59`;
+      endDT = `${this.quotationMeetingDayEnd}T23:59:59`;
     } else {
       startDT = new Date(this.quotationStartDate).toISOString();
-      endDT   = new Date(this.quotationEndDateDisplay || this.quotationStartDate).toISOString();
+      endDT = new Date(this.quotationEndDateDisplay || this.quotationStartDate).toISOString();
     }
 
     const u = this.selectedCustomer;
     const currentAdminId = Number((this.auth.user() as any)?.id || (this.auth.user() as any)?.userId || 1);
     const now = new Date();
-    const quotationNumber = `WN-Q-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getTime()).slice(-5)}`;
+    const quotationNumber = `WN-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getTime()).slice(-5)}`;
 
     const payload: any = {
-      QuotationNumber:    quotationNumber,
-      CustomerId:         Number(u.customerId || u.id || 0),
-      SpaceId:            Number(this.quotationFormData.spaceId),
-      StartDateTime:      startDT,
-      EndDateTime:        endDT,
-      ValidUntil:         new Date(this.quotationValidUntil).toISOString().split('T')[0],
-      SubtotalAmount:          this.quotationSubtotal,
-      DiscountPercentage:      this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) : 0,
-      DiscountType:            this.quotationDiscountType,
-      DiscountValue:           Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0),
+      QuotationNumber: quotationNumber,
+      CustomerId: Number(u.customerId || u.id || 0),
+      SpaceId: Number(this.quotationFormData.spaceId),
+      StartDateTime: startDT,
+      EndDateTime: endDT,
+      ValidUntil: new Date(this.quotationValidUntil).toISOString().split('T')[0],
+      SubtotalAmount: this.quotationSubtotal,
+      DiscountPercentage: this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) : 0,
+      DiscountType: this.quotationDiscountType,
+      DiscountValue: Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0),
       SecurityDepositOverride: this.quotationSecurityDepositMonthsOverride != null
         ? this.effectiveQuotationSecurityDeposit
         : null,
-      FloorId:                 this.quotationFloorId ?? null,
+      BillingPeriodMonths: this.quotationBillingPeriodMonths,
+      SecurityDepositMonths: this.quotationSecurityDepositMonths,
+      FloorId: this.quotationFloorId ?? null,
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
@@ -2907,4 +3316,158 @@ export class Manage implements OnInit {
       }
     });
   }
+
+  // Booking Details Modal
+  showBookingDetailsModal = false;
+  selectedBookingDetails = signal<any>(null);
+  bookingBillingSummaryData = signal<BookingBillingSummary | null>(null);
+
+  openBookingDetailsModal(booking: any) {
+    this.selectedBookingDetails.set(booking);
+    const bookingId = booking.id ?? booking.bookingId;
+    if (bookingId) {
+      this.admin.getBookingBillingSummary(bookingId).subscribe({
+        next: (res: any) => {
+          this.bookingBillingSummaryData.set(res?.data ?? res);
+        },
+        error: () => {
+          // Fallback summary if API initializing
+          const monthlyRent = booking.monthlyRent || ((booking.totalAmount || 0) / 12);
+          const secMonths = booking.securityDepositMonths || 2;
+          const billingMonths = booking.billingPeriodMonths || 3;
+          this.bookingBillingSummaryData.set({
+            bookingId,
+            totalContractRent: booking.totalAmount || (monthlyRent * 12),
+            rentInvoiced: monthlyRent * billingMonths,
+            rentPaid: monthlyRent * billingMonths,
+            remainingRent: Math.max(0, (booking.totalAmount || (monthlyRent * 12)) - (monthlyRent * billingMonths)),
+            securityDepositRequired: monthlyRent * secMonths,
+            securityDepositInvoiced: monthlyRent * secMonths,
+            securityDepositPaid: monthlyRent * secMonths,
+            securityDepositOutstanding: 0,
+            securityDepositCharged: true,
+            invoicedPeriods: [
+              { periodLabel: `Billing Period 1 (${billingMonths} Mo)`, status: 'Paid', monthlyRentAmount: monthlyRent }
+            ],
+            unbilledPeriods: [
+              { periodLabel: `Billing Period 2 (${billingMonths} Mo)`, periodStartDate: '', periodEndDate: '' }
+            ],
+            nextBillingDate: booking.nextBillingDate || '',
+            currentBillingPeriodStart: booking.startOn || booking.startDateTime || '',
+            currentBillingPeriodEnd: this.calcBillingPeriodEnd(booking.startOn || booking.startDateTime, billingMonths, booking.endOn || booking.endDateTime)
+          });
+        }
+      });
+    }
+    this.showBookingDetailsModal = true;
+  }
+
+
+  /** Helper: calculate billing period end date */
+  calcBillingPeriodEnd(startIso: string, months: number, contractEndIso?: string): string {
+    if (!startIso || !months) return startIso;
+    const d = new Date(startIso);
+    if (isNaN(d.getTime())) return startIso;
+    d.setMonth(d.getMonth() + Number(months));
+    d.setDate(d.getDate() - 1);
+
+    if (contractEndIso) {
+      const endD = new Date(contractEndIso);
+      if (!isNaN(endD.getTime()) && d > endD) {
+        return contractEndIso;
+      }
+    }
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T23:59:59`;
+  }
+
+  viewBillingChallan(booking: any) {
+    if (!booking) return;
+    const start = new Date(booking.startOn || booking.startDateTime);
+    const end = new Date(booking.endOn || booking.endDateTime);
+    let contractMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    if (contractMonths <= 0) contractMonths = 1;
+    const billingMonths = Math.min(booking.billingPeriodMonths || 1, contractMonths);
+    const secMonths = booking.securityDepositMonths || 0;
+    const monthlyRent = (booking.totalAmount || 0) / contractMonths;
+    const billingRent = monthlyRent * billingMonths;
+    const secDeposit = monthlyRent * secMonths;
+    const discount = booking.discountAmount || 0;
+    const billingEnd = this.calcBillingPeriodEnd(booking.startOn || booking.startDateTime, billingMonths, booking.endOn || booking.endDateTime);
+    const details: any[] = [{ feeType: 'RoomRent', description: `Room Rent (${billingMonths} Month(s))`, amount: billingRent }];
+    if (secMonths > 0) details.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDeposit });
+    if (discount > 0) details.push({ feeType: 'DISCOUNT', description: 'Discount', amount: discount });
+    const challan: any = {
+      challanNumber: booking.challanNumber || `WN-BK-${booking.id}`,
+      validity: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(),
+      customerName: booking.customerName || booking.userName || booking.userEmail || 'Customer',
+      customerEmail: booking.userEmail || booking.customerEmail || '',
+      spaceName: booking.spaceName || 'Workspace',
+      contractStartDateTime: booking.startOn || booking.startDateTime,
+      contractEndDateTime: booking.endOn || booking.endDateTime,
+      billingPeriodStart: booking.startOn || booking.startDateTime,
+      billingPeriodEnd: billingEnd,
+      startDateTime: booking.startOn || booking.startDateTime,
+      endDateTime: booking.endOn || booking.endDateTime,
+      notes: booking.notes,
+      bookingDetails: details,
+      discountPercentage: booking.discountPercentage || 0,
+      totalAmount: Math.max(0, billingRent + secDeposit - discount),
+      bookingId: booking.id || booking.bookingId,
+      createdAt: booking.createdOn || booking.createdAt || new Date().toISOString()
+    };
+    this.challanData.set(challan);
+    this.showChallanModal = true;
+  }
+
+  // Invoice Details View
+  openInvoiceDetails(invoice: any) {
+    this.admin.getInvoiceDetails(invoice.id).subscribe({
+      next: (res: any) => {
+        this.selectedInvoiceDetails.set(res?.data ?? res);
+        this.showInvoiceDetailsModal = true;
+      },
+      error: () => {
+        // Fallback display for client UI
+        this.selectedInvoiceDetails.set(invoice);
+        this.showInvoiceDetailsModal = true;
+      }
+    });
+  }
+
+  // Record Manual Payment
+  openRecordPaymentModal(invoice: any) {
+    this.recordPaymentFormData = {
+      invoiceId: invoice.id,
+      paidAmount: invoice.balanceAmount || invoice.totalAmount || 0,
+      paymentMethod: 'Bank Transfer',
+      transactionRef: '',
+      notes: ''
+    };
+    this.showRecordPaymentModal = true;
+  }
+
+  submitRecordPayment() {
+    if (!this.recordPaymentFormData.paidAmount || this.recordPaymentFormData.paidAmount <= 0) {
+      alert('Please enter a valid payment amount.');
+      return;
+    }
+    this.recordPaymentSaving.set(true);
+    this.admin.recordInvoicePayment(this.recordPaymentFormData.invoiceId, this.recordPaymentFormData).subscribe({
+      next: () => {
+        this.recordPaymentSaving.set(false);
+        this.showRecordPaymentModal = false;
+        this.showInvoiceDetailsModal = false;
+        this.success = 'Payment recorded successfully! Associated periods marked as Prepaid.';
+        setTimeout(() => this.success = '', 4000);
+        this.load();
+      },
+      error: (err: any) => {
+        this.recordPaymentSaving.set(false);
+        alert(err?.error?.message || err?.message || 'Failed to record payment.');
+      }
+    });
+  }
+
 }

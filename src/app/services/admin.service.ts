@@ -269,6 +269,45 @@ export class AdminService {
   /** Get payment detail with linked booking/membership and user stats */
   getPaymentSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/payment/${id}/summary`); }
 
+  // ============= INVOICE MANAGEMENT =============
+
+  /** Get paginated list of invoices with optional type filter (1: Regular, 3: Security Deposit) */
+  getInvoices(page?: number, limit?: number, search?: string, typeId?: number): Observable<ApiResponse<any[]>> {
+    const params = new URLSearchParams();
+    if (page != null) params.set('page', String(page));
+    if (limit != null) params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    if (typeId != null && typeId > 0) params.set('typeId', String(typeId));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice${qs}`);
+  }
+
+  /** Get detailed invoice by ID with line items and prepaid periods */
+  getInvoiceDetails(id: number): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/invoice/${id}`);
+  }
+
+  /** Record manual or offline payment for an invoice */
+  recordInvoicePayment(invoiceId: number, data: { paidAmount: number; paymentMethod: string; transactionRef?: string; notes?: string }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/record-payment`, data);
+  }
+
+  /** Get booking billing and security deposit summary */
+  getBookingBillingSummary(bookingId: number): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/booking/${bookingId}/billing-summary`);
+  }
+
+  /** Get unbilled/remaining billing periods for a booking */
+  getRemainingBillingPeriods(bookingId: number): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/booking/${bookingId}/remaining-billing-periods`);
+  }
+
+  /** Get billing periods for a booking (shows invoiced, paid, and upcoming periods) */
+  getBillingPeriods(bookingId: number): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/booking/${bookingId}/billing-periods`);
+  }
+
+
   // Contact Messages
   getContacts(page?: number, limit?: number, search?: string): Observable<ApiResponse<Contact[]>> {
       const params = new URLSearchParams();
@@ -304,6 +343,11 @@ export class AdminService {
   // Cities
   getCities(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/city`);
+  }
+
+  // Branches
+  getBranches(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/branch`);
   }
 
   // Customers

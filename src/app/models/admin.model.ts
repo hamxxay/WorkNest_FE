@@ -37,7 +37,10 @@ export interface Location {
   id: number;
   name: string;
   address: string;
-  cityName: string;
+  cityName?: string;
+  cityId?: number;
+  branchId?: number;
+  branchName?: string;
   openingTime?: string;
   closingTime?: string;
   isActive?: boolean;
@@ -78,15 +81,130 @@ export interface Space {
 
 /**
  * Booking entity - represents a user's booking of a space.
+ * BillingPeriodMonths: how often invoices are generated (1, 2, 3, or 6 months).
+ * NextBillingDate: when the next billing cycle starts / next invoice is due.
  */
 export interface Booking {
   id: number;
   userEmail?: string;
+  customerName?: string;
   spaceName?: string;
+  spaceId?: number;
   startDateTime?: string;
   endDateTime?: string;
   totalAmount?: number;
+  monthlyRent?: number;
   bookingStatus?: string;
+  /** Billing cycle frequency in months (1 | 2 | 3 | 6) */
+  billingPeriodMonths?: number;
+  securityDepositMonths?: number;
+  securityDepositRequired?: number;
+  securityDepositInvoiced?: number;
+  securityDepositPaid?: number;
+  securityDepositOutstanding?: number;
+  /** Start of the current active billing period */
+  billingPeriodStart?: string;
+  /** End of the current active billing period */
+  billingPeriodEnd?: string;
+  /** Date when the next billing cycle starts (and next invoice should be generated) */
+  nextBillingDate?: string;
+}
+
+/**
+ * BillingPeriod entity - represents a single billing cycle for a booking.
+ * Used to track which periods have been invoiced and which are pending.
+ */
+export interface BillingPeriod {
+  id?: number;
+  invoiceId?: number;
+  bookingId?: number;
+  /** Display label for the period, e.g. "Jan–Mar 2027" */
+  periodLabel: string;
+  periodStartDate?: string;
+  periodEndDate?: string;
+  monthlyRentAmount?: number;
+  status: 'Pending' | 'Invoiced' | 'Paid' | 'Unbilled';
+}
+
+/**
+ * Invoice line item entity.
+ */
+export interface InvoiceLineItem {
+  id?: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+/**
+ * Invoice entity - represents a regular or security deposit invoice.
+ * invoiceTypeId: 1 = Regular (recurring rent), 3 = Security Deposit
+ */
+export interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  bookingId?: number;
+  customerId?: string;
+  customerName?: string;
+  customerEmail?: string;
+  spaceName?: string;
+  /** 1 = Regular (recurring rent), 3 = Security Deposit */
+  invoiceTypeId: number;
+  invoiceTypeName?: 'Regular' | 'Security Deposit' | string;
+  invoiceDate?: string;
+  dueDate?: string;
+  subtotal?: number;
+  discountAmount?: number;
+  discountPercentage?: number;
+  taxAmount?: number;
+  taxPercentage?: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount?: number;
+  balance?: number;
+  status: 'Pending' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Cancelled' | string;
+  /** Number of months this invoice covers */
+  billingPeriodMonths?: number;
+  /** Start of the billing period this invoice covers */
+  billingPeriodStart?: string;
+  /** End of the billing period this invoice covers */
+  billingPeriodEnd?: string;
+  securityDepositMonths?: number;
+  securityDepositAmount?: number;
+  notes?: string;
+  billingPeriods?: BillingPeriod[];
+  lineItems?: InvoiceLineItem[];
+  createdAt?: string;
+}
+
+/**
+ * Booking Billing Summary - aggregates contract rent, paid amounts,
+ * security deposit status, and billing period tracking.
+ */
+export interface BookingBillingSummary {
+  bookingId: number;
+  /** Total rent over the entire contract period */
+  totalContractRent: number;
+  rentInvoiced: number;
+  rentPaid: number;
+  remainingRent: number;
+  securityDepositRequired: number;
+  securityDepositInvoiced: number;
+  securityDepositPaid: number;
+  securityDepositOutstanding: number;
+  /** Whether security deposit has already been charged (never charge again) */
+  securityDepositCharged: boolean;
+  /** Billing periods that have been invoiced */
+  invoicedPeriods: BillingPeriod[];
+  /** Billing periods within the contract that have not yet been invoiced */
+  unbilledPeriods: { periodLabel: string; periodStartDate: string; periodEndDate: string }[];
+  /** Next scheduled billing date */
+  nextBillingDate?: string;
+  /** Current billing period start */
+  currentBillingPeriodStart?: string;
+  /** Current billing period end */
+  currentBillingPeriodEnd?: string;
 }
 
 /**

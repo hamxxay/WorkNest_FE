@@ -47,7 +47,6 @@ export class BookingService {
   }
 
 
-
   /**
    * Get available spaces by type with auto-assignment logic
    * @param spaceType - Type of space (e.g., 'Private Office', 'Shared Space', 'Meeting Room')
