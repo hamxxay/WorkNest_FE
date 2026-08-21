@@ -40,6 +40,10 @@ export class BookingService {
     return this.http.get<any>(`${this.apiUrl}/${bookingId}/challan`);
   }
 
+  getChallanPdfBlob(bookingId: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${bookingId}/challan-pdf`, { responseType: 'blob' });
+  }
+
   sendChallanEmail(bookingId: number, email?: string, pdfBase64?: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/${bookingId}/send-challan-email`, { pdfBase64: pdfBase64 || '' }).pipe(
       catchError(() => of({ isSuccessful: true, message: `Challan emailed to ${email || 'customer'}` }))

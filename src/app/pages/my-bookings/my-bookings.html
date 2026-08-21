@@ -171,6 +171,22 @@
           </div>
         </div>
 
+        <!-- Contract & Billing Summary Card -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Contract Amount</span>
+            <strong style="color:#15803d;font-size:.95rem">PKR {{ (selectedChallan()!.totalContractAmount ?? selectedChallan()!.contract?.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill Due Date</span>
+            <strong style="color:#0284c7;font-size:.95rem">{{ (selectedChallan()!.nextBillDueDate || selectedChallan()!.nextBillingDate || selectedChallan()!.contract?.nextBillingDate) ? ((selectedChallan()!.nextBillDueDate || selectedChallan()!.nextBillingDate || selectedChallan()!.contract?.nextBillingDate) | date:'MMM d, y') : 'N/A' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance Left</span>
+            <strong style="color:#b45309;font-size:.95rem">PKR {{ (selectedChallan()!.balanceLeft ?? selectedChallan()!.contract?.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
+          </div>
+        </div>
+
         <!-- Financial Breakdown Table -->
         <div>
           <div class="breakdown-title">Payment Breakdown</div>

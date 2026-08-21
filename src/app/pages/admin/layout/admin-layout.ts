@@ -25,6 +25,7 @@ export class AdminLayout {
     { route: '/admin/pricing',        label: 'Pricing',           icon: 'pricing'         },
     { route: '/admin/quotations',     label: 'Quotations',        icon: 'pricing'         },
     { route: '/admin/payments',       label: 'Payments',          icon: 'payments'        },
+    { route: '/admin/invoices',       label: 'Invoices & Billing', icon: 'payments'        },
 
     { route: '/admin/contacts',       label: 'Contacts',          icon: 'contacts'        },
     { route: '/admin/gallery',             label: 'Gallery',           icon: 'gallery'                        },

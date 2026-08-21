@@ -154,7 +154,8 @@ export class MyBookings implements OnInit {
     this.loadingChallan.set(true);
     this.bookingService.getChallan(b.id).subscribe({
       next: (res: any) => {
-        this.selectedChallan.set(res?.data);
+        const c = res?.data || res || {};
+        this.selectedChallan.set(c);
         this.loadingChallan.set(false);
       },
       error: () => {
@@ -188,35 +189,23 @@ export class MyBookings implements OnInit {
   }
 
 
-  async downloadChallan() {
-    const { default: html2canvas } = await import('html2canvas');
-    const { jsPDF } = await import('jspdf');
-    const el = document.getElementById('my-bookings-challan-printable');
-    if (!el) return;
-    const actions = el.querySelector<HTMLElement>('[data-challan-actions]');
-    const bodyEl = el.querySelector<HTMLElement>('[data-challan-body]');
-    
-    const origMaxHeight = el.style.maxHeight;
-    const origBodyOverflow = bodyEl ? bodyEl.style.overflowY : '';
-    
-    if (actions) actions.style.display = 'none';
-    el.style.maxHeight = 'none';
-    if (bodyEl) bodyEl.style.overflowY = 'visible';
-    
-    try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const imgH = (canvas.height * pageW) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-      const c = this.selectedChallan();
-      pdf.save(`Challan-${c?.challanNumber ?? c?.bookingId ?? 'WN'}.pdf`);
-    } finally {
-      if (actions) actions.style.display = '';
-      el.style.maxHeight = origMaxHeight;
-      if (bodyEl) bodyEl.style.overflowY = origBodyOverflow;
-    }
+  downloadChallan() {
+    const c = this.selectedChallan();
+    const bookingId = c?.bookingId || c?.id;
+    if (!bookingId) return;
+    this.bookingService.getChallanPdfBlob(bookingId).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Challan-${c?.challanNumber || bookingId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        alert('Failed to download Challan PDF.');
+      }
+    });
   }
 
   printChallanDoc() {

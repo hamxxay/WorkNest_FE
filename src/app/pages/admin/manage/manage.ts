@@ -317,83 +317,56 @@ export class Manage implements OnInit {
     this.bookingService.getChallan(bookingId).subscribe({
       next: async (res: any) => {
         const challan = res?.data ?? res;
-        const targetEmail = challan?.customerEmail || challan?.userEmail || '';
+        const targetEmail = challan?.customerEmail || item?.customerEmail || item?.userEmail || challan?.userEmail || '';
         if (!targetEmail) {
           this.resendingBookingEmailId.set(null);
           alert('No customer email address found for this booking.');
           return;
         }
 
-        // Temporarily show challan modal to capture PDF
         this.challanData.set({
           bookingId,
-          challanNumber: challan.challanNumber,
+          challanNumber: challan.challanNumber || challan.ChallanNumber,
           validity: challan.validUntil ?? challan.challanValidUntil,
-          customerName: challan.customerName,
-          customerEmail: challan.customerEmail,
-          customerCode: challan.customerCode,
-          spaceName: challan.spaceName,
-          locationName: challan.locationName,
-          spaceTypeName: challan.spaceTypeName,
-          startDateTime: challan.startOn,
-          endDateTime: challan.endOn,
-          bookingDetails: challan.details ?? [],
+          customerName: challan.customerName || challan.CustomerName,
+          customerEmail: challan.customerEmail || challan.CustomerEmail,
+          customerCode: challan.customerCode || challan.CustomerCode,
+          spaceName: challan.spaceName || challan.SpaceName,
+          locationName: challan.locationName || challan.LocationName,
+          spaceTypeName: challan.spaceTypeName || challan.SpaceTypeName,
+          contractStartDateTime: challan.startOn || challan.StartOn,
+          contractEndDateTime: challan.endOn || challan.EndOn,
+          billingPeriodStart: challan.startOn || challan.StartOn,
+          billingPeriodEnd: challan.nextBillDueDate || challan.endOn,
+          startDateTime: challan.startOn || challan.StartOn,
+          endDateTime: challan.endOn || challan.EndOn,
+          totalContractAmount: challan.totalContractAmount ?? challan.TotalContractAmount ?? challan.totalPayable ?? 0,
+          nextBillDueDate: challan.nextBillDueDate ?? challan.NextBillDueDate,
+          balanceLeft: challan.balanceLeft ?? challan.BalanceLeft ?? 0,
+          bookingDetails: challan.details ?? challan.Details ?? [],
           securityDeposit: challan.securityDeposit ?? 0,
-          subtotalAmount: challan.roomPrice ?? 0,
-          discountPercentage: 0,
-          discountAmount: 0,
-          totalAmount: challan.totalPayable ?? 0,
-          createdAt: new Date().toISOString(),
+          subtotalAmount: challan.roomPrice ?? challan.seatPrice ?? 0,
+          discountPercentage: challan.discountPercentage ?? 0,
+          discountAmount: challan.discountAmount ?? 0,
+          totalAmount: challan.totalPayable ?? challan.TotalPayable ?? 0,
+          createdAt: challan.issuedOn || new Date().toISOString(),
         });
         this.showChallanModal = true;
 
-        // Wait for DOM to render then capture
-        setTimeout(async () => {
-          try {
-            const { default: html2canvas } = await import('html2canvas');
-            const { jsPDF } = await import('jspdf');
-            const el = document.getElementById('admin-receipt-printable');
-            let pdfBase64 = '';
-            if (el) {
-              const actions = el.querySelector<HTMLElement>('[data-challan-actions]');
-              const bodyEl = el.querySelector<HTMLElement>('[data-challan-body]');
-              const origMaxHeight = el.style.maxHeight;
-              const origBodyOverflow = bodyEl ? bodyEl.style.overflowY : '';
-              if (actions) actions.style.display = 'none';
-              el.style.maxHeight = 'none';
-              if (bodyEl) bodyEl.style.overflowY = 'visible';
-
-              const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-
-              if (actions) actions.style.display = '';
-              el.style.maxHeight = origMaxHeight;
-              if (bodyEl) bodyEl.style.overflowY = origBodyOverflow;
-
-              const imgData = canvas.toDataURL('image/png');
-              const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-              const pageW = pdf.internal.pageSize.getWidth();
-              const imgH = (canvas.height * pageW) / canvas.width;
-              pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-              pdfBase64 = pdf.output('datauristring').split(',')[1];
-            }
-            this.showChallanModal = false;
-            this.bookingService.sendChallanEmail(bookingId, targetEmail, pdfBase64).subscribe({
-              next: () => {
-                this.resendingBookingEmailId.set(null);
-                this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-                setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
-              },
-              error: () => {
-                this.resendingBookingEmailId.set(null);
-                this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-                setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
-              }
-            });
-          } catch {
-            this.showChallanModal = false;
+        // Send email via backend PDF service
+        this.showChallanModal = false;
+        this.bookingService.sendChallanEmail(bookingId, targetEmail).subscribe({
+          next: () => {
             this.resendingBookingEmailId.set(null);
+            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+          },
+          error: () => {
+            this.resendingBookingEmailId.set(null);
+            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
+            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
           }
-        }, 300);
+        });
       },
       error: () => {
         this.resendingBookingEmailId.set(null);
@@ -1115,20 +1088,23 @@ export class Manage implements OnInit {
 
   printReceipt() { window.print(); }
 
-  async downloadChallan() {
-    const { default: html2canvas } = await import('html2canvas');
-    const { jsPDF } = await import('jspdf');
-    const el = document.getElementById('admin-receipt-printable');
-    if (!el) return;
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const imgH = (canvas.height * pageW) / canvas.width;
-    pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+  downloadChallan() {
     const challan = this.challanData();
-    const filename = `Challan-${challan?.challanNumber ?? challan?.bookingId ?? 'WN'}.pdf`;
-    pdf.save(filename);
+    const bookingId = challan?.bookingId || challan?.id;
+    if (!bookingId) return;
+    this.bookingService.getChallanPdfBlob(bookingId).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Challan-${challan?.challanNumber || bookingId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        alert('Failed to download Challan PDF.');
+      }
+    });
   }
 
   onCustomerSearch() {
@@ -1544,18 +1520,18 @@ export class Manage implements OnInit {
       const customerFirstName = nameParts[0] || 'Customer';
       const customerLastName = nameParts.slice(1).join(' ') || '';
       const currentAdminId = Number((this.auth.user() as any)?.id || (this.auth.user() as any)?.userId || 1);
-      const bookingUserId = Number(u.userId || u.id || 0) || currentAdminId;
+      const bookingUserId = Number(u.userId || 0) || currentAdminId;
 
       const payload = {
-        userId: bookingUserId,
-        spaceId: numericSpaceId,
+        userId: bookingUserId || 0,
+        spaceId: numericSpaceId || 0,
         pricingId: 0,
         startOn: this.bookingFormData.startDateTime,
         endOn: this.bookingFormData.endDateTime,
         startDateTime: this.bookingFormData.startDateTime,
         endDateTime: this.bookingFormData.endDateTime,
         notes: this.bookingFormData.notes || null,
-        createdById: currentAdminId,
+        createdById: currentAdminId || 1,
         userEmail: u.email || this.bookingFormData.customerEmail || null,
         customerEmail: u.email || this.bookingFormData.customerEmail || null,
         customerFirstName,
@@ -1633,7 +1609,7 @@ export class Manage implements OnInit {
                   }
                   return { feeType: 'RoomRent', amount: this.bookingSubtotal };
                 })(),
-                ...(this.bookingDiscountAmount > 0 ? [{ feeType: 'DISCOUNT', amount: -this.bookingDiscountAmount, notes: `Discount applied: ${Number(this.bookingDiscountPercentage).toFixed(2)}%` }] : []),
+                ...(this.bookingDiscountAmount > 0 ? [{ feeType: 'DISCOUNT', amount: this.bookingDiscountAmount, notes: `Discount applied: ${Number(this.bookingDiscountPercentage).toFixed(2)}%` }] : []),
                 ...(this.effectiveSecurityDeposit > 0 ? [{ feeType: 'SecurityDeposit', amount: this.effectiveSecurityDeposit }] : [])
               ]);
 
@@ -1925,6 +1901,83 @@ export class Manage implements OnInit {
         if (cat.includes('meeting')) return 0;
 
         return 0;
+      }
+    }
+
+    if (this.entity === 'invoices') {
+      if (col.key === 'invoiceNumber') {
+        return item.invoiceNumber || item.InvoiceNumber || ('INV-' + (item.id || item.Id || item.bookingId || item.BookingId));
+      }
+      if (col.key === 'customerName') {
+        return item.customerName || item.CustomerName || item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || 'Customer';
+      }
+      if (col.key === 'spaceName') {
+        return item.spaceName || item.SpaceName || (item.bookingId || item.BookingId ? `Booking #${item.bookingId || item.BookingId}` : 'Workspace');
+      }
+      if (col.key === 'billingPeriodDisplay') {
+        const start = item.issuedOn || item.IssuedOn || item.startOn || item.StartOn || item.billingPeriodStart;
+        const end = item.dueOn || item.DueOn || item.endOn || item.EndOn || item.billingPeriodEnd;
+        if (start && end) {
+          const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const e = new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          return `${s} – ${e}`;
+        }
+        return start ? new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+      }
+      if (col.key === 'issuedOn') {
+        return item.issuedOn || item.IssuedOn || item.createdOn || item.CreatedOn || '';
+      }
+      if (col.key === 'dueOn') {
+        return item.dueOn || item.DueOn || item.validityDate || item.ValidityDate || '';
+      }
+      if (col.key === 'grandTotal') {
+        return item.grandTotal ?? item.GrandTotal ?? item.totalAmount ?? item.TotalAmount ?? item.subTotal ?? 0;
+      }
+      if (col.key === 'paidTotal') {
+        return item.paidTotal ?? item.PaidTotal ?? item.amountPaid ?? item.AmountPaid ?? 0;
+      }
+      if (col.key === 'balanceDue') {
+        const total = Number(item.grandTotal ?? item.GrandTotal ?? item.totalAmount ?? item.TotalAmount ?? 0);
+        const paid = Number(item.paidTotal ?? item.PaidTotal ?? item.amountPaid ?? item.AmountPaid ?? 0);
+        return Math.max(0, total - paid);
+      }
+      if (col.key === 'statusLabel') {
+        const st = item.statusId ?? item.StatusId;
+        if (st === 2 || item.status === 'Paid') return 'Paid';
+        if (st === 3 || item.status === 'Partial') return 'Partial';
+        if (st === 4 || item.status === 'Overdue') return 'Overdue';
+        return 'Unpaid';
+      }
+    }
+
+    if (this.entity === 'payments') {
+      if (col.key === 'bookingId') {
+        const bid = item.bookingId ?? item.BookingId ?? item.bookingPublicId ?? item.BookingPublicId;
+        return bid ? `#${bid}` : '—';
+      }
+      if (col.key === 'userEmail') {
+        return item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || item.userName || item.CustomerName || '—';
+      }
+      if (col.key === 'spaceName') {
+        return item.spaceName || item.SpaceName || item.spaceNumber || item.SpaceNumber || item.spaceCode || (item.bookingId || item.BookingId ? `Space #${item.bookingId || item.BookingId}` : '—');
+      }
+      if (col.key === 'amountType') {
+        return item.feeType || item.FeeType || item.chargeTypeLabel || item.amountType || item.billingPeriodLabel || item.billingPeriod || (item.securityDeposit && item.amount === item.securityDeposit ? 'Security Deposit' : 'Cycle Rent');
+      }
+      if (col.key === 'amount') {
+        return item.amount ?? item.Amount ?? 0;
+      }
+      if (col.key === 'paymentMethod') {
+        return item.paymentMethod || item.PaymentMethod || item.paymentMethodLabel || 'Bank Transfer';
+      }
+      if (col.key === 'challanNumber') {
+        return item.challanNumber || item.ChallanNumber || item.transactionRef || item.TransactionRef || '—';
+      }
+      if (col.key === 'paymentStatus') {
+        return item.paymentStatus || item.PaymentStatus || (item.statusId === 2 ? 'Paid' : 'Pending');
+      }
+      if (col.key === 'paidAt') {
+        return item.paidAt || item.PaidAt || item.paidOn || item.PaidOn || item.createdOn || item.CreatedOn || item.createdAt || '';
       }
     }
 
@@ -2313,7 +2366,7 @@ export class Manage implements OnInit {
   openPaymentSummary(item: any) {
     this.showPaymentModal = true; this.paymentSummaryLoading.set(true);
     this.paymentSummaryError = ''; this.paymentSummary.set(null);
-    this.admin.getPaymentSummary(item.idGuid).subscribe({
+    const paymentId = item.idGuid ?? item.publicId ?? item.id; this.admin.getPaymentSummary(paymentId).subscribe({
       next: (res: any) => { this.paymentSummary.set(res?.data ?? res); this.paymentSummaryLoading.set(false); },
       error: () => { this.paymentSummaryLoading.set(false); this.paymentSummaryError = 'Failed to load payment summary.'; }
     });
@@ -2720,11 +2773,15 @@ export class Manage implements OnInit {
       case 'payments': return {
         title: 'Payments',
         columns: [
-          { key: 'userEmail', label: 'User' },
+          { key: 'bookingId', label: 'Booking #' },
+          { key: 'userEmail', label: 'User / Customer' },
+          { key: 'spaceName', label: 'Booked Space' },
+          { key: 'amountType', label: 'Amount Type' },
           { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'currency' },
           { key: 'paymentMethod', label: 'Method' },
+          { key: 'challanNumber', label: 'Challan / Ref' },
           { key: 'paymentStatus', label: 'Status', type: 'status' },
-          { key: 'paidAt', label: 'Paid At', type: 'date' },
+          { key: 'paidAt', label: 'Date', type: 'date' },
         ],
         fields: [
           { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'number' },
@@ -2794,6 +2851,23 @@ export class Manage implements OnInit {
         ],
         getFn: (p, l, s) => this.quotationSvc.getQuotations(p, l, s),
         createFn: (d) => this.quotationSvc.createQuotation(d),
+      };
+
+      case 'invoices': return {
+        title: 'Invoices & Billing',
+        columns: [
+          { key: 'invoiceNumber', label: 'Invoice #' },
+          { key: 'customerName', label: 'Customer / User' },
+          { key: 'spaceName', label: 'Space' },
+          { key: 'billingPeriodDisplay', label: 'Billing Period' },
+          { key: 'issuedOn', label: 'Issued On', type: 'date' },
+          { key: 'dueOn', label: 'Due On', type: 'date' },
+          { key: 'grandTotal', label: 'Total (PKR)', type: 'currency' },
+          { key: 'paidTotal', label: 'Paid (PKR)', type: 'currency' },
+          { key: 'balanceDue', label: 'Balance Due', type: 'currency' },
+          { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
+        ],
+        getFn: (p, l, s) => this.admin.getInvoices(p, l, s),
       };
 
       default: return { title: entity, columns: [], getFn: () => [] };
@@ -3259,7 +3333,7 @@ export class Manage implements OnInit {
     }
   }
 
-  async sendChallanEmail() {
+  sendChallanEmail() {
     const c = this.challanData();
     if (!c) return;
     const targetEmail = c.customerEmail || c.userEmail || '';
@@ -3268,38 +3342,20 @@ export class Manage implements OnInit {
       return;
     }
     this.sendingChallanEmail.set(true);
-    this.challanEmailSent.set('Generating PDF...');
+    this.challanEmailSent.set('Sending Challan Email...');
 
-    try {
-      const { default: html2canvas } = await import('html2canvas');
-      const { jsPDF } = await import('jspdf');
-      const el = document.getElementById('admin-receipt-printable');
-      let pdfBase64 = '';
-      if (el) {
-        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const pageW = pdf.internal.pageSize.getWidth();
-        const imgH = (canvas.height * pageW) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-        pdfBase64 = pdf.output('datauristring').split(',')[1];
+    this.bookingService.sendChallanEmail(c.bookingId || c.id, targetEmail).subscribe({
+      next: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
+      },
+      error: () => {
+        this.sendingChallanEmail.set(false);
+        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        setTimeout(() => this.challanEmailSent.set(''), 4000);
       }
-      this.bookingService.sendChallanEmail(c.bookingId, targetEmail, pdfBase64).subscribe({
-        next: () => {
-          this.sendingChallanEmail.set(false);
-          this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-          setTimeout(() => this.challanEmailSent.set(''), 4000);
-        },
-        error: () => {
-          this.sendingChallanEmail.set(false);
-          this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-          setTimeout(() => this.challanEmailSent.set(''), 4000);
-        }
-      });
-    } catch {
-      this.sendingChallanEmail.set(false);
-      this.challanEmailSent.set('Failed to generate PDF.');
-    }
+    });
   }
 
   convertQuotationToBooking(item: any) {
@@ -3324,38 +3380,20 @@ export class Manage implements OnInit {
 
   openBookingDetailsModal(booking: any) {
     this.selectedBookingDetails.set(booking);
-    const bookingId = booking.id ?? booking.bookingId;
+    const bookingId = booking.bookingId || booking.BookingId || booking.id || booking.Id;
     if (bookingId) {
+      this.bookingService.getBookingDetails(bookingId).subscribe({
+        next: (res: any) => {
+          const details = res?.data ?? res ?? booking;
+          this.selectedBookingDetails.set(details);
+        },
+        error: () => {
+          this.selectedBookingDetails.set(booking);
+        }
+      });
       this.admin.getBookingBillingSummary(bookingId).subscribe({
         next: (res: any) => {
           this.bookingBillingSummaryData.set(res?.data ?? res);
-        },
-        error: () => {
-          // Fallback summary if API initializing
-          const monthlyRent = booking.monthlyRent || ((booking.totalAmount || 0) / 12);
-          const secMonths = booking.securityDepositMonths || 2;
-          const billingMonths = booking.billingPeriodMonths || 3;
-          this.bookingBillingSummaryData.set({
-            bookingId,
-            totalContractRent: booking.totalAmount || (monthlyRent * 12),
-            rentInvoiced: monthlyRent * billingMonths,
-            rentPaid: monthlyRent * billingMonths,
-            remainingRent: Math.max(0, (booking.totalAmount || (monthlyRent * 12)) - (monthlyRent * billingMonths)),
-            securityDepositRequired: monthlyRent * secMonths,
-            securityDepositInvoiced: monthlyRent * secMonths,
-            securityDepositPaid: monthlyRent * secMonths,
-            securityDepositOutstanding: 0,
-            securityDepositCharged: true,
-            invoicedPeriods: [
-              { periodLabel: `Billing Period 1 (${billingMonths} Mo)`, status: 'Paid', monthlyRentAmount: monthlyRent }
-            ],
-            unbilledPeriods: [
-              { periodLabel: `Billing Period 2 (${billingMonths} Mo)`, periodStartDate: '', periodEndDate: '' }
-            ],
-            nextBillingDate: booking.nextBillingDate || '',
-            currentBillingPeriodStart: booking.startOn || booking.startDateTime || '',
-            currentBillingPeriodEnd: this.calcBillingPeriodEnd(booking.startOn || booking.startDateTime, billingMonths, booking.endOn || booking.endDateTime)
-          });
         }
       });
     }
@@ -3384,41 +3422,53 @@ export class Manage implements OnInit {
 
   viewBillingChallan(booking: any) {
     if (!booking) return;
-    const start = new Date(booking.startOn || booking.startDateTime);
-    const end = new Date(booking.endOn || booking.endDateTime);
-    let contractMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    if (contractMonths <= 0) contractMonths = 1;
-    const billingMonths = Math.min(booking.billingPeriodMonths || 1, contractMonths);
-    const secMonths = booking.securityDepositMonths || 0;
-    const monthlyRent = (booking.totalAmount || 0) / contractMonths;
-    const billingRent = monthlyRent * billingMonths;
-    const secDeposit = monthlyRent * secMonths;
-    const discount = booking.discountAmount || 0;
-    const billingEnd = this.calcBillingPeriodEnd(booking.startOn || booking.startDateTime, billingMonths, booking.endOn || booking.endDateTime);
-    const details: any[] = [{ feeType: 'RoomRent', description: `Room Rent (${billingMonths} Month(s))`, amount: billingRent }];
-    if (secMonths > 0) details.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDeposit });
-    if (discount > 0) details.push({ feeType: 'DISCOUNT', description: 'Discount', amount: discount });
-    const challan: any = {
-      challanNumber: booking.challanNumber || `WN-BK-${booking.id}`,
-      validity: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(),
-      customerName: booking.customerName || booking.userName || booking.userEmail || 'Customer',
-      customerEmail: booking.userEmail || booking.customerEmail || '',
-      spaceName: booking.spaceName || 'Workspace',
-      contractStartDateTime: booking.startOn || booking.startDateTime,
-      contractEndDateTime: booking.endOn || booking.endDateTime,
-      billingPeriodStart: booking.startOn || booking.startDateTime,
-      billingPeriodEnd: billingEnd,
-      startDateTime: booking.startOn || booking.startDateTime,
-      endDateTime: booking.endOn || booking.endDateTime,
-      notes: booking.notes,
-      bookingDetails: details,
-      discountPercentage: booking.discountPercentage || 0,
-      totalAmount: Math.max(0, billingRent + secDeposit - discount),
-      bookingId: booking.id || booking.bookingId,
-      createdAt: booking.createdOn || booking.createdAt || new Date().toISOString()
-    };
-    this.challanData.set(challan);
-    this.showChallanModal = true;
+    const bookingId = booking.id || booking.bookingId || booking.Id || booking.BookingId;
+    if (bookingId) {
+      this.bookingService.getChallan(bookingId).subscribe({
+        next: (res: any) => {
+          const c = res?.data ?? res ?? {};
+          const startIso = c.startOn || booking.startOn || booking.startDateTime;
+          const endIso = c.endOn || booking.endOn || booking.endDateTime;
+
+          const challan: any = {
+            challanNumber: c.challanNumber || booking.challanNumber || `WN-BK-${bookingId}`,
+            validity: c.validUntil || new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(),
+            customerName: c.customerName || booking.customerName || booking.userName || 'Customer',
+            customerEmail: c.customerEmail || booking.customerEmail || booking.userEmail || '',
+            customerCode: c.customerCode || booking.customerCode || '',
+            spaceName: c.spaceName || booking.spaceName || 'Workspace',
+            spaceTypeName: c.spaceTypeName || booking.spaceTypeName,
+            locationName: c.locationName || booking.locationName,
+            contractStartDateTime: c.contractStartDate || startIso,
+            contractEndDateTime: c.contractEndDate || endIso,
+            billingPeriodStart: startIso,
+            billingPeriodEnd: c.nextBillDueDate || endIso,
+            startDateTime: startIso,
+            endDateTime: endIso,
+            totalContractAmount: c.totalContractAmount ?? c.contract?.totalContractAmount ?? 0,
+            nextBillDueDate: c.nextBillDueDate ?? c.nextBillingDate ?? c.validUntil,
+            balanceLeft: c.balanceLeft ?? c.contract?.balanceLeft ?? 0,
+            notes: c.challanNotes || booking.notes,
+            bookingDetails: (c.details || []).map((d: any) => ({
+              feeType: d.chargeTypeLabel || d.chargeTypeCode || d.description,
+              description: d.description || d.chargeTypeLabel,
+              amount: d.lineTotal,
+              accountName: d.accountName
+            })),
+            discountPercentage: c.discountPercentage ?? booking.discountPercentage ?? 0,
+            totalAmount: c.totalPayable ?? 0,
+            bookingId: bookingId,
+            createdAt: c.issuedOn || new Date().toISOString()
+          };
+
+          this.challanData.set(challan);
+          this.showChallanModal = true;
+        },
+        error: () => {
+          alert('Failed to load challan details.');
+        }
+      });
+    }
   }
 
   // Invoice Details View

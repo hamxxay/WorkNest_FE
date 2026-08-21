@@ -15,6 +15,32 @@ export class MyPayments implements OnInit {
   payments = signal<any[]>([]);
   loading = signal(true);
   challanToPrint = signal<any>(null);
+  selectedBookingDetails = signal<any>(null);
+  showBookingModal = signal<boolean>(false);
+  loadingBookingDetails = signal<boolean>(false);
+
+  openBookingDetails(p: any) {
+    const bookingId = p.bookingId ?? p.BookingId;
+    this.showBookingModal.set(true);
+    this.selectedBookingDetails.set(p);
+    if (!bookingId) return;
+    this.loadingBookingDetails.set(true);
+    this.bookingService.getChallan(bookingId).subscribe({
+      next: (res: any) => {
+        const c = res?.data || res || {};
+        this.selectedBookingDetails.set({ ...p, ...c });
+        this.loadingBookingDetails.set(false);
+      },
+      error: () => {
+        this.loadingBookingDetails.set(false);
+      }
+    });
+  }
+
+  closeBookingModal() {
+    this.showBookingModal.set(false);
+    this.selectedBookingDetails.set(null);
+  }
 
   totalPaid = computed(() =>
     this.payments()
@@ -93,7 +119,8 @@ export class MyPayments implements OnInit {
     this.loading.set(true);
     this.bookingService.getChallan(bookingId).subscribe({
       next: (res: any) => {
-        this.challanToPrint.set(res?.data);
+        const c = res?.data || res || {};
+        this.challanToPrint.set(c);
         this.loading.set(false);
       },
       error: () => {
@@ -130,35 +157,23 @@ export class MyPayments implements OnInit {
     });
   }
 
-  async downloadChallan() {
-    const { default: html2canvas } = await import('html2canvas');
-    const { jsPDF } = await import('jspdf');
-    const el = document.getElementById('user-challan-printable');
-    if (!el) return;
-    const actions = el.querySelector<HTMLElement>('[data-challan-actions]');
-    const bodyEl = el.querySelector<HTMLElement>('[data-challan-body]');
-    
-    const origMaxHeight = el.style.maxHeight;
-    const origBodyOverflow = bodyEl ? bodyEl.style.overflowY : '';
-    
-    if (actions) actions.style.display = 'none';
-    el.style.maxHeight = 'none';
-    if (bodyEl) bodyEl.style.overflowY = 'visible';
-    
-    try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const imgH = (canvas.height * pageW) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-      const p = this.challanToPrint();
-      pdf.save(`Challan-${p?.challanNumber ?? p?.id ?? 'WN'}.pdf`);
-    } finally {
-      if (actions) actions.style.display = '';
-      el.style.maxHeight = origMaxHeight;
-      if (bodyEl) bodyEl.style.overflowY = origBodyOverflow;
-    }
+  downloadChallan() {
+    const p = this.challanToPrint();
+    const bookingId = p?.bookingId || p?.id;
+    if (!bookingId) return;
+    this.bookingService.getChallanPdfBlob(bookingId).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Challan-${p?.challanNumber || bookingId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        alert('Failed to download Challan PDF.');
+      }
+    });
   }
 
   printChallanDoc() {

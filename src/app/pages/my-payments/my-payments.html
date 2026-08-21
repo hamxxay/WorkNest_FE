@@ -152,6 +152,22 @@
           </div>
         </div>
 
+        <!-- Contract & Billing Summary Card -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Contract Amount</span>
+            <strong style="color:#15803d;font-size:.95rem">PKR {{ (challanToPrint()!.totalContractAmount ?? challanToPrint()!.contract?.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill Due Date</span>
+            <strong style="color:#0284c7;font-size:.95rem">{{ (challanToPrint()!.nextBillDueDate || challanToPrint()!.nextBillingDate || challanToPrint()!.contract?.nextBillingDate) ? ((challanToPrint()!.nextBillDueDate || challanToPrint()!.nextBillingDate || challanToPrint()!.contract?.nextBillingDate) | date:'MMM d, y') : 'N/A' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance Left</span>
+            <strong style="color:#b45309;font-size:.95rem">PKR {{ (challanToPrint()!.balanceLeft ?? challanToPrint()!.contract?.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
+          </div>
+        </div>
+
         <!-- Financial Breakdown Table -->
         <div>
           <div class="breakdown-title">Payment Breakdown</div>
@@ -249,3 +265,110 @@
 }
 
 
+
+@if (showBookingModal()) {
+  <div class="challan-modal-backdrop" (click)="closeBookingModal()">
+    <div class="challan-modal" (click)="$event.stopPropagation()" style="max-width: 650px;">
+      <div class="challan-modal-header">
+        <div>
+          <h2>Booking & Payment Details</h2>
+          <span class="challan-subtitle">Booking #{{ selectedBookingDetails()?.bookingId || selectedBookingDetails()?.id }}</span>
+        </div>
+        <button class="btn-close-modal" (click)="closeBookingModal()">âœ•</button>
+      </div>
+
+            <div class="challan-modal-body">
+        @if (loadingBookingDetails()) {
+          <div class="loading-spinner"><div class="spinner"></div><p>Loading booking details...</p></div>
+        } @else if (selectedBookingDetails(); as b) {
+          <div class="challan-info-grid" style="margin-bottom: 16px;">
+            <div>
+              <div class="info-section-title">Customer & Payment</div>
+              <div class="info-details">
+                <div><strong>Customer:</strong> {{ b.customerName || b.userName || 'Member' }}</div>
+                <div><strong>Email:</strong> {{ b.customerEmail || b.userEmail || 'â€”' }}</div>
+                <div><strong>Method:</strong> {{ b.paymentMethod || 'Bank Transfer' }}</div>
+                <div><strong>Status:</strong> <span class="status-badge" [class]="getStatusClass(b.paymentStatus)">{{ b.paymentStatus || 'Pending' }}</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="info-section-title">Space Information</div>
+              <div class="info-details">
+                <div><strong>Space No:</strong> {{ b.spaceNumber || b.spaceCode || 'â€”' }}</div>
+                <div><strong>Space Name:</strong> {{ b.spaceName || 'â€”' }}</div>
+                <div><strong>Space Type:</strong> {{ b.spaceTypeName || 'Office' }}</div>
+                <div><strong>Location:</strong> {{ b.locationName || b.branchName || 'WorkNest' }}</div>
+              </div>
+            </div>
+          </div>
+
+          @if (b.isMeetingRoom || (b.spaceTypeName && (b.spaceTypeName.includes('Meeting') || b.spaceTypeName.includes('Conference')))) {
+            <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+              <div class="info-section-title" style="margin-bottom: 10px;color:#0369a1;">Meeting Room Schedule & Pricing</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;">
+                <div>
+                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Booking Date</span>
+                  <strong style="color:#334155;font-size:.9rem">{{ b.startOn | date:'mediumDate' }}</strong>
+                </div>
+                <div>
+                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Time Slot</span>
+                  <strong style="color:#0284c7;font-size:.9rem">{{ b.timeSlot || ((b.startOn | date:'shortTime') + ' - ' + (b.endOn | date:'shortTime')) }}</strong>
+                </div>
+                <div>
+                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Payable</span>
+                  <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.amount || b.totalPayable || b.totalAmount || 0) | number:'1.2-2' }}</strong>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+              <div class="info-section-title" style="margin-bottom: 8px;">Contract & Billing Cycle</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;">
+                <div>
+                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Contract Period</span>
+                  <strong style="color:#334155;font-size:.85rem">{{ b.startOn | date:'mediumDate' }} - {{ b.endOn | date:'mediumDate' }}</strong>
+                </div>
+                <div>
+                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Billing Cycle</span>
+                  <strong style="color:#0284c7;font-size:.85rem">{{ b.billingPeriodLabel || b.billingPeriod || 'Quarterly' }}</strong>
+                </div>
+                <div>
+                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Monthly Rent</span>
+                  <strong style="color:#15803d;font-size:.85rem">PKR {{ (b.monthlyRent ?? 0) | number:'1.2-2' }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-bottom:16px">
+              <div>
+                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Current Cycle Rent</span>
+                <strong style="color:#0284c7;font-size:.95rem">PKR {{ (b.currentCycleAmount ?? 0) | number:'1.2-2' }}</strong>
+              </div>
+              <div>
+                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Security Deposit</span>
+                <strong style="color:#475569;font-size:.95rem">PKR {{ (b.securityDeposit ?? 0) | number:'1.2-2' }}</strong>
+              </div>
+              <div>
+                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Contract</span>
+                <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
+              </div>
+              @if (b.nextBillDueDate) {
+                <div>
+                  <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill Due</span>
+                  <strong style="color:#0284c7;font-size:.95rem">{{ b.nextBillDueDate | date:'mediumDate' }}</strong>
+                </div>
+              }
+              <div>
+                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance Left</span>
+                <strong style="color:#b45309;font-size:.95rem">PKR {{ (b.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
+              </div>
+            </div>
+          }
+        }
+      </div>
+      <div class="challan-actions">
+        <button class="btn-outline-challan" (click)="closeBookingModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
