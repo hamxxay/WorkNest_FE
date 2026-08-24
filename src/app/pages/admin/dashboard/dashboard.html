@@ -1,134 +1,450 @@
-<div class="admin-page">
+<div class="admin-page ops-dashboard">
+  <!-- Page Header -->
   <div class="page-header">
-    <div>
-      <h1>Dashboard</h1>
-      <p>Overview of your workspace management system</p>
+    <div class="header-left">
+      <div class="header-badge">Control Center</div>
+      <h1>Operations Control Center</h1>
+      <p class="subtitle">Real-time space availability, active commercial bookings, quotations, and expirations.</p>
     </div>
-    <div class="period-toggle">
-      <button [class.active]="period() === '1W'" (click)="setPeriod('1W')">1W</button>
-      <button [class.active]="period() === '1M'" (click)="setPeriod('1M')">1M</button>
-      <button [class.active]="period() === '1Y'" (click)="setPeriod('1Y')">1Y</button>
+    <div class="header-actions">
+      <button class="btn btn-refresh" (click)="loadDashboardData()" [disabled]="loading()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading()"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        Refresh Operations
+      </button>
     </div>
   </div>
 
   @if (loading()) {
-    <div class="loading-spinner"><div class="spinner"></div><p>Loading dashboard...</p></div>
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading space operations control center...</p>
+    </div>
   } @else {
-    <div class="stats-grid">
-      <a class="stat-card stat-link" routerLink="/admin/users">
-        <div class="stat-icon users">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <!-- SECTION 1: TOP KPI CARDS -->
+    <div class="kpi-grid">
+      <a class="kpi-card" routerLink="/admin/spaces">
+        <div class="kpi-icon icon-total">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>
         </div>
-        <div class="stat-content"><span class="stat-value">{{ baseStats().users }}</span><span class="stat-label">Total Users</span></div>
-      </a>
-      <a class="stat-card stat-link" routerLink="/admin/spaces">
-        <div class="stat-icon spaces">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/></svg>
-        </div>
-        <div class="stat-content"><span class="stat-value">{{ baseStats().spacesAvailable }}</span><span class="stat-label">Spaces Available</span></div>
-      </a>
-      <a class="stat-card stat-link period-card" routerLink="/admin/payments">
-        <div class="stat-icon pricing">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div class="stat-content">
-          <span class="stat-value">PKR {{ periodRevenue() | number:'1.0-0' }}</span>
-          <span class="stat-label">Revenue <span class="period-tag">{{ period() }}</span></span>
+        <div class="kpi-info">
+          <span class="kpi-value">{{ kpiStats().totalSpaces }}</span>
+          <span class="kpi-label">Total Spaces</span>
         </div>
       </a>
-      <a class="stat-card stat-link period-card" routerLink="/admin/bookings">
-        <div class="stat-icon bookings">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+
+      <a class="kpi-card" routerLink="/admin/spaces" [queryParams]="{ status: 'Available' }">
+        <div class="kpi-icon icon-available">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
         </div>
-        <div class="stat-content">
-          <span class="stat-value">{{ periodBookings() }}</span>
-          <span class="stat-label">Bookings <span class="period-tag">{{ period() }}</span></span>
+        <div class="kpi-info">
+          <span class="kpi-value text-available">{{ kpiStats().availableSpaces }}</span>
+          <span class="kpi-label">Available Spaces</span>
         </div>
       </a>
-      <a class="stat-card stat-link" routerLink="/admin/contacts">
-        <div class="stat-icon contacts">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+
+      <a class="kpi-card" routerLink="/admin/quotations">
+        <div class="kpi-icon icon-quoted">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
         </div>
-        <div class="stat-content"><span class="stat-value">{{ baseStats().contacts }}</span><span class="stat-label">Messages</span></div>
+        <div class="kpi-info">
+          <span class="kpi-value text-quoted">{{ kpiStats().quotedSpaces }}</span>
+          <span class="kpi-label">Active Quotations</span>
+        </div>
       </a>
-      <a class="stat-card stat-link" routerLink="/admin/locations">
-        <div class="stat-icon locations">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+
+      <a class="kpi-card" routerLink="/admin/bookings">
+        <div class="kpi-icon icon-booked">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
         </div>
-        <div class="stat-content"><span class="stat-value">{{ baseStats().locations }}</span><span class="stat-label">Locations</span></div>
+        <div class="kpi-info">
+          <span class="kpi-value text-booked">{{ kpiStats().bookedSpaces }}</span>
+          <span class="kpi-label">Booked Spaces</span>
+        </div>
       </a>
-      <a class="stat-card stat-link" routerLink="/admin/pricing">
-        <div class="stat-icon pricing">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+
+      <a class="kpi-card" href="#expiring-section">
+        <div class="kpi-icon icon-expiring">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
-        <div class="stat-content"><span class="stat-value">{{ baseStats().plans }}</span><span class="stat-label">Pricing Plans</span></div>
+        <div class="kpi-info">
+          <span class="kpi-value text-expiring">{{ kpiStats().expiringSoonBookings }}</span>
+          <span class="kpi-label">Expiring Soon ({{ expiringThreshold() }}d)</span>
+        </div>
       </a>
-      <a class="stat-card stat-link" routerLink="/admin/gallery">
-        <div class="stat-icon gallery">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+
+      <a class="kpi-card" routerLink="/admin/customers">
+        <div class="kpi-icon icon-customers">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
-        <div class="stat-content"><span class="stat-value">{{ baseStats().gallery }}</span><span class="stat-label">Gallery Images</span></div>
+        <div class="kpi-info">
+          <span class="kpi-value">{{ kpiStats().activeCustomers }}</span>
+          <span class="kpi-label">Active Customers</span>
+        </div>
       </a>
     </div>
 
-    <!-- Analytics Chart -->
-    <div class="admin-card analytics-card">
-      <div class="analytics-header">
+    <!-- SECTION 2: SPACE STATUS BREAKDOWN -->
+    <div class="admin-card summary-card">
+      <div class="summary-header">
         <div>
-          <h3>Bookings Over Time</h3>
-          <p class="analytics-sub">Showing bookings for the selected period ({{ period() }})</p>
+          <h3>Space Occupancy Overview</h3>
+          <p class="summary-sub">Distribution across active spaces and space categories</p>
+        </div>
+        <div class="status-legend">
+          <span class="legend-item available"><span class="dot"></span> Available: {{ kpiStats().availableSpaces }}</span>
+          <span class="legend-item quoted"><span class="dot"></span> Quoted: {{ kpiStats().quotedSpaces }}</span>
+          <span class="legend-item booked"><span class="dot"></span> Booked: {{ kpiStats().bookedSpaces }}</span>
         </div>
       </div>
-      <div class="chart-wrap">
-        <canvas #lineChart></canvas>
-        @if (chartData().labels.length === 0) {
-          <p class="empty" style="text-align:center;padding:32px 0;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">No booking data for this period.</p>
-        }
+
+      <div class="status-progress-bar">
+        <div class="bar-segment bar-available" [style.width.%]="kpiStats().totalSpaces ? (kpiStats().availableSpaces / kpiStats().totalSpaces * 100) : 0" [title]="'Available: ' + kpiStats().availableSpaces"></div>
+        <div class="bar-segment bar-quoted" [style.width.%]="kpiStats().totalSpaces ? (kpiStats().quotedSpaces / kpiStats().totalSpaces * 100) : 0" [title]="'Quoted: ' + kpiStats().quotedSpaces"></div>
+        <div class="bar-segment bar-booked" [style.width.%]="kpiStats().totalSpaces ? (kpiStats().bookedSpaces / kpiStats().totalSpaces * 100) : 0" [title]="'Booked: ' + kpiStats().bookedSpaces"></div>
       </div>
+
+      @if (spaceTypeBreakdowns().length > 0) {
+        <div class="space-type-row">
+          <div class="type-card" [class.active]="selectedSpaceType() === 'ALL'" (click)="selectedSpaceType.set('ALL'); onFilterChange()">
+            <div class="type-card-title">All Space Types</div>
+            <div class="type-card-count">{{ kpiStats().totalSpaces }} spaces</div>
+          </div>
+          @for (t of spaceTypeBreakdowns(); track t.spaceTypeId) {
+            <div class="type-card" [class.active]="selectedSpaceType() === t.spaceTypeName" (click)="selectedSpaceType.set(t.spaceTypeName); onFilterChange()">
+              <div class="type-card-header">
+                <span class="type-card-title">{{ t.spaceTypeName }}</span>
+                <span class="type-card-total">{{ t.total }}</span>
+              </div>
+              <div class="type-card-badges">
+                <span class="badge-mini avail" title="Available">{{ t.available }} avail</span>
+                <span class="badge-mini quot" title="Quoted">{{ t.quoted }} quot</span>
+                <span class="badge-mini book" title="Booked">{{ t.booked }} book</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
     </div>
 
-    <div class="tables-row">
-      <div class="admin-card">
-        <h3>Recent Bookings</h3>
-        @if (recentBookings().length === 0) {
-          <p class="empty">No bookings yet.</p>
-        } @else {
-          <table class="admin-table">
-            <thead><tr><th>User</th><th>Space</th><th>Status</th><th>Date</th></tr></thead>
+    <!-- SECTION 3: MAIN SPACES OPERATIONS TABLE -->
+    <div class="admin-card ops-table-card">
+      <div class="card-title-row">
+        <div>
+          <h3>Space Operations & Inventory</h3>
+          <p class="summary-sub">Showing {{ filteredSpaces().length }} space(s)</p>
+        </div>
+      </div>
+
+      <!-- Filters & Controls Bar -->
+      <div class="filters-panel">
+        <div class="filter-item">
+          <label>Search Space</label>
+          <div class="search-input-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" placeholder="Search code/name..." [(ngModel)]="searchSpace" (ngModelChange)="onFilterChange()" />
+          </div>
+        </div>
+
+        <div class="filter-item">
+          <label>Search Customer</label>
+          <div class="search-input-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" placeholder="Customer / company..." [(ngModel)]="searchCustomer" (ngModelChange)="onFilterChange()" />
+          </div>
+        </div>
+
+        <div class="filter-item">
+          <label>Space Type</label>
+          <select [(ngModel)]="selectedSpaceType" (ngModelChange)="onFilterChange()">
+            <option value="ALL">All Space Types</option>
+            @for (typeOpt of spaceTypeOptions(); track typeOpt) {
+              <option [value]="typeOpt">{{ typeOpt }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label>Status</label>
+          <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()">
+            <option value="ALL">All Statuses</option>
+            <option value="Available">Available</option>
+            <option value="Quoted">Quoted</option>
+            <option value="Booked">Booked</option>
+            <option value="Expired">Expired</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label>Expiry Threshold</label>
+          <select [ngModel]="expiringThreshold()" (ngModelChange)="setThreshold($event)">
+            <option [ngValue]="7">7 Days</option>
+            <option [ngValue]="15">15 Days</option>
+            <option [ngValue]="30">30 Days</option>
+            <option [ngValue]="60">60 Days</option>
+            <option [ngValue]="90">90 Days</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Spaces Table -->
+      @if (filteredSpaces().length === 0) {
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M8 7h.01"/><path d="M16 7h.01"/></svg>
+          <p>No spaces match your selected filter criteria.</p>
+        </div>
+      } @else {
+        <div class="table-container">
+          <table class="clean-table">
+            <thead>
+              <tr>
+                <th (click)="toggleSort('spaceCode')" class="sortable">
+                  Space
+                  <span class="sort-icon" *ngIf="sortBy() === 'spaceCode'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                </th>
+                <th>Type</th>
+                <th>Cap</th>
+                <th (click)="toggleSort('status')" class="sortable">
+                  Status
+                  <span class="sort-icon" *ngIf="sortBy() === 'status'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                </th>
+                <th (click)="toggleSort('customer')" class="sortable">
+                  Customer / Company
+                  <span class="sort-icon" *ngIf="sortBy() === 'customer'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                </th>
+                <th (click)="toggleSort('bookingStart')" class="sortable">
+                  Booking Period
+                  <span class="sort-icon" *ngIf="sortBy() === 'bookingStart'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                </th>
+                <th (click)="toggleSort('remainingTime')" class="sortable">
+                  Time Remaining
+                  <span class="sort-icon" *ngIf="sortBy() === 'remainingTime'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                </th>
+                <th>Quotation</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              @for (b of recentBookings(); track (b.id || b.bookingId || $index)) {
-                <tr>
-                  <td>{{ b.userEmail || b.customerEmail || b.userName || b.userFullName || b.email || ('User #' + (b.userId || b.id || '')) }}</td>
-                  <td>{{ b.spaceName || b.spaceTitle || b.space || ('Space #' + (b.spaceId || '')) }}</td>
-                  <td><span class="status-badge" [class]="'status-' + (b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase()">{{ b.bookingStatusLabel || b.bookingStatus || b.status || 'Confirmed' }}</span></td>
-                  <td>{{ (b.startDateTime || b.startOn || b.createdAt || b.createdOn) | date:'short' }}</td>
+              @for (sp of paginatedSpaces(); track sp.spaceId) {
+                <tr [class.row-expiring]="sp.isExpiringSoon" [class.row-booked]="sp.status === 'Booked'" [class.row-quoted]="sp.status === 'Quoted'">
+                  <td class="col-space">
+                    <span class="space-title">{{ sp.spaceCode }}</span>
+                    <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName }}</span>
+                  </td>
+                  <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>
+                  <td class="col-cap">{{ sp.capacity }}</td>
+                  <td>
+                    <span class="status-badge" [class]="'badge-' + sp.status.toLowerCase()">
+                      <span class="badge-dot"></span>
+                      {{ sp.status }}
+                    </span>
+                  </td>
+                  <td class="col-customer">
+                    @if (sp.status === 'Booked' && sp.customerName) {
+                      <div class="cust-block">
+                        <span class="cust-main">{{ sp.customerName }}</span>
+                        <span class="cust-sub" *ngIf="sp.companyName">{{ sp.companyName }}</span>
+                      </div>
+                    } @else if (sp.status === 'Quoted' && sp.quotationCustomerName) {
+                      <div class="cust-block">
+                        <span class="cust-main">{{ sp.quotationCustomerName }}</span>
+                        <span class="cust-sub text-quoted">Quoted</span>
+                      </div>
+                    } @else {
+                      <span class="text-placeholder">—</span>
+                    }
+                  </td>
+                  <td class="col-dates">
+                    @if (sp.bookingStart && sp.bookingEnd) {
+                      <div class="date-flex">
+                        <span>{{ sp.bookingStart | date:'dd-MMM-yy' }}</span>
+                        <span class="date-arrow">→</span>
+                        <span>{{ sp.bookingEnd | date:'dd-MMM-yy' }}</span>
+                      </div>
+                    } @else {
+                      <span class="text-placeholder">—</span>
+                    }
+                  </td>
+                  <td class="col-time">
+                    @if (sp.status === 'Booked' && sp.remainingTimeFormatted) {
+                      <span class="time-badge" [class.time-expiring]="sp.isExpiringSoon" [class.time-expired]="sp.remainingTimeFormatted === 'Expired'">
+                        <svg *ngIf="sp.isExpiringSoon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                        {{ sp.remainingTimeFormatted }}
+                      </span>
+                    } @else {
+                      <span class="text-placeholder">—</span>
+                    }
+                  </td>
+                  <td class="col-quote">
+                    @if (sp.quotationNumber) {
+                      <div class="quote-block" (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">
+                        <span class="quote-num">{{ sp.quotationNumber }}</span>
+                        <span class="quote-val" *ngIf="sp.quotationAmount">PKR {{ sp.quotationAmount | number:'1.0-0' }}</span>
+                        <span class="quote-exp-date" *ngIf="sp.quotationExpiryDate">Exp: {{ sp.quotationExpiryDate | date:'dd-MMM-yy' }}</span>
+                      </div>
+                    } @else {
+                      <span class="text-placeholder">—</span>
+                    }
+                  </td>
+                  <td class="col-actions text-right">
+                    <div class="btn-group">
+                      <button class="btn-sm btn-space" (click)="viewSpaceDetails(sp)">Space</button>
+                      @if (sp.status === 'Booked' && sp.bookingId) {
+                        <button class="btn-sm btn-booking" (click)="viewBookingDetails(sp.bookingId, sp.spaceCode)">Booking</button>
+                      }
+                      @if (sp.quotationNumber) {
+                        <button class="btn-sm btn-quote" (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">Quote</button>
+                      }
+                    </div>
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
-        }
+        </div>
+
+        <!-- Pagination Bar -->
+        <div class="pagination-footer">
+          <div class="page-size">
+            <label>Show:</label>
+            <select [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)">
+              @for (opt of pageSizeOptions; track opt) {
+                <option [ngValue]="opt">{{ opt }} per page</option>
+              }
+            </select>
+          </div>
+
+          <div class="page-info">
+            Showing {{ (page() - 1) * pageSize() + 1 }} to {{ Math.min(page() * pageSize(), filteredSpaces().length) }} of {{ filteredSpaces().length }} spaces
+          </div>
+
+          <div class="page-actions">
+            <button class="btn-page" [disabled]="!canPrev()" (click)="prevPage()">← Previous</button>
+            <span class="page-indicator">Page {{ page() }} of {{ totalPages() }}</span>
+            <button class="btn-page" [disabled]="!canNext()" (click)="nextPage()">Next →</button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- SECTION 4: BOOKINGS EXPIRING SOON -->
+    <div class="admin-card expiring-card" id="expiring-section">
+      <div class="card-title-row">
+        <div>
+          <h3>Bookings Expiring Soon</h3>
+          <p class="summary-sub">Bookings requiring renewal or exit planning within the next {{ expiringThreshold() }} days</p>
+        </div>
+        <div class="pill-group">
+          <button class="pill-btn" [class.active]="expiringThreshold() === 7" (click)="setThreshold(7)">7 Days</button>
+          <button class="pill-btn" [class.active]="expiringThreshold() === 15" (click)="setThreshold(15)">15 Days</button>
+          <button class="pill-btn" [class.active]="expiringThreshold() === 30" (click)="setThreshold(30)">30 Days</button>
+          <button class="pill-btn" [class.active]="expiringThreshold() === 60" (click)="setThreshold(60)">60 Days</button>
+        </div>
       </div>
-      <div class="admin-card">
-        <h3>Recent Messages</h3>
-        @if (recentContacts().length === 0) {
-          <p class="empty">No messages yet.</p>
-        } @else {
-          <table class="admin-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Status</th></tr></thead>
+
+      @if (expiringBookings().length === 0) {
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+          <p>No active bookings expiring within {{ expiringThreshold() }} days.</p>
+        </div>
+      } @else {
+        <div class="table-container">
+          <table class="clean-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Space</th>
+                <th>Type</th>
+                <th>End Date</th>
+                <th>Time Remaining</th>
+                <th>Status</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
             <tbody>
-              @for (c of recentContacts(); track (c.id || $index)) {
+              @for (eb of expiringBookings(); track eb.bookingId) {
                 <tr>
-                  <td>{{ c.fullName || c.name || 'N/A' }}</td>
-                  <td>{{ c.email || 'N/A' }}</td>
-                  <td class="message-cell" [title]="c.message || ''">{{ c.message ? (c.message.length > 35 ? (c.message | slice:0:35) + '...' : c.message) : '—' }}</td>
-                  <td><span class="status-badge" [class]="'status-' + (c.status || '').toLowerCase()">{{ c.status || 'New' }}</span></td>
+                  <td>
+                    <div class="cust-block">
+                      <span class="cust-main">{{ eb.customerName }}</span>
+                      <span class="cust-sub" *ngIf="eb.companyName">{{ eb.companyName }}</span>
+                    </div>
+                  </td>
+                  <td><strong class="space-title">{{ eb.spaceCode }}</strong></td>
+                  <td><span class="type-tag">{{ eb.spaceTypeName }}</span></td>
+                  <td>{{ eb.bookingEnd | date:'dd-MMM-yyyy' }}</td>
+                  <td>
+                    <span class="time-badge time-expiring">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      {{ eb.remainingTimeFormatted }}
+                    </span>
+                  </td>
+                  <td><span class="status-badge badge-booked"><span class="badge-dot"></span> {{ eb.bookingStatus }}</span></td>
+                  <td class="text-right">
+                    <button class="btn-sm btn-booking" (click)="viewBookingDetails(eb.bookingId, eb.spaceCode)">View Booking</button>
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
-        }
+        </div>
+      }
+    </div>
+
+    <!-- SECTION 5: SPACES WITH ACTIVE QUOTATIONS -->
+    <div class="admin-card quotations-card">
+      <div class="card-title-row">
+        <div>
+          <h3>Spaces With Active Quotations</h3>
+          <p class="summary-sub">Pending/Active commercial quotations that have not been converted to bookings</p>
+        </div>
+        <a class="nav-link-sm" routerLink="/admin/quotations">Manage Quotations →</a>
       </div>
+
+      @if (activeQuotations().length === 0) {
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p>No active quotations found for available spaces.</p>
+        </div>
+      } @else {
+        <div class="table-container">
+          <table class="clean-table">
+            <thead>
+              <tr>
+                <th>Space</th>
+                <th>Customer</th>
+                <th>Quotation #</th>
+                <th>Date</th>
+                <th>Expiry</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (aq of activeQuotations(); track aq.quotationId) {
+                <tr>
+                  <td>
+                    <strong class="space-title">{{ aq.spaceCode }}</strong>
+                    <div class="space-subtitle" *ngIf="aq.spaceName && aq.spaceName !== aq.spaceCode">{{ aq.spaceName }}</div>
+                  </td>
+                  <td><span class="cust-main">{{ aq.customerName }}</span></td>
+                  <td><span class="quote-num">{{ aq.quotationNumber }}</span></td>
+                  <td>{{ aq.quotationDate | date:'dd-MMM-yyyy' }}</td>
+                  <td>
+                    <span *ngIf="aq.quotationExpiryDate">{{ aq.quotationExpiryDate | date:'dd-MMM-yyyy' }}</span>
+                    <span *ngIf="!aq.quotationExpiryDate" class="text-placeholder">—</span>
+                  </td>
+                  <td><strong class="text-success">PKR {{ aq.quotationAmount | number:'1.0-0' }}</strong></td>
+                  <td><span class="status-badge badge-quoted"><span class="badge-dot"></span> {{ aq.quotationStatus }}</span></td>
+                  <td class="text-right">
+                    <button class="btn-sm btn-quote" (click)="viewQuotationDetails(aq.quotationId, aq.quotationNumber)">View Quotation</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   }
-</div>
 

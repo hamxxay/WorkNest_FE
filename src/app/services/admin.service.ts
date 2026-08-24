@@ -433,4 +433,10 @@ export class AdminService {
   createGalleryImage(data: Partial<GalleryImage>): Observable<ApiResponse<GalleryImage>> { return this.http.post<ApiResponse<GalleryImage>>(`${this.api}/gallery`, data); }
   updateGalleryImage(id: number, data: Partial<GalleryImage>): Observable<ApiResponse<GalleryImage>> { return this.http.put<ApiResponse<GalleryImage>>(`${this.api}/gallery/${id}`, data); }
   deleteGalleryImage(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/gallery/${id}`); }
+
+  // Dashboard Space Status Operational Center
+  getDashboardSpaceStatus(expiringDays: number = 30): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/space-status?expiringDays=${expiringDays}`);
+  }
 }
+
