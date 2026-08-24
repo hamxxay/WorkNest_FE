@@ -37,5 +37,15 @@ export const USER_ROUTES: Routes = [
     path: 'my-meeting-rooms',
     loadComponent: () => import('./my-meeting-rooms/my-meeting-rooms').then(m => m.MyMeetingRooms),
     canActivate: [authGuard, userGuard]
+  },
+  {
+    path: 'my-quotations',
+    loadComponent: () => import('./my-quotations/my-quotations').then(m => m.MyQuotations),
+    canActivate: [authGuard, userGuard]
+  },
+  {
+    path: 'quotation/:id',
+    loadComponent: () => import('./my-quotations/my-quotations').then(m => m.MyQuotations)
   }
-];
+];
+

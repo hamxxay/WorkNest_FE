@@ -107,6 +107,10 @@ export class Dashboard implements OnInit {
   // Active Quotations List
   activeQuotations = signal<ActiveQuotationItem[]>([]);
 
+  // Quotation Activity Feed (Customer Accept/Decline responses)
+  quotationActivities = signal<any[]>([]);
+
+
   // Space Types dropdown options
   spaceTypeOptions = signal<string[]>([]);
 
@@ -498,12 +502,38 @@ export class Dashboard implements OnInit {
         }))
         .sort((a, b) => a.daysRemaining - b.daysRemaining);
 
+      // Extract customer response activity items
+      const activities: any[] = [];
+      rawQuotations.forEach((q: any) => {
+        const st = (q.status || q.Status || '').toString();
+        const note = q.customerNote || q.responseNote || q.note || q.Remarks || '';
+        if (st === 'Accepted' || st === 'Declined' || note) {
+          const custObj = rawCustomers.find((c: any) => (c.id || c.Id) === q.customerId);
+          activities.push({
+            id: q.id || q.quotationId,
+            quotationNumber: q.quotationNumber || `#Q-${q.id}`,
+            versionNumber: q.versionNumber || q.version || 1,
+            customerName: custObj ? `${custObj.firstName || ''} ${custObj.lastName || ''}`.trim() : (q.customerName || 'Customer'),
+            status: st,
+            customerNote: note,
+            updatedDate: q.updatedDate || q.createdDate || new Date().toISOString()
+          });
+        }
+      });
+      activities.sort((a, b) => new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime());
+      this.quotationActivities.set(activities);
+
       this.expiringBookings.set(expiringList);
       this.activeQuotations.set(activeQuotationsList);
 
       this.loading.set(false);
     });
   }
+
+  createNextVersionFromDashboard(activity: any) {
+    this.router.navigate(['/admin/quotations'], { queryParams: { search: activity.quotationNumber || String(activity.id) } });
+  }
+
 
   // Dynamic Time Remaining Formatter
   formatTimeRemaining(endDateInput: any): { text: string; days: number; isExpired: boolean } {

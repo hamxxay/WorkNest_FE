@@ -54,9 +54,76 @@ export class QuotationService {
   }
 
   /**
-   * Convert an approved quotation to a confirmed booking
+   * Convert an approved quotation to a confirmed booking (with optional versionId)
    */
-  convertToBooking(id: number): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/${id}/convert`, {});
+  convertToBooking(id: number, versionId?: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${id}/convert`, { versionId });
+  }
+
+  /**
+   * Get version history list for a quotation
+   */
+  getQuotationVersions(quotationId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${quotationId}/versions`);
+  }
+
+  /**
+   * Get specific version snapshot of a quotation
+   */
+  getQuotationVersionById(quotationId: number, versionId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${quotationId}/versions/${versionId}`);
+  }
+
+  /**
+   * Create a new quotation version from an existing quotation version
+   */
+  createQuotationVersion(quotationId: number, versionData: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${quotationId}/versions`, versionData);
+  }
+
+  /**
+   * Update an existing draft version
+   */
+  updateQuotationVersion(quotationId: number, versionId: number, versionData: any): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/${quotationId}/versions/${versionId}`, versionData);
+  }
+
+  /**
+   * Transition quotation version status to Sent
+   */
+  sendQuotationVersion(quotationId: number, versionId: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${quotationId}/versions/${versionId}/send`, {});
+  }
+
+  /**
+   * Customer Accept Endpoint (Optional note)
+   */
+  acceptQuotation(quotationId: number, versionId: number, note?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${quotationId}/versions/${versionId}/accept`, { note: note || '' });
+  }
+
+  /**
+   * Customer Decline Endpoint (Mandatory note)
+   */
+  declineQuotation(quotationId: number, versionId: number, note: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${quotationId}/versions/${versionId}/decline`, { note });
+  }
+
+  /**
+   * Get active quotation for current logged in customer
+   */
+  getCustomerActiveQuotation(quotationId?: number): Observable<any> {
+    if (quotationId) {
+      return this.http.get<any>(`${this.apiUrl}/${quotationId}/active`);
+    }
+    return this.http.get<any>(`${this.apiUrl}/my-active`);
+  }
+
+  /**
+   * Get quotation response activities for admin dashboard feed
+   */
+  getQuotationActivities(limit: number = 20): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/activities?limit=${limit}`);
   }
 }
+

@@ -1,0 +1,204 @@
+<div class="quotations-page">
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">My Quotations</h1>
+        <p class="page-subtitle">View and respond to your workspace quotations</p>
+      </div>
+      <a routerLink="/my-bookings" class="btn-secondary">My Bookings</a>
+    </div>
+
+    <!-- Global Feedback Alerts -->
+    <div *ngIf="successMsg()" class="alert alert-success mb-4">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      <span>{{ successMsg() }}</span>
+    </div>
+
+    <div *ngIf="errorMsg()" class="alert alert-error mb-4">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      <span>{{ errorMsg() }}</span>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading()" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading your quotation details...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading() && (!activeQuotation() || quotations().length === 0)" class="empty-card">
+      <div class="empty-icon">📄</div>
+      <h3>No Active Quotations Found</h3>
+      <p>You currently do not have any pending or active quotations associated with your account.</p>
+      <a routerLink="/booking" class="btn-primary mt-3">Explore Workspaces</a>
+    </div>
+
+    <!-- Quotation View -->
+    <div *ngIf="!loading() && activeQuotation()" class="quotation-grid">
+      <!-- Quotation Sidebar List if multiple -->
+      <div *ngIf="quotations().length > 1" class="sidebar-card">
+        <h3 class="sidebar-title">Your Quotations</h3>
+        <div class="quotation-list">
+          <div *ngFor="let q of quotations()" 
+               (click)="selectQuotationItem(q)"
+               [class.active]="q.id === activeQuotation()?.id"
+               class="quotation-list-item">
+            <div class="item-header">
+              <span class="q-number">{{ q.quotationNumber }}</span>
+              <span class="badge" [ngClass]="getStatusBadgeClass(q.status)">{{ q.status }}</span>
+            </div>
+            <div class="item-sub">Version {{ q.versionNumber }} • {{ q.spaceName }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Quotation Detail Card -->
+      <div class="detail-card" [class.full-width]="quotations().length <= 1">
+        <!-- Main Header -->
+        <div class="card-header">
+          <div class="header-main">
+            <div class="q-title-group">
+              <h2 class="q-number-title">{{ activeQuotation().quotationNumber }}</h2>
+              <span class="version-pill">Version {{ activeQuotation().versionNumber }}</span>
+            </div>
+            <div class="status-badge" [ngClass]="getStatusBadgeClass(activeQuotation().status)">
+              {{ activeQuotation().status }}
+            </div>
+          </div>
+          <p class="q-date" *ngIf="activeQuotation().validUntil">Valid Until: {{ activeQuotation().validUntil | date:'mediumDate' }}</p>
+        </div>
+
+        <!-- Space & Term Breakdown -->
+        <div class="terms-grid">
+          <div class="term-box">
+            <span class="term-label">Workspace</span>
+            <span class="term-valueHighlight">{{ activeQuotation().spaceName }}</span>
+            <span class="term-sub">{{ activeQuotation().spaceTypeName }}</span>
+          </div>
+
+          <div class="term-box">
+            <span class="term-label">Monthly Rent</span>
+            <span class="term-value">PKR {{ activeQuotation().monthlyRent | number:'1.0-2' }}</span>
+          </div>
+
+          <div class="term-box">
+            <span class="term-label">Contract Period</span>
+            <span class="term-value">{{ activeQuotation().contractPeriod }} Months</span>
+          </div>
+
+          <div class="term-box">
+            <span class="term-label">Billing Cycle</span>
+            <span class="term-value">{{ activeQuotation().billingPeriodMonths }} Months</span>
+          </div>
+
+          <div class="term-box">
+            <span class="term-label">Security Deposit</span>
+            <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-2' }}</span>
+          </div>
+
+          <div class="term-box">
+            <span class="term-label">Total Amount</span>
+            <span class="term-valueTotal">PKR {{ activeQuotation().totalAmount | number:'1.0-2' }}</span>
+          </div>
+        </div>
+
+        <!-- Customer Note Display if Responded -->
+        <div *ngIf="activeQuotation().customerNote" class="response-note-box" [ngClass]="{'declined-note': activeQuotation().status === 'Declined', 'accepted-note': activeQuotation().status === 'Accepted'}">
+          <h4 class="note-box-title">
+            <span *ngIf="activeQuotation().status === 'Accepted'">Your Acceptance Note:</span>
+            <span *ngIf="activeQuotation().status === 'Declined'">Decline Reason Provided:</span>
+            <span *ngIf="activeQuotation().status !== 'Accepted' && activeQuotation().status !== 'Declined'">Customer Note:</span>
+          </h4>
+          <p class="note-box-content">"{{ activeQuotation().customerNote }}"</p>
+          <span class="note-box-date" *ngIf="activeQuotation().respondedDate">Responded on {{ activeQuotation().respondedDate | date:'medium' }}</span>
+        </div>
+
+        <!-- Actions Panel -->
+        <div class="card-actions">
+          <div *ngIf="activeQuotation().canRespond" class="response-action-buttons">
+            <button class="btn-decline" (click)="openDeclineModal(activeQuotation())">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              Decline Quotation
+            </button>
+            <button class="btn-accept" (click)="openAcceptModal(activeQuotation())">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Accept Quotation
+            </button>
+          </div>
+
+          <div *ngIf="!activeQuotation().canRespond" class="read-only-banner">
+            <span *ngIf="activeQuotation().status === 'Accepted'">✅ You have accepted Version {{ activeQuotation().versionNumber }} of this quotation. Our team will contact you shortly to complete your booking.</span>
+            <span *ngIf="activeQuotation().status === 'Declined'">❌ You have declined Version {{ activeQuotation().versionNumber }} of this quotation. If a revised version is prepared, it will appear here.</span>
+            <span *ngIf="activeQuotation().status !== 'Accepted' && activeQuotation().status !== 'Declined'">This version is read-only and no longer response-enabled.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accept Quotation Confirmation Modal -->
+  <div *ngIf="showAcceptModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Accept Quotation</h3>
+        <button class="close-btn" (click)="closeAcceptModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-confirm-text">
+          Are you sure you want to accept <strong>Quotation {{ activeQuotation()?.quotationNumber }}</strong> (Version {{ activeQuotation()?.versionNumber }})?
+        </p>
+
+        <div class="form-group mt-3">
+          <label for="acceptNoteInput">Additional Note / Request (Optional)</label>
+          <textarea id="acceptNoteInput" 
+                    [(ngModel)]="acceptNote" 
+                    rows="3" 
+                    class="form-control" 
+                    placeholder="Enter any additional comments or instructions (optional)..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeAcceptModal()" [disabled]="submitting()">Cancel</button>
+        <button class="btn-confirm-accept" (click)="confirmAccept()" [disabled]="submitting()">
+          <span *ngIf="!submitting()">Confirm Accept</span>
+          <span *ngIf="submitting()">Accepting...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decline Quotation Confirmation Modal -->
+  <div *ngIf="showDeclineModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Decline Quotation</h3>
+        <button class="close-btn" (click)="closeDeclineModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-confirm-text">
+          Please state the reason for declining <strong>Quotation {{ activeQuotation()?.quotationNumber }}</strong> (Version {{ activeQuotation()?.versionNumber }}).
+        </p>
+
+        <div class="form-group mt-3">
+          <label for="declineNoteInput">Reason / Note <span class="required-star">*</span></label>
+          <textarea id="declineNoteInput" 
+                    [(ngModel)]="declineNote" 
+                    rows="3" 
+                    class="form-control" 
+                    [class.is-invalid]="declineValidationError"
+                    placeholder="E.g., Please change the contract period from 12 months to 6 months..."></textarea>
+          <div *ngIf="declineValidationError" class="invalid-feedback">
+            {{ declineValidationError }}
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeDeclineModal()" [disabled]="submitting()">Cancel</button>
+        <button class="btn-confirm-decline" (click)="confirmDecline()" [disabled]="submitting()">
+          <span *ngIf="!submitting()">Confirm Decline</span>
+          <span *ngIf="submitting()">Declining...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

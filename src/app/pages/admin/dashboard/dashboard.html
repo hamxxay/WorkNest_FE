@@ -446,5 +446,70 @@
         </div>
       }
     </div>
+
+    <!-- SECTION 6: RECENT QUOTATION RESPONSES & ACTIVITY FEED -->
+    <div class="admin-card activity-card" style="margin-top:24px">
+      <div class="card-title-row">
+        <div>
+          <h3>Recent Customer Quotation Responses</h3>
+          <p class="summary-sub">Customer responses (Accept / Decline notes) and version history activity</p>
+        </div>
+        <a class="nav-link-sm" routerLink="/admin/quotations">View All Quotations →</a>
+      </div>
+
+      @if (quotationActivities().length === 0) {
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <p>No recent customer quotation responses recorded.</p>
+        </div>
+      } @else {
+        <div class="table-container">
+          <table class="clean-table">
+            <thead>
+              <tr>
+                <th>Quotation</th>
+                <th>Version</th>
+                <th>Customer</th>
+                <th>Response</th>
+                <th>Customer Note / Feedback</th>
+                <th>Date</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (act of quotationActivities(); track act.id || $index) {
+                <tr>
+                  <td><strong class="space-title">{{ act.quotationNumber }}</strong></td>
+                  <td><span class="type-tag">Version {{ act.versionNumber }}</span></td>
+                  <td><span class="cust-main">{{ act.customerName }}</span></td>
+                  <td>
+                    <span class="status-badge" [class]="'badge-' + (act.status || 'draft').toLowerCase()">
+                      <span class="badge-dot"></span>
+                      {{ act.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <div style="font-size:0.85rem;font-style:italic;color:#334155;max-width:320px;word-break:break-word">
+                      {{ act.customerNote ? '"' + act.customerNote + '"' : '—' }}
+                    </div>
+                  </td>
+                  <td>{{ act.updatedDate | date:'short' }}</td>
+                  <td class="text-right">
+                    <div style="display:flex;gap:6px;justify-content:flex-end">
+                      <button class="btn-sm btn-quote" (click)="viewQuotationDetails(act.id, act.quotationNumber)">View</button>
+                      @if ((act.status || '').toLowerCase() === 'declined') {
+                        <button class="btn-sm" (click)="createNextVersionFromDashboard(act)" style="background:#7c3aed;color:#fff;border:none">New Version</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
   }
+
+
 

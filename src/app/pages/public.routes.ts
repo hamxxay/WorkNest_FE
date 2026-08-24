@@ -22,6 +22,8 @@ export const PUBLIC_ROUTES: Routes = [
   { path: 'pricing-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'pricing-policy' } },
   { path: 'refund-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'refund-policy' } },
   { path: 'privacy-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'privacy-policy' } },
-  { path: 'terms-and-conditions', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'terms-and-conditions' } }
+  { path: 'terms-and-conditions', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'terms-and-conditions' } },
+  { path: 'quotation/:id', loadComponent: () => import('./my-quotations/my-quotations').then(m => m.MyQuotations) }
 
 ];
+

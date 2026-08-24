@@ -150,24 +150,40 @@ export class Manage implements OnInit {
   bookingSecurityDepositMonths = 2;
   readonly billingPeriodOptions = BILLING_PERIOD_OPTIONS;
 
+  getSpaceMonthlyRent(space: any, capacityOverride?: number | null): number {
+    if (!space) return 0;
+    const { monthly, daily, hourly } = this.getSpacePrice(space);
+    const rate = monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0));
+    return parseFloat(rate.toFixed(2));
+  }
+
+
   get effectiveSecurityDeposit(): number {
     if (!this.isAdminPrivateRoom) return 0;
-    return parseFloat((this.securityDeposit * this.bookingSecurityDepositMonths).toFixed(2));
+    return parseFloat((this.bookingMonthlyRent * Number(this.bookingSecurityDepositMonths || 0)).toFixed(2));
   }
 
   get bookingMonthlyRent(): number {
+    if (this.isAdminMeetingRoom) return this.bookingSubtotal;
+    const spaceId = this.bookingFormData?.spaceId;
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    if (space) {
+      return this.getSpaceMonthlyRent(space, this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null);
+    }
     const months = Number(this.adminMonths || 1);
     return parseFloat(((this.bookingSubtotal || 0) / months).toFixed(2));
   }
 
   get bookingBillingAmount(): number {
-    return Math.max(0, this.bookingBillingPeriodMonths * this.bookingMonthlyRent);
+    if (this.isAdminMeetingRoom) return this.bookingSubtotal;
+    return Math.max(0, parseFloat((this.bookingBillingPeriodMonths * this.bookingMonthlyRent).toFixed(2)));
   }
 
   get bookingFirstInvoiceTotal(): number {
     const subtotal = this.bookingBillingAmount + this.effectiveSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.bookingDiscountAmount).toFixed(2));
   }
+
   accountOptions: { v: number; l: string }[] = [];
 
   // Meeting room slots (admin booking)
@@ -245,6 +261,11 @@ export class Manage implements OnInit {
   showQuotationPreviewModal = false;
   selectedQuotation = signal<any>(null);
   quotationEmailSent = signal<string>('');
+  quotationVersions = signal<any[]>([]);
+  parentQuotationId: number | null = null;
+  targetVersionNumber: number = 1;
+  isCreatingNewVersion = false;
+
 
   selectedQuotationLocationId = '';
   selectedQuotationSpaceTypeId = '';
@@ -267,34 +288,39 @@ export class Manage implements OnInit {
   quotationSecurityDepositMonths = 2;
 
   get quotationMonthlyRent(): number {
+    if (this.isQuotationMeetingRoom) return this.quotationSubtotal;
     const spaceId = this.quotationFormData?.spaceId;
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId));
-    if (!space) return 0;
-    return Number(space.pricePerMonth ?? space.PricePerMonth ?? space.pricePerDay ?? space.PricePerDay ?? space.pricePerHour ?? space.PricePerHour ?? space.seatPrice ?? space.SeatPrice ?? space.price ?? space.Price ?? 0);
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    if (space) {
+      return this.getSpaceMonthlyRent(space, this.selectedQuotationCapacity ? Number(this.selectedQuotationCapacity) : null);
+    }
+    const months = Number(this.quotationMonths || 1);
+    return parseFloat(((this.quotationSubtotal || 0) / months).toFixed(2));
   }
 
   get quotationBillingAmount(): number {
-    return Math.max(0, this.quotationBillingPeriodMonths * this.quotationMonthlyRent);
+    if (this.isQuotationMeetingRoom) return this.quotationSubtotal;
+    return Math.max(0, parseFloat((this.quotationBillingPeriodMonths * this.quotationMonthlyRent).toFixed(2)));
   }
 
   get effectiveQuotationSecurityDeposit(): number {
     if (!this.isQuotationPrivateRoom) return 0;
-    const months = this.quotationSecurityDepositMonthsOverride ?? this.quotationSecurityDepositMonths;
-    return months != null && months >= 0
-      ? parseFloat((this.quotationMonthlyRent * Math.floor(months)).toFixed(2))
-      : this.quotationSecurityDeposit;
+    const months = this.quotationSecurityDepositMonthsOverride ?? Number(this.quotationSecurityDepositMonths || 0);
+    return parseFloat((this.quotationMonthlyRent * months).toFixed(2));
   }
 
   get quotationDiscountAmount(): number {
     const val = Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0);
     if (this.quotationDiscountType === 'Amount') return parseFloat(Math.max(0, val).toFixed(2));
-    return parseFloat((this.quotationSubtotal * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
+    const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : (this.quotationBillingAmount + this.effectiveQuotationSecurityDeposit);
+    return parseFloat((base * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
   }
 
   get quotationFirstInvoiceTotal(): number {
     const subtotal = this.quotationBillingAmount + this.effectiveQuotationSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.quotationDiscountAmount).toFixed(2));
   }
+
 
 
   // Meeting room slots for quotation
@@ -1690,12 +1716,23 @@ export class Manage implements OnInit {
               billingPeriodEnd: this.calcBillingPeriodEnd(payload.startDateTime, billingMonths),
               startDateTime: payload.startDateTime,
               endDateTime: payload.endDateTime,
-              bookingDetails: fullDetails,
+              contractPeriodMonths: Number(this.adminMonths || 12),
+              numberOfMonths: Number(this.adminMonths || 12),
+              months: Number(this.adminMonths || 12),
+              billingPeriodMonths: billingMonths,
+              monthlyRent: Number(this.bookingMonthlyRent),
+              totalContractAmount: Number(this.bookingSubtotal),
+              currentCycleAmount: Number(billingRentAmount),
+              firstCycleRent: Number(billingRentAmount),
               securityDeposit: secDepositAmount,
-              subtotalAmount: billingRentAmount,
+              securityDepositOverride: secDepositAmount,
+              securityDepositMonths: secMonths,
+              bookingDetails: fullDetails,
+              subtotalAmount: Number(this.bookingSubtotal),
               discountPercentage: Number(this.bookingDiscountPercentage || 0),
               discountAmount: this.bookingDiscountAmount,
               totalAmount: Math.max(0, firstInvoiceTotal),
+              firstInvoiceTotal: Math.max(0, firstInvoiceTotal),
               notes: payload.notes,
               createdAt: new Date().toISOString(),
             };
@@ -1780,7 +1817,7 @@ export class Manage implements OnInit {
                       : Array.isArray(res?.quotations) ? res.quotations
                         : (res?.data ?? []);
 
-        // Merge API data with any locally created admin bookings not yet returned by backend API
+        // Merge API data with any locally created admin bookings or declined quotation messages
         this.items.update(currentItems => {
           if (this.entity === 'bookings') {
             const backendIds = new Set(data.map((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '')));
@@ -1801,6 +1838,60 @@ export class Manage implements OnInit {
           return data;
         });
 
+        if (this.entity === 'contacts') {
+          // Also fetch customer quotation decline responses to present alongside contact & tour messages
+          this.quotationSvc.getQuotations(1, 1000, '').subscribe({
+            next: (qRes: any) => {
+              const qList = Array.isArray(qRes) ? qRes
+                : Array.isArray(qRes?.data) ? qRes.data
+                  : Array.isArray(qRes?.quotations) ? qRes.quotations
+                    : (qRes?.data?.quotations ?? []);
+
+              const declinedItems = qList
+                .filter((q: any) => {
+                  const st = (q.status || q.Status || '').toString().toLowerCase();
+                  return st === 'declined' || q.customerNote || q.responseNote || q.note;
+                })
+                .map((q: any) => ({
+                  id: `quote-dec-${q.id || q.quotationId}`,
+                  quotationId: q.id || q.quotationId,
+                  fullName: q.customerName || q.CustomerName || q.customerEmail || 'Customer',
+                  email: q.customerEmail || q.CustomerEmail || '-',
+                  phone: q.customerPhone || q.CustomerPhone || '-',
+                  subject: `Quotation Declined (${q.quotationNumber || ('#Q-' + q.id)} v${q.versionNumber || 1})`,
+                  message: q.customerNote || q.note || q.responseNote || 'Customer declined quotation',
+                  status: q.status || q.Status || 'Declined',
+                  createdAt: q.updatedDate || q.createdDate || q.createdAt || new Date().toISOString(),
+                  isQuotationDecline: true,
+                  quotationNumber: q.quotationNumber,
+                  rawQuotationItem: q
+                }));
+
+              const normalizedContacts = data.map((c: any) => ({
+                ...c,
+                subject: c.subject || c.type || 'Book Tour Request',
+                message: c.message || c.notes || c.body || '-'
+              }));
+
+              const mergedContacts = [...normalizedContacts, ...declinedItems].sort((a: any, b: any) => {
+                const dA = new Date(a.createdAt || a.createdDate || 0).getTime();
+                const dB = new Date(b.createdAt || b.createdDate || 0).getTime();
+                return dB - dA;
+              });
+
+              this.items.set(mergedContacts);
+              this.totalCount.set(mergedContacts.length);
+              this.loading.set(false);
+              if (cb) cb();
+            },
+            error: () => {
+              this.loading.set(false);
+              if (cb) cb();
+            }
+          });
+          return;
+        }
+
         this.totalCount.set(res?.total ?? res?.totalCount ?? res?.data?.total ?? res?.data?.totalCount ?? this.items().length);
         this.loading.set(false);
         if (cb) cb();
@@ -1811,6 +1902,7 @@ export class Manage implements OnInit {
       }
     });
   }
+
 
   onPageSizeChange(size: number) { this.pageSize = +size; this.page.set(1); this.load(); }
   prevPage() { if (this.canPrev()) { this.page.update(p => p - 1); this.load(); } }
@@ -1981,8 +2073,36 @@ export class Manage implements OnInit {
       }
     }
 
+    if (this.entity === 'contacts') {
+      if (col.key === 'fullName') {
+        return item.fullName || item.customerName || item.CustomerName || item.name || item.userName || item.email || '-';
+      }
+      if (col.key === 'email') {
+        return item.email || item.customerEmail || item.CustomerEmail || item.userEmail || '-';
+      }
+      if (col.key === 'phone') {
+        return item.phone || item.phoneNumber || item.customerPhone || item.CustomerPhone || '-';
+      }
+      if (col.key === 'subject') {
+        if (item.isQuotationDecline) {
+          return `Quotation Declined (${item.quotationNumber || ('#Q-' + (item.quotationId || item.id))})`;
+        }
+        return item.subject || item.type || 'Book Tour Request';
+      }
+      if (col.key === 'message') {
+        return item.message || item.customerNote || item.note || item.remarks || '-';
+      }
+      if (col.key === 'status') {
+        return item.status || item.Status || 'New';
+      }
+      if (col.key === 'createdAt') {
+        return item.createdAt || item.createdDate || item.updatedDate || item.CreatedDate || item.UpdatedDate || '';
+      }
+    }
+
     return item[col.key] ?? '';
   }
+
 
   onPhoneInput(event: any, key: string = 'phoneNumber') {
     const input = event.target as HTMLInputElement;
@@ -2801,20 +2921,22 @@ export class Manage implements OnInit {
       };
 
       case 'contacts': return {
-        title: 'Contacts',
+        title: 'Contacts & Tour Inquiries',
         columns: [
           { key: 'fullName', label: 'Name' },
           { key: 'email', label: 'Email' },
           { key: 'phone', label: 'Phone' },
-          { key: 'message', label: 'Message' },
+          { key: 'subject', label: 'Subject / Type' },
+          { key: 'message', label: 'Message / Feedback' },
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdAt', label: 'Date', type: 'date' },
         ],
         getFn: (p, l, s) => this.admin.getContacts(p, l, s),
         statusFn: (id, status) => this.admin.updateContactStatus(id, status),
-        statusOptions: ['New', 'InProgress', 'Resolved'],
+        statusOptions: ['New', 'InProgress', 'Resolved', 'Declined'],
         deleteFn: (id) => this.admin.deleteContact(id),
       };
+
 
       case 'gallery': return {
         title: 'Gallery',
@@ -2906,8 +3028,12 @@ export class Manage implements OnInit {
     this.showQuotationForm = true;
     this.quotationFormData = {};
     this.quotationFormError = '';
+    this.parentQuotationId = null;
+    this.targetVersionNumber = 1;
+    this.isCreatingNewVersion = false;
     this.selectedCustomer = null;
     this.customerSearchQuery = '';
+
     this.customerSearchResults = [];
     this.selectedQuotationLocationId = '';
     this.selectedQuotationSpaceTypeId = '';
@@ -3107,41 +3233,32 @@ export class Manage implements OnInit {
     const spaceId = this.quotationFormData.spaceId;
     if (!spaceId) return;
 
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId));
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
     if (!space) return;
 
-    const category = (space.spaceTypeName || '').toLowerCase();
-    const rate = Number(space.pricePerMonth || space.pricePerHour || space.pricePerDay || 0);
-    const capacity = Number(space.capacity || 1);
+    const { hourly, daily, monthly } = this.getSpacePrice(space);
 
-    if (category.includes('private')) {
-      const monthlyRate = rate;
-      const rent = monthlyRate * capacity * Number(this.quotationMonths);
-      const security = monthlyRate * capacity;
-      this.quotationSubtotal = rent;
-      this.quotationSecurityDeposit = security;
-    } else if (category.includes('meeting') || category.includes('conference')) {
-      const hourlyRate = rate;
+    if (this.isQuotationMeetingRoom) {
+      const rate = hourly > 0 ? hourly : (daily > 0 ? daily : monthly);
       if (this.quotationMeetingRoomMode === 'day' && this.quotationStartDate && this.quotationMeetingDayEnd) {
-        // Full-day: count calendar days × 9 hours/day × hourly rate
         const start = new Date(this.quotationStartDate);
         const end = new Date(this.quotationMeetingDayEnd);
         const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
-        this.quotationSubtotal = hourlyRate * 9 * diffDays;
+        this.quotationSubtotal = parseFloat((rate * 9 * diffDays).toFixed(2));
       } else {
         const hours = this.quotationSelectedSlots.size || 1;
-        this.quotationSubtotal = hourlyRate * hours;
+        this.quotationSubtotal = parseFloat((rate * hours).toFixed(2));
       }
       this.quotationSecurityDeposit = 0;
     } else {
-      const monthlyRate = rate;
-      const rent = monthlyRate * Number(this.quotationMonths);
-      this.quotationSubtotal = rent;
-      this.quotationSecurityDeposit = 0;
+      const roomMonthlyRent = this.getSpaceMonthlyRent(space, this.selectedQuotationCapacity ? Number(this.selectedQuotationCapacity) : null);
+      this.quotationSubtotal = parseFloat((roomMonthlyRent * Number(this.quotationMonths || 1)).toFixed(2));
+      this.quotationSecurityDeposit = roomMonthlyRent;
     }
 
-    this.quotationTotal = (this.quotationSubtotal - this.quotationDiscountAmount) + this.effectiveQuotationSecurityDeposit;
+    this.quotationTotal = this.quotationFirstInvoiceTotal;
   }
+
 
   submitAdminQuotation(sendEmail: boolean = false) {
     this.quotationFormSaving.set(true);
@@ -3191,10 +3308,11 @@ export class Manage implements OnInit {
     const u = this.selectedCustomer;
     const currentAdminId = Number((this.auth.user() as any)?.id || (this.auth.user() as any)?.userId || 1);
     const now = new Date();
-    const quotationNumber = `WN-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getTime()).slice(-5)}`;
 
     const payload: any = {
-      QuotationNumber: quotationNumber,
+      QuotationNumber: this.quotationFormData.quotationNumber || `WN-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getTime()).slice(-5)}`,
+      VersionNumber: this.targetVersionNumber || 1,
+      Status: 'Draft',
       CustomerId: Number(u.customerId || u.id || 0),
       SpaceId: Number(this.quotationFormData.spaceId),
       StartDateTime: startDT,
@@ -3214,13 +3332,17 @@ export class Manage implements OnInit {
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
 
-    console.log('[QUOTATION] Sending payload:', JSON.stringify(payload));
+    console.log('[QUOTATION] Sending payload (isNewVersion=' + this.isCreatingNewVersion + '):', JSON.stringify(payload));
 
-    this.quotationSvc.createQuotation(payload).subscribe({
+    const obs = (this.isCreatingNewVersion && this.parentQuotationId)
+      ? this.quotationSvc.createQuotationVersion(this.parentQuotationId, payload)
+      : this.quotationSvc.createQuotation(payload);
+
+    obs.subscribe({
       next: (res: any) => {
         this.quotationFormSaving.set(false);
         this.closeAdminQuotationForm();
-        this.success = 'Quotation generated successfully!';
+        this.success = this.isCreatingNewVersion ? `Version ${this.targetVersionNumber} generated successfully!` : 'Quotation generated successfully!';
         setTimeout(() => this.success = '', 3000);
         this.load();
 
@@ -3239,26 +3361,170 @@ export class Manage implements OnInit {
     });
   }
 
+  createNextVersion(sourceVersion: any) {
+    if (!sourceVersion) return;
+    const qId = sourceVersion.quotationId || sourceVersion.id || sourceVersion.Id;
+    const nextVer = (sourceVersion.versionNumber || sourceVersion.version || 1) + 1;
+
+    // 1. Open quotation form modal
+    this.openAdminQuotationForm();
+    this.isCreatingNewVersion = true;
+    this.parentQuotationId = qId;
+    this.targetVersionNumber = nextVer;
+
+    // 2. Prefill Customer Details (fully editable)
+    const custName = sourceVersion.customerName || sourceVersion.CustomerName || sourceVersion.customer?.name || sourceVersion.customer?.fullName || '';
+    const custEmail = sourceVersion.customerEmail || sourceVersion.CustomerEmail || sourceVersion.customer?.email || '';
+    const custCode = sourceVersion.customerCode || sourceVersion.CustomerCode || sourceVersion.customer?.code || '';
+    const custPhone = sourceVersion.customerPhone || sourceVersion.CustomerPhone || sourceVersion.customer?.phone || sourceVersion.customer?.phoneNumber || '';
+
+    if (sourceVersion.customer && typeof sourceVersion.customer === 'object') {
+      this.selectCustomer(sourceVersion.customer);
+    } else if (sourceVersion.customerId) {
+      this.admin.getCustomers(1, 1000, '').subscribe({
+        next: (res: any) => {
+          const list = res?.data ?? (Array.isArray(res) ? res : []);
+          const found = list.find((c: any) => (c.id || c.idGuid) === sourceVersion.customerId || c.email === custEmail);
+          if (found) {
+            this.selectCustomer(found);
+          } else if (custName || custEmail) {
+            this.selectedCustomer = {
+              id: sourceVersion.customerId,
+              name: custName || 'Customer',
+              fullName: custName || 'Customer',
+              email: custEmail,
+              code: custCode,
+              phone: custPhone,
+              phoneNumber: custPhone
+            };
+            this.customerSearchQuery = custName || custEmail || '';
+          }
+        }
+      });
+    } else if (custName || custEmail) {
+      this.selectedCustomer = {
+        name: custName || 'Customer',
+        fullName: custName || 'Customer',
+        email: custEmail,
+        code: custCode,
+        phone: custPhone,
+        phoneNumber: custPhone
+      };
+      this.customerSearchQuery = custName || custEmail || '';
+    }
+
+    // 3. Prefill Space & Location Details (fully editable)
+    const prefillSpaceInfo = () => {
+      const space = this.allSpaces.find((s: any) => String(s.id) === String(sourceVersion.spaceId) || String(s.idGuid) === String(sourceVersion.spaceId));
+      if (space) {
+        this.selectedQuotationLocationId = space.locationId || space.location?.id || sourceVersion.locationId || '';
+        this.onQuotationLocationChange();
+
+        const cat = (space.spaceTypeName || space.spaceCategory || '').toLowerCase();
+        if (cat.includes('shared') || cat.includes('co-working')) {
+          this.selectedQuotationSpaceTypeId = 'shared';
+        } else if (cat.includes('private')) {
+          this.selectedQuotationSpaceTypeId = 'private';
+        } else if (cat.includes('meeting') || cat.includes('conference')) {
+          this.selectedQuotationSpaceTypeId = 'meeting';
+        }
+
+        this.selectedQuotationCapacity = space.capacity || sourceVersion.capacity || null;
+        this.quotationFloorId = space.floorId || sourceVersion.floorId || null;
+        this.quotationFormData.spaceId = space.id || sourceVersion.spaceId;
+      } else {
+        if (sourceVersion.locationId) {
+          this.selectedQuotationLocationId = sourceVersion.locationId;
+          this.onQuotationLocationChange();
+        }
+        if (sourceVersion.spaceTypeId) this.selectedQuotationSpaceTypeId = sourceVersion.spaceTypeId;
+        if (sourceVersion.capacity) this.selectedQuotationCapacity = sourceVersion.capacity;
+        if (sourceVersion.floorId) this.quotationFloorId = sourceVersion.floorId;
+        if (sourceVersion.spaceId) this.quotationFormData.spaceId = sourceVersion.spaceId;
+      }
+      this.recalcQuotationAmount();
+    };
+
+    if (!this.allSpaces.length) {
+      this.admin.getSpaces(1, 1000, '').subscribe({
+        next: (res: any) => {
+          this.allSpaces = res?.data ?? [];
+          prefillSpaceInfo();
+        }
+      });
+    } else {
+      prefillSpaceInfo();
+    }
+
+    // 4. Prefill Commercial Terms & Version Info
+    this.quotationFormData.quotationNumber = sourceVersion.quotationNumber || `Q-2026-001`;
+    this.quotationMonths = sourceVersion.contractPeriodMonths || sourceVersion.months || 12;
+    this.quotationBillingPeriodMonths = sourceVersion.billingPeriodMonths || 3;
+    this.quotationSecurityDepositMonths = sourceVersion.securityDepositMonths || 2;
+    this.quotationSecurityDepositMonthsOverride = sourceVersion.securityDepositMonthsOverride ?? null;
+    this.quotationDiscountType = sourceVersion.discountType || 'Percentage';
+    this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
+    this.quotationDiscountPercentage = sourceVersion.discountPercentage || 0;
+
+    const declineNote = sourceVersion.customerNote || sourceVersion.note || sourceVersion.responseNote;
+    if (declineNote) {
+      this.quotationRemarks = `Revision v${nextVer} (Customer requested: "${declineNote}")`;
+    } else {
+      this.quotationRemarks = sourceVersion.remarks || `Revision v${nextVer}`;
+    }
+
+    this.recalcQuotationAmount();
+  }
+
+
+  sendQuotationVersionToCustomer(item: any) {
+    const qId = item.quotationId || item.id || item.Id;
+    const vId = item.versionId || item.versionNumber || item.version || 1;
+
+    if (!confirm(`Are you sure you want to Send Version ${vId} of Quotation ${item.quotationNumber} to the customer?`)) return;
+
+    this.quotationSvc.sendQuotationVersion(qId, vId).subscribe({
+      next: () => {
+        this.success = `Quotation Version ${vId} sent to customer. Status updated to Sent.`;
+        setTimeout(() => this.success = '', 4000);
+        this.load();
+      },
+      error: (err: any) => {
+        alert(err?.error?.message || err?.message || 'Failed to send quotation.');
+      }
+    });
+  }
+
   previewQuotation(item: any) {
     this.selectedQuotation.set(null);
+    this.quotationVersions.set([]);
     this.showQuotationPreviewModal = true;
     this.quotationEmailSent.set('');
 
     const id = item.id || item.quotationId || item.Id;
     if (!id) {
-      // item itself may already be the full quotation object
       this.selectedQuotation.set(item);
       return;
     }
+
     this.quotationSvc.getQuotationById(id).subscribe({
       next: (res: any) => {
-        // Handle both { data: {...} } envelope and raw object
         const q = res?.data ?? res;
         this.selectedQuotation.set(q);
       },
       error: () => {
-        // Fallback: show whatever we already have from the list
         this.selectedQuotation.set(item);
+      }
+    });
+
+    // Load full version history for the quotation
+    this.quotationSvc.getQuotationVersions(id).subscribe({
+      next: (res: any) => {
+        const versions = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        this.quotationVersions.set(versions);
+      },
+      error: () => {
+        this.quotationVersions.set([item]);
       }
     });
   }
@@ -3266,6 +3532,7 @@ export class Manage implements OnInit {
   closeQuotationPreviewModal() {
     this.showQuotationPreviewModal = false;
     this.selectedQuotation.set(null);
+    this.quotationVersions.set([]);
   }
 
   async downloadQuotationPdf() {
@@ -3282,7 +3549,7 @@ export class Manage implements OnInit {
     pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
 
     const q = this.selectedQuotation();
-    const filename = `Quotation-${q?.quotationNumber || 'WN'}.pdf`;
+    const filename = `Quotation-${q?.quotationNumber || 'WN'}-v${q?.versionNumber || 1}.pdf`;
     pdf.save(filename);
   }
 
@@ -3358,13 +3625,25 @@ export class Manage implements OnInit {
     });
   }
 
-  convertQuotationToBooking(item: any) {
-    if (!confirm(`Are you sure you want to convert Quotation ${item.quotationNumber} into a Confirmed Booking?`)) return;
+  isQuotationAccepted(item: any): boolean {
+    if (!item) return false;
+    const st = (item.status || item.Status || '').toString().trim().toLowerCase();
+    return st === 'accepted' || st === 'active' || st === 'sent' || item.isAccepted === true || item.IsAccepted === true;
+  }
 
-    this.quotationSvc.convertToBooking(item.id).subscribe({
+  convertQuotationToBooking(item: any) {
+    if (!item) return;
+    const qId = item.id || item.quotationId || item.Id;
+    const vId = item.versionId || item.versionNumber || item.version || 1;
+    const qNo = item.quotationNumber || item.QuotationNumber || (`#` + qId);
+
+    if (!confirm(`Are you sure you want to convert Quotation ${qNo} (Version ${vId}) into a Confirmed Booking?`)) return;
+
+    this.quotationSvc.convertToBooking(qId, vId).subscribe({
       next: (res: any) => {
-        this.success = 'Quotation successfully converted to Booking!';
-        setTimeout(() => this.success = '', 3000);
+        this.success = `Quotation ${qNo} successfully converted to Booking!`;
+        setTimeout(() => this.success = '', 3500);
+        this.closeQuotationPreviewModal();
         this.load();
       },
       error: (err: any) => {
@@ -3373,32 +3652,130 @@ export class Manage implements OnInit {
     });
   }
 
+
   // Booking Details Modal
   showBookingDetailsModal = false;
   selectedBookingDetails = signal<any>(null);
-  bookingBillingSummaryData = signal<BookingBillingSummary | null>(null);
+  bookingBillingSummaryData = signal<any>(null);
 
-  openBookingDetailsModal(booking: any) {
-    this.selectedBookingDetails.set(booking);
-    const bookingId = booking.bookingId || booking.BookingId || booking.id || booking.Id;
-    if (bookingId) {
-      this.bookingService.getBookingDetails(bookingId).subscribe({
+
+  openBookingDetailsModal(item: any) {
+    if (!item) return;
+    this.selectedBookingDetails.set(null);
+    this.bookingBillingSummaryData.set(null);
+    this.showBookingDetailsModal = true;
+
+    // 1. Resolve actual Booking ID
+    let realBookingId = item.bookingId || item.BookingId || item.booking?.id || item.Booking?.Id;
+
+    if (!realBookingId && this.entity === 'bookings') {
+      realBookingId = item.id || item.Id;
+    }
+
+    const fetchBookingAndSummary = (bId: number) => {
+      this.bookingService.getBookingDetails(bId).subscribe({
         next: (res: any) => {
-          const details = res?.data ?? res ?? booking;
-          this.selectedBookingDetails.set(details);
+          const raw = res?.data ?? res ?? {};
+          const c = raw.contract || raw.Contract || {};
+
+          const normalized = {
+            ...item,
+            ...raw,
+            bookingId: raw.bookingId || raw.BookingId || raw.id || raw.Id || bId,
+            customerName: raw.customerName || raw.CustomerName || raw.userName || raw.UserName || raw.userEmail || item.customerName || 'Customer',
+            spaceName: raw.spaceName || raw.SpaceName || c.spaceName || c.SpaceName || item.spaceName || 'Workspace',
+            spaceNumber: raw.spaceNumber || raw.SpaceNumber || raw.spaceCode || raw.SpaceCode || c.spaceNumber || c.SpaceNumber || item.spaceCode || 'N/A',
+            bookingStatus: raw.bookingStatus || raw.BookingStatus || raw.status || raw.Status || 'Confirmed',
+            billingPeriodMonths: raw.billingPeriodMonths || raw.BillingPeriodMonths || c.billingPeriodMonths || 1,
+            billingPeriod: raw.billingPeriod || raw.BillingPeriod || c.billingPeriod || 'Monthly',
+            contractStartDate: raw.contractStartDate || raw.ContractStartDate || c.contractStartDate || c.ContractStartDate || raw.startOn || raw.startDateTime,
+            contractEndDate: raw.contractEndDate || raw.ContractEndDate || c.contractEndDate || c.ContractEndDate || raw.endOn || raw.endDateTime,
+            contractDuration: raw.numberOfMonths || raw.NumberOfMonths || c.numberOfMonths || c.NumberOfMonths || raw.contractDuration || 1,
+            monthlyRent: raw.monthlyRent ?? raw.MonthlyRent ?? c.monthlyRent ?? c.MonthlyRent ?? raw.pricePerMonth ?? raw.PricePerMonth ?? 0,
+            currentCycleAmount: raw.currentCycleAmount ?? raw.CurrentCycleAmount ?? c.currentCycleAmount ?? c.CurrentCycleAmount ?? raw.cycleAmount ?? 0,
+            totalContractAmount: raw.totalContractAmount ?? raw.TotalContractAmount ?? c.totalContractAmount ?? c.TotalContractAmount ?? raw.totalAmount ?? raw.TotalAmount ?? 0,
+            securityDeposit: raw.securityDeposit ?? raw.SecurityDeposit ?? c.securityDeposit ?? c.SecurityDeposit ?? 0,
+            balanceLeft: raw.balanceLeft ?? raw.BalanceLeft ?? c.balanceLeft ?? c.BalanceLeft ?? raw.balanceAmount ?? raw.BalanceAmount ?? 0,
+            nextBillingDate: raw.nextBillingDate || raw.NextBillingDate || raw.nextBillDueDate || raw.NextBillDueDate || c.nextBillingDate || c.NextBillingDate
+          };
+
+          this.selectedBookingDetails.set(normalized);
         },
         error: () => {
-          this.selectedBookingDetails.set(booking);
+          this.selectedBookingDetails.set(this.buildFallbackBookingDetails(item));
         }
       });
-      this.admin.getBookingBillingSummary(bookingId).subscribe({
+
+      this.admin.getBookingBillingSummary(bId).subscribe({
         next: (res: any) => {
-          this.bookingBillingSummaryData.set(res?.data ?? res);
+          const s = res?.data ?? res ?? {};
+          const summaryData: any = {
+            securityDepositRequired: s.securityDepositRequired ?? s.SecurityDepositRequired ?? s.requiredAmount ?? s.RequiredAmount ?? 0,
+            securityDepositInvoiced: s.securityDepositInvoiced ?? s.SecurityDepositInvoiced ?? s.invoicedAmount ?? s.InvoicedAmount ?? 0,
+            securityDepositPaid: s.securityDepositPaid ?? s.SecurityDepositPaid ?? s.paidAmount ?? s.PaidAmount ?? 0,
+            securityDepositOutstanding: s.securityDepositOutstanding ?? s.SecurityDepositOutstanding ?? s.outstandingAmount ?? s.OutstandingAmount ?? 0,
+            securityDepositCharged: s.securityDepositCharged ?? s.SecurityDepositCharged ?? s.isCharged ?? s.IsCharged ?? false
+          };
+          this.bookingBillingSummaryData.set(summaryData);
+        },
+        error: () => {
+          this.bookingBillingSummaryData.set({
+            securityDepositRequired: 0,
+            securityDepositInvoiced: 0,
+            securityDepositPaid: 0,
+            securityDepositOutstanding: 0,
+            securityDepositCharged: false
+          });
         }
       });
+    };
+
+    if (realBookingId) {
+      fetchBookingAndSummary(realBookingId);
+    } else if (this.entity === 'invoices' && item.id) {
+      // Query full invoice details to extract real booking ID
+      this.admin.getInvoiceDetails(item.id).subscribe({
+        next: (res: any) => {
+          const invDetails = res?.data ?? res ?? {};
+          const extractedBookingId = invDetails.bookingId || invDetails.BookingId || invDetails.booking?.id || invDetails.Booking?.Id;
+          if (extractedBookingId) {
+            fetchBookingAndSummary(extractedBookingId);
+          } else {
+            this.selectedBookingDetails.set(this.buildFallbackBookingDetails(item, invDetails));
+          }
+        },
+        error: () => {
+          this.selectedBookingDetails.set(this.buildFallbackBookingDetails(item));
+        }
+      });
+    } else {
+      this.selectedBookingDetails.set(this.buildFallbackBookingDetails(item));
     }
-    this.showBookingDetailsModal = true;
   }
+
+  private buildFallbackBookingDetails(item: any, invDetails?: any): any {
+    const src = invDetails || item;
+    return {
+      id: src.bookingId || src.BookingId || src.id || src.Id || item.id,
+      bookingId: src.bookingId || src.BookingId || src.id || src.Id || item.id,
+      customerName: src.customerName || src.CustomerName || src.userName || src.userEmail || item.customerName || 'Customer',
+      spaceName: src.spaceName || src.SpaceName || item.spaceName || 'Workspace',
+      spaceNumber: src.spaceNumber || src.SpaceNumber || src.spaceCode || src.SpaceCode || item.spaceNumber || item.spaceCode || 'N/A',
+      bookingStatus: src.bookingStatus || src.BookingStatus || src.statusLabel || src.status || 'Confirmed',
+      billingPeriodMonths: src.billingPeriodMonths || src.BillingPeriodMonths || 1,
+      billingPeriod: src.billingPeriod || src.BillingPeriod || 'Monthly',
+      contractStartDate: src.contractStartDate || src.ContractStartDate || src.createdOn || src.createdAt || src.issuedOn || item.issuedOn,
+      contractEndDate: src.contractEndDate || src.ContractEndDate || src.dueDate || item.dueDate,
+      monthlyRent: src.monthlyRent ?? src.MonthlyRent ?? src.totalAmount ?? src.TotalAmount ?? item.totalAmount ?? 0,
+      currentCycleAmount: src.currentCycleAmount ?? src.CurrentCycleAmount ?? src.totalAmount ?? src.TotalAmount ?? item.totalAmount ?? 0,
+      totalContractAmount: src.totalContractAmount ?? src.TotalContractAmount ?? src.totalAmount ?? src.TotalAmount ?? item.totalAmount ?? 0,
+      securityDeposit: src.securityDeposit ?? src.SecurityDeposit ?? 0,
+      balanceLeft: src.balanceAmount ?? src.BalanceAmount ?? src.balanceLeft ?? src.BalanceLeft ?? 0,
+      nextBillingDate: src.nextBillingDate || src.NextBillingDate || src.dueDate || item.dueDate
+    };
+  }
+
+
 
 
   /** Helper: calculate billing period end date */
@@ -3422,7 +3799,7 @@ export class Manage implements OnInit {
 
   viewBillingChallan(booking: any) {
     if (!booking) return;
-    const bookingId = booking.id || booking.bookingId || booking.Id || booking.BookingId;
+    const bookingId = booking.bookingId || booking.BookingId || booking.booking?.id || (this.entity === 'bookings' ? (booking.id || booking.Id) : null);
     if (bookingId) {
       this.bookingService.getChallan(bookingId).subscribe({
         next: (res: any) => {
