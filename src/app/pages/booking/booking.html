@@ -80,58 +80,13 @@
                       </div>
                     </div>
 
-                    <div class="ws-pricing">
+                                        <div class="ws-pricing">
                       <div class="ws-starting-from">Starting from</div>
-                      @if (getCategory(st.spaceTypeName) === 'Meeting') {
-                        <div class="ws-price-item">
-                          <span class="ws-price-value">Rs {{ st.pricePerHour }}</span>
-                          <span class="ws-price-label">/ hour</span>
-                        </div>
-                      } @else {
-                        <div class="ws-price-item">
-                          <span class="ws-price-value">Rs {{ st.pricePerDay }}</span>
-                          <span class="ws-price-label">/ month</span>
-                        </div>
-                      }
-                    </div>
-
-                    @if (getAmenities(st.amenities).length) {
-                      <div class="ws-amenities">
-                        @for (a of getAmenities(st.amenities); track a) {
-                          <span class="amenity-tag">{{ a }}</span>
-                        }
+                      <div class="ws-price-item">
+                        <span class="ws-price-value">PKR {{ (st.price ?? st.Price ?? st.seatPrice ?? st.SeatPrice ?? 0) | number:'1.0-0' }}</span>
+                        <span class="ws-price-label">/ {{ st.billingPeriodLabel || st.billingPeriodCode || 'Month' }}</span>
                       </div>
-                    }
-
-                    @if (getCategory(st.spaceTypeName) === 'Private' && st.capacities.length > 0) {
-                      <div class="form-group" style="margin:0">
-                        <label class="form-label" style="font-size:.78rem;margin-bottom:4px">Capacity</label>
-                        <select class="form-input" style="padding:6px 10px;font-size:.85rem"
-                          [value]="st.selectedCapacity"
-                          (change)="st.selectedCapacity = +$any($event.target).value">
-                          @for (c of st.capacities; track c) {
-                            <option [value]="c">{{ c }} persons</option>
-                          }
-                        </select>
-                      </div>
-                    }
-
-                    <div class="ws-actions">
-                      <button class="btn btn-outline btn-sm ws-rooms-btn" (click)="toggleGroup(loc.locationName, st.spaceTypeId)">
-                        {{ isExpanded(loc.locationName, st.spaceTypeId) ? 'Hide Rooms' : 'View Rooms' }}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          @if (isExpanded(loc.locationName, st.spaceTypeId)) {
-                            <path d="m18 15-6-6-6 6"/>
-                          } @else {
-                            <path d="m6 9 6 6 6-6"/>
-                          }
-                        </svg>
-                      </button>
-                      <button class="btn btn-primary btn-sm" (click)="openBookingModal(st.spaces[0], st.selectedCapacity)" [disabled]="st.availableCount === 0">
-                        @if (st.availableCount === 0) { Fully Booked } @else { Book Now }
-                      </button>
                     </div>
-                  </div>
 
                   @if (isExpanded(loc.locationName, st.spaceTypeId)) {
                     <div class="rooms-list">
@@ -147,6 +102,7 @@
                     </div>
                   }
                 </div>
+              </div>
               }
             </div>
           </div>

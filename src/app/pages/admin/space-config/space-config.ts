@@ -11,6 +11,7 @@ import { AccountCoaService } from '../../../services/account-coa.service';
   styleUrl: './space-config.css'
 })
 export class SpaceConfig implements OnInit {
+  billingPeriods: any[] = [];
   private admin = inject(AdminService);
   private accountCoa = inject(AccountCoaService);
 

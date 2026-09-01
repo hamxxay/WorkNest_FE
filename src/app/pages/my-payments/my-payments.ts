@@ -197,4 +197,27 @@ export class MyPayments implements OnInit {
 
   getTotalPaid(): number { return this.totalPaid(); }
   getTotalPending(): number { return this.totalPending(); }
+
+  getSpaceType(item: any): string {
+    if (!item) return 'MeetingRoom';
+    if (item.spaceType) return item.spaceType;
+    const name = String(item.spaceTypeName || item.SpaceTypeName || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
+    if (name.includes('meeting') || name.includes('conference')) return 'MeetingRoom';
+    if (name.includes('shared') || name.includes('coworking') || name.includes('desk')) return 'SharedSpace';
+    if (name.includes('private') || name.includes('office') || name.includes('room')) return 'PrivateRoom';
+    if ((item.billingPeriodMonths <= 0 || !item.billingPeriodMonths) && (!item.totalContractAmount || item.totalContractAmount <= 0)) return 'MeetingRoom';
+    return 'SharedSpace';
+  }
+
+  isMeetingRoom(item: any): boolean {
+    return this.getSpaceType(item) === 'MeetingRoom';
+  }
+
+  isSharedSpace(item: any): boolean {
+    return this.getSpaceType(item) === 'SharedSpace';
+  }
+
+  isPrivateRoom(item: any): boolean {
+    return this.getSpaceType(item) === 'PrivateRoom';
+  }
 }

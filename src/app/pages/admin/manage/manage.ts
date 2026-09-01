@@ -33,6 +33,7 @@ interface EntityConfig {
   styleUrl: './manage.css'
 })
 export class Manage implements OnInit {
+  billingPeriods: any[] = [];
   entity = '';
   config: EntityConfig = { title: '', columns: [], getFn: () => [] };
 
@@ -125,7 +126,7 @@ export class Manage implements OnInit {
   amenityOptions: { id: number; name: string }[] = [];
   selectedAmenityIds: number[] = [];
 
-  // ── Admin Booking Form ────────────────────────────────────
+  // â”€â”€ Admin Booking Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showBookingForm = false;
   bookingFormData: any = {};
   bookingFormSaving = signal(false);
@@ -152,8 +153,12 @@ export class Manage implements OnInit {
 
   getSpaceMonthlyRent(space: any, capacityOverride?: number | null): number {
     if (!space) return 0;
-    const { monthly, daily, hourly } = this.getSpacePrice(space);
-    const rate = monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0));
+    const price = Number(space.price ?? space.Price ?? space.pricePerMonth ?? space.PricePerMonth ?? space.seatPrice ?? space.SeatPrice ?? 0);
+    const spaceTypeId = Number(space.spaceTypeId ?? space.SpaceTypeId ?? space.spaceTypeIdInt ?? space.SpaceTypeIdInt ?? 0);
+    const spaceTypeName = String(space.spaceTypeName ?? space.SpaceTypeName ?? space.spaceType ?? space.SpaceType ?? '').toLowerCase();
+    const capacity = capacityOverride || Number(space.capacity ?? space.Capacity ?? 1);
+
+    const rate = (spaceTypeId === 1 || spaceTypeName.includes('private')) ? price * capacity : price;
     return parseFloat(rate.toFixed(2));
   }
 
@@ -179,8 +184,14 @@ export class Manage implements OnInit {
     return Math.max(0, parseFloat((this.bookingBillingPeriodMonths * this.bookingMonthlyRent).toFixed(2)));
   }
 
+  get bookingTaxAmount(): number {
+    const baseRent = this.bookingBillingAmount;
+    const supportCharge = baseRent * 0.10;
+    return parseFloat((supportCharge * 0.16).toFixed(2));
+  }
+
   get bookingFirstInvoiceTotal(): number {
-    const subtotal = this.bookingBillingAmount + this.effectiveSecurityDeposit;
+    const subtotal = this.bookingBillingAmount + this.bookingTaxAmount + this.effectiveSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.bookingDiscountAmount).toFixed(2));
   }
 
@@ -190,7 +201,7 @@ export class Manage implements OnInit {
   adminMeetingDate = '';
   adminMeetingSlots: { label: string; start: string; end: string; isLocked?: boolean }[] = [];
   adminSelectedSlots = new Set<string>();
-  meetingRoomBookingMode: 'day' | 'slot' = 'slot';
+  meetingRoomBookingMode: 'day' | 'slot' = 'day';
 
   // Private Room & Shared Space (admin booking)
   selectedAdminCapacity: number | string | null = null;
@@ -206,7 +217,7 @@ export class Manage implements OnInit {
   // When opening customer-create from booking flow, set this to true so save() can inject created customer
   creatingCustomerFromBooking = false;
 
-  // ── Country Codes & Dropdowns ─────────────────────────────
+  // â”€â”€ Country Codes & Dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   countryCodeOptions: { v: string; l: string }[] = [
     { v: '+92', l: 'PK (+92)' },
     { v: '+1', l: 'US/CA (+1)' },
@@ -233,11 +244,12 @@ export class Manage implements OnInit {
   citiesLoading = signal(false);
   citiesError = '';
 
-  // ── Quick Create Customer (from booking form) ─────────────
+  // â”€â”€ Quick Create Customer (from booking form) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showQuickCreateCustomer = false;
   quickCustomerForm: any = {
     firstName: '',
     lastName: '',
+      company: '',
     email: '',
     countryCode: '+92',
     phoneNumber: '',
@@ -246,9 +258,10 @@ export class Manage implements OnInit {
     cityId: ''
   };
   quickCustomerSaving = signal(false);
+  priceError: string = '';
   quickCustomerError = '';
 
-  // ── Admin Booking Receipt ─────────────────────────────────
+  // â”€â”€ Admin Booking Receipt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showReceiptModal = false;
   adminBookingReceipt = signal<any>(null);
   showChallanModal = false;
@@ -316,8 +329,14 @@ export class Manage implements OnInit {
     return parseFloat((base * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
   }
 
+  get quotationTaxAmount(): number {
+    const baseRent = this.quotationBillingAmount;
+    const supportCharge = baseRent * 0.10;
+    return parseFloat((supportCharge * 0.16).toFixed(2));
+  }
+
   get quotationFirstInvoiceTotal(): number {
-    const subtotal = this.quotationBillingAmount + this.effectiveQuotationSecurityDeposit;
+    const subtotal = this.quotationBillingAmount + this.quotationTaxAmount + this.effectiveQuotationSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.quotationDiscountAmount).toFixed(2));
   }
 
@@ -569,7 +588,7 @@ export class Manage implements OnInit {
     this.loadVacantSpaces();
   }
 
-  // ── Add / Remove Single Space ─────────────────────────────
+  // â”€â”€ Add / Remove Single Space â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showAddSpaceModal = false;
   addSpaceTypeId = '';
   addSpaceLocationId = '';
@@ -712,7 +731,7 @@ export class Manage implements OnInit {
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
         this.allSpaces = items;
-        this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) — ${s.locationName ?? ''}` }));
+        this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) â€” ${s.locationName ?? ''}` }));
         this.config = this.buildConfig('bookings');
       }
     });
@@ -815,7 +834,7 @@ export class Manage implements OnInit {
     this.adminMeetingDate = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
-    this.meetingRoomBookingMode = 'slot';
+    this.meetingRoomBookingMode = 'day';
     this.showBookingForm = true;
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
@@ -874,7 +893,7 @@ export class Manage implements OnInit {
 
     const addedGroups = new Set<string>();
 
-    // 1. From /spacetype API — use categoryCode as value so all types in same category are matched
+    // 1. From /spacetype API â€” use categoryCode as value so all types in same category are matched
     (apiTypes || []).forEach((s: any) => {
       // Prefer name over description so "Meeting/Conference" is not reduced to just "Conference"
       const name = (s.name || s.displayName || s.label || s.typeName || s.description || s.l || '').trim();
@@ -943,9 +962,28 @@ export class Manage implements OnInit {
     this.spaceTypeOptions = Array.from(map.values());
   }
 
-  onBookingSpaceSelected() { this.recalcAmount(); }
+  onBookingSpaceSelected() {
+    const spaceId = this.bookingFormData.spaceId;
+    if (spaceId) {
+      const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+      if (space) {
+        const name = String(space.name || space.Name || '').toLowerCase();
+        const { hourly, daily } = this.getSpacePrice(space);
+        if (name.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
+          this.meetingRoomBookingMode = 'day';
+        } else if (name.includes('meeting room 1') || hourly > 0) {
+          this.meetingRoomBookingMode = 'slot';
+          if (!this.adminMeetingDate) {
+            this.adminMeetingDate = this.today;
+          }
+          this.generateAdminMeetingSlots();
+        }
+      }
+    }
+    this.recalcAmount();
+  }
 
-  onQuotationSpaceSelected() { this.recalcQuotationAmount(); }
+
 
   onBookingLocationChange() {
     this.bookingFormData.spaceId = '';
@@ -1085,9 +1123,9 @@ export class Manage implements OnInit {
       .filter((s: any) => s.idGuid || s.id)
       .map((s: any) => {
         const cap = this.getSpaceCapacity(s);
-        const capLabel = cap > 0 ? ` — Cap: ${cap}` : '';
+        const capLabel = cap > 0 ? ` â€” Cap: ${cap}` : '';
         const codeLabel = s.code ? ` (${s.code})` : '';
-        const locLabel = s.locationName ? ` — ${s.locationName}` : '';
+        const locLabel = s.locationName ? ` â€” ${s.locationName}` : '';
 
         const st = (s.status || s.Status || '').toString().trim().toLowerCase();
         const isBooked = st === 'booked' || st === 'occupied';
@@ -1227,7 +1265,7 @@ export class Manage implements OnInit {
   }
 
   private getCustomerUserId(u: any): string {
-    // WN_Customers has no WN_Users link — use customerEmail to resolve at booking time
+    // WN_Customers has no WN_Users link â€” use customerEmail to resolve at booking time
     return u.idGUID ?? u.idGuid ?? String(u.id ?? '');
   }
 
@@ -1269,7 +1307,7 @@ export class Manage implements OnInit {
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
       const end = `${String(h + 1).padStart(2, '0')}:00`;
-      this.adminMeetingSlots.push({ label: `${start} – ${end}`, start, end });
+      this.adminMeetingSlots.push({ label: `${start} â€“ ${end}`, start, end });
     }
     this.adminSelectedSlots = new Set();
     this.applyAdminSlotsToDates();
@@ -1331,7 +1369,7 @@ export class Manage implements OnInit {
     this.adminMeetingDayEnd = '';
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
-    this.meetingRoomBookingMode = 'slot';
+    this.meetingRoomBookingMode = 'day';
     this.adminStartDate = '';
     this.adminMonths = (this.selectedSpaceTypeId === 'shared' || this.selectedSpaceTypeId === 'private') ? 12 : 1;
     this.bookingFormData.startDateTime = '';
@@ -1423,24 +1461,26 @@ export class Manage implements OnInit {
     const { hourly, daily, monthly } = this.getSpacePrice(space);
 
     if (this.isAdminMeetingRoom) {
-      const { startDateTime, endDateTime } = this.bookingFormData;
-      if (!startDateTime || !endDateTime) return;
-      const start = new Date(startDateTime);
-      const end = new Date(endDateTime);
-      if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
-      const rate = hourly > 0 ? hourly : (daily > 0 ? daily : (monthly > 0 ? monthly : 0));
-      let amount: number;
-      if (this.meetingRoomBookingMode === 'day') {
-        // Full-day: count calendar days × 9 hours/day × hourly rate
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / 86_400_000);
-        amount = diffDays * 9 * rate;
+      if (this.meetingRoomBookingMode === 'slot') {
+        const rate = hourly > 0 ? hourly : (daily > 0 ? daily : monthly);
+        const hours = this.adminSelectedSlots.size || 1;
+        this.securityDeposit = 0;
+        this.bookingSubtotal = parseFloat((rate * hours).toFixed(2));
       } else {
-        const diffHours = (end.getTime() - start.getTime()) / 3_600_000;
-        amount = Math.ceil(diffHours) * rate;
-      }
+        const { startDateTime, endDateTime } = this.bookingFormData;
+        if (!startDateTime || !endDateTime) return;
+        const start = new Date(startDateTime);
+        const end = new Date(endDateTime);
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return;
 
-      this.securityDeposit = 0;
-      this.bookingSubtotal = parseFloat(amount.toFixed(2));
+        const dayRate = daily > 0 ? daily : (hourly > 0 ? hourly * 9 : (monthly > 0 ? monthly / 30 : 0));
+        const diffMs = end.getTime() - start.getTime();
+        const diffDays = Math.max(1, Math.ceil(diffMs / 86_400_000));
+        const amount = diffDays * dayRate;
+
+        this.securityDeposit = 0;
+        this.bookingSubtotal = parseFloat(amount.toFixed(2));
+      }
     } else {
       if (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1) return;
       const rate = monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0));
@@ -1452,7 +1492,7 @@ export class Manage implements OnInit {
         this.securityDeposit = parseFloat(oneMonthRentOfRoom.toFixed(2));
         this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
       } else {
-        // Shared Space — no security deposit
+        // Shared Space â€” no security deposit
         const totalRent = rate * Number(this.adminMonths);
         this.securityDeposit = 0;
         this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
@@ -1631,7 +1671,7 @@ export class Manage implements OnInit {
                     const start = new Date(this.adminStartDate);
                     const end = new Date(this.adminMeetingDayEnd);
                     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
-                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room — Full Day (${days} day${days > 1 ? 's' : ''} × 9 hrs/day)` };
+                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room â€” Full Day (${days} day${days > 1 ? 's' : ''} Ã— 9 hrs/day)` };
                   }
                   return { feeType: 'RoomRent', amount: this.bookingSubtotal };
                 })(),
@@ -1640,6 +1680,7 @@ export class Manage implements OnInit {
               ]);
 
           let receipt;
+          const tax = this.bookingTaxAmount;
           if (!this.isAdminMeetingRoom) {
             const billingMonths = payload.billingPeriodMonths || 3;
             const secMonths = payload.securityDepositMonths || 0;
@@ -1654,50 +1695,11 @@ export class Manage implements OnInit {
             if (secMonths > 0) {
               billingDetails.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDepositAmount });
             }
+            if (tax > 0) {
+              billingDetails.push({ feeType: 'TAX', description: 'Provincial Sales Tax (16% PST on 10% Support Services)', amount: tax });
+            }
             if (discount > 0) {
               billingDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: discount });
-            }
-
-            receipt = {
-              bookingId,
-              challanNumber: challanNumber || `WN-BK-${bookingId}`,
-              validity,
-              customerName: payload.customerName,
-              customerEmail: payload.customerEmail,
-              customerCode: payload.customerCode,
-              spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
-              locationName: space?.locationName ?? '',
-              spaceTypeName: space?.spaceTypeName ?? '',
-              contractStartDateTime: payload.startDateTime,
-              contractEndDateTime: payload.endDateTime,
-              billingPeriodStart: payload.startDateTime,
-              billingPeriodEnd: this.calcBillingPeriodEnd(payload.startDateTime, billingMonths),
-              startDateTime: payload.startDateTime,
-              endDateTime: payload.endDateTime,
-              bookingDetails: billingDetails,
-              securityDeposit: secDepositAmount,
-              subtotalAmount: billingRentAmount,
-              discountPercentage: Number(this.bookingDiscountPercentage || 0),
-              discountAmount: discount,
-              totalAmount: firstInvoiceTotal,
-              notes: payload.notes,
-              createdAt: new Date().toISOString(),
-            };
-          } else {
-            const secMonths = payload.securityDepositMonths || 0;
-            const secDepositAmount = this.effectiveSecurityDeposit;
-            const billingMonths = payload.billingPeriodMonths || 3;
-            const billingRentAmount = this.bookingBillingAmount;
-            const firstInvoiceTotal = billingRentAmount + secDepositAmount - this.bookingDiscountAmount;
-
-            const fullDetails = [
-              { feeType: 'RoomRent', description: `Room Rent (${billingMonths} Month(s))`, amount: billingRentAmount }
-            ];
-            if (secMonths > 0) {
-              fullDetails.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDepositAmount });
-            }
-            if (this.bookingDiscountAmount > 0) {
-              fullDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: this.bookingDiscountAmount });
             }
 
             receipt = {
@@ -1720,24 +1722,75 @@ export class Manage implements OnInit {
               numberOfMonths: Number(this.adminMonths || 12),
               months: Number(this.adminMonths || 12),
               billingPeriodMonths: billingMonths,
+              securityDepositMonths: secMonths,
               monthlyRent: Number(this.bookingMonthlyRent),
               totalContractAmount: Number(this.bookingSubtotal),
               currentCycleAmount: Number(billingRentAmount),
               firstCycleRent: Number(billingRentAmount),
               securityDeposit: secDepositAmount,
               securityDepositOverride: secDepositAmount,
-              securityDepositMonths: secMonths,
+              taxAmount: tax,
+              taxAmountOnAdvanceRent: tax,
+              taxAmountOnContract: Math.round(Number(this.bookingSubtotal) * 0.10 * 0.16 * 100) / 100,
+              bookingDetails: billingDetails,
+              subtotalAmount: billingRentAmount,
+              discountPercentage: Number(this.bookingDiscountPercentage || 0),
+              discountAmount: discount,
+              totalAmount: firstInvoiceTotal,
+              totalPayable: firstInvoiceTotal,
+              notes: payload.notes,
+              createdAt: new Date().toISOString(),
+            };
+          } else {
+            const secDepositAmount = 0;
+            const billingRentAmount = this.bookingSubtotal;
+            const firstInvoiceTotal = Math.max(0, billingRentAmount + tax - this.bookingDiscountAmount);
+
+            const fullDetails = [
+              { feeType: 'RoomRent', description: `Meeting Room Rent`, amount: billingRentAmount }
+            ];
+            if (tax > 0) {
+              fullDetails.push({ feeType: 'TAX', description: 'Provincial Sales Tax (16% PST on 10% Support Services)', amount: tax });
+            }
+            if (this.bookingDiscountAmount > 0) {
+              fullDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: this.bookingDiscountAmount });
+            }
+
+            receipt = {
+              bookingId,
+              challanNumber: challanNumber || `WN-BK-${bookingId}`,
+              validity,
+              customerName: payload.customerName,
+              customerEmail: payload.customerEmail,
+              customerCode: payload.customerCode,
+              spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
+              locationName: space?.locationName ?? '',
+              spaceTypeName: space?.spaceTypeName ?? '',
+              contractStartDateTime: payload.startDateTime,
+              contractEndDateTime: payload.endDateTime,
+              billingPeriodStart: payload.startDateTime,
+              billingPeriodEnd: payload.endDateTime,
+              startDateTime: payload.startDateTime,
+              endDateTime: payload.endDateTime,
+              monthlyRent: 0,
+              totalContractAmount: billingRentAmount,
+              currentCycleAmount: billingRentAmount,
+              firstCycleRent: billingRentAmount,
+              securityDeposit: 0,
+              taxAmount: tax,
+              taxAmountOnAdvanceRent: tax,
+              taxAmountOnContract: tax,
               bookingDetails: fullDetails,
-              subtotalAmount: Number(this.bookingSubtotal),
+              subtotalAmount: billingRentAmount,
               discountPercentage: Number(this.bookingDiscountPercentage || 0),
               discountAmount: this.bookingDiscountAmount,
-              totalAmount: Math.max(0, firstInvoiceTotal),
-              firstInvoiceTotal: Math.max(0, firstInvoiceTotal),
+              totalAmount: firstInvoiceTotal,
+              totalPayable: firstInvoiceTotal,
+              firstInvoiceTotal: firstInvoiceTotal,
               notes: payload.notes,
               createdAt: new Date().toISOString(),
             };
           }
-
           const createdBookingObj = {
             id: bookingId,
             bookingId: bookingId,
@@ -2012,7 +2065,7 @@ export class Manage implements OnInit {
         if (start && end) {
           const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           const e = new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          return `${s} – ${e}`;
+          return `${s} â€“ ${e}`;
         }
         return start ? new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
       }
@@ -2045,13 +2098,13 @@ export class Manage implements OnInit {
     if (this.entity === 'payments') {
       if (col.key === 'bookingId') {
         const bid = item.bookingId ?? item.BookingId ?? item.bookingPublicId ?? item.BookingPublicId;
-        return bid ? `#${bid}` : '—';
+        return bid ? `#${bid}` : 'â€”';
       }
       if (col.key === 'userEmail') {
-        return item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || item.userName || item.CustomerName || '—';
+        return item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || item.userName || item.CustomerName || 'â€”';
       }
       if (col.key === 'spaceName') {
-        return item.spaceName || item.SpaceName || item.spaceNumber || item.SpaceNumber || item.spaceCode || (item.bookingId || item.BookingId ? `Space #${item.bookingId || item.BookingId}` : '—');
+        return item.spaceName || item.SpaceName || item.spaceNumber || item.SpaceNumber || item.spaceCode || (item.bookingId || item.BookingId ? `Space #${item.bookingId || item.BookingId}` : 'â€”');
       }
       if (col.key === 'amountType') {
         return item.feeType || item.FeeType || item.chargeTypeLabel || item.amountType || item.billingPeriodLabel || item.billingPeriod || (item.securityDeposit && item.amount === item.securityDeposit ? 'Security Deposit' : 'Cycle Rent');
@@ -2063,7 +2116,7 @@ export class Manage implements OnInit {
         return item.paymentMethod || item.PaymentMethod || item.paymentMethodLabel || 'Bank Transfer';
       }
       if (col.key === 'challanNumber') {
-        return item.challanNumber || item.ChallanNumber || item.transactionRef || item.TransactionRef || '—';
+        return item.challanNumber || item.ChallanNumber || item.transactionRef || item.TransactionRef || 'â€”';
       }
       if (col.key === 'paymentStatus') {
         return item.paymentStatus || item.PaymentStatus || (item.statusId === 2 ? 'Paid' : 'Pending');
@@ -2104,20 +2157,6 @@ export class Manage implements OnInit {
   }
 
 
-  onPhoneInput(event: any, key: string = 'phoneNumber') {
-    const input = event.target as HTMLInputElement;
-    const clean = input.value.replace(/\D/g, '').slice(0, 11);
-    this.formData[key] = clean;
-    input.value = clean;
-  }
-
-  onQuickPhoneInput(event: any) {
-    const input = event.target as HTMLInputElement;
-    const clean = input.value.replace(/\D/g, '').slice(0, 11);
-    this.quickCustomerForm.phoneNumber = clean;
-    input.value = clean;
-  }
-
   openCreate() {
     this.editItem = null; this.formData = {}; this.error = ''; this.showModal = true;
     this.selectedAmenityIds = [];
@@ -2133,10 +2172,25 @@ export class Manage implements OnInit {
     }
   }
 
+  onPhoneInput(event: any, key: string = 'phoneNumber') {
+    const input = event.target as HTMLInputElement;
+    const clean = input.value.replace(/\D/g, '').slice(0, 11);
+    this.formData[key] = clean;
+    input.value = clean;
+  }
+
+  onQuickPhoneInput(event: any) {
+    const input = event.target as HTMLInputElement;
+    const clean = input.value.replace(/\D/g, '').slice(0, 11);
+    this.quickCustomerForm.phoneNumber = clean;
+    input.value = clean;
+  }
+
   openCreateCustomerFromBooking() {
     this.quickCustomerForm = {
       firstName: '',
       lastName: '',
+      company: '',
       email: '',
       countryCode: '+92',
       phoneNumber: '',
@@ -2149,7 +2203,7 @@ export class Manage implements OnInit {
   }
 
   submitQuickCreateCustomer() {
-    const { firstName, email, phoneNumber, countryCode, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
+    const { firstName, lastName, company, email, phoneNumber, countryCode, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
     const fn = (firstName || '').trim();
     const em = (email || '').trim();
     const phoneDigits = (phoneNumber || '').replace(/\D/g, '');
@@ -2188,6 +2242,7 @@ export class Manage implements OnInit {
       ...this.quickCustomerForm,
       firstName: fn,
       lastName: (this.quickCustomerForm.lastName || '').trim(),
+      company: (company || '').trim() || null,
       email: em,
       countryCode: code,
       phoneNumber: fullPhone,
@@ -2239,11 +2294,76 @@ export class Manage implements OnInit {
       }
     }
     if (this.entity === 'spaces') {
-      const savedIds: string = item.amenityIds || '';
+      this.priceError = '';
+      const name = String(item.name || item.Name || '').toLowerCase().trim();
+      const locId = item.locationId ?? item.LocationId;
+      const stId = item.spaceTypeId ?? item.SpaceTypeId;
+      const flId = item.floorId ?? item.FloorId;
+      const rentAccId = item.rentAccountId ?? item.RentAccountId;
+      const savedIds: string = String(item.amenityIds ?? item.AmenityIds ?? item.amenities ?? '');
+
+      const pMonth = Number(item.pricePerMonth ?? item.PricePerMonth ?? 0);
+      const pDay = Number(item.pricePerDay ?? item.PricePerDay ?? item.seatPrice ?? item.SeatPrice ?? 0);
+      const pHour = Number(item.pricePerHour ?? item.PricePerHour ?? 0);
+
+      let priceValue: number | null = null;
+      let priceUnit = 'month';
+
+      if (name.includes('meeting room 1')) {
+        priceValue = pHour > 0 ? pHour : (item.price ? Number(item.price) : null);
+        priceUnit = 'hour';
+      } else if (name.includes('meeting room 2')) {
+        priceValue = pDay > 0 ? pDay : (item.price ? Number(item.price) : null);
+        priceUnit = 'day';
+      } else if (name.includes('front office') || name.includes('front-office')) {
+        priceValue = pMonth > 0 ? pMonth : (item.price ? Number(item.price) : (pDay > 0 ? pDay : 35000));
+        priceUnit = 'month';
+      } else if (pDay > 0 && pMonth === 0 && pHour === 0) {
+        priceValue = pDay;
+        priceUnit = 'day';
+      } else if (pHour > 0 && pMonth === 0 && pDay === 0) {
+        priceValue = pHour;
+        priceUnit = 'hour';
+      } else if (pMonth > 0 && pDay === 0 && pHour === 0) {
+        priceValue = pMonth;
+        priceUnit = 'month';
+      } else if (pHour > 0) {
+        priceValue = pHour;
+        priceUnit = 'hour';
+      } else if (pDay > 0) {
+        priceValue = pDay;
+        priceUnit = 'day';
+      } else if (pMonth > 0) {
+        priceValue = pMonth;
+        priceUnit = 'month';
+      }
+
+      this.formData = {
+        ...item,
+        id: item.id ?? item.Id,
+        name: item.name ?? item.Name ?? '',
+        code: item.code ?? item.Code ?? '',
+        capacity: item.capacity ?? item.Capacity ?? null,
+        locationId: locId != null && locId !== '' ? Number(locId) : '',
+        spaceTypeId: stId != null && stId !== '' ? Number(stId) : '',
+        floorId: flId != null && flId !== '' ? Number(flId) : '',
+        priceValue: priceValue,
+        priceUnit: priceUnit,
+        pricePerHour: pHour > 0 ? pHour : null,
+        pricePerDay: pDay > 0 ? pDay : null,
+        pricePerMonth: pMonth > 0 ? pMonth : null,
+        description: item.description ?? item.Description ?? '',
+        imageUrl: item.imageUrl ?? item.ImageUrl ?? '',
+        rentAccountId: rentAccId != null && rentAccId !== '' ? Number(rentAccId) : '',
+        status: item.status ?? item.Status ?? 'Available',
+        isActive: item.isActive ?? item.IsActive ?? true
+      };
+
       this.selectedAmenityIds = savedIds
         ? savedIds.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))
         : [];
-      if (item.locationId) this.loadFloorsForLocation(item.locationId);
+
+      if (locId) this.loadFloorsForLocation(Number(locId));
     }
     if (this.entity === 'bookings') {
       this.formData['startDateTime'] = this.toDatetimeLocal(item.startDateTime);
@@ -2361,7 +2481,10 @@ export class Manage implements OnInit {
       };
     }
 
-    if (this.entity === 'spaces') this.override_save_spaces(this.formData);
+    if (this.entity === 'spaces') {
+      const valid = this.override_save_spaces(this.formData);
+      if (!valid) return;
+    }
 
     const obs = this.editItem
       ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID ?? this.editItem.id, this.formData)
@@ -2371,7 +2494,7 @@ export class Manage implements OnInit {
       next: (res: any) => {
         this.saving = false;
         this.showModal = false;
-        this.success = this.editItem ? 'Updated successfully.' : 'Created successfully.';
+        this.success = this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.');
         setTimeout(() => this.success = '', 3000);
 
         if (this.creatingCustomerFromBooking) {
@@ -2657,16 +2780,8 @@ export class Manage implements OnInit {
     return selected ? selected.l.toLowerCase().includes('private') : false;
   }
 
-  override_save_spaces(d: any): any {
-    d.amenities = this.selectedAmenityIds.join(',');
-    // ensure numeric types for FK fields
-    if (d.locationId) d.locationId = Number(d.locationId);
-    if (d.spaceTypeId) d.spaceTypeId = Number(d.spaceTypeId);
-    if (d.floorId) d.floorId = Number(d.floorId);
-    return d;
-  }
 
-  // ── Duplicate Space Detection ────────────────────────────
+  // â”€â”€ Duplicate Space Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showDuplicatesOnly = false;
   duplicateCodes = new Set<string>();
 
@@ -2711,6 +2826,7 @@ export class Manage implements OnInit {
         columns: [
           { key: 'code', label: 'Code' },
           { key: 'fullName', label: 'Name' },
+          { key: 'company', label: 'Company' },
           { key: 'email', label: 'Email' },
           { key: 'phoneNumber', label: 'Phone' },
           { key: 'cityName', label: 'City' },
@@ -2720,6 +2836,7 @@ export class Manage implements OnInit {
         fields: [
           { key: 'firstName', label: 'First Name', type: 'text', required: true },
           { key: 'lastName', label: 'Last Name', type: 'text' },
+          { key: 'company', label: 'Company Name', type: 'text' },
           { key: 'email', label: 'Email', type: 'email', required: true },
           { key: 'phoneNumber', label: 'Phone Number', type: 'phone-split', required: true },
           { key: 'addressLine1', label: 'Address Line 1', type: 'text', required: true },
@@ -2814,7 +2931,7 @@ export class Manage implements OnInit {
           { key: 'locationName', label: 'Location' },
           { key: 'spaceTypeName', label: 'Type' },
           { key: 'capacity', label: 'Capacity' },
-          { key: 'pricePerDay', label: 'Price', type: 'space-prices' },
+          { key: 'price', label: 'Price', type: 'space-prices' },
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'imageUrl', label: 'Image', type: 'image' },
         ],
@@ -2924,6 +3041,7 @@ export class Manage implements OnInit {
         title: 'Contacts & Tour Inquiries',
         columns: [
           { key: 'fullName', label: 'Name' },
+          { key: 'company', label: 'Company' },
           { key: 'email', label: 'Email' },
           { key: 'phone', label: 'Phone' },
           { key: 'subject', label: 'Subject / Type' },
@@ -3007,7 +3125,7 @@ export class Manage implements OnInit {
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
       const end = `${String(h + 1).padStart(2, '0')}:00`;
-      this.quotationMeetingSlots.push({ label: `${start} – ${end}`, start, end });
+      this.quotationMeetingSlots.push({ label: `${start} â€“ ${end}`, start, end });
     }
     this.quotationSelectedSlots = new Set();
     this.recalcQuotationAmount();
@@ -3225,6 +3343,23 @@ export class Manage implements OnInit {
     });
   }
 
+  onQuotationSpaceSelected() {
+    const spaceId = this.quotationFormData.spaceId;
+    if (spaceId) {
+      const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+      if (space) {
+        const name = String(space.name || space.Name || '').toLowerCase();
+        const { hourly, daily } = this.getSpacePrice(space);
+        if (name.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
+          this.quotationMeetingRoomMode = 'day';
+        } else if (name.includes('meeting room 1') || hourly > 0) {
+          this.quotationMeetingRoomMode = 'slot';
+        }
+      }
+    }
+    this.recalcQuotationAmount();
+  }
+
   recalcQuotationAmount() {
     this.quotationSubtotal = 0;
     this.quotationSecurityDeposit = 0;
@@ -3239,15 +3374,31 @@ export class Manage implements OnInit {
     const { hourly, daily, monthly } = this.getSpacePrice(space);
 
     if (this.isQuotationMeetingRoom) {
-      const rate = hourly > 0 ? hourly : (daily > 0 ? daily : monthly);
-      if (this.quotationMeetingRoomMode === 'day' && this.quotationStartDate && this.quotationMeetingDayEnd) {
-        const start = new Date(this.quotationStartDate);
-        const end = new Date(this.quotationMeetingDayEnd);
-        const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
-        this.quotationSubtotal = parseFloat((rate * 9 * diffDays).toFixed(2));
+      const spaceName = String(space.name || space.Name || '').toLowerCase();
+      if (spaceName.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
+        this.quotationMeetingRoomMode = 'day';
+        const dayRate = daily > 0 ? daily : (hourly > 0 ? hourly * 9 : monthly / 30);
+        if (this.quotationStartDate && this.quotationMeetingDayEnd) {
+          const start = new Date(this.quotationStartDate);
+          const end = new Date(this.quotationMeetingDayEnd);
+          const diffMs = end.getTime() - start.getTime();
+          const diffDays = Math.max(1, Math.ceil(diffMs / 86_400_000));
+          this.quotationSubtotal = parseFloat((dayRate * diffDays).toFixed(2));
+        } else {
+          this.quotationSubtotal = parseFloat(dayRate.toFixed(2));
+        }
       } else {
-        const hours = this.quotationSelectedSlots.size || 1;
-        this.quotationSubtotal = parseFloat((rate * hours).toFixed(2));
+        const rate = hourly > 0 ? hourly : (daily > 0 ? daily : monthly);
+        if (this.quotationMeetingRoomMode === 'day' && this.quotationStartDate && this.quotationMeetingDayEnd) {
+          const start = new Date(this.quotationStartDate);
+          const end = new Date(this.quotationMeetingDayEnd);
+          const diffMs = end.getTime() - start.getTime();
+          const diffDays = Math.max(1, Math.ceil(diffMs / 86_400_000));
+          this.quotationSubtotal = parseFloat((rate * 9 * diffDays).toFixed(2));
+        } else {
+          const hours = this.quotationSelectedSlots.size || 1;
+          this.quotationSubtotal = parseFloat((rate * hours).toFixed(2));
+        }
       }
       this.quotationSecurityDeposit = 0;
     } else {
@@ -3897,4 +4048,405 @@ export class Manage implements OnInit {
     });
   }
 
+  // Missing Template Helpers and Methods
+
+  getSpaceDisplayPrice(item: any): { price: number; unit: string; display: string } {
+    if (!item) return { price: 0, unit: 'Month', display: '-' };
+
+    const name = String(item.name || item.Name || '').toLowerCase().trim();
+    const spaceType = String(item.spaceTypeName || item.spaceCategory || item.spaceType || '').toLowerCase();
+    const pMonth = Number(item.pricePerMonth ?? item.PricePerMonth ?? 0);
+    const pDay = Number(item.pricePerDay ?? item.PricePerDay ?? item.seatPrice ?? item.SeatPrice ?? 0);
+    const pHour = Number(item.pricePerHour ?? item.PricePerHour ?? 0);
+    const cap = Number(item.capacity ?? item.Capacity ?? item.spaceCapacity ?? item.SpaceCapacity ?? 1);
+    const capacityVal = cap > 0 ? cap : 1;
+
+    // Explicit rule for Private Rooms / Private Offices / Offices / Room spaces
+    const isPrivate = this.isPrivateRoom(item) ||
+                      name.includes('private') || name.includes('office') || name.includes('room') ||
+                      spaceType.includes('private') || spaceType.includes('office') || spaceType.includes('room');
+
+    if (isPrivate && !name.includes('meeting') && !spaceType.includes('meeting')) {
+      const perSeatPrice = Number(item.seatPrice ?? item.SeatPrice ?? item.pricePerSeat ?? item.PricePerSeat ?? (pDay > 0 ? pDay : (pMonth > 0 ? pMonth : (item?.price ? Number(item.price) : 35000))));
+      const price = perSeatPrice * capacityVal;
+      return { price, unit: 'Month', display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / Month` : '-' };
+    }
+
+    // Explicit rules for Meeting Room 1 (Hourly) and Meeting Room 2 (Daily)
+    if (name.includes('meeting room 1')) {
+      const price = Number(pHour || item?.price || pDay || 0);
+      return { price, unit: 'Hour', display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / Hour` : '-' };
+    }
+
+    if (name.includes('meeting room 2')) {
+      const price = Number(pDay || item?.price || 0);
+      return { price, unit: 'Day', display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / Day` : '-' };
+    }
+
+    // Check explicitly configured rate units on space item
+    if (pHour > 0 && pMonth === 0 && pDay === 0) {
+      return { price: pHour, unit: 'Hour', display: `PKR ${pHour.toLocaleString('en-US')} / Hour` };
+    }
+    if (pDay > 0 && pMonth === 0 && pHour === 0) {
+      return { price: pDay, unit: 'Day', display: `PKR ${pDay.toLocaleString('en-US')} / Day` };
+    }
+    if (pMonth > 0 && pDay === 0 && pHour === 0) {
+      return { price: pMonth, unit: 'Month', display: `PKR ${pMonth.toLocaleString('en-US')} / Month` };
+    }
+
+    if (spaceType.includes('meeting') || spaceType.includes('conference')) {
+      const price = Number(pHour || item?.price || pDay || 0);
+      const u = (pDay > 0 && pHour === 0) ? 'Day' : 'Hour';
+      return { price, unit: u, display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / ${u}` : '-' };
+    } else if (spaceType.includes('private') || spaceType.includes('office') || spaceType.includes('shared') || spaceType.includes('desk') || spaceType.includes('coworking')) {
+      const perSeatPrice = Number(item.seatPrice ?? item.SeatPrice ?? item.pricePerSeat ?? item.PricePerSeat ?? (pMonth || pDay || item?.price || 0));
+      const price = perSeatPrice * capacityVal;
+      return { price, unit: 'Month', display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / Month` : '-' };
+    } else {
+      const price = Number(pMonth || pDay || pHour || item?.price || 0);
+      const unit = pMonth > 0 ? 'Month' : (pDay > 0 ? 'Day' : (pHour > 0 ? 'Hour' : 'Month'));
+      return { price, unit, display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / ${unit}` : '-' };
+    }
+  }
+
+  onPriceValueOrUnitChange() {
+    this.priceError = '';
+    const val = this.formData['priceValue'] !== null && this.formData['priceValue'] !== undefined && this.formData['priceValue'] !== ''
+      ? Number(this.formData['priceValue'])
+      : null;
+    const unit = (this.formData['priceUnit'] || 'month').toString().trim().toLowerCase();
+    const unitLabel = unit === 'month' ? 'Per Month' : (unit === 'day' ? 'Per Day' : 'Per Hour');
+
+    this.formData['price'] = val;
+    this.formData['priceType'] = unitLabel;
+
+    if (unit === 'hour') {
+      this.formData['pricePerHour'] = val;
+      this.formData['pricePerDay'] = null;
+      this.formData['pricePerMonth'] = null;
+    } else if (unit === 'day') {
+      this.formData['pricePerDay'] = val;
+      this.formData['pricePerHour'] = null;
+      this.formData['pricePerMonth'] = null;
+    } else {
+      this.formData['pricePerMonth'] = val;
+      this.formData['pricePerHour'] = null;
+      this.formData['pricePerDay'] = null;
+    }
+  }
+
+  override_save_spaces(d: any): boolean {
+    this.priceError = '';
+    const val = d.priceValue !== null && d.priceValue !== undefined && d.priceValue !== '' ? Number(d.priceValue) : null;
+    const unit = (d.priceUnit || 'month').toString().trim().toLowerCase();
+
+    if (val === null || isNaN(val)) {
+      this.error = 'Price is required.';
+      this.priceError = 'Price is required.';
+      this.saving = false;
+      return false;
+    }
+    if (val <= 0) {
+      this.error = 'Price must be greater than 0.';
+      this.priceError = 'Price must be greater than 0.';
+      this.saving = false;
+      return false;
+    }
+    if (!['month', 'day', 'hour'].includes(unit)) {
+      this.error = 'Price Type is required and must be Per Month, Per Day, or Per Hour.';
+      this.saving = false;
+      return false;
+    }
+
+    this.onPriceValueOrUnitChange();
+    if (d.locationId) d.locationId = Number(d.locationId);
+    if (d.spaceTypeId) d.spaceTypeId = Number(d.spaceTypeId);
+    if (d.floorId) d.floorId = Number(d.floorId);
+    if (d.capacity) d.capacity = Number(d.capacity);
+
+    return true;
+  }
+
+
+
+  getChallanContractMonths(c: any): number {
+    if (!c) return 12;
+    return Number(c.contractPeriodMonths ?? c.ContractPeriodMonths ?? c.numberOfMonths ?? c.NumberOfMonths ?? c.months ?? c.Months ?? 12);
+  }
+
+  getChallanBillingMonths(c: any): number {
+    if (!c) return 3;
+    return Number(c.billingPeriodMonths ?? c.BillingPeriodMonths ?? 3);
+  }
+
+  getChallanSecurityMonths(c: any): number {
+    if (!c) return 1;
+    return Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 1);
+  }
+
+  getChallanMonthlyRent(c: any): number {
+    if (!c || this.isMeetingRoom(c)) return 0;
+    const dbMonthly = c.monthlyRent ?? c.MonthlyRent ?? c.roomPrice ?? c.RoomPrice;
+    if (dbMonthly !== undefined && dbMonthly !== null && Number(dbMonthly) > 0) {
+      return Number(dbMonthly);
+    }
+    const months = this.getChallanContractMonths(c);
+    const dbSubtotal = c.subtotalAmount ?? c.SubtotalAmount ?? c.totalContractAmount ?? c.TotalContractAmount;
+    if (dbSubtotal !== undefined && dbSubtotal !== null && Number(dbSubtotal) > 0 && months > 0) {
+      return Number(dbSubtotal) / months;
+    }
+    const seatPrice = Number(c.seatPrice ?? c.SeatPrice ?? 0);
+    let capacity = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
+    if (!capacity && c.spaceName) {
+      const match = String(c.spaceName).match(/\((\d+)\)/);
+      if (match && match[1]) capacity = Number(match[1]);
+    }
+    const typeName = String(c.spaceTypeName || c.SpaceTypeName || '').toLowerCase();
+    const isPrivate = typeName.includes('private') || typeName.includes('office') || typeName.includes('room');
+
+    if (isPrivate && capacity > 0 && seatPrice > 0) {
+      return seatPrice * capacity;
+    }
+    if (seatPrice > 0) return seatPrice;
+    return 0;
+  }
+
+  getChallanTotalContract(c: any): number {
+    if (!c) return 0;
+    if (this.isMeetingRoom(c)) {
+      return Number(c.subtotalAmount ?? c.SubtotalAmount ?? c.totalAmount ?? c.TotalAmount ?? 0);
+    }
+    const dbTotal = c.totalContractAmount ?? c.TotalContractAmount ?? c.subtotalAmount ?? c.SubtotalAmount;
+    if (dbTotal !== undefined && dbTotal !== null && Number(dbTotal) > 0 && Number(dbTotal) !== Number(c.totalAmount) && Number(dbTotal) !== Number(c.totalPayable)) {
+      return Number(dbTotal);
+    }
+    const months = this.getChallanContractMonths(c);
+    const monthlyRent = this.getChallanMonthlyRent(c);
+    return monthlyRent * months;
+  }
+
+  getChallanFirstCycleRent(c: any): number {
+    if (!c) return 0;
+    if (this.isMeetingRoom(c)) {
+      return Number(c.subtotalAmount ?? c.SubtotalAmount ?? c.totalAmount ?? c.TotalAmount ?? 0);
+    }
+    const dbCycle = c.currentCycleAmount ?? c.CurrentCycleAmount ?? c.firstCycleRent ?? c.FirstCycleRent;
+    if (dbCycle !== undefined && dbCycle !== null && Number(dbCycle) > 0 && Number(dbCycle) < Number(this.getChallanTotalContract(c))) {
+      return Number(dbCycle);
+    }
+    const bpm = this.getChallanBillingMonths(c);
+    const monthlyRent = this.getChallanMonthlyRent(c);
+    return monthlyRent * bpm;
+  }
+
+  getChallanSecurityDeposit(c: any): number {
+    if (!c || !this.isPrivateRoom(c)) return 0;
+    const secOverride = c.securityDepositOverride ?? c.SecurityDepositOverride;
+    if (secOverride !== undefined && secOverride !== null && Number(secOverride) > 0) {
+      return Number(secOverride);
+    }
+    const dbDeposit = c.securityDeposit ?? c.SecurityDeposit;
+    if (dbDeposit !== undefined && dbDeposit !== null && Number(dbDeposit) > 0) {
+      return Number(dbDeposit);
+    }
+    const secMonths = this.getChallanSecurityMonths(c);
+    const monthlyRent = this.getChallanMonthlyRent(c);
+    return monthlyRent * secMonths;
+  }
+
+  getChallanTaxAmount(c: any): number {
+    if (!c) return 0;
+    if (c.taxAmount !== undefined && c.taxAmount !== null && Number(c.taxAmount) > 0 && !this.isMeetingRoom(c)) {
+      return Number(c.taxAmount);
+    }
+    const cycleRent = this.getChallanFirstCycleRent(c);
+    const supportServices = cycleRent * 0.10;
+    return Math.round(supportServices * 0.16 * 100) / 100;
+  }
+
+  getChallanContractTaxAmount(c: any): number {
+    if (!c || this.isMeetingRoom(c)) return 0;
+    const totalContract = this.getChallanTotalContract(c);
+    const supportServices = totalContract * 0.10;
+    return Math.round(supportServices * 0.16 * 100) / 100;
+  }
+
+  getChallanInitialPayable(c: any): number {
+    if (!c) return 0;
+    const cycleRent = this.getChallanFirstCycleRent(c);
+    const deposit = this.getChallanSecurityDeposit(c);
+    const tax = this.getChallanTaxAmount(c);
+    const discount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
+    return Math.max(0, cycleRent + deposit + tax - discount);
+  }
+
+  getQuotationContractMonths(q: any): number {
+    if (!q) return 12;
+    return Number(q.contractPeriodMonths ?? q.ContractPeriodMonths ?? q.numberOfMonths ?? q.NumberOfMonths ?? q.months ?? q.Months ?? 12);
+  }
+
+  getQuotationBillingMonths(q: any): number {
+    if (!q) return 3;
+    return Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 3);
+  }
+
+  getQuotationSecurityMonths(q: any): number {
+    if (!q) return 1;
+    return Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 1);
+  }
+
+  getQuotationMonthlyRent(q: any): number {
+    if (!q || this.isMeetingRoom(q)) return 0;
+    const dbMonthly = q.monthlyRent ?? q.MonthlyRent ?? q.roomPrice ?? q.RoomPrice;
+    if (dbMonthly !== undefined && dbMonthly !== null && Number(dbMonthly) > 0) {
+      return Number(dbMonthly);
+    }
+    const months = this.getQuotationContractMonths(q);
+    const dbSubtotal = q.subtotalAmount ?? q.SubtotalAmount ?? q.totalContractAmount ?? q.TotalContractAmount;
+    if (dbSubtotal !== undefined && dbSubtotal !== null && Number(dbSubtotal) > 0 && months > 0) {
+      return Number(dbSubtotal) / months;
+    }
+    const seatPrice = Number(q.seatPrice ?? q.SeatPrice ?? 0);
+    let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
+    if (!capacity && q.spaceName) {
+      const match = String(q.spaceName).match(/\((\d+)\)/);
+      if (match && match[1]) capacity = Number(match[1]);
+    }
+    const typeName = String(q.spaceTypeName || q.SpaceTypeName || '').toLowerCase();
+    const isPrivate = typeName.includes('private') || typeName.includes('office') || typeName.includes('room');
+
+    if (isPrivate && capacity > 0 && seatPrice > 0) {
+      return seatPrice * capacity;
+    }
+    if (seatPrice > 0) return seatPrice;
+    return 0;
+  }
+
+  getQuotationTotalContract(q: any): number {
+    if (!q) return 0;
+    if (this.isMeetingRoom(q)) {
+      return Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
+    }
+    const dbTotal = q.totalContractAmount ?? q.TotalContractAmount ?? q.subtotalAmount ?? q.SubtotalAmount;
+    if (dbTotal !== undefined && dbTotal !== null && Number(dbTotal) > 0 && Number(dbTotal) !== Number(q.totalAmount)) {
+      return Number(dbTotal);
+    }
+    const months = this.getQuotationContractMonths(q);
+    const monthlyRent = this.getQuotationMonthlyRent(q);
+    return monthlyRent * months;
+  }
+
+  getQuotationFirstCycleRent(q: any): number {
+    if (!q) return 0;
+    if (this.isMeetingRoom(q)) {
+      return Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
+    }
+    const dbCycle = q.firstCycleRent ?? q.FirstCycleRent ?? q.currentCycleAmount ?? q.CurrentCycleAmount;
+    if (dbCycle !== undefined && dbCycle !== null && Number(dbCycle) > 0 && Number(dbCycle) < Number(this.getQuotationTotalContract(q))) {
+      return Number(dbCycle);
+    }
+    const bpm = this.getQuotationBillingMonths(q);
+    const monthlyRent = this.getQuotationMonthlyRent(q);
+    return monthlyRent * bpm;
+  }
+
+  getQuotationSecurityDeposit(q: any): number {
+    if (!q || !this.isPrivateRoom(q)) return 0;
+    const secOverride = q.securityDepositOverride ?? q.SecurityDepositOverride;
+    if (secOverride !== undefined && secOverride !== null && Number(secOverride) > 0) {
+      return Number(secOverride);
+    }
+    const dbDeposit = q.securityDeposit ?? q.SecurityDeposit;
+    if (dbDeposit !== undefined && dbDeposit !== null && Number(dbDeposit) > 0) {
+      return Number(dbDeposit);
+    }
+    const secMonths = this.getQuotationSecurityMonths(q);
+    const monthlyRent = this.getQuotationMonthlyRent(q);
+    return monthlyRent * secMonths;
+  }
+
+  getQuotationTaxAmount(q: any): number {
+    if (!q) return 0;
+    const cycleRent = this.getQuotationFirstCycleRent(q);
+    const supportServices = cycleRent * 0.10;
+    return Math.round(supportServices * 0.16 * 100) / 100;
+  }
+
+  getQuotationContractTaxAmount(q: any): number {
+    if (!q || this.isMeetingRoom(q)) return 0;
+    const totalContract = this.getQuotationTotalContract(q);
+    const supportServices = totalContract * 0.10;
+    return Math.round(supportServices * 0.16 * 100) / 100;
+  }
+
+  getQuotationInitialPayable(q: any): number {
+    if (!q) return 0;
+    const cycleRent = this.getQuotationFirstCycleRent(q);
+    const deposit = this.getQuotationSecurityDeposit(q);
+    const tax = this.getQuotationTaxAmount(q);
+    const discount = Number(q.discountAmount ?? q.DiscountAmount ?? 0);
+    return Math.max(0, cycleRent + deposit + tax - discount);
+  }
+
+  getQuotationNetTotal(q: any): number {
+    return this.getQuotationInitialPayable(q);
+  }
+
+  showConversionPreviewModal = false;
+  selectedConversionQuotation = signal<any>(null);
+  conversionSubmitting = signal(false);
+
+  openConversionPreviewModal(q: any) {
+    this.selectedConversionQuotation.set(q);
+    this.showConversionPreviewModal = true;
+  }
+
+  closeConversionPreviewModal() {
+    this.showConversionPreviewModal = false;
+    this.selectedConversionQuotation.set(null);
+  }
+
+  executeConversion(q: any) {
+    if (!q || !q.id) return;
+    this.conversionSubmitting.set(true);
+    this.quotationSvc.convertToBooking(q.id).subscribe({
+      next: (res: any) => {
+        this.conversionSubmitting.set(false);
+        this.closeConversionPreviewModal();
+        this.success = 'Quotation successfully converted to booking!';
+        setTimeout(() => this.success = '', 4000);
+        this.load();
+      },
+      error: (err: any) => {
+        this.conversionSubmitting.set(false);
+        alert(err?.error?.message || err?.message || 'Failed to convert quotation.');
+      }
+    });
+  }
+
+  getSpaceType(item: any): string {
+    if (!item) return 'MeetingRoom';
+    if (item.spaceType) return item.spaceType;
+    const name = String(item.spaceTypeName || item.SpaceTypeName || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
+    if (name.includes('meeting') || name.includes('conference')) return 'MeetingRoom';
+    if (name.includes('shared') || name.includes('coworking') || name.includes('desk')) return 'SharedSpace';
+    if (name.includes('private') || name.includes('office') || name.includes('room')) return 'PrivateRoom';
+    if ((item.billingPeriodMonths <= 0 || !item.billingPeriodMonths) && (!item.totalContractAmount || item.totalContractAmount <= 0)) return 'MeetingRoom';
+    return 'SharedSpace';
+  }
+
+  isMeetingRoom(item: any): boolean {
+    return this.getSpaceType(item) === 'MeetingRoom';
+  }
+
+  isSharedSpace(item: any): boolean {
+    return this.getSpaceType(item) === 'SharedSpace';
+  }
+
+  isPrivateRoom(item: any): boolean {
+    return this.getSpaceType(item) === 'PrivateRoom';
+  }
+
 }
+
+

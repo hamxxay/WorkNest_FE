@@ -329,14 +329,19 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/floor`, data);
   }
 
+  // Billing Periods
+  getBillingPeriodsList(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/billing-periods`);
+  }
+
   // Space Configuration
   getSpaceConfig(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/space-config`);
   }
-  updateSpaceConfig(category: string, data: { totalSpaces: number; defaultCapacities?: string; openingTime?: string; closingTime?: string; securityDeposit?: number | null; pricePerHour?: number | null; pricePerDay?: number | null; pricePerMonth?: number | null }): Observable<ApiResponse<any>> {
+  updateSpaceConfig(category: string, data: { totalSpaces: number; defaultCapacities?: string; openingTime?: string; closingTime?: string; securityDeposit?: number | null; price?: number | null; billingPeriodId?: number | null }): Observable<ApiResponse<any>> {
     return this.http.put<ApiResponse<any>>(`${this.api}/space-config/${category}`, data);
   }
-  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: string; locationId: string; codePrefix?: string; pricePerHour?: number; pricePerDay?: number; pricePerMonth?: number; amenities?: string | null }): Observable<ApiResponse<any>> {
+  generateSpaceInventory(data: { spaceCategory: string; spaceTypeId: string; locationId: string; codePrefix?: string; price?: number; billingPeriodId?: number; amenities?: string | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/space-config/generate-inventory`, data);
   }
 

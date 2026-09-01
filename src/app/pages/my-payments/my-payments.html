@@ -8,367 +8,458 @@
     </div>
 
     @if (loading()) {
-      <div class="loading-spinner"><div class="spinner"></div><p>Loading your payments...</p></div>
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading your payments...</p>
+    </div>
     } @else if (payments().length === 0) {
-      <div class="empty-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <h3>No Payments Yet</h3>
-        <p>Your payment history will appear here once you make a booking.</p>
-        <a routerLink="/booking" class="btn-action">Browse Spaces</a>
-      </div>
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" x2="12" y1="2" y2="22" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+      <h3>No Payments Yet</h3>
+      <p>Your payment history will appear here once you make a booking.</p>
+      <a routerLink="/booking" class="btn-action">Browse Spaces</a>
+    </div>
     } @else {
-      <!-- Summary Cards -->
-      <div class="summary-cards">
-        <div class="summary-card">
-          <span class="summary-label">Total Paid</span>
-          <span class="summary-value paid">Rs {{ totalPaid() | number:'1.2-2' }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="summary-label">Pending</span>
-          <span class="summary-value pending">Rs {{ totalPending() | number:'1.2-2' }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="summary-label">Transactions</span>
-          <span class="summary-value">{{ payments().length }}</span>
-        </div>
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <div class="summary-card">
+        <span class="summary-label">Total Paid</span>
+        <span class="summary-value paid">Rs {{ totalPaid() | number:'1.2-2' }}</span>
       </div>
-
-      <!-- Payments Table -->
-      <div class="payments-card">
-        <table class="payments-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Amount</th>
-              <th>Method</th>
-              <th>Status</th>
-              <th>Challan No.</th>
-              <th>Space</th>
-              <th>Valid Until</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (p of payments(); track p.id) {
-              <tr>
-                <td class="cell-id">#{{ p.id }}</td>
-                <td class="cell-amount">Rs {{ p.amount | number:'1.2-2' }}</td>
-                <td>{{ p.paymentMethod || '—' }}</td>
-                <td><span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p) }}</span></td>
-                <td class="cell-ref">{{ p.challanNumber || '—' }}</td>
-                <td>{{ p.spaceName || '—' }}</td>
-                <td class="cell-date">{{ (p.validity || p.validityDate) ? tryDate(p.validity || p.validityDate) : '—' }}</td>
-                <td class="cell-date">{{ tryDate(p.paidAt || p.createdAt) }}</td>
-                <td>
-                  @if (p.challanNumber) {
-                    <button class="btn-challan" (click)="printChallan(p)" title="Print Challan">🖨 Challan</button>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+      <div class="summary-card">
+        <span class="summary-label">Pending</span>
+        <span class="summary-value pending">Rs {{ totalPending() | number:'1.2-2' }}</span>
       </div>
+      <div class="summary-card">
+        <span class="summary-label">Transactions</span>
+        <span class="summary-value">{{ payments().length }}</span>
+      </div>
+    </div>
 
-      <!-- Mobile cards view -->
-      <div class="payments-mobile">
-        @for (p of payments(); track p.id) {
-          <div class="payment-card-mobile">
-            <div class="payment-mobile-header">
-              <div class="payment-mobile-body">
-                <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.2-2' }}</div>
-                <div class="payment-mobile-details">
-                  <span>{{ p.paymentMethod || 'N/A' }}</span>
-                  <span>{{ tryDate(p.paidAt || p.createdAt) }}</span>
-                </div>
-                @if (p.spaceName) {
-                  <div class="payment-mobile-ref">Space: {{ p.spaceName }}</div>
-                }
-                @if (p.challanNumber) {
-                  <div class="payment-mobile-ref">Challan: {{ p.challanNumber }}</div>
-                  <div class="payment-mobile-ref">Valid until: {{ tryDate(p.validity || p.validityDate) }}</div>
-                  <button class="btn-challan" (click)="printChallan(p)">🖨 Print Challan</button>
-                }
-              </div>
-              <div class="payment-mobile-right">
-                <span class="payment-mobile-id">#{{ p.id }}</span>
-                <span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p) }}</span>
-              </div>
+    <!-- Payments Table -->
+    <div class="payments-card">
+      <table class="payments-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Status</th>
+            <th>Challan No.</th>
+            <th>Space</th>
+            <th>Valid Until</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of payments(); track p.id) {
+          <tr>
+            <td class="cell-id">#{{ p.id }}</td>
+            <td class="cell-amount">Rs {{ p.amount | number:'1.2-2' }}</td>
+            <td>{{ p.paymentMethod || '—' }}</td>
+            <td><span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p)
+                }}</span></td>
+            <td class="cell-ref">{{ p.challanNumber || '—' }}</td>
+            <td>{{ p.spaceName || '—' }}</td>
+            <td class="cell-date">{{ (p.validity || p.validityDate) ? tryDate(p.validity || p.validityDate) : '—' }}
+            </td>
+            <td class="cell-date">{{ tryDate(p.paidAt || p.createdAt) }}</td>
+            <td>
+              @if (p.challanNumber) {
+              <button class="btn-challan" (click)="printChallan(p)" title="Print Challan">🖨 Challan</button>
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile cards view -->
+    <div class="payments-mobile">
+      @for (p of payments(); track p.id) {
+      <div class="payment-card-mobile">
+        <div class="payment-mobile-header">
+          <div class="payment-mobile-body">
+            <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.2-2' }}</div>
+            <div class="payment-mobile-details">
+              <span>{{ p.paymentMethod || 'N/A' }}</span>
+              <span>{{ tryDate(p.paidAt || p.createdAt) }}</span>
             </div>
+            @if (p.spaceName) {
+            <div class="payment-mobile-ref">Space: {{ p.spaceName }}</div>
+            }
+            @if (p.challanNumber) {
+            <div class="payment-mobile-ref">Challan: {{ p.challanNumber }}</div>
+            <div class="payment-mobile-ref">Valid until: {{ tryDate(p.validity || p.validityDate) }}</div>
+            <button class="btn-challan" (click)="printChallan(p)">🖨 Print Challan</button>
+            }
           </div>
-        }
+          <div class="payment-mobile-right">
+            <span class="payment-mobile-id">#{{ p.id }}</span>
+            <span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p) }}</span>
+          </div>
+        </div>
       </div>
+      }
+    </div>
     }
   </div>
 </section>
 
 <!-- Challan Print Modal -->
 @if (challanToPrint()) {
-  <div class="modal-overlay" (click)="challanToPrint.set(null)">
-    <div class="challan-modal" (click)="$event.stopPropagation()" id="user-challan-printable">
+<div class="modal-overlay" (click)="challanToPrint.set(null)">
+  <div class="challan-modal" (click)="$event.stopPropagation()" id="user-challan-printable">
 
-      <!-- Bank Header -->
-      <div class="challan-header">
+    <!-- Bank Header -->
+    <div class="challan-header">
+      <div>
+        <div class="challan-brand">WORKNEST</div>
+        <div class="challan-subtitle">Official Payment Challan / Bank Voucher</div>
+      </div>
+      <div class="challan-number-block">
+        <div class="challan-number-label">Challan / Consumer No.</div>
+        <div class="challan-number">{{ challanToPrint()!.challanNumber }}</div>
+      </div>
+    </div>
+
+    <!-- Expiry Alert Banner -->
+    <div class="challan-validity">
+      <span class="validity-tag">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <line x1="12" x2="12" y1="9" y2="13" />
+          <line x1="12" x2="12.01" y1="17" y2="17" />
+        </svg>
+        Valid Until: {{ tryDate(challanToPrint()!.validUntil) }}
+      </span>
+      <span>Please pay before due date to avoid cancellation</span>
+    </div>
+
+    <!-- Scrollable Body Container -->
+    <div class="challan-modal-body" data-challan-body>
+
+      <!-- Info Grid -->
+      <div class="challan-info-grid">
         <div>
-          <div class="challan-brand">WORKNEST</div>
-          <div class="challan-subtitle">Official Payment Challan / Bank Voucher</div>
-        </div>
-        <div class="challan-number-block">
-          <div class="challan-number-label">Challan / Consumer No.</div>
-          <div class="challan-number">{{ challanToPrint()!.challanNumber }}</div>
-        </div>
-      </div>
-
-      <!-- Expiry Alert Banner -->
-      <div class="challan-validity">
-        <span class="validity-tag">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-          Valid Until: {{ tryDate(challanToPrint()!.validUntil) }}
-        </span>
-        <span>Please pay before due date to avoid cancellation</span>
-      </div>
-
-      <!-- Scrollable Body Container -->
-      <div class="challan-modal-body" data-challan-body>
-        
-        <!-- Info Grid -->
-        <div class="challan-info-grid">
-          <div>
-            <div class="info-section-title">Customer Information</div>
-            <div class="info-details">
-              <div><strong>Name:</strong> {{ challanToPrint()!.customerName || 'Valued Member' }}</div>
-              <div><strong>Email:</strong> {{ challanToPrint()!.customerEmail || '—' }}</div>
-            </div>
-          </div>
-          <div>
-            <div class="info-section-title">Booking Details</div>
-            <div class="info-details">
-              <div><strong>Space/Room:</strong> {{ challanToPrint()!.spaceName }} ({{ challanToPrint()!.spaceCode }})</div>
-              <div><strong>Branch/Location:</strong> {{ challanToPrint()!.branchName || challanToPrint()!.locationName }}</div>
-              <div><strong>Period:</strong> {{ challanToPrint()!.startOn | date:'mediumDate' }} to {{ challanToPrint()!.endOn | date:'mediumDate' }}</div>
-              <div><strong>Billing Cycle:</strong> {{ challanToPrint()!.billingPeriodLabel }}</div>
-            </div>
+          <div class="info-section-title">Customer Information</div>
+          <div class="info-details">
+            <div><strong>Name:</strong> {{ challanToPrint()!.customerName || 'Valued Member' }}</div>
+            <div><strong>Email:</strong> {{ challanToPrint()!.customerEmail || '—' }}</div>
           </div>
         </div>
-
-        <!-- Contract & Billing Summary Card -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:20px">
-          <div>
-            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Contract Amount</span>
-            <strong style="color:#15803d;font-size:.95rem">PKR {{ (challanToPrint()!.totalContractAmount ?? challanToPrint()!.contract?.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
-          </div>
-          <div>
-            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill Due Date</span>
-            <strong style="color:#0284c7;font-size:.95rem">{{ (challanToPrint()!.nextBillDueDate || challanToPrint()!.nextBillingDate || challanToPrint()!.contract?.nextBillingDate) ? ((challanToPrint()!.nextBillDueDate || challanToPrint()!.nextBillingDate || challanToPrint()!.contract?.nextBillingDate) | date:'MMM d, y') : 'N/A' }}</strong>
-          </div>
-          <div>
-            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance Left</span>
-            <strong style="color:#b45309;font-size:.95rem">PKR {{ (challanToPrint()!.balanceLeft ?? challanToPrint()!.contract?.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
-          </div>
-        </div>
-
-        <!-- Financial Breakdown Table -->
         <div>
-          <div class="breakdown-title">Payment Breakdown</div>
-          <div class="table-responsive-wrapper">
-            <table class="breakdown-table">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th style="text-align:right">Account COA</th>
-                  <th style="text-align:right">Amount (PKR)</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (line of challanToPrint()!.details; track line.lineId) {
-                  <tr>
-                    <td>
-                      {{ line.chargeTypeLabel }}
-                      @if (line.description && line.description !== line.chargeTypeLabel) {
-                        <span class="line-subdesc">{{ line.description }}</span>
-                      }
-                    </td>
-                    <td style="text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName || '—' }}</td>
-                    <td style="text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.2-2' }}</td>
-                  </tr>
-                }
-                @if (!challanToPrint()!.details || challanToPrint()!.details.length === 0) {
-                  <tr>
-                    <td>Workspace Fee (Room Rent / Space Booking)</td>
-                    <td style="text-align:right;color:#64748b;font-size:.8rem">—</td>
-                    <td style="text-align:right;font-weight:600">Rs {{ challanToPrint()!.amount || challanToPrint()!.totalPayable | number:'1.2-2' }}</td>
-                  </tr>
-                }
-                <tr class="total-row">
-                  <td colspan="2">TOTAL PAYABLE</td>
-                  <td style="text-align:right">Rs {{ (challanToPrint()!.totalPayable || challanToPrint()!.amount) | number:'1.2-2' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Bank / Payment Information -->
-        <div class="bank-instructions-grid">
-          <div>
-            <div class="bank-title">Bank Payment Instructions</div>
-            <div class="bank-desc">
-              Please pay this voucher at any HBL branch counter, ATM, or via mobile banking app under 1Bill / Bill Payment using the consumer number.<br>
-              <strong>Bank Name:</strong> Habib Bank Limited (HBL)<br>
-              <strong>Account Title:</strong> WorkNest (Private) Limited<br>
-              <strong>Voucher Status:</strong> {{ challanToPrint()!.bookingStatusLabel || 'Pending' }}
+          <div class="info-section-title">Booking Details</div>
+          <div class="info-details">
+            <div><strong>Space/Room:</strong> {{ challanToPrint()!.spaceName }} ({{ challanToPrint()!.spaceCode }})
             </div>
-          </div>
-          <div>
-            <div class="bank-title">Important Notice</div>
-            <div class="bank-desc">
-              - Hand over the original copy of this challan at reception if paying in cash.<br>
-              - Retain your receipt for confirmation.<br>
-              - Once paid, your booking is confirmed automatically.
+            <div><strong>Branch/Location:</strong> {{ challanToPrint()!.branchName || challanToPrint()!.locationName }}
             </div>
+            <div><strong>Period:</strong> {{ challanToPrint()!.startOn | date:'mediumDate' }} to {{
+              challanToPrint()!.endOn | date:'mediumDate' }}</div>
+            @if (!isMeetingRoom(challanToPrint())) {
+            <div><strong>Advance Rent Period:</strong> {{ challanToPrint()!.billingPeriodLabel }}</div>
+            }
           </div>
         </div>
-
-        <!-- Footer Seal -->
-        <div class="challan-seal">
-          This is an official system-generated payment voucher. No signature or stamp is required. Powered by WorkNest Financials.
-        </div>
-
       </div>
 
-      <!-- Actions (Always visible at bottom) -->
-      <div class="challan-actions" data-challan-actions>
-        <button class="btn-outline-challan" (click)="challanToPrint.set(null)">Close</button>
-        <button class="btn-email-challan" (click)="sendChallanEmail()" [disabled]="sendingChallanEmail()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
-        </button>
-        <button class="btn-download-challan" (click)="downloadChallan()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          Download PDF
-        </button>
-        <button class="btn-print-challan" (click)="printChallanDoc()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
-          Print Voucher
-        </button>
-      </div>
-
-      @if (challanEmailSent()) {
-        <div class="challan-email-banner">
-          ✓ {{ challanEmailSent() }}
+      <!-- Contract & Billing Summary Card -->
+      @if (!isMeetingRoom(challanToPrint())) {
+      <div
+        style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+        <div>
+          <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total
+            Contract Amount</span>
+          <strong style="color:#15803d;font-size:.95rem">PKR {{ (challanToPrint()!.totalContractAmount ??
+            challanToPrint()!.contract?.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
         </div>
+        <div>
+          <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill
+            Due Date</span>
+          <strong style="color:#0284c7;font-size:.95rem">{{ (challanToPrint()!.nextBillDueDate ||
+            challanToPrint()!.nextBillingDate || challanToPrint()!.contract?.nextBillingDate) ?
+            ((challanToPrint()!.nextBillDueDate || challanToPrint()!.nextBillingDate ||
+            challanToPrint()!.contract?.nextBillingDate) | date:'MMM d, y') : 'N/A' }}</strong>
+        </div>
+        <div>
+          <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance
+            Left</span>
+          <strong style="color:#b45309;font-size:.95rem">PKR {{ (challanToPrint()!.balanceLeft ??
+            challanToPrint()!.contract?.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
+        </div>
+      </div>
       }
 
+      <!-- Financial Breakdown Table -->
+      <div>
+        <div class="breakdown-title">Payment Breakdown</div>
+        <div class="table-responsive-wrapper">
+          <table class="breakdown-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align:right">Account COA</th>
+                <th style="text-align:right">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of challanToPrint()!.details; track line.lineId) {
+              <tr>
+                <td>
+                  {{ line.chargeTypeLabel }}
+                  @if (line.description && line.description !== line.chargeTypeLabel) {
+                  <span class="line-subdesc">{{ line.description }}</span>
+                  }
+                </td>
+                <td style="text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName || '—' }}</td>
+                <td style="text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.2-2' }}</td>
+              </tr>
+              }
+              @if (!challanToPrint()!.details || challanToPrint()!.details.length === 0) {
+              <tr>
+                <td>Workspace Fee (Room Rent / Space Booking)</td>
+                <td style="text-align:right;color:#64748b;font-size:.8rem">—</td>
+                <td style="text-align:right;font-weight:600">Rs {{ (challanToPrint()!.currentCycleAmount ||
+                  challanToPrint()!.monthlyRent || challanToPrint()!.amount) | number:'1.2-2' }}</td>
+              </tr>
+              }
+              @if ((challanToPrint()!.taxAmount ?? challanToPrint()!.contract?.taxAmount ??
+              ((challanToPrint()!.currentCycleAmount * 0.10) * 0.16)) > 0) {
+              <tr style="color:#0284c7">
+                <td>Sales Tax / PST (16% on 10% Support Services)</td>
+                <td style="text-align:right;color:#64748b;font-size:.8rem">Tax</td>
+                <td style="text-align:right;font-weight:600">Rs {{ (challanToPrint()!.taxAmount ??
+                  challanToPrint()!.contract?.taxAmount ?? ((challanToPrint()!.currentCycleAmount * 0.10) * 0.16)) |
+                  number:'1.2-2' }}</td>
+              </tr>
+              }
+              <tr class="total-row">
+                <td colspan="2">TOTAL PAYABLE</td>
+                <td style="text-align:right">Rs {{ (challanToPrint()!.totalPayable || challanToPrint()!.amount) |
+                  number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bank / Payment Information -->
+      <div class="bank-instructions-grid">
+        <div>
+          <div class="bank-title">Bank Payment Instructions</div>
+          <div class="bank-desc">
+            Please pay this voucher at any HBL branch counter, ATM, or via mobile banking app under 1Bill / Bill Payment
+            using the consumer number.<br>
+            <strong>Bank Name:</strong> Habib Bank Limited (HBL)<br>
+            <strong>Account Title:</strong> WorkNest (Private) Limited<br>
+            <strong>Voucher Status:</strong> {{ challanToPrint()!.bookingStatusLabel || 'Pending' }}
+          </div>
+        </div>
+        <div>
+          <div class="bank-title">Important Notice</div>
+          <div class="bank-desc">
+            - Hand over the original copy of this challan at reception if paying in cash.<br>
+            - Retain your receipt for confirmation.<br>
+            - Once paid, your booking is confirmed automatically.
+          </div>
+        </div>
+      </div>
+
+      <!-- Terms & Conditions -->
+      <div
+        style="margin-top: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+        <div class="bank-title" style="font-weight:700; font-size:.8rem; color:#334155; margin-bottom:4px">Terms &amp;
+          Conditions</div>
+        <div class="bank-desc" style="font-size:.78rem; color:#475569; line-height:1.4">
+          The price is exclusive of all taxes.
+        </div>
+      </div>
+
+      <!-- Footer Seal -->
+      <div class="challan-seal">
+        This is an official system-generated payment voucher. No signature or stamp is required. Powered by WorkNest
+        Financials.
+      </div>
+
     </div>
+
+    <!-- Actions (Always visible at bottom) -->
+    <div class="challan-actions" data-challan-actions>
+      <button class="btn-outline-challan" (click)="challanToPrint.set(null)">Close</button>
+      <button class="btn-email-challan" (click)="sendChallanEmail()" [disabled]="sendingChallanEmail()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+          <polyline points="22,6 12,13 2,6" />
+        </svg>
+        {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
+      </button>
+      <button class="btn-download-challan" (click)="downloadChallan()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" x2="12" y1="15" y2="3" />
+        </svg>
+        Download PDF
+      </button>
+      <button class="btn-print-challan" (click)="printChallanDoc()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <rect width="12" height="8" x="6" y="14" />
+        </svg>
+        Print Voucher
+      </button>
+    </div>
+
+    @if (challanEmailSent()) {
+    <div class="challan-email-banner">
+      ✓ {{ challanEmailSent() }}
+    </div>
+    }
+
   </div>
+</div>
 }
 
 
 
 @if (showBookingModal()) {
-  <div class="challan-modal-backdrop" (click)="closeBookingModal()">
-    <div class="challan-modal" (click)="$event.stopPropagation()" style="max-width: 650px;">
-      <div class="challan-modal-header">
+<div class="challan-modal-backdrop" (click)="closeBookingModal()">
+  <div class="challan-modal" (click)="$event.stopPropagation()" style="max-width: 650px;">
+    <div class="challan-modal-header">
+      <div>
+        <h2>Booking & Payment Details</h2>
+        <span class="challan-subtitle">Booking #{{ selectedBookingDetails()?.bookingId || selectedBookingDetails()?.id
+          }}</span>
+      </div>
+      <button class="btn-close-modal" (click)="closeBookingModal()">✕</button>
+    </div>
+
+    <div class="challan-modal-body">
+      @if (loadingBookingDetails()) {
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading booking details...</p>
+      </div>
+      } @else if (selectedBookingDetails(); as b) {
+      <div class="challan-info-grid" style="margin-bottom: 16px;">
         <div>
-          <h2>Booking & Payment Details</h2>
-          <span class="challan-subtitle">Booking #{{ selectedBookingDetails()?.bookingId || selectedBookingDetails()?.id }}</span>
-        </div>
-        <button class="btn-close-modal" (click)="closeBookingModal()">âœ•</button>
-      </div>
-
-            <div class="challan-modal-body">
-        @if (loadingBookingDetails()) {
-          <div class="loading-spinner"><div class="spinner"></div><p>Loading booking details...</p></div>
-        } @else if (selectedBookingDetails(); as b) {
-          <div class="challan-info-grid" style="margin-bottom: 16px;">
-            <div>
-              <div class="info-section-title">Customer & Payment</div>
-              <div class="info-details">
-                <div><strong>Customer:</strong> {{ b.customerName || b.userName || 'Member' }}</div>
-                <div><strong>Email:</strong> {{ b.customerEmail || b.userEmail || 'â€”' }}</div>
-                <div><strong>Method:</strong> {{ b.paymentMethod || 'Bank Transfer' }}</div>
-                <div><strong>Status:</strong> <span class="status-badge" [class]="getStatusClass(b.paymentStatus)">{{ b.paymentStatus || 'Pending' }}</span></div>
-              </div>
-            </div>
-            <div>
-              <div class="info-section-title">Space Information</div>
-              <div class="info-details">
-                <div><strong>Space No:</strong> {{ b.spaceNumber || b.spaceCode || 'â€”' }}</div>
-                <div><strong>Space Name:</strong> {{ b.spaceName || 'â€”' }}</div>
-                <div><strong>Space Type:</strong> {{ b.spaceTypeName || 'Office' }}</div>
-                <div><strong>Location:</strong> {{ b.locationName || b.branchName || 'WorkNest' }}</div>
-              </div>
-            </div>
+          <div class="info-section-title">Customer & Payment</div>
+          <div class="info-details">
+            <div><strong>Customer:</strong> {{ b.customerName || b.userName || 'Member' }}</div>
+            <div><strong>Email:</strong> {{ b.customerEmail || b.userEmail || '-' }}</div>
+            <div><strong>Method:</strong> {{ b.paymentMethod || 'Bank Transfer' }}</div>
+            <div><strong>Status:</strong> <span class="status-badge" [class]="getStatusClass(b.paymentStatus)">{{
+                b.paymentStatus || 'Pending' }}</span></div>
           </div>
+        </div>
+        <div>
+          <div class="info-section-title">Space Information</div>
+          <div class="info-details">
+            <div><strong>Space No:</strong> {{ b.spaceNumber || b.spaceCode || '-' }}</div>
+            <div><strong>Space Name:</strong> {{ b.spaceName || '-' }}</div>
+            <div><strong>Space Type:</strong> {{ b.spaceTypeName || 'Office' }}</div>
+            <div><strong>Location:</strong> {{ b.locationName || b.branchName || 'WorkNest' }}</div>
+          </div>
+        </div>
+      </div>
 
-          @if (b.isMeetingRoom || (b.spaceTypeName && (b.spaceTypeName.includes('Meeting') || b.spaceTypeName.includes('Conference')))) {
-            <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
-              <div class="info-section-title" style="margin-bottom: 10px;color:#0369a1;">Meeting Room Schedule & Pricing</div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;">
-                <div>
-                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Booking Date</span>
-                  <strong style="color:#334155;font-size:.9rem">{{ b.startOn | date:'mediumDate' }}</strong>
-                </div>
-                <div>
-                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Time Slot</span>
-                  <strong style="color:#0284c7;font-size:.9rem">{{ b.timeSlot || ((b.startOn | date:'shortTime') + ' - ' + (b.endOn | date:'shortTime')) }}</strong>
-                </div>
-                <div>
-                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Payable</span>
-                  <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.amount || b.totalPayable || b.totalAmount || 0) | number:'1.2-2' }}</strong>
-                </div>
-              </div>
-            </div>
-          } @else {
-            <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
-              <div class="info-section-title" style="margin-bottom: 8px;">Contract & Billing Cycle</div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;">
-                <div>
-                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Contract Period</span>
-                  <strong style="color:#334155;font-size:.85rem">{{ b.startOn | date:'mediumDate' }} - {{ b.endOn | date:'mediumDate' }}</strong>
-                </div>
-                <div>
-                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Billing Cycle</span>
-                  <strong style="color:#0284c7;font-size:.85rem">{{ b.billingPeriodLabel || b.billingPeriod || 'Quarterly' }}</strong>
-                </div>
-                <div>
-                  <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Monthly Rent</span>
-                  <strong style="color:#15803d;font-size:.85rem">PKR {{ (b.monthlyRent ?? 0) | number:'1.2-2' }}</strong>
-                </div>
-              </div>
-            </div>
+      @if (b.isMeetingRoom || (b.spaceTypeName && (b.spaceTypeName.includes('Meeting') ||
+      b.spaceTypeName.includes('Conference')))) {
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+        <div class="info-section-title" style="margin-bottom: 10px;color:#0369a1;">Meeting Room Schedule & Pricing</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;">
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Booking
+              Date</span>
+            <strong style="color:#334155;font-size:.9rem">{{ b.startOn | date:'mediumDate' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Time
+              Slot</span>
+            <strong style="color:#0284c7;font-size:.9rem">{{ b.timeSlot || ((b.startOn | date:'shortTime') + ' - ' +
+              (b.endOn | date:'shortTime')) }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total
+              Payable</span>
+            <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.amount || b.totalPayable || b.totalAmount || 0) |
+              number:'1.2-2' }}</strong>
+          </div>
+        </div>
+      </div>
+      } @else {
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+        <div class="info-section-title" style="margin-bottom: 8px;">Contract & Advance Rent Period</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;">
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Contract
+              Period</span>
+            <strong style="color:#334155;font-size:.85rem">{{ b.startOn | date:'mediumDate' }} - {{ b.endOn |
+              date:'mediumDate' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Advance
+              Rent Period</span>
+            <strong style="color:#0284c7;font-size:.85rem">{{ b.billingPeriodLabel || b.billingPeriod || 'Quarterly'
+              }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Monthly
+              Rent</span>
+            <strong style="color:#15803d;font-size:.85rem">PKR {{ (b.monthlyRent ?? 0) | number:'1.2-2' }}</strong>
+          </div>
+        </div>
+      </div>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-bottom:16px">
-              <div>
-                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Current Cycle Rent</span>
-                <strong style="color:#0284c7;font-size:.95rem">PKR {{ (b.currentCycleAmount ?? 0) | number:'1.2-2' }}</strong>
-              </div>
-              <div>
-                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Security Deposit</span>
-                <strong style="color:#475569;font-size:.95rem">PKR {{ (b.securityDeposit ?? 0) | number:'1.2-2' }}</strong>
-              </div>
-              <div>
-                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total Contract</span>
-                <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
-              </div>
-              @if (b.nextBillDueDate) {
-                <div>
-                  <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill Due</span>
-                  <strong style="color:#0284c7;font-size:.95rem">{{ b.nextBillDueDate | date:'mediumDate' }}</strong>
-                </div>
-              }
-              <div>
-                <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance Left</span>
-                <strong style="color:#b45309;font-size:.95rem">PKR {{ (b.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
-              </div>
-            </div>
-          }
+      <div
+        style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-bottom:16px">
+        <div>
+          <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Current
+            Cycle Rent</span>
+          <strong style="color:#0284c7;font-size:.95rem">PKR {{ (b.currentCycleAmount ?? 0) | number:'1.2-2' }}</strong>
+        </div>
+        <div>
+          <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Security
+            Deposit</span>
+          <strong style="color:#475569;font-size:.95rem">PKR {{ (b.securityDeposit ?? 0) | number:'1.2-2' }}</strong>
+        </div>
+        <div>
+          <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total
+            Contract</span>
+          <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.totalContractAmount ?? 0) | number:'1.2-2'
+            }}</strong>
+        </div>
+        @if (b.nextBillDueDate) {
+        <div>
+          <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill
+            Due</span>
+          <strong style="color:#0284c7;font-size:.95rem">{{ b.nextBillDueDate | date:'mediumDate' }}</strong>
+        </div>
         }
+        <div>
+          <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance
+            Left</span>
+          <strong style="color:#b45309;font-size:.95rem">PKR {{ (b.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
+        </div>
       </div>
-      <div class="challan-actions">
-        <button class="btn-outline-challan" (click)="closeBookingModal()">Close</button>
-      </div>
+      }
+      }
+    </div>
+    <div class="challan-actions">
+      <button class="btn-outline-challan" (click)="closeBookingModal()">Close</button>
     </div>
   </div>
+</div>
 }

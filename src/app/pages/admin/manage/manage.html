@@ -100,8 +100,12 @@
     </div>
     } @else {
     @if (entity === 'bookings' && bookingEmailFeedback()) {
-    <div style="margin-bottom:12px;padding:11px 18px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:8px;font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:8px">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <div
+      style="margin-bottom:12px;padding:11px 18px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:8px;font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:8px">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
       {{ bookingEmailFeedback() }}
     </div>
     }
@@ -133,21 +137,7 @@
               } @else if (col.type === 'currency') {
               PKR {{ (getCellValue(item, col) || 0) | number:'1.2-2' }}
               } @else if (col.type === 'space-prices') {
-              <div class="space-price-stack"
-                style="display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.3">
-                @if (item.pricePerDay != null && item.pricePerDay > 0) {
-                <span style="color:#0f172a;font-weight:600">PKR {{ item.pricePerDay | number:'1.0-0' }}/day</span>
-                }
-                @if (item.pricePerHour != null && item.pricePerHour > 0) {
-                <span style="color:#475569">PKR {{ item.pricePerHour | number:'1.0-0' }}/hour</span>
-                }
-                @if (item.pricePerMonth != null && item.pricePerMonth > 0) {
-                <span style="color:#475569">PKR {{ item.pricePerMonth | number:'1.0-0' }}/month</span>
-                }
-                @if (!item.pricePerHour && !item.pricePerDay && !item.pricePerMonth) {
-                <span style="color:#94a3b8">—</span>
-                }
-              </div>
+              <span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(item).display }}</span>
               } @else if (col.type === 'roles') {
               @for (r of item[col.key]; track r) {
               <span class="role-tag">{{ r }}</span>
@@ -168,17 +158,29 @@
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="Billing & Deposit Summary" style="background:#6366f1;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="Billing & Deposit Summary"
+                style="background:#6366f1;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
               </button>
-              <button class="action-btn" (click)="resendBookingEmail(item)" [disabled]="resendingBookingEmailId() === (item.id ?? item.bookingId)"
-                title="Resend Booking & Challan Email"
-                style="background:#0d9488;color:#fff;border:none;opacity:1"
+              <button class="action-btn" (click)="resendBookingEmail(item)"
+                [disabled]="resendingBookingEmailId() === (item.id ?? item.bookingId)"
+                title="Resend Booking & Challan Email" style="background:#0d9488;color:#fff;border:none;opacity:1"
                 [style.opacity]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? '0.6' : '1'">
                 @if (resendingBookingEmailId() === (item.id ?? item.bookingId)) {
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
                 } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
                 }
               </button>
               @if (item.bookingStatus === 'Confirmed') {
@@ -210,17 +212,27 @@
                 </svg>
               </button>
               @if ((item.status || item.Status || '').toLowerCase() === 'draft') {
-              <button class="action-btn" (click)="sendQuotationVersionToCustomer(item)" title="Send Quotation Version to Customer" style="background:#2563eb;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <button class="action-btn" (click)="sendQuotationVersionToCustomer(item)"
+                title="Send Quotation Version to Customer" style="background:#2563eb;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
               </button>
               }
               @if ((item.status || item.Status || '').toLowerCase() === 'declined') {
-              <button class="action-btn" (click)="createNextVersion(item)" title="Create New Version from this Quotation" style="background:#7c3aed;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              <button class="action-btn" (click)="createNextVersion(item)"
+                title="Create New Version from this Quotation" style="background:#7c3aed;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
               }
               @if (isQuotationAccepted(item)) {
-              <button class="action-btn approve" (click)="convertQuotationToBooking(item)" title="Convert Quotation Version to Booking" style="background:#16a34a;color:#fff;border:none">
+              <button class="action-btn approve" (click)="convertQuotationToBooking(item)"
+                title="Convert Quotation Version to Booking" style="background:#16a34a;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M5 12h14" />
@@ -232,14 +244,31 @@
 
 
               @if (entity === 'invoices') {
-              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View Invoice Details" style="background:#0284c7;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View Invoice Details"
+                style="background:#0284c7;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
               </button>
-              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="View Related Booking & Contract Periods" style="background:#6366f1;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <button class="action-btn" (click)="openBookingDetailsModal(item)"
+                title="View Related Booking & Contract Periods" style="background:#6366f1;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
               </button>
-              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record Payment" style="background:#16a34a;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record Payment"
+                style="background:#16a34a;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
               </button>
               }
               @if (entity === 'spaces') {
@@ -265,8 +294,13 @@
               }
               @if (entity === 'payments') {
               @if (item.bookingId || item.BookingId) {
-              <button class="action-btn" (click)="viewBillingChallan(item)" title="View Booking Challan & Details" style="background:#6366f1;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <button class="action-btn" (click)="viewBillingChallan(item)" title="View Booking Challan & Details"
+                style="background:#6366f1;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
               </button>
               }
               <button class="action-btn info" (click)="openPaymentSummary(item)" title="Payment Summary">
@@ -297,14 +331,20 @@
               }
               @if (entity === 'contacts' && item.isQuotationDecline) {
 
-              <button class="action-btn info" (click)="previewQuotation(item.rawQuotationItem || item)" title="View Declined Quotation & Version History">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <button class="action-btn info" (click)="previewQuotation(item.rawQuotationItem || item)"
+                title="View Declined Quotation & Version History">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="createNextVersion(item.rawQuotationItem || item)" title="Create New Version from this Quotation" style="background:#7c3aed;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              <button class="action-btn" (click)="createNextVersion(item.rawQuotationItem || item)"
+                title="Create New Version from this Quotation" style="background:#7c3aed;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
               }
               @if (config.statusFn && config.statusOptions) {
@@ -433,16 +473,46 @@
         <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
         } @else if (field.type === 'phone-split') {
         <div class="phone-split-wrap" style="display:flex;gap:8px;align-items:center">
-          <select class="form-input-admin" [(ngModel)]="selectedCountryCode" name="selectedCountryCode" style="width:125px;flex-shrink:0">
+          <select class="form-input-admin" [(ngModel)]="selectedCountryCode" name="selectedCountryCode"
+            style="width:125px;flex-shrink:0">
             @for (c of countryCodeOptions; track c.v) {
             <option [value]="c.v">{{ c.l }}</option>
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
-            placeholder="11 digits (e.g. 03001234567)" maxlength="11"
-            (input)="onPhoneInput($event, field.key)" style="flex:1" />
+            placeholder="11 digits (e.g. 03001234567)" maxlength="11" (input)="onPhoneInput($event, field.key)"
+            style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter exactly 11 digits without spaces or special characters.</small>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter exactly 11 digits without
+          spaces or special characters.</small>
+        } @else if (field.type === 'price-with-unit') {
+        <div class="price-split-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:4px">
+              Price <span style="color:#ef4444">*</span>
+            </label>
+            <input class="form-input-admin" type="number" [(ngModel)]="formData['priceValue']" name="priceValue"
+              placeholder="e.g. 35000" min="1" step="any" required style="width:100%"
+              (input)="onPriceValueOrUnitChange()" />
+            @if (priceError) {
+            <small style="color:#ef4444;font-size:0.75rem;margin-top:2px;display:block">{{ priceError }}</small>
+            }
+          </div>
+          <div style="width:180px;flex-shrink:0">
+            <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:4px">
+              Price Type / Billing Unit <span style="color:#ef4444">*</span>
+            </label>
+            <select class="form-input-admin" [(ngModel)]="formData['priceUnit']" name="priceUnit" required
+              style="width:100%" (change)="onPriceValueOrUnitChange()">
+              <option value="month">Per Month</option>
+              <option value="day">Per Day</option>
+              <option value="hour">Per Hour</option>
+            </select>
+          </div>
+        </div>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:4px;display:block">
+          Configure the base rate amount and select the billing frequency (Per Month, Per Day, or Per Hour).
+        </small>
         } @else if (field.type === 'floor-select') {
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
           <option value="">Select Floor...</option>
@@ -644,18 +714,26 @@
           'Not paid' }}</strong></div>
     </div>
     <div class="history-section">
-    <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin:12px 0;">
-      <h4 style="margin:0 0 8px 0;font-size:0.85rem;color:#1e293b;">Booking & Contract Financials</h4>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Space Number</span><strong>{{ s.payment?.spaceNumber || "â€”" }}</strong></div>
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Billing Cycle</span><strong style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:"1.2-2" }}</strong></div>
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Security Deposit</span><strong style="color:#475569">PKR {{ (s.payment?.securityDeposit ?? 0) | number:"1.2-2" }}</strong></div>
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Total Contract</span><strong style="color:#15803d">PKR {{ (s.payment?.totalContractAmount ?? 0) | number:"1.2-2" }}</strong></div>
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Next Bill Due</span><strong style="color:#0284c7">{{ s.payment?.nextBillDueDate ? (s.payment?.nextBillDueDate | date:"mediumDate") : "N/A" }}</strong></div>
-        <div><span style="color:#64748b;font-size:.7rem;display:block">Balance Left</span><strong style="color:#b45309">PKR {{ (s.payment?.balanceLeft ?? 0) | number:"1.2-2" }}</strong></div>
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin:12px 0;">
+        <h4 style="margin:0 0 8px 0;font-size:0.85rem;color:#1e293b;">Booking & Contract Financials</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Space Number</span><strong>{{
+              s.payment?.spaceNumber || "-”" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Advance Rent Period</span><strong
+              style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong
+              style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:"1.2-2" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Security Deposit</span><strong
+              style="color:#475569">PKR {{ (s.payment?.securityDeposit ?? 0) | number:"1.2-2" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Total Contract</span><strong
+              style="color:#15803d">PKR {{ (s.payment?.totalContractAmount ?? 0) | number:"1.2-2" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Next Bill Due</span><strong
+              style="color:#0284c7">{{ s.payment?.nextBillDueDate ? (s.payment?.nextBillDueDate | date:"mediumDate") :
+              "N/A" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Balance Left</span><strong
+              style="color:#b45309">PKR {{ (s.payment?.balanceLeft ?? 0) | number:"1.2-2" }}</strong></div>
+        </div>
       </div>
-    </div>
       <h3>User Payment Stats</h3>
       <div class="history-stats">
         <div class="stat-card"><span>Total</span><strong>{{ s.userPaymentStats?.totalPayments ?? 0 }}</strong></div>
@@ -757,7 +835,7 @@
               <td>{{ p.paymentMethod }}</td>
               <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{
                   p.paymentStatus }}</span></td>
-              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : 'â€”' }}</td>
+              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '-”' }}</td>
             </tr>
             }
           </tbody>
@@ -875,7 +953,7 @@
           <th>Space ID</th>
           <th>Name</th>
           <th>Location</th>
-          <th>{{ amountLabels['Space.pricePerDay'] || 'Price / Day' }}</th>
+          <th>Price / Rate</th>
           <th></th>
         </tr>
       </thead>
@@ -885,7 +963,7 @@
           <td><strong>{{ s.code }}</strong></td>
           <td>{{ s.name }}</td>
           <td>{{ s.locationName }}</td>
-          <td>PKR {{ (s.pricePerDay ?? 0) | number:'1.2-2' }}</td>
+          <td><span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(s).display }}</span></td>
           <td>
             <button class="action-btn delete" (click)="removeSpace(s)" title="Remove Space">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -945,17 +1023,14 @@
       </div>
       <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>{{ amountLabels['SpaceConfig.pricePerHour'] || 'Price / Hour' }}</label>
-          <input class="form-input-admin" type="number" [(ngModel)]="configFormData.pricePerHour" name="pricePerHour" />
+          <label>Price</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="configFormData.price" name="price" />
         </div>
         <div class="form-group-admin">
-          <label>{{ amountLabels['SpaceConfig.pricePerDay'] || 'Price / Day' }}</label>
-          <input class="form-input-admin" type="number" [(ngModel)]="configFormData.pricePerDay" name="pricePerDay" />
-        </div>
-        <div class="form-group-admin">
-          <label>{{ amountLabels['SpaceConfig.pricePerMonth'] || 'Price / Month' }}</label>
-          <input class="form-input-admin" type="number" [(ngModel)]="configFormData.pricePerMonth"
-            name="pricePerMonth" />
+          <label>Billing Cycle</label>
+          <select class="form-input-admin" [(ngModel)]="configFormData.billingPeriodId" name="billingPeriodId">
+            <option *ngFor="let bp of billingPeriods" [value]="bp.id">{{ bp.label }}</option>
+          </select>
         </div>
       </div>
       <div class="form-group-admin">
@@ -1089,148 +1164,237 @@
     style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,850px);max-height:min(92dvh,850px);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
 
     <!-- Header -->
-    <div style="background:#1e3a5f;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+    <div
+      style="background:linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
       <div>
-        <div style="font-size:1.25rem;font-weight:700;letter-spacing:.5px">WORKNEST</div>
-        <div style="font-size:.75rem;opacity:.8;margin-top:2px">Booking Confirmation & Payment Challan</div>
+        <div style="font-size:1.35rem;font-weight:800;letter-spacing:1px">WORKNEST</div>
+        <div style="font-size:.78rem;opacity:.9;margin-top:2px;font-weight:500">Booking Confirmation & Payment Challan
+        </div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:.7rem;opacity:.7">Challan No.</div>
-        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ c.challanNumber || ('WN-BK-' + c.bookingId) }}</div>
+        <div style="font-size:.68rem;opacity:.75;text-transform:uppercase;letter-spacing:0.5px">Challan Number</div>
+        <div style="font-size:1.05rem;font-weight:700;letter-spacing:1px;color:#38bdf8">{{ c.challanNumber || ('WN-BK-'
+          + c.bookingId) }}</div>
       </div>
     </div>
 
     <!-- Validity Banner -->
-    <div style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:8px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-      <span style="font-size:.8rem;color:#92400e;font-weight:600">
-        ⚠ Valid until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
+    <div
+      style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <span style="font-size:.82rem;color:#92400e;font-weight:700">
+        ⚠️ Valid Until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
       </span>
-      <span style="font-size:.75rem;color:#92400e;font-weight:600">Pay before expiry to confirm booking</span>
+      <span style="font-size:.78rem;color:#92400e;font-weight:600">Pay before expiry date to confirm workspace
+        booking</span>
     </div>
 
     <!-- Scrollable Body -->
     <div style="padding:24px 28px;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain" data-challan-body>
 
-      <!-- Customer + Space Details -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;margin-bottom:20px">
-        <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">Customer Details</div>
+      <!-- Customer + Space Details Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:20px">
+        <div style="background:#f8fafc;padding:14px 16px;border-radius:8px;border:1px solid #e2e8f0">
+          <div
+            style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+            Customer Details</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ c.customerName }}</div>
-          <div style="font-size:0.85rem;color:#475569">{{ c.customerEmail }}</div>
-          <div style="font-size:0.85rem;color:#475569" *ngIf="c.customerCode">Customer ID: {{ c.customerCode }}</div>
+          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.customerEmail }}</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px" *ngIf="c.customerCode">Customer ID: <strong>{{
+              c.customerCode }}</strong></div>
         </div>
-        <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">Workspace Details</div>
+        <div style="background:#f8fafc;padding:14px 16px;border-radius:8px;border:1px solid #e2e8f0">
+          <div
+            style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+            Workspace Details</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ c.spaceName || 'Workspace' }}</div>
-          <div style="font-size:0.85rem;color:#475569">{{ c.spaceTypeName || 'Office' }} • {{ c.locationName || 'Main Branch' }}</div>
+          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.spaceTypeName || 'Office' }} • {{
+            c.locationName || 'Main Branch' }}</div>
         </div>
       </div>
 
-      <!-- Contract & Billing Summary Cards -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px">
+      <!-- Lease Contract Summary Ribbon -->
+      <div
+        style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px">
+        @if (isMeetingRoom(c)) {
         <div>
-          <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Total Contract</div>
-          <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (c.totalContractAmount || c.totalAmount || c.subtotalAmount || 0) | number:'1.2-2' }}</div>
-          <div style="font-size:0.72rem;color:#64748b">{{ c.contractPeriodMonths || c.numberOfMonths || c.months || 12 }} Month(s) Duration</div>
-        </div>
-        <div>
-          <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
-          <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ (c.monthlyRent || ((c.totalContractAmount || c.subtotalAmount || 0) / (c.contractPeriodMonths || c.numberOfMonths || c.months || 12))) | number:'1.2-2' }}</div>
-          <div style="font-size:0.72rem;color:#64748b">per month</div>
-        </div>
-        <div>
-          <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Billing Frequency</div>
-          <div style="font-size:1.05rem;font-weight:800;color:#0284c7">Every {{ c.billingPeriodMonths || 3 }} Mo</div>
-          <div style="font-size:0.72rem;color:#64748b">Billing Cycle</div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Booking Rent</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (c.subtotalAmount || c.totalPayable || 0)
+            | number:'1.2-2' }}</div>
+          <div style="font-size:0.72rem;color:#64748b">Base Booking Rent</div>
         </div>
         <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
-          <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent</div>
-          <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ (c.firstCycleRent || c.currentCycleAmount || (((c.totalContractAmount || c.subtotalAmount || 0) / (c.contractPeriodMonths || c.numberOfMonths || c.months || 12)) * (c.billingPeriodMonths || 3))) | number:'1.2-2' }}</div>
-          <div style="font-size:0.72rem;color:#1e40af">First {{ c.billingPeriodMonths || 3 }} Months Rent</div>
+          <div style="font-size:0.68rem;font-weight:700;color:#1e40af;text-transform:uppercase">Total Payable</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getChallanInitialPayable(c) |
+            number:'1.2-2' }}</div>
+          <div style="font-size:0.72rem;color:#1e40af">Rent + Tax</div>
         </div>
+        } @else {
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Total Contract Rent
+          </div>
+          <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ getChallanTotalContract(c) |
+            number:'1.2-2' }}</div>
+          <div style="font-size:0.72rem;color:#64748b">{{ getChallanContractMonths(c) }} Month(s) Duration</div>
+        </div>
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getChallanMonthlyRent(c) | number:'1.2-2'
+            }}</div>
+          <div style="font-size:0.72rem;color:#64748b">per month</div>
+        </div>
+        @if (isPrivateRoom(c)) {
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Security Deposit</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#d97706">PKR {{ getChallanSecurityDeposit(c) |
+            number:'1.2-2' }}</div>
+          <div style="font-size:0.72rem;color:#64748b">Refundable</div>
+        </div>
+        }
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">User will be billed
+          </div>
+          <div style="font-size:1.05rem;font-weight:800;color:#0284c7">Every {{ getChallanBillingMonths(c) }} Mo</div>
+          <div style="font-size:0.72rem;color:#64748b">Advance Rent Period</div>
+        </div>
+        <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
+          <div style="font-size:0.68rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent
+          </div>
+          <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getChallanFirstCycleRent(c) |
+            number:'1.2-2' }}</div>
+          <div style="font-size:0.72rem;color:#1e40af">First {{ getChallanBillingMonths(c) }} Months Rent</div>
+        </div>
+        }
       </div>
 
-      <!-- Financial Breakdown Table -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem">
+      <!-- Itemized Payment Statement Table (Payable Now) -->
+      <table
+        style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
         <thead>
-          <tr style="background:#0f172a;color:#fff">
-            <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Commercial Description</th>
-            <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+          <tr style="background:#0f172a;color:#ffffff">
+            <th style="padding:12px 14px;text-align:left;font-weight:700">Itemized Billing Description (Payment Due Now)
+            </th>
+            <th style="padding:12px 14px;text-align:center;font-weight:700">Billing Basis</th>
+            <th style="padding:12px 14px;text-align:right;font-weight:700">Amount (PKR)</th>
           </tr>
         </thead>
         <tbody>
-          <tr style="border-bottom:1px solid #e2e8f0">
+          @if (isMeetingRoom(c)) {
+          <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
             <td style="padding:12px 14px">
-              <strong>Room Rent (Total {{ c.contractPeriodMonths || c.numberOfMonths || c.months || 12 }} Month(s) Contract)</strong>
-              <div style="font-size:0.78rem;color:#64748b">Rate: PKR {{ (c.monthlyRent || ((c.totalContractAmount || c.subtotalAmount || 0) / (c.contractPeriodMonths || c.numberOfMonths || c.months || 12))) | number:'1.2-2' }} / month</div>
+              <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
+              <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
             </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:600">
-              PKR {{ (c.totalContractAmount || c.subtotalAmount || c.totalAmount || 0) | number:'1.2-2' }}
-            </td>
-          </tr>
-
-          <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
-            <td style="padding:12px 14px">
-              <strong style="color:#1d4ed8">First Billing Cycle Rent (1st {{ c.billingPeriodMonths || 3 }} Month(s))</strong>
-              <div style="font-size:0.78rem;color:#64748b">Billed Amount: {{ c.billingPeriodMonths || 3 }} Month(s) × PKR {{ (c.monthlyRent || ((c.totalContractAmount || c.subtotalAmount || 0) / (c.contractPeriodMonths || c.numberOfMonths || c.months || 12))) | number:'1.2-2' }}</div>
+            <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+              Per Booking Slot
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-              PKR {{ (c.firstCycleRent || c.currentCycleAmount || (((c.totalContractAmount || c.subtotalAmount || 0) / (c.contractPeriodMonths || c.numberOfMonths || c.months || 12)) * (c.billingPeriodMonths || 3))) | number:'1.2-2' }}
+              PKR {{ (c.subtotalAmount || c.totalPayable || 0) | number:'1.2-2' }}
             </td>
           </tr>
-
-          <tr style="border-bottom:1px solid #e2e8f0" *ngIf="c.securityDepositOverride || c.securityDeposit">
+          } @else {
+          <!-- 1st Advance Rent Period -->
+          <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
             <td style="padding:12px 14px">
-              <strong>Security Deposit (Refundable)</strong>
-              <div style="font-size:0.78rem;color:#64748b">{{ c.securityDepositMonths || 2 }} Month(s) Equivalent</div>
+              <strong style="color:#0f172a">1st Advance Rent Period ({{ getChallanBillingMonths(c) }} Month(s))</strong>
+              <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
             </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:600">
-              PKR {{ (c.securityDepositOverride || c.securityDeposit || 0) | number:'1.2-2' }}
+            <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+              {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.2-2' }}
+            </td>
+            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+              PKR {{ getChallanFirstCycleRent(c) | number:'1.2-2' }}
             </td>
           </tr>
 
-          <tr style="border-bottom:1px solid #e2e8f0" *ngIf="c.discountAmount">
+          <!-- Security Deposit (Only for Private Room / when > 0) -->
+          @if (isPrivateRoom(c) && getChallanSecurityDeposit(c) > 0) {
+          <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
+            <td style="padding:12px 14px">
+              <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
+              <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination</div>
+            </td>
+            <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+              {{ getChallanSecurityMonths(c) }} Month(s) Equivalent
+            </td>
+            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
+              PKR {{ getChallanSecurityDeposit(c) | number:'1.2-2' }}
+            </td>
+          </tr>
+          }
+          }
+
+          <!-- Provincial Sales Tax (PST) on Advance Rent -->
+          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getChallanTaxAmount(c) > 0">
+            <td style="padding:12px 14px">
+              <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+              <div style="font-size:0.78rem;color:#166534">16% PST on 10% support services portion</div>
+            </td>
+            <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+              16% on 10% Support Services
+            </td>
+            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+              + PKR {{ getChallanTaxAmount(c) | number:'1.2-2' }}
+            </td>
+          </tr>
+
+          <!-- Special Discount if any -->
+          <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5" *ngIf="c.discountAmount > 0">
             <td style="padding:12px 14px;color:#16a34a">
               <strong>Special Discount Applied</strong>
             </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:600;color:#16a34a">
+            <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+              Discount Offset
+            </td>
+            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
               - PKR {{ (c.discountAmount || 0) | number:'1.2-2' }}
             </td>
           </tr>
         </tbody>
         <tfoot>
-          <tr style="background:#f8fafc;font-size:0.95rem;border-top:1px solid #cbd5e1">
-            <td style="padding:10px 14px;font-weight:700;color:#475569">Total Contract Value ({{ c.contractPeriodMonths || c.numberOfMonths || c.months || 12 }} Months)</td>
+          <!-- Contract Total Overview Row (Only for monthly spaces) -->
+          @if (!isMeetingRoom(c)) {
+          <tr style="background:#f8fafc;font-size:0.85rem;border-top:2px solid #e2e8f0">
+            <td colspan="2" style="padding:10px 14px;font-weight:600;color:#64748b">
+              Total Contract Rent ({{ getChallanContractMonths(c) }} Months @ PKR {{ getChallanMonthlyRent(c) |
+              number:'1.2-2' }}/mo)
+            </td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#475569">
-              PKR {{ (c.totalContractAmount || c.subtotalAmount || c.totalAmount || 0) | number:'1.2-2' }}
+              PKR {{ getChallanTotalContract(c) | number:'1.2-2' }}
             </td>
           </tr>
+          }
+          <!-- Grand Total Payable Row -->
           <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
-            <td style="padding:14px;font-weight:800;color:#1e40af">
-              Initial Amount Payable (1st Cycle Rent + Security Deposit)
+            <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
+              TOTAL INITIAL AMOUNT PAYABLE (NOW)
             </td>
-            <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8">
-              PKR {{ (c.totalAmount || c.firstInvoiceTotal || ((((c.totalContractAmount || c.subtotalAmount || 0) / (c.contractPeriodMonths || c.numberOfMonths || c.months || 12)) * (c.billingPeriodMonths || 3)) + (c.securityDepositOverride || c.securityDeposit || 0) - (c.discountAmount || 0))) | number:'1.2-2' }}
+            <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
+              PKR {{ getChallanInitialPayable(c) | number:'1.2-2' }}
             </td>
           </tr>
         </tfoot>
       </table>
 
-      <!-- Booking Reference -->
-      <div style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-size:.82rem">
+      <!-- Booking Reference Banner -->
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-size:.82rem">
         <span style="color:#1e40af">Booking Ref: <strong>#{{ c.bookingId }}</strong></span>
         <span style="color:#64748b">Issued: {{ c.createdAt | date:'MMM d, y, h:mm a' }}</span>
       </div>
 
-      <!-- Terms & Conditions -->
-      <div style="border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;padding:10px 14px;margin-bottom:16px">
-        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">Terms &amp; Conditions</div>
-        <div style="font-size:.72rem;color:#6c757d;line-height:1.6">
-          <div>1. All prices are exclusive of applicable taxes. Any applicable taxes will be charged separately.</div>
-          <div>2. Payment must be made before the challan expiry date to confirm the booking.</div>
-          <div>3. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
-          <div>4. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.</div>
-          <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+      <!-- Terms & Conditions Block -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;padding:12px 16px;margin-bottom:16px">
+        <div
+          style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">
+          Terms &amp; Conditions</div>
+        <div style="font-size:.75rem;color:#475569;line-height:1.6">
+          <div>1. The price is exclusive of all the taxes.</div>
+          <div>2. Worknest will charge Provincial Sales Tax on service.</div>
+          <div>3. Payment must be made before the challan expiry date to confirm the booking.</div>
+          <div>4. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
+          <div>5. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.
+          </div>
+          <div>6. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
         </div>
       </div>
 
@@ -1241,31 +1405,37 @@
 
     </div>
 
-    <!-- Actions (Sticky at bottom) -->
-    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;flex-shrink:0;z-index:5" data-challan-actions>
+    <!-- Actions Footer -->
+    <div
+      style="padding:14px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0"
+      data-challan-actions>
       <button class="btn-admin btn-outline-admin" (click)="showChallanModal = false">Close</button>
-      <button class="btn-admin" (click)="sendChallanEmail()" [disabled]="sendingChallanEmail()" style="background:#0d9488;color:#fff;border:none;display:flex;align-items:center;gap:6px">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-          <polyline points="22,6 12,13 2,6" />
-        </svg>
-        {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
-      </button>
-      <button class="btn-admin btn-primary-admin" (click)="printReceipt()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 6 2 18 2 18 9" />
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-          <rect width="12" height="8" x="6" y="14" />
-        </svg>
-        Print Challan
-      </button>
+      <div style="display:flex;gap:10px">
+        <button class="btn-admin" (click)="sendChallanEmail()" [disabled]="sendingChallanEmail()"
+          style="background:#0d9488;color:#fff;border:none;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
+        </button>
+        <button class="btn-admin btn-primary-admin" (click)="printReceipt()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect width="12" height="8" x="6" y="14" />
+          </svg>
+          Print Challan
+        </button>
+      </div>
     </div>
     @if (challanEmailSent()) {
-      <div style="padding:10px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.82rem;text-align:center;flex-shrink:0">
-        ✓ {{ challanEmailSent() }}
-      </div>
+    <div
+      style="padding:10px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.82rem;text-align:center;flex-shrink:0">
+      ✓ {{ challanEmailSent() }}
+    </div>
     }
 
   </div>
@@ -1295,13 +1465,15 @@
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="quotationCustomerSearch"
             placeholder="Type name or email..." (input)="onCustomerSearch()" autocomplete="off" />
           <button type="button" class="btn-admin btn-outline-admin" (click)="openCreateCustomerFromBooking()"
-            title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create Customer</button>
+            title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create
+            Customer</button>
         </div>
         @if (customerSearchResults.length) {
         <div class="customer-dropdown">
           @for (u of customerSearchResults; track u.id) {
           <div class="customer-option" (click)="selectCustomer(u)">
-            <strong>{{ (u.fullName) || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.name || u.email }}</strong>
+            <strong>{{ (u.fullName) || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.name || u.email
+              }}</strong>
             <span>{{ u.email }}</span>
             @if (u.customerCode || u.code) {
             <span class="cust-code">{{ u.customerCode || u.code }}</span>
@@ -1361,7 +1533,8 @@
         </div>
         }
         <div class="form-group-admin">
-          <label>{{ isQuotationPrivateRoom ? 'Office No.' : (isQuotationMeetingRoom ? 'Space' : 'Space No.') }} *</label>
+          <label>{{ isQuotationPrivateRoom ? 'Office No.' : (isQuotationMeetingRoom ? 'Space' : 'Space No.') }}
+            *</label>
           <select class="form-input-admin" [(ngModel)]="quotationFormData.spaceId" name="qSpaceId" required
             (change)="onQuotationSpaceSelected()">
             @if (!selectedQuotationSpaceTypeId) {
@@ -1396,8 +1569,12 @@
       <div class="form-group-admin">
         <label>Booking Type *</label>
         <div style="display:flex;gap:8px">
-          <button type="button" class="btn-admin" [class.btn-primary-admin]="quotationMeetingRoomMode==='slot'" [class.btn-outline-admin]="quotationMeetingRoomMode!=='slot'" (click)="quotationMeetingRoomMode='slot'; onQuotationMeetingModeChange()">By Slot (Hourly)</button>
-          <button type="button" class="btn-admin" [class.btn-primary-admin]="quotationMeetingRoomMode==='day'" [class.btn-outline-admin]="quotationMeetingRoomMode!=='day'" (click)="quotationMeetingRoomMode='day'; onQuotationMeetingModeChange()">Full Day / Multi-Day</button>
+          <button type="button" class="btn-admin" [class.btn-primary-admin]="quotationMeetingRoomMode==='slot'"
+            [class.btn-outline-admin]="quotationMeetingRoomMode!=='slot'"
+            (click)="quotationMeetingRoomMode='slot'; onQuotationMeetingModeChange()">By Slot (Hourly)</button>
+          <button type="button" class="btn-admin" [class.btn-primary-admin]="quotationMeetingRoomMode==='day'"
+            [class.btn-outline-admin]="quotationMeetingRoomMode!=='day'"
+            (click)="quotationMeetingRoomMode='day'; onQuotationMeetingModeChange()">Full Day / Multi-Day</button>
         </div>
       </div>
       @if (quotationMeetingRoomMode === 'slot') {
@@ -1407,7 +1584,8 @@
           required (change)="generateQuotationMeetingSlots()" />
       </div>
       <div class="form-group-admin">
-        <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{ quotationSelectedSlots.size }} selected)</span></label>
+        <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{
+            quotationSelectedSlots.size }} selected)</span></label>
         @if (!quotationStartDate) {
         <p style="font-size:.82rem;color:#94a3b8">Pick a date to see available slots.</p>
         } @else if (quotationMeetingSlots.length === 0) {
@@ -1427,11 +1605,13 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart" [min]="today" required (change)="recalcQuotationAmount()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart"
+            [min]="today" required (change)="recalcQuotationAmount()" />
         </div>
         <div class="form-group-admin">
           <label>End Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationMeetingDayEnd" name="qMeetingDayEnd" [min]="quotationStartDate || today" required (change)="recalcQuotationAmount()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationMeetingDayEnd" name="qMeetingDayEnd"
+            [min]="quotationStartDate || today" required (change)="recalcQuotationAmount()" />
         </div>
       </div>
       }
@@ -1461,23 +1641,27 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Discount Type</label>
-          <select class="form-input-admin" [(ngModel)]="quotationDiscountType" name="qDiscountType" (change)="recalcQuotationAmount()">
+          <select class="form-input-admin" [(ngModel)]="quotationDiscountType" name="qDiscountType"
+            (change)="recalcQuotationAmount()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
         </div>
         <div class="form-group-admin">
-          <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
-          <input class="form-input-admin" type="number" min="0" [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1"
-            [(ngModel)]="quotationDiscountValue" name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
+          <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small
+              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+          <input class="form-input-admin" type="number" min="0"
+            [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="quotationDiscountValue"
+            name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
         </div>
       </div>
 
       @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
       <div class="form-row-admin">
         <div class="form-group-admin" [style.grid-column]="isQuotationPrivateRoom ? 'auto' : 'span 2'">
-          <label>Billing Period *</label>
-          <select class="form-input-admin" [(ngModel)]="quotationBillingPeriodMonths" name="qBillingPeriod" required (change)="recalcQuotationAmount()">
+          <label>Advance Rent period *</label>
+          <select class="form-input-admin" [(ngModel)]="quotationBillingPeriodMonths" name="qBillingPeriod" required
+            (change)="recalcQuotationAmount()">
             @for (bp of billingPeriodOptions; track bp.v) {
             <option [value]="bp.v">{{ bp.l }}</option>
             }
@@ -1487,7 +1671,8 @@
         @if (isQuotationPrivateRoom) {
         <div class="form-group-admin">
           <label>Security Deposit Months</label>
-          <input class="form-input-admin" type="number" min="0" max="6" [(ngModel)]="quotationSecurityDepositMonths" name="qSecMonths" (input)="recalcQuotationAmount()" />
+          <input class="form-input-admin" type="number" min="0" max="6" [(ngModel)]="quotationSecurityDepositMonths"
+            name="qSecMonths" (input)="recalcQuotationAmount()" />
         </div>
         }
       </div>
@@ -1496,29 +1681,33 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Valid Until *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" [min]="today" required />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" [min]="today"
+            required />
         </div>
         <div class="form-group-admin">
           <label>Remarks</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="quotationRemarks" name="qRemarks" placeholder="Optional remarks" />
+          <input class="form-input-admin" type="text" [(ngModel)]="quotationRemarks" name="qRemarks"
+            placeholder="Optional remarks" />
         </div>
       </div>
 
       @if (quotationSubtotal > 0) {
-      <div class="history-section" style="margin-top:1rem;margin-bottom:1.25rem;background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
+      <div class="history-section"
+        style="margin-top:1rem;margin-bottom:1.25rem;background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
         <h4 style="margin:0 0 10px 0;font-size:.9rem;color:#0f172a">Quotation Contract & Initial Payment Breakdown</h4>
 
         <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
-          <span style="color:#64748b">TOTAL CONTRACT VALUE ({{ quotationMonths }} Month{{ quotationMonths > 1 ? 's' : '' }}):</span>
+          <span style="color:#64748b">TOTAL CONTRACT VALUE ({{ quotationMonths }} Month{{ quotationMonths > 1 ? 's' : ''
+            }}):</span>
           <strong style="color:#0f172a">PKR {{ quotationSubtotal | number:'1.2-2' }}</strong>
         </div>
 
         <div style="background:#eff6ff;padding:10px 12px;border-radius:6px;margin:8px 0;border:1px solid #bfdbfe">
           <div style="font-weight:600;color:#1e40af;font-size:0.85rem;margin-bottom:6px">INITIAL PAYMENT REQUIRED</div>
-          
+
           @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#3b82f6">Billing Amount ({{ quotationBillingPeriodMonths }} Month(s)):</span>
+            <span style="color:#3b82f6">Advance Rent ({{ quotationBillingPeriodMonths }} Month(s)):</span>
             <strong style="color:#1e3a8a">PKR {{ quotationBillingAmount | number:'1.2-2' }}</strong>
           </div>
           } @else {
@@ -1527,6 +1716,11 @@
             <strong style="color:#1e3a8a">PKR {{ quotationSubtotal | number:'1.2-2' }}</strong>
           </div>
           }
+
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
+            <span style="color:#0284c7">Sales Tax / PST (16% on 10% Support Services):</span>
+            <strong style="color:#0284c7">PKR {{ quotationTaxAmount | number:'1.2-2' }}</strong>
+          </div>
 
           @if (isQuotationPrivateRoom) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
@@ -1544,7 +1738,8 @@
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
           <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:700">
             <span style="color:#1e3a8a">FIRST INVOICE TOTAL:</span>
-            <strong style="color:#15803d;font-size:1.05rem">PKR {{ quotationFirstInvoiceTotal | number:'1.2-2' }}</strong>
+            <strong style="color:#15803d;font-size:1.05rem">PKR {{ quotationFirstInvoiceTotal | number:'1.2-2'
+              }}</strong>
           </div>
         </div>
       </div>
@@ -1737,10 +1932,15 @@
       <p class="form-section-label" style="margin-top:1.25rem">Booking Period</p>
       @if (isAdminMeetingRoom) {
       <div class="form-group-admin">
-        <label>Booking Type *</label>
+        <label>Booking Rate Type *</label>
         <div style="display:flex;gap:8px">
-          <button type="button" class="btn-admin" [class.btn-primary-admin]="meetingRoomBookingMode==='slot'" [class.btn-outline-admin]="meetingRoomBookingMode!=='slot'" (click)="meetingRoomBookingMode='slot'; onAdminMeetingModeChange()">By Slot (Hourly)</button>
-          <button type="button" class="btn-admin" [class.btn-primary-admin]="meetingRoomBookingMode==='day'" [class.btn-outline-admin]="meetingRoomBookingMode!=='day'" (click)="meetingRoomBookingMode='day'; onAdminMeetingModeChange()">Full Day / Multi-Day</button>
+          @if (meetingRoomBookingMode === 'slot') {
+          <button type="button" class="btn-admin btn-primary-admin" style="cursor:default">Hourly (By Time
+            Slot)</button>
+          } @else {
+          <button type="button" class="btn-admin btn-primary-admin" style="cursor:default">Per Day (Full Day /
+            Multi-Day)</button>
+          }
         </div>
       </div>
       @if (meetingRoomBookingMode === 'slot') {
@@ -1771,11 +1971,13 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart" [min]="today" required (change)="onAdminMeetingDayChange()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart"
+            [min]="today" required (change)="onAdminMeetingDayChange()" />
         </div>
         <div class="form-group-admin">
           <label>End Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDayEnd" name="adminMeetingDayEnd" [min]="adminStartDate || today" required (change)="onAdminMeetingDayChange()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDayEnd" name="adminMeetingDayEnd"
+            [min]="adminStartDate || today" required (change)="onAdminMeetingDayChange()" />
         </div>
       </div>
       }
@@ -1805,23 +2007,27 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Discount Type</label>
-          <select class="form-input-admin" [(ngModel)]="bookingDiscountType" name="bookingDiscountType" (change)="recalcAmount()">
+          <select class="form-input-admin" [(ngModel)]="bookingDiscountType" name="bookingDiscountType"
+            (change)="recalcAmount()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
         </div>
         <div class="form-group-admin">
-          <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
-          <input class="form-input-admin" type="number" min="0" [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1"
-            [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
+          <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small
+              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+          <input class="form-input-admin" type="number" min="0"
+            [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="bookingDiscountValue"
+            name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
         </div>
       </div>
 
       @if (isAdminPrivateRoom || isAdminSharedSpace) {
       <div class="form-row-admin">
         <div class="form-group-admin" [style.grid-column]="isAdminPrivateRoom ? 'auto' : 'span 2'">
-          <label>Billing Period *</label>
-          <select class="form-input-admin" [(ngModel)]="bookingBillingPeriodMonths" name="bookingBillingPeriod" required (change)="recalcAmount()">
+          <label>Advance Rent Period *</label>
+          <select class="form-input-admin" [(ngModel)]="bookingBillingPeriodMonths" name="bookingBillingPeriod" required
+            (change)="recalcAmount()">
             @for (bp of billingPeriodOptions; track bp.v) {
             <option [value]="bp.v">{{ bp.l }}</option>
             }
@@ -1831,7 +2037,8 @@
         @if (isAdminPrivateRoom) {
         <div class="form-group-admin">
           <label>Security Deposit Months</label>
-          <input class="form-input-admin" type="number" min="0" max="6" [(ngModel)]="bookingSecurityDepositMonths" name="bookingSecMonths" (input)="recalcAmount()" />
+          <input class="form-input-admin" type="number" min="0" max="6" [(ngModel)]="bookingSecurityDepositMonths"
+            name="bookingSecMonths" (input)="recalcAmount()" />
         </div>
         }
       </div>
@@ -1844,20 +2051,34 @@
 
       <!-- Realtime Pricing Summary -->
       @if (bookingFormData.totalAmount != null) {
-      <div class="history-section" style="margin-top:1rem;margin-bottom:1.25rem;background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
+      <div class="history-section"
+        style="margin-top:1rem;margin-bottom:1.25rem;background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
         <h4 style="margin:0 0 10px 0;font-size:.9rem;color:#0f172a">Booking Contract & Initial Payment Breakdown</h4>
 
+        @if (!isAdminMeetingRoom) {
         <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
-          <span style="color:#64748b">TOTAL CONTRACT VALUE ({{ adminMonths }} Month{{ adminMonths > 1 ? 's' : '' }}):</span>
+          <span style="color:#64748b">MONTHLY RENT RATE:</span>
+          <strong style="color:#0f172a">PKR {{ bookingMonthlyRent | number:'1.2-2' }} / month</strong>
+        </div>
+        } @else {
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
+          <span style="color:#64748b">BASE RENT RATE:</span>
+          <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
+        </div>
+        }
+
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
+          <span style="color:#64748b">TOTAL CONTRACT VALUE ({{ adminMonths }} Month{{ adminMonths > 1 ? 's' : ''
+            }}):</span>
           <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
         </div>
 
         <div style="background:#eff6ff;padding:10px 12px;border-radius:6px;margin:8px 0;border:1px solid #bfdbfe">
           <div style="font-weight:600;color:#1e40af;font-size:0.85rem;margin-bottom:6px">INITIAL PAYMENT REQUIRED</div>
-          
+
           @if (isAdminPrivateRoom || isAdminSharedSpace) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#3b82f6">Billing Amount ({{ bookingBillingPeriodMonths }} Month(s)):</span>
+            <span style="color:#3b82f6">Advance Rent ({{ bookingBillingPeriodMonths }} Month(s)):</span>
             <strong style="color:#1e3a8a">PKR {{ bookingBillingAmount | number:'1.2-2' }}</strong>
           </div>
           } @else {
@@ -1866,6 +2087,10 @@
             <strong style="color:#1e3a8a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
           </div>
           }
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
+            <span style="color:#0284c7">Sales Tax / PST (16% on 10% Support Services):</span>
+            <strong style="color:#0284c7">PKR {{ bookingTaxAmount | number:'1.2-2' }}</strong>
+          </div>
           @if (isAdminPrivateRoom) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Security Deposit ({{ bookingSecurityDepositMonths }} Month(s)):</span>
@@ -1904,7 +2129,8 @@
     <button class="modal-close" (click)="showQuickCreateCustomer = false">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
       </svg>
     </button>
     <h2>Create Customer</h2>
@@ -1915,37 +2141,50 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>First Name <span style="color:#ef4444;font-weight:bold">*</span></label>
-          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.firstName" name="qcFirstName" required placeholder="First name" />
+          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.firstName" name="qcFirstName"
+            required placeholder="First name" />
         </div>
         <div class="form-group-admin">
           <label>Last Name</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.lastName" name="qcLastName" placeholder="Last name" />
+          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.lastName" name="qcLastName"
+            placeholder="Last name" />
         </div>
       </div>
       <div class="form-group-admin">
+        <label>Company / Organization Name <small style="color:#94a3b8">(Optional)</small></label>
+        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.company" name="qcCompany"
+          placeholder="Company or Organization Name" />
+      </div>
+      <div class="form-group-admin">
         <label>Email <span style="color:#ef4444;font-weight:bold">*</span></label>
-        <input class="form-input-admin" type="email" [(ngModel)]="quickCustomerForm.email" name="qcEmail" required placeholder="user@example.com" />
+        <input class="form-input-admin" type="email" [(ngModel)]="quickCustomerForm.email" name="qcEmail" required
+          placeholder="user@example.com" />
       </div>
       <div class="form-group-admin">
         <label>Phone Number <span style="color:#ef4444;font-weight:bold">*</span></label>
         <div style="display:flex;gap:8px">
-          <select class="form-input-admin" [(ngModel)]="quickCustomerForm.countryCode" name="qcCountryCode" style="width:125px;flex-shrink:0">
+          <select class="form-input-admin" [(ngModel)]="quickCustomerForm.countryCode" name="qcCountryCode"
+            style="width:125px;flex-shrink:0">
             @for (c of countryCodeOptions; track c.v) {
             <option [value]="c.v">{{ c.l }}</option>
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.phoneNumber" name="qcPhone"
-            placeholder="11 digits (e.g. 03001234567)" maxlength="11" (input)="onQuickPhoneInput($event)" style="flex:1" />
+            placeholder="11 digits (e.g. 03001234567)" maxlength="11" (input)="onQuickPhoneInput($event)"
+            style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter exactly 11 digits without spaces or special characters.</small>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter exactly 11 digits without
+          spaces or special characters.</small>
       </div>
       <div class="form-group-admin">
         <label>Address Line 1 <span style="color:#ef4444;font-weight:bold">*</span></label>
-        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.addressLine1" name="qcAddress1" required placeholder="Street address, building #" />
+        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.addressLine1" name="qcAddress1"
+          required placeholder="Street address, building #" />
       </div>
       <div class="form-group-admin">
         <label>Address Line 2 <small style="color:#94a3b8">(Optional)</small></label>
-        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.addressLine2" name="qcAddress2" placeholder="Suite, unit, floor" />
+        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.addressLine2" name="qcAddress2"
+          placeholder="Suite, unit, floor" />
       </div>
       <div class="form-group-admin">
         <label>City</label>
@@ -1957,7 +2196,8 @@
         </select>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn-admin btn-outline-admin" (click)="showQuickCreateCustomer = false">Cancel</button>
+        <button type="button" class="btn-admin btn-outline-admin"
+          (click)="showQuickCreateCustomer = false">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin" [disabled]="quickCustomerSaving()">
           {{ quickCustomerSaving() ? 'Creating...' : 'Create & Select' }}
         </button>
@@ -1971,26 +2211,37 @@
 <!-- Booking Details Modal -->
 @if (showBookingDetailsModal && selectedBookingDetails(); as booking) {
 <div class="modal-overlay" (click)="showBookingDetailsModal = false">
-  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
-    <div style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
       <div>
-        <h3 style="margin:0;font-size:1.15rem;font-weight:700">Booking Details #{{ booking.id || booking.bookingId }}</h3>
-        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{ booking.spaceName || 'Workspace' }}</span>
+        <h3 style="margin:0;font-size:1.15rem;font-weight:700">Booking Details #{{ booking.id || booking.bookingId }}
+        </h3>
+        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{
+          booking.spaceName || 'Workspace' }}</span>
       </div>
-      <button (click)="showBookingDetailsModal = false" style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
+      <button (click)="showBookingDetailsModal = false"
+        style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
     <div style="padding:24px;max-height:calc(85vh - 70px);overflow-y:auto">
       <!-- Status Badges -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
         <div>
-          <span style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Booking Status</span>
-          <span class="status-badge" [class]="'status-' + (booking.bookingStatus || 'confirmed').toLowerCase()" style="font-weight:700;font-size:0.85rem">
+          <span
+            style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Booking
+            Status</span>
+          <span class="status-badge" [class]="'status-' + (booking.bookingStatus || 'confirmed').toLowerCase()"
+            style="font-weight:700;font-size:0.85rem">
             {{ booking.bookingStatus || 'Confirmed' }}
           </span>
         </div>
         <div style="text-align:right">
-          <span style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Billing Frequency</span>
+          <span
+            style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Billing
+            Frequency</span>
           <span style="font-weight:700;color:#0284c7;font-size:0.95rem">
             Every {{ booking.billingPeriodMonths || 1 }} Month(s)
           </span>
@@ -2001,7 +2252,8 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
         <!-- Space Number -->
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Space Number / Code</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Space
+            Number / Code</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">
             {{ booking.spaceNumber || booking.contract?.spaceNumber || booking.spaceCode || booking.spaceName || '—' }}
           </div>
@@ -2009,7 +2261,8 @@
 
         <!-- Billing Period -->
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Billing Period</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Billing Period</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0284c7">
             {{ booking.billingPeriod || booking.contract?.billingPeriod || booking.billingPeriodLabel || 'Monthly' }}
           </div>
@@ -2017,15 +2270,19 @@
 
         <!-- Contract Period -->
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Contract Period</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Contract Period</div>
           <div style="font-size:0.88rem;font-weight:600;color:#0f172a">
-            {{ (booking.contractStartDate || booking.contract?.contractStartDate || booking.startOn || booking.startDateTime) | date:'MMM d, y' }} – {{ (booking.contractEndDate || booking.contract?.contractEndDate || booking.endOn || booking.endDateTime) | date:'MMM d, y' }}
+            {{ (booking.contractStartDate || booking.contract?.contractStartDate || booking.startOn ||
+            booking.startDateTime) | date:'MMM d, y' }} – {{ (booking.contractEndDate ||
+            booking.contract?.contractEndDate || booking.endOn || booking.endDateTime) | date:'MMM d, y' }}
           </div>
         </div>
 
         <!-- Contract Duration -->
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Contract Duration</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Contract Duration</div>
           <div style="font-size:0.88rem;font-weight:600;color:#0f172a">
             {{ booking.numberOfMonths || booking.contract?.numberOfMonths || booking.contractDuration || 1 }} Month(s)
           </div>
@@ -2033,49 +2290,63 @@
 
         <!-- Monthly Rent -->
         <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:4px">Monthly Rent</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:4px">
+            Monthly Rent</div>
           <div style="font-size:1.1rem;font-weight:700;color:#0f172a">
-            PKR {{ (booking.monthlyRent ?? booking.MonthlyRent ?? booking.contract?.monthlyRent ?? booking.pricePerMonth ?? 0) | number:'1.2-2' }}
+            PKR {{ (booking.monthlyRent ?? booking.MonthlyRent ?? booking.contract?.monthlyRent ?? booking.pricePerMonth
+            ?? 0) | number:'1.2-2' }}
           </div>
         </div>
 
         <!-- Current Cycle Amount -->
         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#1e40af;text-transform:uppercase;margin-bottom:4px">Current Cycle Amount</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#1e40af;text-transform:uppercase;margin-bottom:4px">
+            Current Cycle Amount</div>
           <div style="font-size:1.1rem;font-weight:700;color:#0369a1">
-            PKR {{ (booking.currentCycleAmount ?? booking.CurrentCycleAmount ?? booking.contract?.currentCycleAmount ?? booking.monthlyRent ?? booking.totalAmount ?? 0) | number:'1.2-2' }}
+            PKR {{ (booking.currentCycleAmount ?? booking.CurrentCycleAmount ?? booking.contract?.currentCycleAmount ??
+            booking.monthlyRent ?? booking.totalAmount ?? 0) | number:'1.2-2' }}
           </div>
         </div>
 
         <!-- Total Contract Amount -->
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase;margin-bottom:4px">Total Contract Amount</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase;margin-bottom:4px">Total
+            Contract Amount</div>
           <div style="font-size:1.1rem;font-weight:700;color:#15803d">
-            PKR {{ (booking.totalContractAmount ?? booking.TotalContractAmount ?? booking.contract?.totalContractAmount ?? booking.totalAmount ?? booking.TotalAmount ?? 0) | number:'1.2-2' }}
+            PKR {{ (booking.totalContractAmount ?? booking.TotalContractAmount ?? booking.contract?.totalContractAmount
+            ?? booking.totalAmount ?? booking.TotalAmount ?? 0) | number:'1.2-2' }}
           </div>
         </div>
 
         <!-- Security Deposit -->
         <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#c2410c;text-transform:uppercase;margin-bottom:4px">Security Deposit (One-time)</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#c2410c;text-transform:uppercase;margin-bottom:4px">
+            Security Deposit (One-time)</div>
           <div style="font-size:1.1rem;font-weight:700;color:#c2410c">
-            PKR {{ (booking.securityDeposit ?? booking.SecurityDeposit ?? booking.contract?.securityDeposit ?? 0) | number:'1.2-2' }}
+            PKR {{ (booking.securityDeposit ?? booking.SecurityDeposit ?? booking.contract?.securityDeposit ?? 0) |
+            number:'1.2-2' }}
           </div>
         </div>
 
         <!-- Balance Left -->
         <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px">Balance Remaining</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px">
+            Balance Remaining</div>
           <div style="font-size:1.1rem;font-weight:700;color:#b45309">
-            PKR {{ (booking.balanceLeft ?? booking.BalanceLeft ?? booking.contract?.balanceLeft ?? booking.balanceAmount ?? booking.BalanceAmount ?? 0) | number:'1.2-2' }}
+            PKR {{ (booking.balanceLeft ?? booking.BalanceLeft ?? booking.contract?.balanceLeft ?? booking.balanceAmount
+            ?? booking.BalanceAmount ?? 0) | number:'1.2-2' }}
           </div>
         </div>
 
         <!-- Next Billing Date -->
         <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:4px">Next Billing Date</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:4px">Next
+            Billing Date</div>
           <div style="font-size:1.1rem;font-weight:700;color:#0284c7">
-            {{ (booking.nextBillingDate || booking.NextBillingDate || booking.nextBillDueDate || booking.NextBillDueDate || booking.contract?.nextBillingDate || booking.dueDate || booking.DueDate) ? ((booking.nextBillingDate || booking.NextBillingDate || booking.nextBillDueDate || booking.NextBillDueDate || booking.contract?.nextBillingDate || booking.dueDate || booking.DueDate) | date:'MMM d, y') : 'N/A' }}
+            {{ (booking.nextBillingDate || booking.NextBillingDate || booking.nextBillDueDate || booking.NextBillDueDate
+            || booking.contract?.nextBillingDate || booking.dueDate || booking.DueDate) ? ((booking.nextBillingDate ||
+            booking.NextBillingDate || booking.nextBillDueDate || booking.NextBillDueDate ||
+            booking.contract?.nextBillingDate || booking.dueDate || booking.DueDate) | date:'MMM d, y') : 'N/A' }}
           </div>
         </div>
       </div>
@@ -2083,38 +2354,47 @@
       <!-- Security Deposit & Billing Schedule Summary -->
       @if (bookingBillingSummaryData(); as summary) {
       <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin-bottom:20px">
-        <h4 style="margin:0 0 12px 0;font-size:0.9rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px">Security Deposit Status</h4>
+        <h4 style="margin:0 0 12px 0;font-size:0.9rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px">
+          Security Deposit Status</h4>
         <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;text-align:center">
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Required</span>
-            <strong style="font-size:0.88rem;color:#0f172a">PKR {{ (summary.securityDepositRequired ?? 0) | number:'1.2-2' }}</strong>
+            <strong style="font-size:0.88rem;color:#0f172a">PKR {{ (summary.securityDepositRequired ?? 0) |
+              number:'1.2-2' }}</strong>
           </div>
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Invoiced</span>
-            <strong style="font-size:0.88rem;color:#0284c7">PKR {{ (summary.securityDepositInvoiced ?? 0) | number:'1.2-2' }}</strong>
+            <strong style="font-size:0.88rem;color:#0284c7">PKR {{ (summary.securityDepositInvoiced ?? 0) |
+              number:'1.2-2' }}</strong>
           </div>
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Paid</span>
-            <strong style="font-size:0.88rem;color:#16a34a">PKR {{ (summary.securityDepositPaid ?? 0) | number:'1.2-2' }}</strong>
+            <strong style="font-size:0.88rem;color:#16a34a">PKR {{ (summary.securityDepositPaid ?? 0) | number:'1.2-2'
+              }}</strong>
           </div>
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Outstanding</span>
-            <strong style="font-size:0.88rem" [style.color]="(summary.securityDepositOutstanding ?? 0) > 0 ? '#dc2626' : '#16a34a'">
+            <strong style="font-size:0.88rem"
+              [style.color]="(summary.securityDepositOutstanding ?? 0) > 0 ? '#dc2626' : '#16a34a'">
               PKR {{ (summary.securityDepositOutstanding ?? 0) | number:'1.2-2' }}
             </strong>
           </div>
         </div>
-        <div style="margin-top:10px;font-size:0.78rem;color:#475569;background:#fff;padding:6px 10px;border-radius:4px;border:1px solid #e2e8f0">
-          Security Deposit Charged Status: <strong>{{ summary.securityDepositCharged ? 'CHARGED (Will not appear on future invoices)' : 'PENDING FIRST INVOICE' }}</strong>
+        <div
+          style="margin-top:10px;font-size:0.78rem;color:#475569;background:#fff;padding:6px 10px;border-radius:4px;border:1px solid #e2e8f0">
+          Security Deposit Charged Status: <strong>{{ summary.securityDepositCharged ? 'CHARGED (Will not appear on
+            future invoices)' : 'PENDING FIRST INVOICE' }}</strong>
         </div>
       </div>
       }
 
 
       <!-- Next Invoice Date & Automation Info -->
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+      <div
+        style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase">Next Invoice Auto-Generation</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase">Next Invoice
+            Auto-Generation</div>
           <div style="font-size:0.85rem;color:#15803d;margin-top:2px">
             Scheduled 5 days before cycle end date
           </div>
@@ -2122,13 +2402,15 @@
         <div style="text-align:right">
           <span style="font-size:0.72rem;color:#166534;display:block">Next Billing Date</span>
           <strong style="font-size:1.05rem;color:#14532d">
-            {{ (booking.nextBillingDate || booking.billingPeriodEnd) ? ((booking.nextBillingDate || booking.billingPeriodEnd) | date:'MMM d, y') : 'N/A' }}
+            {{ (booking.nextBillingDate || booking.billingPeriodEnd) ? ((booking.nextBillingDate ||
+            booking.billingPeriodEnd) | date:'MMM d, y') : 'N/A' }}
           </strong>
         </div>
       </div>
     </div>
 
-    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <button class="btn-admin btn-outline-admin" (click)="viewBillingChallan(booking)">
         📋 View Current Billing Challan
       </button>
@@ -2145,19 +2427,22 @@
     style="max-width:640px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,850px);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
 
     <!-- Header -->
-    <div style="background:#1e3a5f;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+    <div
+      style="background:#1e3a5f;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
       <div>
         <div style="font-size:1.25rem;font-weight:700;letter-spacing:.5px">WORKNEST</div>
         <div style="font-size:.75rem;opacity:.8;margin-top:2px">Invoice Details</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:.7rem;opacity:.7">Invoice No.</div>
-        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.invoiceNumber || inv.InvoiceNumber || ('INV-' + inv.id) }}</div>
+        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.invoiceNumber || inv.InvoiceNumber ||
+          ('INV-' + inv.id) }}</div>
       </div>
     </div>
 
     <!-- Status Banner -->
-    <div style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+    <div
+      style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
       <span style="font-size:.82rem;color:#1e40af;font-weight:600">
         Issued On: {{ inv.createdOn || inv.createdAt || inv.issuedOn | date:'MMM d, y' }}
       </span>
@@ -2172,20 +2457,25 @@
       <!-- Customer & Space Details -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;margin-bottom:20px">
         <div>
-          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">
+          <div
+            style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">
             Customer Details
           </div>
           <div style="font-size:.82rem;line-height:1.8">
-            <div><span style="color:#64748b">Name: </span><strong>{{ inv.customerName || inv.userName || inv.userEmail || 'Customer' }}</strong></div>
-            <div><span style="color:#64748b">Email: </span><strong>{{ inv.customerEmail || inv.userEmail || '-' }}</strong></div>
+            <div><span style="color:#64748b">Name: </span><strong>{{ inv.customerName || inv.userName || inv.userEmail
+                || 'Customer' }}</strong></div>
+            <div><span style="color:#64748b">Email: </span><strong>{{ inv.customerEmail || inv.userEmail || '-'
+                }}</strong></div>
             @if (inv.customerCode || inv.userCode) {
-            <div><span style="color:#64748b">Code / ID: </span><strong>{{ inv.customerCode || inv.userCode }}</strong></div>
+            <div><span style="color:#64748b">Code / ID: </span><strong>{{ inv.customerCode || inv.userCode }}</strong>
+            </div>
             }
           </div>
         </div>
 
         <div>
-          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">
+          <div
+            style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">
             Space &amp; Location Details
           </div>
           <div style="font-size:.82rem;line-height:1.8">
@@ -2202,17 +2492,20 @@
 
       <!-- Financial Summary Breakdown -->
       <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px">
-        <div style="background:#f1f5f9;padding:8px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">
+        <div
+          style="background:#f1f5f9;padding:8px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">
           Payment Breakdown
         </div>
         <div style="padding:0 16px">
           @for (line of (inv.items || inv.lineItems || inv.details || []); track line.id || $index) {
-          <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
+          <div
+            style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
             <span>{{ line.description || line.chargeTypeLabel || line.feeType || 'Item' }}</span>
             <strong>PKR {{ (line.amount || line.lineTotal || 0) | number:'1.2-2' }}</strong>
           </div>
           }
-          <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
+          <div
+            style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
             <span>Total Amount</span>
             <span>PKR {{ (inv.totalAmount || inv.total || 0) | number:'1.2-2' }}</span>
           </div>
@@ -2220,7 +2513,8 @@
             <span>Amount Paid</span>
             <span>PKR {{ (inv.paidAmount || 0) | number:'1.2-2' }}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
+          <div
+            style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
             <span>Balance Due</span>
             <span>PKR {{ (inv.balanceAmount || (inv.totalAmount - inv.paidAmount) || 0) | number:'1.2-2' }}</span>
           </div>
@@ -2230,7 +2524,8 @@
     </div>
 
     <!-- Actions -->
-    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
       <button class="btn-admin btn-outline-admin" (click)="showInvoiceDetailsModal = false">Close</button>
       <button class="btn-admin btn-primary-admin" (click)="openRecordPaymentModal(inv)">Record Payment</button>
     </div>
@@ -2241,16 +2536,20 @@
 <!-- Quotation Preview & Version History Modal -->
 @if (showQuotationPreviewModal && selectedQuotation(); as q) {
 <div class="modal-overlay" (click)="closeQuotationPreviewModal()">
-  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:840px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px)">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:840px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px)">
     <!-- Modal Header -->
-    <div style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
       <div>
         <div style="display:flex;align-items:center;gap:10px">
           <h3 style="margin:0;font-size:1.2rem;font-weight:700">{{ q.quotationNumber || 'WN-Q-001' }}</h3>
-          <span style="background:#334155;color:#f8fafc;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
+          <span
+            style="background:#334155;color:#f8fafc;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
             Version {{ q.versionNumber || 1 }}
           </span>
-          <span class="status-badge" [class]="'status-' + (q.status || 'draft').toLowerCase()" style="font-size:0.75rem;padding:2px 8px">
+          <span class="status-badge" [class]="'status-' + (q.status || 'draft').toLowerCase()"
+            style="font-size:0.75rem;padding:2px 8px">
             {{ q.status || 'Draft' }}
           </span>
         </div>
@@ -2258,33 +2557,39 @@
           Customer: {{ q.customerName || q.customerEmail || 'N/A' }} • Space: {{ q.spaceName || 'N/A' }}
         </div>
       </div>
-      <button (click)="closeQuotationPreviewModal()" style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+      <button (click)="closeQuotationPreviewModal()"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
     <!-- Toolbar Actions -->
-    <div style="background:#f8fafc;padding:10px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;flex-shrink:0">
+    <div
+      style="background:#f8fafc;padding:10px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;flex-shrink:0">
       <div style="display:flex;gap:8px">
         <button class="btn-admin btn-outline-admin" (click)="downloadQuotationPdf()" title="Download PDF">
           📥 Download PDF
         </button>
-        <button class="btn-admin btn-outline-admin" (click)="sendQuotationEmailNow()" title="Email Quotation to Customer">
+        <button class="btn-admin btn-outline-admin" (click)="sendQuotationEmailNow()"
+          title="Email Quotation to Customer">
           ✉️ Email Customer
         </button>
       </div>
 
       <div style="display:flex;gap:8px">
         @if ((q.status || 'Draft') === 'Draft') {
-        <button class="btn-admin btn-primary-admin" (click)="sendQuotationVersionToCustomer(q)" style="background:#2563eb;color:#fff">
+        <button class="btn-admin btn-primary-admin" (click)="sendQuotationVersionToCustomer(q)"
+          style="background:#2563eb;color:#fff">
           🚀 Send Quotation
         </button>
         }
         @if ((q.status || '').toLowerCase() === 'declined') {
-        <button class="btn-admin btn-primary-admin" (click)="createNextVersion(q)" style="background:#7c3aed;color:#fff">
+        <button class="btn-admin btn-primary-admin" (click)="createNextVersion(q)"
+          style="background:#7c3aed;color:#fff">
           ➕ Create Version {{ (q.versionNumber || 1) + 1 }}
         </button>
         }
         @if (isQuotationAccepted(q)) {
-        <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(q)" style="background:#16a34a;color:#fff">
+        <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(q)"
+          style="background:#16a34a;color:#fff">
           ✅ Convert to Booking
         </button>
         }
@@ -2299,31 +2604,38 @@
 
     <!-- Modal Content Body -->
     <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
-      
+
       <!-- Version History Section -->
       @if (quotationVersions().length > 0) {
       <div style="margin-bottom:24px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:16px">
-        <h4 style="margin:0 0 12px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;justify-content:space-between">
+        <h4
+          style="margin:0 0 12px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;justify-content:space-between">
           <span>📜 Quotation Version History</span>
-          <span style="font-size:0.75rem;color:#64748b;font-weight:normal">{{ quotationVersions().length }} version(s) recorded</span>
+          <span style="font-size:0.75rem;color:#64748b;font-weight:normal">{{ quotationVersions().length }} version(s)
+            recorded</span>
         </h4>
         <div style="display:flex;flex-direction:column;gap:10px">
           @for (v of quotationVersions(); track v.id || v.versionNumber || $index) {
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px"
-               [style.border-left]="v.versionNumber === q.versionNumber ? '4px solid #2563eb' : '1px solid #e2e8f0'">
+          <div
+            style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px"
+            [style.border-left]="v.versionNumber === q.versionNumber ? '4px solid #2563eb' : '1px solid #e2e8f0'">
             <div>
               <div style="display:flex;align-items:center;gap:8px">
                 <strong style="font-size:0.9rem;color:#0f172a">Version {{ v.versionNumber || ($index + 1) }}</strong>
-                <span class="status-badge" [class]="'status-' + (v.status || 'draft').toLowerCase()" style="font-size:0.7rem;padding:1px 6px">
+                <span class="status-badge" [class]="'status-' + (v.status || 'draft').toLowerCase()"
+                  style="font-size:0.7rem;padding:1px 6px">
                   {{ v.status || 'Draft' }}
                 </span>
-                <span style="font-size:0.78rem;color:#64748b">• PKR {{ (v.totalAmount || v.TotalAmount || 0) | number:'1.0-0' }}</span>
+                <span style="font-size:0.78rem;color:#64748b">• PKR {{ (v.totalAmount || v.TotalAmount || 0) |
+                  number:'1.0-0' }}</span>
               </div>
               <div style="font-size:0.78rem;color:#64748b;margin-top:2px">
-                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos • Created: {{ (v.createdAt || v.createdDate) | date:'mediumDate' }}
+                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos • Created: {{ (v.createdAt ||
+                v.createdDate) | date:'mediumDate' }}
               </div>
               @if (v.customerNote || v.note) {
-              <div style="margin-top:6px;font-size:0.8rem;background:#fef2f2;color:#991b1b;padding:6px 10px;border-radius:6px;border:1px solid #fecaca;font-style:italic">
+              <div
+                style="margin-top:6px;font-size:0.8rem;background:#fef2f2;color:#991b1b;padding:6px 10px;border-radius:6px;border:1px solid #fecaca;font-style:italic">
                 💬 Customer Response: "{{ v.customerNote || v.note }}"
               </div>
               }
@@ -2331,12 +2643,14 @@
 
             <div style="display:flex;gap:6px">
               @if ((v.status || '').toLowerCase() === 'declined') {
-              <button class="btn-admin btn-outline-admin" (click)="createNextVersion(v)" style="font-size:0.75rem;padding:4px 10px;color:#7c3aed;border-color:#ddd6fe">
+              <button class="btn-admin btn-outline-admin" (click)="createNextVersion(v)"
+                style="font-size:0.75rem;padding:4px 10px;color:#7c3aed;border-color:#ddd6fe">
                 Create v{{ (v.versionNumber || 1) + 1 }}
               </button>
               }
               @if (isQuotationAccepted(v)) {
-              <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(v)" style="font-size:0.75rem;padding:4px 10px;background:#16a34a;color:#fff;border:none">
+              <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(v)"
+                style="font-size:0.75rem;padding:4px 10px;background:#16a34a;color:#fff;border:none">
                 ✅ Convert to Booking
               </button>
               }
@@ -2349,123 +2663,202 @@
       }
 
       <!-- Printable Quotation Container -->
-      <div id="quotation-printable" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:32px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05)">
+      <div id="quotation-printable"
+        style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:32px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05)">
         <!-- Document Header -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:18px;margin-bottom:24px">
+        <div
+          style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:18px;margin-bottom:24px">
           <div>
             <h1 style="margin:0;font-size:1.8rem;font-weight:800;color:#0f172a;letter-spacing:-0.5px">WORKNEST</h1>
             <p style="margin:2px 0 0 0;font-size:0.82rem;color:#64748b">Premium Workspace & Co-Working Solutions</p>
           </div>
           <div style="text-align:right">
             <div style="font-size:1.25rem;font-weight:800;color:#2563eb">{{ q.quotationNumber || 'WN-Q-001' }}</div>
-            <div style="font-size:0.9rem;font-weight:700;color:#475569;margin-top:2px">Quotation Version {{ q.versionNumber || 1 }}</div>
-            <div style="font-size:0.78rem;color:#64748b;margin-top:4px">Date: {{ (q.createdAt || q.quotationDate || q.createdDate) | date:'mediumDate' }}</div>
-            <div style="font-size:0.78rem;color:#dc2626;font-weight:600" *ngIf="q.validUntil">Valid Until: {{ q.validUntil | date:'mediumDate' }}</div>
+            <div style="font-size:0.9rem;font-weight:700;color:#475569;margin-top:2px">Quotation Version {{
+              q.versionNumber || 1 }}</div>
+            <div style="font-size:0.78rem;color:#64748b;margin-top:4px">Date: {{ (q.createdAt || q.quotationDate ||
+              q.createdDate) | date:'mediumDate' }}</div>
+            <div style="font-size:0.78rem;color:#dc2626;font-weight:600" *ngIf="q.validUntil">Valid Until: {{
+              q.validUntil | date:'mediumDate' }}</div>
           </div>
         </div>
 
         <!-- Customer & Space Grid -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
           <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
-            <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">Customer Details</div>
+            <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
+              Customer Details</div>
             <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || 'Customer' }}</div>
             <div style="font-size:0.85rem;color:#475569">{{ q.customerEmail || '-' }}</div>
             <div style="font-size:0.85rem;color:#475569" *ngIf="q.customerPhone">{{ q.customerPhone }}</div>
           </div>
 
           <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
-            <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">Workspace Details</div>
+            <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
+              Workspace Details</div>
             <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
-            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main Branch' }}</div>
+            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
+              Branch' }}</div>
             <div style="font-size:0.85rem;color:#475569" *ngIf="q.capacity">Capacity: {{ q.capacity }} Person(s)</div>
           </div>
         </div>
 
         <!-- Contract & Billing Summary Cards -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px">
+        <div
+          style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px">
+          @if (isMeetingRoom(q)) {
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Booking Rent</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (q.subtotalAmount || 0) | number:'1.2-2'
+              }}</div>
+            <div style="font-size:0.72rem;color:#64748b">Base Booking Amount</div>
+          </div>
+          <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
+            <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">Total Payable</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getQuotationInitialPayable(q) |
+              number:'1.2-2' }}</div>
+            <div style="font-size:0.72rem;color:#1e40af">Rent + Tax</div>
+          </div>
+          } @else {
           <div>
             <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Total Contract</div>
-            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (q.totalContractAmount || q.totalAmount || q.subtotalAmount || 0) | number:'1.2-2' }}</div>
-            <div style="font-size:0.72rem;color:#64748b">{{ q.contractPeriodMonths || q.months || 12 }} Month(s) Duration</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ getQuotationTotalContract(q) |
+              number:'1.2-2' }}</div>
+            <div style="font-size:0.72rem;color:#64748b">{{ getQuotationContractMonths(q) }} Month(s) Duration</div>
           </div>
           <div>
             <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
-            <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ (q.monthlyRent || ((q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12))) | number:'1.2-2' }}</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getQuotationMonthlyRent(q) |
+              number:'1.2-2' }}</div>
             <div style="font-size:0.72rem;color:#64748b">per month</div>
           </div>
+          @if (isPrivateRoom(q)) {
           <div>
-            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Billing Frequency</div>
-            <div style="font-size:1.05rem;font-weight:800;color:#0284c7">Every {{ q.billingPeriodMonths || 3 }} Mo</div>
-            <div style="font-size:0.72rem;color:#64748b">Billing Cycle</div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Security Deposit</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#d97706">PKR {{ getQuotationSecurityDeposit(q) |
+              number:'1.2-2' }}</div>
+            <div style="font-size:0.72rem;color:#64748b">Refundable</div>
+          </div>
+          }
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">User will be billed
+            </div>
+            <div style="font-size:1.05rem;font-weight:800;color:#0284c7">Every {{ getQuotationBillingMonths(q) }} Mo
+            </div>
+            <div style="font-size:0.72rem;color:#64748b">Advance Rent Period</div>
           </div>
           <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
-            <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent</div>
-            <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ (q.firstCycleRent || (((q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12)) * (q.billingPeriodMonths || 3))) | number:'1.2-2' }}</div>
-            <div style="font-size:0.72rem;color:#1e40af">First {{ q.billingPeriodMonths || 3 }} Months Rent</div>
+            <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent
+            </div>
+            <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getQuotationFirstCycleRent(q) |
+              number:'1.2-2' }}</div>
+            <div style="font-size:0.72rem;color:#1e40af">First {{ getQuotationBillingMonths(q) }} Months Rent</div>
           </div>
+          }
         </div>
 
         <!-- Financial Breakdown Table -->
-        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem">
+        <table
+          style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
           <thead>
             <tr style="background:#0f172a;color:#fff">
-              <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Commercial Description</th>
-              <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+              <th style="padding:10px 14px;text-align:left">Itemized Commercial Description</th>
+              <th style="padding:10px 14px;text-align:center">Billing Basis</th>
+              <th style="padding:10px 14px;text-align:right">Amount (PKR)</th>
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom:1px solid #e2e8f0">
+            @if (isMeetingRoom(q)) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
               <td style="padding:12px 14px">
-                <strong>Room Rent (Total {{ q.contractPeriodMonths || q.months || 12 }} Month(s) Contract)</strong>
-                <div style="font-size:0.78rem;color:#64748b">Rate: PKR {{ ((q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12)) | number:'1.2-2' }} / month</div>
+                <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
+                <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
               </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:600">
-                PKR {{ (q.subtotalAmount || q.totalAmount || 0) | number:'1.2-2' }}
-              </td>
-            </tr>
-
-            <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
-              <td style="padding:12px 14px">
-                <strong style="color:#1d4ed8">First Billing Cycle Rent (1st {{ q.billingPeriodMonths || 3 }} Month(s))</strong>
-                <div style="font-size:0.78rem;color:#64748b">Billed Amount: {{ q.billingPeriodMonths || 3 }} Month(s) × PKR {{ ((q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12)) | number:'1.2-2' }}</div>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                Per Booking Slot
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-                PKR {{ (((q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12)) * (q.billingPeriodMonths || 3)) | number:'1.2-2' }}
+                PKR {{ (q.subtotalAmount || 0) | number:'1.2-2' }}
               </td>
             </tr>
-
-            <tr style="border-bottom:1px solid #e2e8f0" *ngIf="q.securityDepositOverride || q.securityDeposit">
+            } @else {
+            <!-- 1st Advance Rent Period -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
               <td style="padding:12px 14px">
-                <strong>Security Deposit (Refundable)</strong>
-                <div style="font-size:0.78rem;color:#64748b">{{ q.securityDepositMonths || 2 }} Month(s) Equivalent</div>
+                <strong style="color:#0f172a">1st Advance Rent Period ({{ getQuotationBillingMonths(q) }}
+                  Month(s))</strong>
+                <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
               </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:600">
-                PKR {{ (q.securityDepositOverride || q.securityDeposit || 0) | number:'1.2-2' }}
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                PKR {{ getQuotationFirstCycleRent(q) | number:'1.2-2' }}
               </td>
             </tr>
 
-            <tr style="border-bottom:1px solid #e2e8f0" *ngIf="q.discountAmount">
+            <!-- Security Deposit (Only for Private Room / when > 0) -->
+            @if (isPrivateRoom(q) && getQuotationSecurityDeposit(q) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
+                <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                {{ getQuotationSecurityMonths(q) }} Month(s) Equivalent
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
+                PKR {{ getQuotationSecurityDeposit(q) | number:'1.2-2' }}
+              </td>
+            </tr>
+            }
+            }
+
+            <!-- Provincial Sales Tax (PST) on Advance Rent -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getQuotationTaxAmount(q) > 0">
+              <td style="padding:12px 14px">
+                <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+                <div style="font-size:0.78rem;color:#166534">16% PST on 10% support services portion</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+                16% on 10% Support Services
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
+              </td>
+            </tr>
+
+            <!-- Special Discount if any -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5" *ngIf="q.discountAmount > 0">
               <td style="padding:12px 14px;color:#16a34a">
                 <strong>Special Discount Applied</strong>
               </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:600;color:#16a34a">
+              <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+                Discount Offset
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
                 - PKR {{ (q.discountAmount || 0) | number:'1.2-2' }}
               </td>
             </tr>
           </tbody>
           <tfoot>
-            <tr style="background:#f8fafc;font-size:0.95rem;border-top:1px solid #cbd5e1">
-              <td style="padding:10px 14px;font-weight:700;color:#475569">Total Contract Value ({{ q.contractPeriodMonths || q.months || 12 }} Months)</td>
+            @if (!isMeetingRoom(q)) {
+            <tr style="background:#f8fafc;font-size:0.85rem;border-top:2px solid #e2e8f0">
+              <td colspan="2" style="padding:10px 14px;font-weight:600;color:#64748b">
+                Total Contract Rent ({{ getQuotationContractMonths(q) }} Months @ PKR {{ getQuotationMonthlyRent(q) |
+                number:'1.2-2' }}/mo)
+              </td>
               <td style="padding:10px 14px;text-align:right;font-weight:700;color:#475569">
-                PKR {{ (q.totalAmount || q.TotalAmount || 0) | number:'1.2-2' }}
+                PKR {{ getQuotationTotalContract(q) | number:'1.2-2' }}
               </td>
             </tr>
+            }
             <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
-              <td style="padding:14px;font-weight:800;color:#1e40af">
-                Initial Amount Payable (1st Cycle Rent + Security Deposit)
+              <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
+                TOTAL INITIAL PAYABLE AMOUNT (1ST BILLING CYCLE)
               </td>
-              <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8">
-                PKR {{ ((((q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12)) * (q.billingPeriodMonths || 3)) + (q.securityDepositOverride || q.securityDeposit || 0) - (q.discountAmount || 0)) | number:'1.2-2' }}
+              <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
+                PKR {{ getQuotationInitialPayable(q) | number:'1.2-2' }}
               </td>
             </tr>
           </tfoot>
@@ -2475,6 +2868,8 @@
         <div style="border-top:1px dashed #cbd5e1;padding-top:16px;font-size:0.78rem;color:#64748b;line-height:1.5">
           <strong>Terms & Conditions:</strong>
           <ol style="margin:4px 0 0 16px;padding:0">
+            <li>The price is exclusive of all taxes.</li>
+            <li>Worknest will charge Provincial Sales Tax on services.</li>
             <li>Quotation validity is subject to space availability at the time of customer acceptance.</li>
             <li>Security deposit is fully refundable upon completion of contract period.</li>
             <li>All utility charges, high-speed Wi-Fi, and cleaning are included unless specified otherwise.</li>
@@ -2484,11 +2879,181 @@
     </div>
 
     <!-- Modal Footer Actions -->
-    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
       <button class="btn-admin btn-outline-admin" (click)="closeQuotationPreviewModal()">Close Preview</button>
     </div>
   </div>
 </div>
 }
+<!-- Quotation Conversion to Booking Preview Modal -->
+@if (showConversionPreviewModal && selectedConversionQuotation(); as q) {
+<div class="modal-overlay" (click)="closeConversionPreviewModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(90vh,850px)">
 
+    <!-- Modal Header -->
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <h3 style="margin:0;font-size:1.15rem;font-weight:700">Confirm Booking Conversion</h3>
+          <span
+            style="background:#2563eb;color:#fff;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
+            {{ q.quotationNumber || 'Quotation' }} (v{{ q.versionNumber || 1 }})
+          </span>
+        </div>
+        <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">
+          Review details before converting into a confirmed booking and generating the first challan.
+        </div>
+      </div>
+      <button (click)="closeConversionPreviewModal()"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
 
+    <!-- Alert Info Banner -->
+    <div
+      style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.2rem">ℹ️</span>
+      <div style="font-size:0.82rem;color:#1e40af">
+        Converting this quotation will create a <strong>Confirmed Booking</strong>, lock historical rate snapshot, and
+        issue the initial <strong>Payment Challan</strong>.
+      </div>
+    </div>
+
+    <!-- Body Content -->
+    <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
+
+      <!-- Summary Cards Grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Customer Info</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || 'Customer' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ q.customerEmail || '-' }}</div>
+        </div>
+
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Workspace & Location</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
+            Location' }}</div>
+        </div>
+
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Contract Dates</div>
+          <div style="font-size:0.88rem;font-weight:700;color:#0f172a">
+            {{ (q.startDateTime || q.startOn) | date:'MMM d, y' }} – {{ (q.endDateTime || q.endOn) | date:'MMM d, y' }}
+          </div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths || q.months ||
+            12 }} Month(s)</div>
+        </div>
+
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">User
+            will be billed</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0284c7">
+            Every {{ q.billingPeriodMonths || 3 }} Month(s) Advance
+          </div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">1st Cycle Billed Rent Period</div>
+        </div>
+      </div>
+
+      <!-- Financial Conversion Itemization Table -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
+        <thead>
+          <tr style="background:#0f172a;color:#fff">
+            <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Booking Line Item Description</th>
+            <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:10px 14px">
+              <strong>Base Room Rent (Contract Total)</strong>
+              <div style="font-size:0.75rem;color:#64748b">Before discount & tax</div>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:600">
+              PKR {{ (q.subtotalAmount || q.SubtotalAmount || 0) | number:'1.2-2' }}
+            </td>
+          </tr>
+
+          @if (q.discountAmount) {
+          <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+            <td style="padding:10px 14px;color:#16a34a">
+              <strong>Special Discount</strong>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
+              - PKR {{ (q.discountAmount || 0) | number:'1.2-2' }}
+            </td>
+          </tr>
+          }
+
+          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+            <td style="padding:10px 14px">
+              <strong style="color:#15803d">Service Charge (10%) & Province Tax (16%)</strong>
+              <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines
+                & challan</div>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
+              + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
+            </td>
+          </tr>
+
+          @if (q.securityDepositOverride || q.securityDeposit) {
+          <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:10px 14px">
+              <strong>Security Deposit (Refundable)</strong>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:600">
+              + PKR {{ (q.securityDepositOverride || q.securityDeposit || 0) | number:'1.2-2' }}
+            </td>
+          </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc;font-size:0.95rem;border-top:1px solid #cbd5e1">
+            <td style="padding:10px 14px;font-weight:700;color:#475569">Total Booking Contract Value</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
+              PKR {{ (getQuotationNetTotal(q) + (q.securityDepositOverride || q.securityDeposit || 0)) | number:'1.2-2'
+              }}
+            </td>
+          </tr>
+          <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+            <td style="padding:12px 14px;font-weight:800;color:#1e40af">
+              Initial Challan Amount Payable (1st Cycle Rent + Tax + Security Deposit)
+            </td>
+            <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
+              PKR {{ ((( (q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12) ) *
+              (q.billingPeriodMonths || 3)) + (q.securityDepositOverride || q.securityDeposit || 0) - (q.discountAmount
+              || 0) + getQuotationTaxAmount(q)) | number:'1.2-2' }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div
+      style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <button class="btn-admin btn-outline-admin" (click)="closeConversionPreviewModal()"
+        [disabled]="conversionSubmitting()">
+        Cancel
+      </button>
+
+      <button class="btn-admin btn-primary-admin" (click)="executeConversion(q)" [disabled]="conversionSubmitting()"
+        style="background:#16a34a;color:#fff;padding:10px 20px;font-size:0.95rem;font-weight:700">
+        @if (conversionSubmitting()) {
+        ⌛ Converting to Booking...
+        } @else {
+        ✅ Confirm & Convert to Booking
+        }
+      </button>
+    </div>
+
+  </div>
+</div>
+}

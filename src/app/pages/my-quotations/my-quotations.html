@@ -76,29 +76,42 @@
             <span class="term-sub">{{ activeQuotation().spaceTypeName }}</span>
           </div>
 
-          <div class="term-box">
-            <span class="term-label">Monthly Rent</span>
-            <span class="term-value">PKR {{ activeQuotation().monthlyRent | number:'1.0-2' }}</span>
-          </div>
+          @if (isMeetingRoom(activeQuotation())) {
+            <div class="term-box">
+              <span class="term-label">Start Date & Time</span>
+              <span class="term-value">{{ activeQuotation().startDateTime | date:'medium' }}</span>
+            </div>
+            <div class="term-box">
+              <span class="term-label">End Date & Time</span>
+              <span class="term-value">{{ activeQuotation().endDateTime | date:'medium' }}</span>
+            </div>
+          } @else {
+            <div class="term-box">
+              <span class="term-label">Monthly Rent</span>
+              <span class="term-value">PKR {{ activeQuotation().monthlyRent | number:'1.0-2' }}</span>
+            </div>
 
-          <div class="term-box">
-            <span class="term-label">Contract Period</span>
-            <span class="term-value">{{ activeQuotation().contractPeriod }} Months</span>
-          </div>
+            <div class="term-box">
+              <span class="term-label">Contract Period</span>
+              <span class="term-value">{{ activeQuotation().contractPeriod || 12 }} Months</span>
+            </div>
 
-          <div class="term-box">
-            <span class="term-label">Billing Cycle</span>
-            <span class="term-value">{{ activeQuotation().billingPeriodMonths }} Months</span>
-          </div>
+            <div class="term-box">
+              <span class="term-label">Advance Rent Period</span>
+              <span class="term-value">{{ activeQuotation().billingPeriodMonths || 3 }} Months</span>
+            </div>
 
-          <div class="term-box">
-            <span class="term-label">Security Deposit</span>
-            <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-2' }}</span>
-          </div>
+            @if (isPrivateRoom(activeQuotation())) {
+              <div class="term-box">
+                <span class="term-label">Security Deposit</span>
+                <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-2' }}</span>
+              </div>
+            }
+          }
 
           <div class="term-box">
             <span class="term-label">Total Amount</span>
-            <span class="term-valueTotal">PKR {{ activeQuotation().totalAmount | number:'1.0-2' }}</span>
+            <span class="term-valueTotal">PKR {{ (activeQuotation().totalPayable || activeQuotation().totalAmount) | number:'1.0-2' }}</span>
           </div>
         </div>
 

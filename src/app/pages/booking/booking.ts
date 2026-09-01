@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SpaceService } from '../../services/space.service';
@@ -8,11 +9,15 @@ import { AdminService } from '../../services/admin.service';
 
 
 interface Workspace {
+  price?: number;
+  seatPrice?: number;
+  billingPeriodId?: number;
+  billingPeriodLabel?: string;
   id: number; idGuid: string; name: string; locationName: string;
   companyName: string;
   spaceTypeId: number;
   spaceTypeName: string; capacity: number; amenities: string;
-  pricePerDay: number; pricePerHour: number; securityDeposit: number; status: string;
+  securityDeposit: number; status: string;
   imageUrl: string; floor: string; code: string;
 }
 
@@ -20,8 +25,13 @@ interface SpaceTypeGroup {
   spaceTypeId: number;
   spaceTypeName: string;
   capacity: number;
-  pricePerHour: number;
-  pricePerDay: number;
+  price: number;
+  Price?: number;
+  seatPrice?: number;
+  SeatPrice?: number;
+  billingPeriodId: number;
+  billingPeriodLabel?: string;
+  billingPeriodCode?: string;
   amenities: string;
   imageUrl: string;
   spaces: Workspace[];
@@ -73,7 +83,7 @@ function toDisplayName(s: string): string {
 
 @Component({
   selector: 'app-booking',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, DecimalPipe],
   templateUrl: './booking.html',
   styleUrl: './booking.css'
 })
@@ -173,8 +183,8 @@ export class Booking implements OnInit {
           spaceTypeId,
           spaceTypeName:    spaces[0].spaceTypeName,
           capacity:         spaces[0].capacity,
-          pricePerHour:     spaces[0].pricePerHour,
-          pricePerDay:      spaces[0].pricePerDay,
+          price:            (spaces[0] as any).price || (spaces[0] as any).seatPrice || 0,
+          billingPeriodId:  spaces[0].billingPeriodId || 4,
           amenities:        spaces[0].amenities,
           imageUrl:         spaces[0].imageUrl,
           spaces,
@@ -605,7 +615,7 @@ export class Booking implements OnInit {
     if (!this.selectedSpace) return null;
     const [start, end] = this.calcDateRange();
     if (!start || !end) return null;
-    const seatPrice = +this.selectedSpace.pricePerDay;
+    const seatPrice = +((this.selectedSpace as any).price || (this.selectedSpace as any).seatPrice || 0);
     let base: number;
     if (this.isPrivate) {
       const capacity  = +(this.bookingForm?.value?.capacity ?? 1);
@@ -686,7 +696,7 @@ export class Booking implements OnInit {
           baseAmount:      breakdown?.base ?? 0,
           securityDeposit: breakdown?.securityDeposit ?? 0,
           months:          (this.isPrivate || this.isShared) ? (+this.bookingForm.value.months || 1) : undefined,
-          pricePerHour:    this.selectedSpace?.pricePerHour ?? 0,
+          price:           this.selectedSpace?.price ?? 0,
           notes:           this.bookingForm.value.notes || null,
           capacity:        cap,
           smartBooking:    true,

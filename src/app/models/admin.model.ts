@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Shared Admin Models
 // ============================================================
 // This file contains all entity interfaces and response wrappers
@@ -25,6 +25,7 @@ export interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  company?: string;
   roles?: string[];
   isActive?: boolean;
   createdAt?: string;
@@ -79,6 +80,13 @@ export interface Space {
   amenities?: string;
 }
 
+export interface ChallanField {
+  label: string;
+  value: string;
+  key?: string;
+  isHeader?: boolean;
+}
+
 /**
  * Booking entity - represents a user's booking of a space.
  * BillingPeriodMonths: how often invoices are generated (1, 2, 3, or 6 months).
@@ -88,8 +96,12 @@ export interface Booking {
   id: number;
   userEmail?: string;
   customerName?: string;
+  customerCompany?: string;
   spaceName?: string;
   spaceId?: number;
+  spaceType?: string;
+  billingType?: string;
+  fields?: ChallanField[];
   startDateTime?: string;
   endDateTime?: string;
   totalAmount?: number;
@@ -118,7 +130,7 @@ export interface BillingPeriod {
   id?: number;
   invoiceId?: number;
   bookingId?: number;
-  /** Display label for the period, e.g. "Jan–Mar 2027" */
+  /** Display label for the period, e.g. "Janâ€“Mar 2027" */
   periodLabel: string;
   periodStartDate?: string;
   periodEndDate?: string;
@@ -147,6 +159,7 @@ export interface Invoice {
   bookingId?: number;
   customerId?: string;
   customerName?: string;
+  customerCompany?: string;
   customerEmail?: string;
   spaceName?: string;
   /** 1 = Regular (recurring rent), 3 = Security Deposit */
@@ -269,3 +282,4 @@ export interface GalleryImage {
   isActive?: boolean;
   createdAt?: string;
 }
+
