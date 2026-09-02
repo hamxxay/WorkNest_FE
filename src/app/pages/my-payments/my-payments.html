@@ -175,12 +175,7 @@
       @if (!isMeetingRoom(challanToPrint())) {
       <div
         style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:20px">
-        <div>
-          <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total
-            Contract Amount</span>
-          <strong style="color:#15803d;font-size:.95rem">PKR {{ (challanToPrint()!.totalContractAmount ??
-            challanToPrint()!.contract?.totalContractAmount ?? 0) | number:'1.2-2' }}</strong>
-        </div>
+
         <div>
           <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill
             Due Date</span>
@@ -435,12 +430,7 @@
             Deposit</span>
           <strong style="color:#475569;font-size:.95rem">PKR {{ (b.securityDeposit ?? 0) | number:'1.2-2' }}</strong>
         </div>
-        <div>
-          <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Total
-            Contract</span>
-          <strong style="color:#15803d;font-size:.95rem">PKR {{ (b.totalContractAmount ?? 0) | number:'1.2-2'
-            }}</strong>
-        </div>
+
         @if (b.nextBillDueDate) {
         <div>
           <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Next Bill

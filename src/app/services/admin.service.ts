@@ -283,11 +283,28 @@ export class AdminService {
   }
 
   /** Get detailed invoice by ID with line items and prepaid periods */
+  getStatementInvoicePdfBlob(invoiceId: number): Observable<Blob> {
+    return this.http.get(`${this.api}/invoice/${invoiceId}/statement-pdf`, { responseType: 'blob' });
+  }
+
   getInvoiceDetails(id: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/invoice/${id}`);
   }
 
   /** Record manual or offline payment for an invoice */
+  /** Create custom manual invoice */
+  createCustomInvoice(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice`, data);
+  }
+
+  sendInvoiceEmail(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/send-email`, {});
+  }
+
+  sendInitialInvoice(bookingId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/send-initial-invoice`, {});
+  }
+
   recordInvoicePayment(invoiceId: number, data: { paidAmount: number; paymentMethod: string; transactionRef?: string; notes?: string }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/record-payment`, data);
   }

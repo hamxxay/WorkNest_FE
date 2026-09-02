@@ -15,6 +15,13 @@
         Create Booking
       </button>
       }
+      @if (entity === 'invoices') {
+      <button class="btn-admin btn-primary-admin" (click)="openCreateCustomInvoiceModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" /></svg>
+        Create Custom Invoice
+      </button>
+      }
+
       @if (entity === 'quotations') {
       <button class="btn-admin btn-primary-admin" (click)="openAdminQuotationForm()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -183,6 +190,27 @@
                 </svg>
                 }
               </button>
+              @if (!item.initialInvoiceSent && !sentInitialInvoices.has(item.id ?? item.bookingId)) {
+                <button class="action-btn" (click)="sendInitialInvoice(item)"
+                  [disabled]="sendingInitialInvoiceId() === (item.id ?? item.bookingId)"
+                  title="Send Initial Payment Invoice (Advance Rent + Security Deposit)"
+                  style="background:#2563eb;color:#fff;border:none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
+                </button>
+              } @else {
+                <button class="action-btn" (click)="openCreateCustomInvoiceModal(item, true)"
+                  title="Create Next Invoice (Room Rent Only + Custom Line Option)"
+                  style="background:#059669;color:#fff;border:none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                </button>
+              }
               @if (item.bookingStatus === 'Confirmed') {
               <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign Space">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -203,7 +231,53 @@
                 </svg>
               </button>
               }
-              @if (entity === 'quotations') {
+              @if (entity === 'invoices') {
+              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View Invoice Details"
+                style="background:#0284c7;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+              </button>
+              <button class="action-btn" (click)="openCreateCustomInvoiceModal(item)" title="Review &amp; Send Invoice Modal"
+                style="background:#0284c7;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+              <button class="action-btn" (click)="downloadStatementPdf(item)" title="Download 5-Page Statement &amp; Invoice PDF"
+                style="background:#0f766e;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+              <button class="action-btn" (click)="openBookingDetailsModal(item)"
+                title="View Related Booking & Contract Periods" style="background:#6366f1;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
+              </button>
+              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record Payment"
+                style="background:#16a34a;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </button>
+              }
+
+      @if (entity === 'quotations') {
               <button class="action-btn info" (click)="previewQuotation(item)" title="View Quotation & Version History">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -240,36 +314,6 @@
                 </svg>
               </button>
               }
-              }
-
-
-              @if (entity === 'invoices') {
-              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View Invoice Details"
-                style="background:#0284c7;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                </svg>
-              </button>
-              <button class="action-btn" (click)="openBookingDetailsModal(item)"
-                title="View Related Booking & Contract Periods" style="background:#6366f1;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="5" width="20" height="14" rx="2" />
-                  <line x1="2" y1="10" x2="22" y2="10" />
-                </svg>
-              </button>
-              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record Payment"
-                style="background:#16a34a;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-              </button>
               }
               @if (entity === 'spaces') {
               <button class="action-btn info" (click)="openSpaceDetails(item)" title="Space Details">
@@ -544,7 +588,7 @@
           }
         </select>
         } @else {
-        <input class="form-input-admin" value="N/A — only for Private Office" disabled
+        <input class="form-input-admin" value="N/A â€” only for Private Office" disabled
           style="background:#f1f5f9;color:#94a3b8" />
         }
         } @else if (field.type === 'select') {
@@ -611,7 +655,7 @@
       <div class="user-line"><span>Space</span><strong>{{ s.space?.name }} ({{ s.space?.code }})</strong></div>
       <div class="user-line"><span>Location</span><strong>{{ s.space?.locationName }}</strong></div>
       <div class="user-line"><span>Type</span><strong>{{ s.space?.spaceTypeName }}</strong></div>
-      <div class="user-line"><span>Capacity</span><strong>{{ s.space?.capacity ?? '—' }}</strong></div>
+      <div class="user-line"><span>Capacity</span><strong>{{ s.space?.capacity ?? 'â€”' }}</strong></div>
       <div class="user-line"><span>Status</span><strong>{{ s.space?.status }}</strong></div>
     </div>
     <div class="history-section">
@@ -718,15 +762,13 @@
         <h4 style="margin:0 0 8px 0;font-size:0.85rem;color:#1e293b;">Booking & Contract Financials</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
           <div><span style="color:#64748b;font-size:.7rem;display:block">Space Number</span><strong>{{
-              s.payment?.spaceNumber || "-”" }}</strong></div>
+              s.payment?.spaceNumber || "-â€" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Advance Rent Period</span><strong
               style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong
               style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:"1.2-2" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Security Deposit</span><strong
               style="color:#475569">PKR {{ (s.payment?.securityDeposit ?? 0) | number:"1.2-2" }}</strong></div>
-          <div><span style="color:#64748b;font-size:.7rem;display:block">Total Contract</span><strong
-              style="color:#15803d">PKR {{ (s.payment?.totalContractAmount ?? 0) | number:"1.2-2" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Next Bill Due</span><strong
               style="color:#0284c7">{{ s.payment?.nextBillDueDate ? (s.payment?.nextBillDueDate | date:"mediumDate") :
               "N/A" }}</strong></div>
@@ -835,7 +877,7 @@
               <td>{{ p.paymentMethod }}</td>
               <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{
                   p.paymentStatus }}</span></td>
-              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '-”' }}</td>
+              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '-â€' }}</td>
             </tr>
             }
           </tbody>
@@ -1182,7 +1224,7 @@
     <div
       style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
       <span style="font-size:.82rem;color:#92400e;font-weight:700">
-        ⚠️ Valid Until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
+        âš ï¸ Valid Until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
       </span>
       <span style="font-size:.78rem;color:#92400e;font-weight:600">Pay before expiry date to confirm workspace
         booking</span>
@@ -1207,7 +1249,7 @@
             style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
             Workspace Details</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ c.spaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.spaceTypeName || 'Office' }} • {{
+          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.spaceTypeName || 'Office' }} â€¢ {{
             c.locationName || 'Main Branch' }}</div>
         </div>
       </div>
@@ -1299,7 +1341,7 @@
               <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
             </td>
             <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-              {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.2-2' }}
+              {{ getChallanBillingMonths(c) }} Mo Ã— PKR {{ getChallanMonthlyRent(c) | number:'1.2-2' }}
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
               PKR {{ getChallanFirstCycleRent(c) | number:'1.2-2' }}
@@ -1411,6 +1453,14 @@
       data-challan-actions>
       <button class="btn-admin btn-outline-admin" (click)="showChallanModal = false">Close</button>
       <div style="display:flex;gap:10px">
+        <button class="btn-admin" (click)="sendInitialInvoice(c)" [disabled]="sendingInitialInvoiceId() === (c.bookingId || c.id)"
+          style="background:#1d4ed8;color:#fff;border:none;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+          </svg>
+          {{ sendingInitialInvoiceId() === (c.bookingId || c.id) ? 'Sending Invoice...' : 'Send Initial Payment Invoice' }}
+        </button>
         <button class="btn-admin" (click)="sendChallanEmail()" [disabled]="sendingChallanEmail()"
           style="background:#0d9488;color:#fff;border:none;display:flex;align-items:center;gap:6px">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -1434,7 +1484,7 @@
     @if (challanEmailSent()) {
     <div
       style="padding:10px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.82rem;text-align:center;flex-shrink:0">
-      ✓ {{ challanEmailSent() }}
+      âœ“ {{ challanEmailSent() }}
     </div>
     }
 
@@ -1649,7 +1699,7 @@
         </div>
         <div class="form-group-admin">
           <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+              style="color:#94a3b8">(0â€“100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
             [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="quotationDiscountValue"
             name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
@@ -1729,10 +1779,10 @@
           </div>
           }
 
-          @if (quotationDiscountAmount > 0) {
+          @if (quotationFirstInvoiceDiscount > 0) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">PKR {{ quotationDiscountAmount | number:'1.2-2' }}</strong>
+            <strong style="color:#ef4444">PKR {{ quotationFirstInvoiceDiscount | number:'1.2-2' }}</strong>
           </div>
           }
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
@@ -2015,7 +2065,7 @@
         </div>
         <div class="form-group-admin">
           <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+              style="color:#94a3b8">(0â€“100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
             [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="bookingDiscountValue"
             name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
@@ -2097,10 +2147,10 @@
             <strong style="color:#1e3a8a">PKR {{ effectiveSecurityDeposit | number:'1.2-2' }}</strong>
           </div>
           }
-          @if (bookingDiscountAmount > 0) {
+          @if (bookingFirstInvoiceDiscount > 0) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">PKR {{ bookingDiscountAmount | number:'1.2-2' }}</strong>
+            <strong style="color:#ef4444">PKR {{ bookingFirstInvoiceDiscount | number:'1.2-2' }}</strong>
           </div>
           }
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
@@ -2218,7 +2268,7 @@
       <div>
         <h3 style="margin:0;font-size:1.15rem;font-weight:700">Booking Details #{{ booking.id || booking.bookingId }}
         </h3>
-        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{
+        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} â€” {{
           booking.spaceName || 'Workspace' }}</span>
       </div>
       <button (click)="showBookingDetailsModal = false"
@@ -2255,7 +2305,7 @@
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Space
             Number / Code</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">
-            {{ booking.spaceNumber || booking.contract?.spaceNumber || booking.spaceCode || booking.spaceName || '—' }}
+            {{ booking.spaceNumber || booking.contract?.spaceNumber || booking.spaceCode || booking.spaceName || 'â€”' }}
           </div>
         </div>
 
@@ -2274,7 +2324,7 @@
             Contract Period</div>
           <div style="font-size:0.88rem;font-weight:600;color:#0f172a">
             {{ (booking.contractStartDate || booking.contract?.contractStartDate || booking.startOn ||
-            booking.startDateTime) | date:'MMM d, y' }} – {{ (booking.contractEndDate ||
+            booking.startDateTime) | date:'MMM d, y' }} â€“ {{ (booking.contractEndDate ||
             booking.contract?.contractEndDate || booking.endOn || booking.endDateTime) | date:'MMM d, y' }}
           </div>
         </div>
@@ -2308,15 +2358,6 @@
           </div>
         </div>
 
-        <!-- Total Contract Amount -->
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase;margin-bottom:4px">Total
-            Contract Amount</div>
-          <div style="font-size:1.1rem;font-weight:700;color:#15803d">
-            PKR {{ (booking.totalContractAmount ?? booking.TotalContractAmount ?? booking.contract?.totalContractAmount
-            ?? booking.totalAmount ?? booking.TotalAmount ?? 0) | number:'1.2-2' }}
-          </div>
-        </div>
 
         <!-- Security Deposit -->
         <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;padding:12px 14px">
@@ -2412,7 +2453,7 @@
     <div
       style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <button class="btn-admin btn-outline-admin" (click)="viewBillingChallan(booking)">
-        📋 View Current Billing Challan
+        ðŸ“‹ View Current Billing Challan
       </button>
       <button class="btn-admin btn-outline-admin" (click)="showBookingDetailsModal = false">Close</button>
     </div>
@@ -2527,6 +2568,11 @@
     <div
       style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
       <button class="btn-admin btn-outline-admin" (click)="showInvoiceDetailsModal = false">Close</button>
+      <button class="btn-admin" (click)="sendInvoiceEmail(inv)" [disabled]="sendingInvoiceEmailId() === (inv.id || inv.Id)" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        {{ sendingInvoiceEmailId() === (inv.id || inv.Id) ? 'Sending Email...' : 'Send Invoice Email' }}
+      </button>
+      <button class="btn-admin" (click)="downloadStatementPdf(inv)" style="background:#0f766e;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download 5-Page Packet</button>
       <button class="btn-admin btn-primary-admin" (click)="openRecordPaymentModal(inv)">Record Payment</button>
     </div>
   </div>
@@ -2554,7 +2600,7 @@
           </span>
         </div>
         <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">
-          Customer: {{ q.customerName || q.customerEmail || 'N/A' }} • Space: {{ q.spaceName || 'N/A' }}
+          Customer: {{ q.customerName || q.customerEmail || 'N/A' }} â€¢ Space: {{ q.spaceName || 'N/A' }}
         </div>
       </div>
       <button (click)="closeQuotationPreviewModal()"
@@ -2566,11 +2612,11 @@
       style="background:#f8fafc;padding:10px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;flex-shrink:0">
       <div style="display:flex;gap:8px">
         <button class="btn-admin btn-outline-admin" (click)="downloadQuotationPdf()" title="Download PDF">
-          📥 Download PDF
+          ðŸ“¥ Download PDF
         </button>
         <button class="btn-admin btn-outline-admin" (click)="sendQuotationEmailNow()"
           title="Email Quotation to Customer">
-          ✉️ Email Customer
+          âœ‰ï¸ Email Customer
         </button>
       </div>
 
@@ -2578,19 +2624,19 @@
         @if ((q.status || 'Draft') === 'Draft') {
         <button class="btn-admin btn-primary-admin" (click)="sendQuotationVersionToCustomer(q)"
           style="background:#2563eb;color:#fff">
-          🚀 Send Quotation
+          ðŸš€ Send Quotation
         </button>
         }
         @if ((q.status || '').toLowerCase() === 'declined') {
         <button class="btn-admin btn-primary-admin" (click)="createNextVersion(q)"
           style="background:#7c3aed;color:#fff">
-          ➕ Create Version {{ (q.versionNumber || 1) + 1 }}
+          âž• Create Version {{ (q.versionNumber || 1) + 1 }}
         </button>
         }
         @if (isQuotationAccepted(q)) {
         <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(q)"
           style="background:#16a34a;color:#fff">
-          ✅ Convert to Booking
+          âœ… Convert to Booking
         </button>
         }
       </div>
@@ -2610,7 +2656,7 @@
       <div style="margin-bottom:24px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:16px">
         <h4
           style="margin:0 0 12px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;justify-content:space-between">
-          <span>📜 Quotation Version History</span>
+          <span>ðŸ“œ Quotation Version History</span>
           <span style="font-size:0.75rem;color:#64748b;font-weight:normal">{{ quotationVersions().length }} version(s)
             recorded</span>
         </h4>
@@ -2626,17 +2672,17 @@
                   style="font-size:0.7rem;padding:1px 6px">
                   {{ v.status || 'Draft' }}
                 </span>
-                <span style="font-size:0.78rem;color:#64748b">• PKR {{ (v.totalAmount || v.TotalAmount || 0) |
+                <span style="font-size:0.78rem;color:#64748b">â€¢ PKR {{ (v.totalAmount || v.TotalAmount || 0) |
                   number:'1.0-0' }}</span>
               </div>
               <div style="font-size:0.78rem;color:#64748b;margin-top:2px">
-                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos • Created: {{ (v.createdAt ||
+                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos â€¢ Created: {{ (v.createdAt ||
                 v.createdDate) | date:'mediumDate' }}
               </div>
               @if (v.customerNote || v.note) {
               <div
                 style="margin-top:6px;font-size:0.8rem;background:#fef2f2;color:#991b1b;padding:6px 10px;border-radius:6px;border:1px solid #fecaca;font-style:italic">
-                💬 Customer Response: "{{ v.customerNote || v.note }}"
+                ðŸ’¬ Customer Response: "{{ v.customerNote || v.note }}"
               </div>
               }
             </div>
@@ -2651,7 +2697,7 @@
               @if (isQuotationAccepted(v)) {
               <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(v)"
                 style="font-size:0.75rem;padding:4px 10px;background:#16a34a;color:#fff;border:none">
-                ✅ Convert to Booking
+                âœ… Convert to Booking
               </button>
               }
             </div>
@@ -2697,7 +2743,7 @@
             <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
               Workspace Details</div>
             <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
-            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
+            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} â€¢ {{ q.locationName || 'Main
               Branch' }}</div>
             <div style="font-size:0.85rem;color:#475569" *ngIf="q.capacity">Capacity: {{ q.capacity }} Person(s)</div>
           </div>
@@ -2790,7 +2836,7 @@
                 <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
               </td>
               <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-                {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
+                {{ getQuotationBillingMonths(q) }} Mo Ã— PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
                 PKR {{ getQuotationFirstCycleRent(q) | number:'1.2-2' }}
@@ -2914,7 +2960,7 @@
     <!-- Alert Info Banner -->
     <div
       style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:1.2rem">ℹ️</span>
+      <span style="font-size:1.2rem">â„¹ï¸</span>
       <div style="font-size:0.82rem;color:#1e40af">
         Converting this quotation will create a <strong>Confirmed Booking</strong>, lock historical rate snapshot, and
         issue the initial <strong>Payment Challan</strong>.
@@ -2937,7 +2983,7 @@
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Workspace & Location</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
+          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || 'Office' }} â€¢ {{ q.locationName || 'Main
             Location' }}</div>
         </div>
 
@@ -2945,7 +2991,7 @@
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Contract Dates</div>
           <div style="font-size:0.88rem;font-weight:700;color:#0f172a">
-            {{ (q.startDateTime || q.startOn) | date:'MMM d, y' }} – {{ (q.endDateTime || q.endOn) | date:'MMM d, y' }}
+            {{ (q.startDateTime || q.startOn) | date:'MMM d, y' }} â€“ {{ (q.endDateTime || q.endOn) | date:'MMM d, y' }}
           </div>
           <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths || q.months ||
             12 }} Month(s)</div>
@@ -3047,13 +3093,159 @@
       <button class="btn-admin btn-primary-admin" (click)="executeConversion(q)" [disabled]="conversionSubmitting()"
         style="background:#16a34a;color:#fff;padding:10px 20px;font-size:0.95rem;font-weight:700">
         @if (conversionSubmitting()) {
-        ⌛ Converting to Booking...
+        âŒ› Converting to Booking...
         } @else {
-        ✅ Confirm & Convert to Booking
+        âœ… Confirm & Convert to Booking
         }
       </button>
     </div>
 
+  </div>
+</div>
+}
+<!-- Create Custom Invoice Modal -->
+@if (showCreateCustomInvoiceModal) {
+<div class="modal-overlay" (click)="showCreateCustomInvoiceModal = false">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:760px">
+    <button class="modal-close" (click)="showCreateCustomInvoiceModal = false">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Create Custom Invoice Entry</h2>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group-admin">
+        <label>Select Customer <span style="color:#ef4444">*</span></label>
+        <select class="form-input-admin" [(ngModel)]="customInvoiceFormData.userId">
+          @for (u of customInvoiceUsers(); track u.id || u.Id) {
+            <option [value]="u.id || u.Id">{{ u.firstName ? (u.firstName + ' ' + (u.lastName || '')) : (u.name || u.email) }} ({{ u.email }})</option>
+          }
+        </select>
+      </div>
+      <div class="form-group-admin">
+        <label>Currency</label>
+        <input class="form-input-admin" type="text" [(ngModel)]="customInvoiceFormData.currencyCode" placeholder="PKR" />
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="form-group-admin">
+        <label>Issue Date <span style="color:#ef4444">*</span></label>
+        <input class="form-input-admin" type="date" [(ngModel)]="customInvoiceFormData.issuedOn" />
+      </div>
+      <div class="form-group-admin">
+        <label>Due Date <span style="color:#ef4444">*</span></label>
+        <input class="form-input-admin" type="date" [(ngModel)]="customInvoiceFormData.dueOn" />
+      </div>
+      <div class="form-group-admin">
+        <label>Invoice Period</label>
+        <select class="form-input-admin" [(ngModel)]="customInvoiceSelectedMonths" (change)="onCustomInvoiceMonthsChange()">
+          @for (m of customInvoiceMonthOptions; track m.v) {
+            <option [value]="m.v">{{ m.l }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group-admin" style="margin-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="font-size:.88rem;font-weight:700;color:#0f172a;margin:0">Line Items</label>
+        <button type="button" class="btn-admin btn-outline-admin" (click)="addCustomInvoiceLine()" style="padding:4px 12px;font-size:.8rem">
+          + Add Line
+        </button>
+      </div>
+
+      <div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px">
+        <table class="admin-table" style="font-size:.85rem">
+          <thead>
+            <tr>
+              <th>Description / Service</th>
+              <th style="width:75px">Qty</th>
+              <th style="width:110px">Unit Price</th>
+              <th style="width:110px">Tax Rate</th>
+              <th style="width:110px;text-align:right">Total</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of customInvoiceLines; track $index) {
+              <tr>
+                <td>
+                  <input class="form-input-admin" type="text" [(ngModel)]="line.description" placeholder="Description / Service Name" style="padding:6px 10px;font-size:.82rem" />
+                </td>
+                <td>
+                  <input class="form-input-admin" type="number" [(ngModel)]="line.quantity" min="1" style="padding:6px 8px;font-size:.82rem" />
+                </td>
+                <td>
+                  <input class="form-input-admin" type="number" [(ngModel)]="line.unitPrice" min="0" style="padding:6px 8px;font-size:.82rem" />
+                </td>
+                <td>
+                  <select class="form-input-admin" [(ngModel)]="line.taxRate" style="padding:6px 8px;font-size:.82rem">
+                    <option [value]="0.016">1.6% (16% PST on 10% Support)</option>
+                    <option [value]="0">0% (Exempt)</option>
+                    <option [value]="0.16">16% (Full PST)</option>
+                    <option [value]="0.15">15% (VAT)</option>
+                  </select>
+                </td>
+                <td style="text-align:right;font-weight:600;color:#0f172a">
+                  PKR {{ (((line.quantity || 1) * (line.unitPrice || 0)) * (1 + (line.taxRate || 0))) | number:'1.2-2' }}
+                </td>
+                <td style="text-align:center">
+                  @if (customInvoiceLines.length > 1) {
+                    <button type="button" class="action-btn delete" (click)="removeCustomInvoiceLine($index)" title="Remove Line">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                      </svg>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Summary Box -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;color:#64748b;margin-bottom:4px">
+        <span>Subtotal:</span>
+        <strong>PKR {{ customInvoiceSubtotal | number:'1.2-2' }}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;color:#0284c7;margin-bottom:4px">
+        <span>Taxes:</span>
+        <strong>PKR {{ customInvoiceTaxTotal | number:'1.2-2' }}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.95rem;font-weight:700;color:#0f172a;border-top:1px solid #cbd5e1;padding-top:6px;margin-top:4px">
+        <span>Grand Total:</span>
+        <span style="color:#16a34a">PKR {{ customInvoiceGrandTotal | number:'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <div class="form-group-admin" style="margin-bottom:20px">
+      <label>Invoice Notes / Terms</label>
+      <textarea class="form-input-admin" [(ngModel)]="customInvoiceFormData.notes" rows="2" placeholder="e.g. Custom service fee for Q3 workspace license..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" (click)="showCreateCustomInvoiceModal = false" class="btn-admin btn-outline-admin">Cancel</button>
+      <button type="button" (click)="submitCustomInvoice(false)" [disabled]="submittingCustomInvoice()" class="btn-admin btn-outline-admin" style="background:#f8fafc">
+        Create Draft
+      </button>
+      <button type="button" (click)="submitCustomInvoice(true)" [disabled]="submittingCustomInvoice()" class="btn-admin btn-primary-admin" style="background:#0284c7;display:inline-flex;align-items:center;gap:6px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        {{ submittingCustomInvoice() ? 'Sending...' : 'Send Invoice' }}
+      </button>
+    </div>
   </div>
 </div>
 }

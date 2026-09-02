@@ -130,7 +130,7 @@ export interface BillingPeriod {
   id?: number;
   invoiceId?: number;
   bookingId?: number;
-  /** Display label for the period, e.g. "Janâ€“Mar 2027" */
+  /** Display label for the period, e.g. "Jan-Mar 2027" */
   periodLabel: string;
   periodStartDate?: string;
   periodEndDate?: string;

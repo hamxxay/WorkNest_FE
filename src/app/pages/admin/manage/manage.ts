@@ -126,7 +126,7 @@ export class Manage implements OnInit {
   amenityOptions: { id: number; name: string }[] = [];
   selectedAmenityIds: number[] = [];
 
-  // â”€â”€ Admin Booking Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Admin Booking Form -
   showBookingForm = false;
   bookingFormData: any = {};
   bookingFormSaving = signal(false);
@@ -190,9 +190,22 @@ export class Manage implements OnInit {
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
 
+  get bookingFirstInvoiceDiscount(): number {
+    if (this.isAdminMeetingRoom) return this.bookingDiscountAmount;
+    const contractM = Math.max(1, Number(this.adminMonths || 12));
+    const billingM = Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
+    if (this.bookingDiscountType === 'Percentage') {
+      return parseFloat(((this.bookingBillingAmount * Number(this.bookingDiscountPercentage || 0)) / 100).toFixed(2));
+    }
+    if (this.bookingDiscountAmount > this.bookingBillingAmount && contractM > billingM) {
+      return parseFloat(((this.bookingDiscountAmount * billingM) / contractM).toFixed(2));
+    }
+    return this.bookingDiscountAmount;
+  }
+
   get bookingFirstInvoiceTotal(): number {
     const subtotal = this.bookingBillingAmount + this.bookingTaxAmount + this.effectiveSecurityDeposit;
-    return parseFloat(Math.max(0, subtotal - this.bookingDiscountAmount).toFixed(2));
+    return parseFloat(Math.max(0, subtotal - this.bookingFirstInvoiceDiscount).toFixed(2));
   }
 
   accountOptions: { v: number; l: string }[] = [];
@@ -217,7 +230,7 @@ export class Manage implements OnInit {
   // When opening customer-create from booking flow, set this to true so save() can inject created customer
   creatingCustomerFromBooking = false;
 
-  // â”€â”€ Country Codes & Dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Country Codes & Dropdowns -
   countryCodeOptions: { v: string; l: string }[] = [
     { v: '+92', l: 'PK (+92)' },
     { v: '+1', l: 'US/CA (+1)' },
@@ -244,7 +257,7 @@ export class Manage implements OnInit {
   citiesLoading = signal(false);
   citiesError = '';
 
-  // â”€â”€ Quick Create Customer (from booking form) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Quick Create Customer (from booking form) -
   showQuickCreateCustomer = false;
   quickCustomerForm: any = {
     firstName: '',
@@ -261,7 +274,7 @@ export class Manage implements OnInit {
   priceError: string = '';
   quickCustomerError = '';
 
-  // â”€â”€ Admin Booking Receipt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Admin Booking Receipt -
   showReceiptModal = false;
   adminBookingReceipt = signal<any>(null);
   showChallanModal = false;
@@ -335,9 +348,22 @@ export class Manage implements OnInit {
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
 
+  get quotationFirstInvoiceDiscount(): number {
+    if (this.isQuotationMeetingRoom) return this.quotationDiscountAmount;
+    const contractM = Math.max(1, Number(this.quotationMonths || 12));
+    const billingM = Math.max(1, Number(this.quotationBillingPeriodMonths || 3));
+    if (this.quotationDiscountType === 'Percentage') {
+      return parseFloat(((this.quotationBillingAmount * Number(this.quotationDiscountPercentage || 0)) / 100).toFixed(2));
+    }
+    if (this.quotationDiscountAmount > this.quotationBillingAmount && contractM > billingM) {
+      return parseFloat(((this.quotationDiscountAmount * billingM) / contractM).toFixed(2));
+    }
+    return this.quotationDiscountAmount;
+  }
+
   get quotationFirstInvoiceTotal(): number {
     const subtotal = this.quotationBillingAmount + this.quotationTaxAmount + this.effectiveQuotationSecurityDeposit;
-    return parseFloat(Math.max(0, subtotal - this.quotationDiscountAmount).toFixed(2));
+    return parseFloat(Math.max(0, subtotal - this.quotationFirstInvoiceDiscount).toFixed(2));
   }
 
 
@@ -588,7 +614,7 @@ export class Manage implements OnInit {
     this.loadVacantSpaces();
   }
 
-  // â”€â”€ Add / Remove Single Space â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Add / Remove Single Space -
   showAddSpaceModal = false;
   addSpaceTypeId = '';
   addSpaceLocationId = '';
@@ -731,7 +757,7 @@ export class Manage implements OnInit {
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
         this.allSpaces = items;
-        this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) â€” ${s.locationName ?? ''}` }));
+        this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) - ${s.locationName ?? ''}` }));
         this.config = this.buildConfig('bookings');
       }
     });
@@ -893,7 +919,7 @@ export class Manage implements OnInit {
 
     const addedGroups = new Set<string>();
 
-    // 1. From /spacetype API â€” use categoryCode as value so all types in same category are matched
+    // 1. From /spacetype API - use categoryCode as value so all types in same category are matched
     (apiTypes || []).forEach((s: any) => {
       // Prefer name over description so "Meeting/Conference" is not reduced to just "Conference"
       const name = (s.name || s.displayName || s.label || s.typeName || s.description || s.l || '').trim();
@@ -1123,9 +1149,9 @@ export class Manage implements OnInit {
       .filter((s: any) => s.idGuid || s.id)
       .map((s: any) => {
         const cap = this.getSpaceCapacity(s);
-        const capLabel = cap > 0 ? ` â€” Cap: ${cap}` : '';
+        const capLabel = cap > 0 ? ` - Cap: ${cap}` : '';
         const codeLabel = s.code ? ` (${s.code})` : '';
-        const locLabel = s.locationName ? ` â€” ${s.locationName}` : '';
+        const locLabel = s.locationName ? ` - ${s.locationName}` : '';
 
         const st = (s.status || s.Status || '').toString().trim().toLowerCase();
         const isBooked = st === 'booked' || st === 'occupied';
@@ -1265,7 +1291,7 @@ export class Manage implements OnInit {
   }
 
   private getCustomerUserId(u: any): string {
-    // WN_Customers has no WN_Users link â€” use customerEmail to resolve at booking time
+    // WN_Customers has no WN_Users link - use customerEmail to resolve at booking time
     return u.idGUID ?? u.idGuid ?? String(u.id ?? '');
   }
 
@@ -1307,7 +1333,7 @@ export class Manage implements OnInit {
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
       const end = `${String(h + 1).padStart(2, '0')}:00`;
-      this.adminMeetingSlots.push({ label: `${start} â€“ ${end}`, start, end });
+      this.adminMeetingSlots.push({ label: `${start} - ${end}`, start, end });
     }
     this.adminSelectedSlots = new Set();
     this.applyAdminSlotsToDates();
@@ -1492,7 +1518,7 @@ export class Manage implements OnInit {
         this.securityDeposit = parseFloat(oneMonthRentOfRoom.toFixed(2));
         this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
       } else {
-        // Shared Space â€” no security deposit
+        // Shared Space - no security deposit
         const totalRent = rate * Number(this.adminMonths);
         this.securityDeposit = 0;
         this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
@@ -1671,7 +1697,7 @@ export class Manage implements OnInit {
                     const start = new Date(this.adminStartDate);
                     const end = new Date(this.adminMeetingDayEnd);
                     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
-                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room â€” Full Day (${days} day${days > 1 ? 's' : ''} Ã— 9 hrs/day)` };
+                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room - Full Day (${days} day${days > 1 ? 's' : ''} Ã— 9 hrs/day)` };
                   }
                   return { feeType: 'RoomRent', amount: this.bookingSubtotal };
                 })(),
@@ -1686,7 +1712,7 @@ export class Manage implements OnInit {
             const secMonths = payload.securityDepositMonths || 0;
             const billingRentAmount = this.bookingBillingAmount;
             const secDepositAmount = this.effectiveSecurityDeposit;
-            const discount = this.bookingDiscountAmount;
+            const discount = this.bookingFirstInvoiceDiscount;
             const firstInvoiceTotal = this.bookingFirstInvoiceTotal;
 
             const billingDetails = [
@@ -2065,7 +2091,7 @@ export class Manage implements OnInit {
         if (start && end) {
           const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           const e = new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          return `${s} â€“ ${e}`;
+          return `${s} - ${e}`;
         }
         return start ? new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
       }
@@ -2098,13 +2124,13 @@ export class Manage implements OnInit {
     if (this.entity === 'payments') {
       if (col.key === 'bookingId') {
         const bid = item.bookingId ?? item.BookingId ?? item.bookingPublicId ?? item.BookingPublicId;
-        return bid ? `#${bid}` : 'â€”';
+        return bid ? `#${bid}` : '-';
       }
       if (col.key === 'userEmail') {
-        return item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || item.userName || item.CustomerName || 'â€”';
+        return item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || item.userName || item.CustomerName || '-';
       }
       if (col.key === 'spaceName') {
-        return item.spaceName || item.SpaceName || item.spaceNumber || item.SpaceNumber || item.spaceCode || (item.bookingId || item.BookingId ? `Space #${item.bookingId || item.BookingId}` : 'â€”');
+        return item.spaceName || item.SpaceName || item.spaceNumber || item.SpaceNumber || item.spaceCode || (item.bookingId || item.BookingId ? `Space #${item.bookingId || item.BookingId}` : '-');
       }
       if (col.key === 'amountType') {
         return item.feeType || item.FeeType || item.chargeTypeLabel || item.amountType || item.billingPeriodLabel || item.billingPeriod || (item.securityDeposit && item.amount === item.securityDeposit ? 'Security Deposit' : 'Cycle Rent');
@@ -2116,7 +2142,7 @@ export class Manage implements OnInit {
         return item.paymentMethod || item.PaymentMethod || item.paymentMethodLabel || 'Bank Transfer';
       }
       if (col.key === 'challanNumber') {
-        return item.challanNumber || item.ChallanNumber || item.transactionRef || item.TransactionRef || 'â€”';
+        return item.challanNumber || item.ChallanNumber || item.transactionRef || item.TransactionRef || '-';
       }
       if (col.key === 'paymentStatus') {
         return item.paymentStatus || item.PaymentStatus || (item.statusId === 2 ? 'Paid' : 'Pending');
@@ -2781,7 +2807,7 @@ export class Manage implements OnInit {
   }
 
 
-  // â”€â”€ Duplicate Space Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Duplicate Space Detection -
   showDuplicatesOnly = false;
   duplicateCodes = new Set<string>();
 
@@ -3125,7 +3151,7 @@ export class Manage implements OnInit {
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
       const end = `${String(h + 1).padStart(2, '0')}:00`;
-      this.quotationMeetingSlots.push({ label: `${start} â€“ ${end}`, start, end });
+      this.quotationMeetingSlots.push({ label: `${start} - ${end}`, start, end });
     }
     this.quotationSelectedSlots = new Set();
     this.recalcQuotationAmount();
@@ -3998,8 +4024,397 @@ export class Manage implements OnInit {
       });
     }
   }
-
   // Invoice Details View
+  // Create Custom Invoice Modal State
+  sendingInitialInvoiceId = signal<number | null>(null);
+  sentInitialInvoices = new Set<number>();
+
+  showCreateCustomInvoiceModal = false;
+  customInvoiceSelectedMonths = 3;
+  customInvoiceMonthlyRate = 0;
+  customInvoiceCurrentItem: any = null;
+  customInvoiceIsNextInvoice = false;
+  customInvoiceMonthOptions = [
+    { v: 1, l: "Next 1 Month" },
+    { v: 2, l: "Next 2 Months" },
+    { v: 3, l: "Next 3 Months" },
+    { v: 4, l: "Next 4 Months" },
+    { v: 5, l: "Next 5 Months" },
+    { v: 6, l: "Next 6 Months" },
+    { v: 7, l: "Next 7 Months" },
+    { v: 8, l: "Next 8 Months" },
+    { v: 9, l: "Next 9 Months" },
+    { v: 10, l: "Next 10 Months" },
+    { v: 11, l: "Next 11 Months" },
+    { v: 12, l: "Next 12 Months" }
+  ];
+  submittingCustomInvoice = signal<boolean>(false);
+  customInvoiceUsers = signal<any[]>([]);
+  customInvoiceFormData = {
+    bookingId: 0,
+    userId: 0,
+    issuedOn: new Date().toISOString().substring(0, 10),
+    dueOn: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+    currencyCode: 'PKR',
+    notes: ''
+  };
+  customInvoiceLines: Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> = [
+    { description: 'Workspace Rent / Custom Fee', quantity: 1, unitPrice: 50000, discountAmount: 0, taxRate: 0.016 }
+  ];
+
+  sendInitialInvoice(item: any) {
+    const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
+    if (!bookingId) {
+      alert('Booking ID is missing.');
+      return;
+    }
+    this.sendingInitialInvoiceId.set(bookingId);
+
+    this.admin.sendInitialInvoice(bookingId).subscribe({
+      next: (res: any) => {
+        this.sendingInitialInvoiceId.set(null);
+        if (item) item.initialInvoiceSent = true;
+        this.sentInitialInvoices.add(bookingId);
+        alert(res?.message || 'Initial payment invoice generated and sent successfully to customer email!');
+        this.load();
+      },
+      error: (err: any) => {
+        this.sendingInitialInvoiceId.set(null);
+        alert(err?.error?.message || err?.message || 'Failed to send initial payment invoice.');
+      }
+    });
+  }
+
+  buildCustomInvoiceLinesFromItem(item: any, isNextInvoice: boolean = false, selectedMonths?: number): Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> {
+    if (!item) {
+      const m = selectedMonths || this.customInvoiceSelectedMonths || 1;
+      const rate = this.customInvoiceMonthlyRate || 50000;
+      return [{ description: `Workspace Rent / Custom Fee (${m} Month(s))`, quantity: 1, unitPrice: rate * m, discountAmount: 0, taxRate: 0.016 }];
+    }
+
+    const bookingId = item.bookingId ?? item.BookingId ?? item.id ?? item.Id;
+    const spaceLabel = item.spaceName || item.SpaceName || item.spaceTitle || (item.invoiceNumber || item.InvoiceNumber ? `Invoice ${item.invoiceNumber || item.InvoiceNumber}` : "Workspace");
+
+    const totalContract = item.totalContractAmount ?? item.TotalContractAmount ?? item.totalAmount ?? item.subTotal ?? item.subtotalAmount ?? 0;
+    const contractMonths = item.durationMonths || item.contractMonths || item.months || 10;
+    const cycleMonths = selectedMonths || this.customInvoiceSelectedMonths || item.billingPeriodMonths || item.advanceMonths || item.billingCycleMonths || 3;
+    const secMonths = item.securityDepositMonths || item.depositMonths || 2;
+
+    let monthlyRate = this.customInvoiceMonthlyRate;
+    if (!monthlyRate || monthlyRate <= 0) {
+      monthlyRate = item?.monthlyRent || item?.MonthlyRent || item?.pricePerMonth || item?.monthlyRate || item?.rentPerMonth || 0;
+      if (monthlyRate <= 0) {
+        const cycleAmount = item?.billingRentAmount ?? item?.currentCycleAmount ?? item?.advanceRent ?? item?.price ?? 0;
+        if (cycleAmount > 0 && (item?.billingPeriodMonths || 3) > 0) {
+          monthlyRate = cycleAmount / (item?.billingPeriodMonths || 3);
+        }
+      }
+      if (monthlyRate <= 0) monthlyRate = 175000;
+    }
+
+    const calculatedRent = monthlyRate * cycleMonths;
+    const securityDeposit = item.effectiveSecurityDeposit ?? item.securityDeposit ?? item.depositAmount ?? (monthlyRate > 0 && secMonths > 0 ? (monthlyRate * secMonths) : 0);
+    const discount = item.bookingDiscountAmount ?? item.discountAmount ?? 0;
+
+    const isAlreadySent = isNextInvoice || item.initialInvoiceSent || (bookingId && this.sentInitialInvoices.has(bookingId));
+
+    if (isAlreadySent) {
+      const rentLabel = `Workspace Room Rent (${cycleMonths} Month(s) - ${spaceLabel})`;
+      return [
+        {
+          description: rentLabel,
+          quantity: 1,
+          unitPrice: calculatedRent,
+          discountAmount: 0,
+          taxRate: 0.016
+        }
+      ];
+    }
+
+    if (calculatedRent > 0 || securityDeposit > 0) {
+      const resultLines = [];
+      if (calculatedRent > 0) {
+        const rentLabel = `1st Advance Rent (${cycleMonths} Month(s) - ${spaceLabel})`;
+        resultLines.push({
+          description: rentLabel,
+          quantity: 1,
+          unitPrice: calculatedRent,
+          discountAmount: discount,
+          taxRate: 0.016
+        });
+      }
+
+      if (securityDeposit > 0) {
+        const secLabel = `Security Deposit (${secMonths} Month(s) Refundable - ${spaceLabel})`;
+        resultLines.push({
+          description: secLabel,
+          quantity: 1,
+          unitPrice: securityDeposit,
+          discountAmount: 0,
+          taxRate: 0
+        });
+      }
+      return resultLines;
+    }
+
+    const rawLines = item.lines || item.Lines || item.bookingDetails || item.items || item.details || [];
+    if (rawLines.length > 0) {
+      return rawLines.filter((l: any) => {
+        const feeType = (l.feeType || l.chargeTypeLabel || l.description || "").toLowerCase();
+        return !feeType.includes("tax") && !feeType.includes("pst") && !feeType.includes("vat");
+      }).map((l: any) => {
+        const feeType = (l.feeType || l.chargeTypeLabel || l.description || "").toLowerCase();
+        const isDepositLine = feeType.includes("deposit") || feeType.includes("security");
+
+        return {
+          description: l.description || l.feeType || l.chargeTypeLabel || "Workspace Service",
+          quantity: l.quantity || l.qty || 1,
+          unitPrice: l.unitPrice || l.amount || l.lineTotal || 0,
+          discountAmount: l.discountAmount || 0,
+          taxRate: isDepositLine ? 0 : (l.taxRate ?? 0.016)
+        };
+      });
+    }
+
+    return [
+      {
+        description: `Workspace Room Rent (${cycleMonths} Month(s) - ${spaceLabel})`,
+        quantity: 1,
+        unitPrice: calculatedRent,
+        discountAmount: 0,
+        taxRate: 0.016
+      }
+    ];
+  }
+
+  openCreateCustomInvoiceModal(item?: any, isNextInvoice: boolean = false) {
+    this.customInvoiceCurrentItem = item;
+    this.customInvoiceIsNextInvoice = isNextInvoice;
+
+    let configuredMonths = item?.billingPeriodMonths || item?.advanceMonths || item?.billingCycleMonths || item?.cycleMonths || 3;
+    if (!configuredMonths || configuredMonths <= 0) configuredMonths = 3;
+    this.customInvoiceSelectedMonths = configuredMonths;
+
+    let monthlyRate = item?.monthlyRent || item?.MonthlyRent || item?.pricePerMonth || item?.monthlyRate || item?.rentPerMonth || item?.roomPrice || item?.seatPrice || 0;
+
+    if (monthlyRate <= 0) {
+      const details = item?.lines || item?.Lines || item?.bookingDetails || item?.items || item?.details || [];
+      const rentLine = details.find((l: any) => {
+        const desc = (l.description || l.feeType || l.chargeTypeLabel || "").toLowerCase();
+        return desc.includes("rent") || desc.includes("room") || desc.includes("office") || desc.includes("workspace");
+      });
+      if (rentLine && (rentLine.unitPrice || rentLine.amount)) {
+        const lineAmt = rentLine.unitPrice || rentLine.amount || 0;
+        monthlyRate = lineAmt > 0 && configuredMonths > 0 ? (lineAmt / configuredMonths) : lineAmt;
+      }
+    }
+
+    if (monthlyRate <= 0) {
+      const cycleAmount = item?.billingRentAmount ?? item?.currentCycleAmount ?? item?.advanceRent ?? 0;
+      if (cycleAmount > 0 && configuredMonths > 0) {
+        monthlyRate = cycleAmount / configuredMonths;
+      }
+    }
+
+    if (monthlyRate <= 0) {
+      const totalContract = item?.totalContractAmount ?? item?.TotalContractAmount ?? item?.totalAmount ?? item?.subTotal ?? item?.subtotalAmount ?? 0;
+      const contractM = item?.durationMonths || item?.contractMonths || item?.months || 0;
+      if (totalContract > 0 && contractM > 0) {
+        monthlyRate = totalContract / contractM;
+      }
+    }
+
+    if (monthlyRate <= 0) {
+      monthlyRate = 175000;
+    }
+    this.customInvoiceMonthlyRate = Math.round(monthlyRate * 100) / 100;
+
+    const bookingId = item ? (item.bookingId || item.BookingId || item.id || item.Id || 0) : 0;
+    const targetUserId = item ? (item.userId || item.UserId || item.customerId || item.CustomerId || item.user?.id || item.User?.Id || 0) : 0;
+    const issueDateStr = item?.issuedOn || item?.IssuedOn || item?.createdDate || item?.CreatedDate || item?.createdOn;
+    const dueDateStr = item?.dueOn || item?.DueOn || item?.dueDate || item?.DueDate;
+
+    this.customInvoiceFormData = {
+      bookingId: bookingId,
+      userId: targetUserId,
+      issuedOn: issueDateStr ? new Date(issueDateStr).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10),
+      dueOn: dueDateStr ? new Date(dueDateStr).toISOString().substring(0, 10) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+      currencyCode: item?.currencyCode || item?.CurrencyCode || "PKR",
+      notes: item?.notes || item?.Notes || (item ? `Invoice for ${item.spaceName || item.SpaceName || item.invoiceNumber || item.InvoiceNumber || ("Booking #" + (item.id || item.Id))}` : "")
+    };
+
+    this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(item, isNextInvoice, configuredMonths);
+
+    if (bookingId > 0) {
+      this.admin.getBookingBillingSummary(bookingId).subscribe({
+        next: (summaryRes: any) => {
+          const dbData = summaryRes?.data || summaryRes;
+          if (dbData) {
+            const dbMonthlyRent = dbData.monthlyRent || dbData.MonthlyRent || dbData.roomPrice || dbData.seatPrice || 0;
+            const dbBillingMonths = dbData.billingPeriodMonths || dbData.BillingPeriodMonths || dbData.advanceMonths || 0;
+
+            if (dbMonthlyRent > 0) {
+              this.customInvoiceMonthlyRate = Math.round(dbMonthlyRent * 100) / 100;
+            }
+            if (dbBillingMonths > 0) {
+              this.customInvoiceSelectedMonths = dbBillingMonths;
+            }
+
+            const mergedItem = { ...item, ...dbData };
+            this.customInvoiceCurrentItem = mergedItem;
+
+            this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(
+              mergedItem,
+              isNextInvoice,
+              this.customInvoiceSelectedMonths
+            );
+          }
+        }
+      });
+    }
+
+    this.admin.getUsers(1, 100).subscribe({
+      next: (res: any) => {
+        const users = res?.data || res || [];
+        this.customInvoiceUsers.set(users);
+        if (targetUserId) {
+          const matched = users.find((u: any) => (u.id || u.Id) === targetUserId);
+          if (matched) {
+            this.customInvoiceFormData.userId = matched.id || matched.Id;
+          } else if (users.length > 0 && !this.customInvoiceFormData.userId) {
+            this.customInvoiceFormData.userId = users[0].id || users[0].Id;
+          }
+        } else if (users.length > 0 && !this.customInvoiceFormData.userId) {
+          this.customInvoiceFormData.userId = users[0].id || users[0].Id;
+        }
+      }
+    });
+    this.showCreateCustomInvoiceModal = true;
+  }
+
+  onCustomInvoiceMonthsChange() {
+    const selectedMonths = Number(this.customInvoiceSelectedMonths) || 1;
+    if (this.customInvoiceCurrentItem) {
+      this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(
+        this.customInvoiceCurrentItem,
+        this.customInvoiceIsNextInvoice,
+        selectedMonths
+      );
+    } else {
+      const rate = this.customInvoiceMonthlyRate || 50000;
+      if (this.customInvoiceLines && this.customInvoiceLines.length > 0) {
+        const firstLine = this.customInvoiceLines[0];
+        firstLine.quantity = 1;
+        firstLine.unitPrice = rate * selectedMonths;
+        firstLine.description = `Workspace Rent / Custom Fee (${selectedMonths} Month(s))`;
+      }
+    }
+  }
+
+  addCustomInvoiceLine() {
+    this.customInvoiceLines.push({
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      discountAmount: 0,
+      taxRate: 0.016
+    });
+  }
+
+  removeCustomInvoiceLine(index: number) {
+    if (this.customInvoiceLines.length > 1) {
+      this.customInvoiceLines.splice(index, 1);
+    }
+  }
+
+  get customInvoiceSubtotal(): number {
+    return this.customInvoiceLines.reduce((acc, l) => acc + ((l.quantity || 1) * (l.unitPrice || 0)), 0);
+  }
+
+  get customInvoiceTaxTotal(): number {
+    return this.customInvoiceLines.reduce((acc, l) => {
+      const net = ((l.quantity || 1) * (l.unitPrice || 0)) - (l.discountAmount || 0);
+      return acc + (net * (l.taxRate || 0));
+    }, 0);
+  }
+
+  get customInvoiceGrandTotal(): number {
+    return this.customInvoiceSubtotal + this.customInvoiceTaxTotal;
+  }
+
+  submitCustomInvoice(sendEmail: boolean = false) {
+    if (!this.customInvoiceFormData.userId || this.customInvoiceFormData.userId <= 0) {
+      alert('Please select a customer.');
+      return;
+    }
+    if (!this.customInvoiceLines || this.customInvoiceLines.length === 0) {
+      alert('Please add at least one line item.');
+      return;
+    }
+
+    this.submittingCustomInvoice.set(true);
+    const payload = {
+      bookingId: Number(this.customInvoiceFormData.bookingId || 0),
+      userId: Number(this.customInvoiceFormData.userId),
+      issuedOn: this.customInvoiceFormData.issuedOn,
+      dueOn: this.customInvoiceFormData.dueOn,
+      currencyCode: this.customInvoiceFormData.currencyCode,
+      notes: this.customInvoiceFormData.notes,
+      lines: this.customInvoiceLines,
+      sendEmail: sendEmail
+    };
+
+    this.admin.createCustomInvoice(payload).subscribe({
+      next: (res: any) => {
+        this.submittingCustomInvoice.set(false);
+        this.showCreateCustomInvoiceModal = false;
+        if (payload.bookingId > 0) {
+          this.sentInitialInvoices.add(payload.bookingId);
+        }
+        this.load();
+        const msg = sendEmail ? 'Invoice created and sent successfully to customer via email!' : 'Invoice created successfully!';
+        alert(res?.message || msg);
+      },
+      error: (err: any) => {
+        this.submittingCustomInvoice.set(false);
+        alert(err?.error?.message || 'Failed to process invoice.');
+      }
+    });
+  }
+
+  sendingInvoiceEmailId = signal<number | null>(null);
+  sendInvoiceEmail(invoice: any) {
+    const id = invoice?.id || invoice?.Id;
+    if (!id) return;
+    this.sendingInvoiceEmailId.set(id);
+    this.admin.sendInvoiceEmail(id).subscribe({
+      next: (res: any) => {
+        this.sendingInvoiceEmailId.set(null);
+        alert(res?.message || 'Invoice email sent successfully!');
+      },
+      error: (err: any) => {
+        this.sendingInvoiceEmailId.set(null);
+        alert(err?.error?.message || 'Failed to send invoice email.');
+      }
+    });
+  }
+
+  downloadStatementPdf(invoice: any) {
+    const invoiceId = invoice?.id || invoice?.Id;
+    if (!invoiceId) return;
+    this.admin.getStatementInvoicePdfBlob(invoiceId).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Statement-Invoice-${invoice.invoiceNumber || invoice.InvoiceNumber || invoiceId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => console.error('Error downloading statement PDF:', err)
+    });
+  }
+
   openInvoiceDetails(invoice: any) {
     this.admin.getInvoiceDetails(invoice.id).subscribe({
       next: (res: any) => {
