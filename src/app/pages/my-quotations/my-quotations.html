@@ -27,7 +27,7 @@
 
     <!-- Empty State -->
     <div *ngIf="!loading() && (!activeQuotation() || quotations().length === 0)" class="empty-card">
-      <div class="empty-icon">📄</div>
+      <div class="empty-icon"></div>
       <h3>No Active Quotations Found</h3>
       <p>You currently do not have any pending or active quotations associated with your account.</p>
       <a routerLink="/booking" class="btn-primary mt-3">Explore Workspaces</a>
@@ -140,8 +140,8 @@
           </div>
 
           <div *ngIf="!activeQuotation().canRespond" class="read-only-banner">
-            <span *ngIf="activeQuotation().status === 'Accepted'">✅ You have accepted Version {{ activeQuotation().versionNumber }} of this quotation. Our team will contact you shortly to complete your booking.</span>
-            <span *ngIf="activeQuotation().status === 'Declined'">❌ You have declined Version {{ activeQuotation().versionNumber }} of this quotation. If a revised version is prepared, it will appear here.</span>
+            <span *ngIf="activeQuotation().status === 'Accepted'">You have accepted Version {{ activeQuotation().versionNumber }} of this quotation. Our team will contact you shortly to complete your booking.</span>
+            <span *ngIf="activeQuotation().status === 'Declined'">You have declined Version {{ activeQuotation().versionNumber }} of this quotation. If a revised version is prepared, it will appear here.</span>
             <span *ngIf="activeQuotation().status !== 'Accepted' && activeQuotation().status !== 'Declined'">This version is read-only and no longer response-enabled.</span>
           </div>
         </div>

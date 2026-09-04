@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, computed, inject } from '@angular/core';
+﻿import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -127,6 +127,7 @@ export class Manage implements OnInit {
   selectedAmenityIds: number[] = [];
 
   // - Admin Booking Form -
+  editingBookingId: number | null = null;
   showBookingForm = false;
   bookingFormData: any = {};
   bookingFormSaving = signal(false);
@@ -835,7 +836,7 @@ export class Manage implements OnInit {
     });
   }
 
-  openAdminBookingForm() {
+  openAdminBookingForm(bookingToEdit?: any) {
     this.bookingFormData = {};
     this.bookingFormError = '';
     this.selectedSpaceTypeId = '';
@@ -861,7 +862,9 @@ export class Manage implements OnInit {
     this.adminMeetingSlots = [];
     this.adminSelectedSlots = new Set();
     this.meetingRoomBookingMode = 'day';
+    this.editingBookingId = null;
     this.showBookingForm = true;
+
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
         next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
@@ -874,17 +877,6 @@ export class Manage implements OnInit {
         }
       });
     }
-    this.admin.getSpaceTypes(1, 1000, '').subscribe({
-      next: (res: any) => {
-        const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.populateSpaceTypeOptions(items);
-        if (this.allSpaces.length) this.applyBookingSpaceFilter();
-      },
-      error: () => {
-        this.populateSpaceTypeOptions([]);
-        if (this.allSpaces.length) this.applyBookingSpaceFilter();
-      }
-    });
     if (!this.locationOptions.length) {
       this.admin.getLocations(1, 1000, '').subscribe({
         next: (res: any) => {
@@ -892,18 +884,177 @@ export class Manage implements OnInit {
         }
       });
     }
-    if (this.allSpaces.length) {
-      this.populateSpaceTypeOptions(this.spaceTypeOptions);
-      this.applyBookingSpaceFilter();
-    } else {
-      this.admin.getSpaces(1, 1000, '').subscribe({
-        next: (res: any) => {
-          this.allSpaces = res?.data ?? [];
-          this.populateSpaceTypeOptions(this.spaceTypeOptions);
-          this.applyBookingSpaceFilter();
+
+    const onDataReady = () => {
+      if (bookingToEdit) {
+        this.prefillBookingFormForEdit(bookingToEdit);
+        const bId = bookingToEdit.id || bookingToEdit.bookingId || bookingToEdit.BookingId;
+        if (bId) {
+          this.bookingService.getBookingDetails(bId).subscribe({
+            next: (res: any) => {
+              const raw = res?.data ?? res ?? {};
+              const c = raw.contract || raw.Contract || {};
+              const merged = { ...bookingToEdit, ...raw, ...c };
+              this.prefillBookingFormForEdit(merged);
+            },
+            error: () => {
+              this.prefillBookingFormForEdit(bookingToEdit);
+            }
+          });
+        } else {
+          this.prefillBookingFormForEdit(bookingToEdit);
         }
-      });
+      }
+    };
+
+    this.admin.getSpaceTypes(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.populateSpaceTypeOptions(items);
+        if (this.allSpaces.length) {
+          this.applyBookingSpaceFilter();
+          onDataReady();
+        } else {
+          this.admin.getSpaces(1, 1000, '').subscribe({
+            next: (sRes: any) => {
+              this.allSpaces = sRes?.data ?? [];
+              this.applyBookingSpaceFilter();
+              onDataReady();
+            }
+          });
+        }
+      },
+      error: () => {
+        this.populateSpaceTypeOptions([]);
+        if (this.allSpaces.length) {
+          this.applyBookingSpaceFilter();
+          onDataReady();
+        }
+      }
+    });
+  }
+
+  prefillBookingFormForEdit(booking: any) {
+    if (!booking) return;
+    this.editingBookingId = booking.bookingId || booking.BookingId || booking.id || booking.Id || null;
+
+    // 1. Customer Info
+    const custEmail = booking.customerEmail || booking.userEmail || booking.email || '';
+    const custName = booking.customerName || booking.userName || custEmail || 'Customer';
+    const phoneNum = booking.customerPhone || booking.phone || booking.phoneNumber || '';
+    const codeVal = booking.customerCode || booking.code || '';
+    const cnicVal = booking.customerCnic || booking.cnic || booking.cnicOrPassport || '';
+    const cityVal = booking.customerCityId || booking.cityId || '';
+    const addrVal = booking.customerAddress || booking.address || '';
+    const notesVal = booking.notes || booking.customerNotes || booking.remarks || '';
+
+    this.selectedCustomer = {
+      id: booking.customerId || booking.userId || 0,
+      name: custName,
+      email: custEmail,
+      fullName: custName,
+      customerCode: codeVal,
+      code: codeVal,
+      phone: phoneNum,
+      phoneNumber: phoneNum,
+      cnicOrPassport: cnicVal,
+      cityId: cityVal,
+      address: addrVal
+    };
+
+    this.customerSearchQuery = custEmail || custName;
+    this.bookingFormData = {
+      customerName: custName,
+      customerEmail: custEmail,
+      customerCode: codeVal,
+      phone: phoneNum,
+      cnicOrPassport: cnicVal,
+      cityId: cityVal,
+      address: addrVal,
+      notes: notesVal
+    };
+
+    // 2. Space Resolution & Filtering
+    const spId = booking.spaceId || booking.SpaceId || booking.spaceIdGuid;
+    const targetSpace = (this.allSpaces || []).find((s: any) =>
+      String(s.id) === String(spId) ||
+      String(s.idGuid) === String(spId) ||
+      (s.code && booking.spaceCode && String(s.code).toLowerCase() === String(booking.spaceCode).toLowerCase())
+    );
+
+    const locId = targetSpace ? (targetSpace.locationIdGuid || targetSpace.locationId || targetSpace.LocationId) : (booking.locationId || booking.LocationId);
+    if (locId) {
+      this.selectedLocationId = String(locId);
+      this.loadBookingFloors(locId);
     }
+
+    const stName = targetSpace ? (targetSpace.spaceTypeName || targetSpace.spaceType || targetSpace.name || '').toLowerCase() : (booking.spaceTypeName || booking.spaceType || '').toLowerCase();
+    const spaceCodeNum = targetSpace ? Number(targetSpace.code ?? 0) : Number(booking.spaceCode ?? 0);
+
+    let group = 'private';
+    if (spaceCodeNum >= 3200 || stName.includes('meeting') || stName.includes('conference')) group = 'meeting';
+    else if (spaceCodeNum >= 3100 || stName.includes('private') || stName.includes('office')) group = 'private';
+    else if (spaceCodeNum >= 3000 || stName.includes('shared') || stName.includes('co-working')) group = 'shared';
+    this.selectedSpaceTypeId = group;
+
+    const cap = targetSpace ? (targetSpace.capacity || targetSpace.Capacity) : (booking.capacity || booking.Capacity);
+    if (cap) this.selectedAdminCapacity = Number(cap);
+
+    const flId = targetSpace ? (targetSpace.floorId || targetSpace.FloorId) : (booking.floorId || booking.FloorId);
+    if (flId) this.bookingFloorId = Number(flId);
+
+    this.applyBookingSpaceFilter();
+
+    const matchedOption = (this.filteredSpaceOptions || []).find((opt: any) =>
+      String(opt.v) === String(spId) ||
+      (targetSpace && (String(opt.v) === String(targetSpace.idGuid) || String(opt.v) === String(targetSpace.id)))
+    );
+    if (matchedOption) {
+      this.bookingFormData.spaceId = String(matchedOption.v);
+    } else if (spId) {
+      this.bookingFormData.spaceId = String(spId);
+    }
+
+    // 3. Contract Dates & Duration
+    const startVal = booking.contractStartDate || booking.ContractStartDate || booking.startDateTime || booking.StartDateTime || booking.startOn || booking.StartOn;
+    if (startVal) {
+      try {
+        const d = new Date(startVal);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          this.adminStartDate = `${y}-${m}-${day}`;
+        }
+      } catch {}
+    }
+
+    const monthsVal = booking.numberOfMonths || booking.NumberOfMonths || booking.contractPeriodMonths || booking.ContractPeriodMonths || booking.months;
+    if (monthsVal) {
+      this.adminMonths = Number(monthsVal);
+    }
+
+    // 4. Financials
+    const billingM = booking.billingPeriodMonths || booking.BillingPeriodMonths;
+    if (billingM) {
+      this.bookingBillingPeriodMonths = Number(billingM);
+    }
+
+    if (booking.discountType || booking.DiscountType) {
+      this.bookingDiscountType = booking.discountType || booking.DiscountType;
+    }
+    const discVal = booking.discountPercentage ?? booking.DiscountPercentage ?? booking.discountValue ?? booking.DiscountValue;
+    if (discVal != null) {
+      this.bookingDiscountPercentage = Number(discVal);
+      this.bookingDiscountValue = Number(discVal);
+    }
+
+    const secMonths = booking.securityDepositMonths ?? booking.SecurityDepositMonths;
+    if (secMonths != null) {
+      this.securityDepositMonthsOverride = Number(secMonths);
+    }
+
+    this.onBookingSpaceSelected();
   }
 
   private populateSpaceTypeOptions(apiTypes: any[]) {
@@ -1155,7 +1306,19 @@ export class Manage implements OnInit {
 
         const st = (s.status || s.Status || '').toString().trim().toLowerCase();
         const isBooked = st === 'booked' || st === 'occupied';
-        const tag = isBooked ? ' [Booked]' : ' [Available]';
+        const rawDate = s.bookedTill ?? s.BookedTill ?? s.bookedUntil ?? s.BookedUntil ?? s.endOn ?? s.EndOn;
+        let bookedTillStr = '';
+        if (isBooked && rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = months[d.getMonth()];
+            const year = d.getFullYear();
+            bookedTillStr = ' till ' + day + ' ' + month + ' ' + year;
+          }
+        }
+        const tag = isBooked ? (' [Booked' + bookedTillStr + ']') : ' [Available]';
 
         return {
           v: s.idGuid ?? s.id,
@@ -1650,6 +1813,35 @@ export class Manage implements OnInit {
         securityDepositOverride: this.effectiveSecurityDeposit,
         floorId: this.bookingFloorId ?? null,
       };
+
+      if (this.editingBookingId) {
+        console.log('[BOOKING TEST] Updating admin booking #' + this.editingBookingId + ' with payload:', payload);
+        this.admin.updateBooking(this.editingBookingId, payload).subscribe({
+          next: (res: any) => {
+            const d = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data ?? res ?? {}));
+            const errorMsg = d?.errorMessage || d?.ErrorMessage || res?.errorMessage || (res?.isSuccessful === false ? res?.message : null);
+
+            if (errorMsg) {
+              this.bookingFormSaving.set(false);
+              this.bookingFormError = errorMsg;
+              return;
+            }
+
+            this.bookingFormSaving.set(false);
+            this.showBookingForm = false;
+            const bId = this.editingBookingId;
+            this.editingBookingId = null;
+            this.success = `Booking #${bId} updated successfully.`;
+            setTimeout(() => this.success = '', 3500);
+            this.load();
+          },
+          error: (err: any) => {
+            this.bookingFormSaving.set(false);
+            this.bookingFormError = err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.';
+          }
+        });
+        return;
+      }
 
       console.log('[BOOKING TEST] Creating admin booking with payload:', payload);
 
@@ -2295,6 +2487,10 @@ export class Manage implements OnInit {
   }
 
   openEdit(item: any) {
+    if (this.entity === 'bookings') {
+      this.openAdminBookingForm(item);
+      return;
+    }
     this.editItem = { ...item, idGuid: item.bookingPublicId ?? item.idGuid ?? item.idGUID ?? item.id, id: item.bookingId ?? item.id };
     this.formData = { ...item };
     this.selectedAmenityIds = [];
@@ -3364,7 +3560,19 @@ export class Manage implements OnInit {
     return spaces.map(s => {
       const st = (s.status || s.Status || '').toString().trim().toLowerCase();
       const isBooked = st === 'booked' || st === 'occupied';
-      const tag = isBooked ? ' [Booked]' : ' [Available]';
+      const rawDate = s.bookedTill ?? s.BookedTill ?? s.bookedUntil ?? s.BookedUntil ?? s.endOn ?? s.EndOn;
+        let bookedTillStr = '';
+        if (isBooked && rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = months[d.getMonth()];
+            const year = d.getFullYear();
+            bookedTillStr = ' till ' + day + ' ' + month + ' ' + year;
+          }
+        }
+        const tag = isBooked ? (' [Booked' + bookedTillStr + ']') : ' [Available]';
       return { v: s.id, l: `${s.name}${tag}` };
     });
   }

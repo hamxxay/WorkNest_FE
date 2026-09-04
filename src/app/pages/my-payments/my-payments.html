@@ -71,7 +71,7 @@
             <td class="cell-date">{{ tryDate(p.paidAt || p.createdAt) }}</td>
             <td>
               @if (p.challanNumber) {
-              <button class="btn-challan" (click)="printChallan(p)" title="Print Challan">🖨 Challan</button>
+              <button class="btn-challan" (click)="printChallan(p)" title="Print Challan">Challan</button>
               }
             </td>
           </tr>
@@ -97,7 +97,7 @@
             @if (p.challanNumber) {
             <div class="payment-mobile-ref">Challan: {{ p.challanNumber }}</div>
             <div class="payment-mobile-ref">Valid until: {{ tryDate(p.validity || p.validityDate) }}</div>
-            <button class="btn-challan" (click)="printChallan(p)">🖨 Print Challan</button>
+            <button class="btn-challan" (click)="printChallan(p)">Print Challan</button>
             }
           </div>
           <div class="payment-mobile-right">
@@ -319,7 +319,7 @@
 
     @if (challanEmailSent()) {
     <div class="challan-email-banner">
-      ✓ {{ challanEmailSent() }}
+      {{ challanEmailSent() }}
     </div>
     }
 

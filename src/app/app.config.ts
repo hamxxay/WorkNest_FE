@@ -13,7 +13,7 @@ import {
 
 import { 
   provideRouter, 
-  withInMemoryScrolling   // ✅ Enables router scroll control
+  withInMemoryScrolling   // Enables router scroll control
 } from '@angular/router';
 
 import { 
@@ -52,7 +52,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(
       routes,
 
-      // ✅ Scroll behavior configuration
+      // Scroll behavior configuration
       withInMemoryScrolling({
         // Always scroll to TOP on route change
         // Fixes issue where pricing page opens at bottom

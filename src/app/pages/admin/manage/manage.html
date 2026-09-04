@@ -211,6 +211,7 @@
                   </svg>
                 </button>
               }
+              
               @if (item.bookingStatus === 'Confirmed') {
               <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign Space">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -588,7 +589,7 @@
           }
         </select>
         } @else {
-        <input class="form-input-admin" value="N/A â€” only for Private Office" disabled
+        <input class="form-input-admin" value="N/A — only for Private Office" disabled
           style="background:#f1f5f9;color:#94a3b8" />
         }
         } @else if (field.type === 'select') {
@@ -655,7 +656,7 @@
       <div class="user-line"><span>Space</span><strong>{{ s.space?.name }} ({{ s.space?.code }})</strong></div>
       <div class="user-line"><span>Location</span><strong>{{ s.space?.locationName }}</strong></div>
       <div class="user-line"><span>Type</span><strong>{{ s.space?.spaceTypeName }}</strong></div>
-      <div class="user-line"><span>Capacity</span><strong>{{ s.space?.capacity ?? 'â€”' }}</strong></div>
+      <div class="user-line"><span>Capacity</span><strong>{{ s.space?.capacity ?? '—' }}</strong></div>
       <div class="user-line"><span>Status</span><strong>{{ s.space?.status }}</strong></div>
     </div>
     <div class="history-section">
@@ -762,7 +763,7 @@
         <h4 style="margin:0 0 8px 0;font-size:0.85rem;color:#1e293b;">Booking & Contract Financials</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
           <div><span style="color:#64748b;font-size:.7rem;display:block">Space Number</span><strong>{{
-              s.payment?.spaceNumber || "-â€" }}</strong></div>
+              s.payment?.spaceNumber || "—" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Advance Rent Period</span><strong
               style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong
@@ -877,7 +878,7 @@
               <td>{{ p.paymentMethod }}</td>
               <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{
                   p.paymentStatus }}</span></td>
-              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '-â€' }}</td>
+              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '—' }}</td>
             </tr>
             }
           </tbody>
@@ -1224,7 +1225,7 @@
     <div
       style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
       <span style="font-size:.82rem;color:#92400e;font-weight:700">
-        âš ï¸ Valid Until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
+        Valid Until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
       </span>
       <span style="font-size:.78rem;color:#92400e;font-weight:600">Pay before expiry date to confirm workspace
         booking</span>
@@ -1249,7 +1250,7 @@
             style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
             Workspace Details</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ c.spaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.spaceTypeName || 'Office' }} â€¢ {{
+          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.spaceTypeName || 'Office' }} • {{
             c.locationName || 'Main Branch' }}</div>
         </div>
       </div>
@@ -1341,7 +1342,7 @@
               <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
             </td>
             <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-              {{ getChallanBillingMonths(c) }} Mo Ã— PKR {{ getChallanMonthlyRent(c) | number:'1.2-2' }}
+              {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.2-2' }}
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
               PKR {{ getChallanFirstCycleRent(c) | number:'1.2-2' }}
@@ -1484,7 +1485,7 @@
     @if (challanEmailSent()) {
     <div
       style="padding:10px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.82rem;text-align:center;flex-shrink:0">
-      âœ“ {{ challanEmailSent() }}
+      {{ challanEmailSent() }}
     </div>
     }
 
@@ -1699,7 +1700,7 @@
         </div>
         <div class="form-group-admin">
           <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0â€“100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
             [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="quotationDiscountValue"
             name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
@@ -1821,7 +1822,7 @@
         <path d="m6 6 12 12" />
       </svg>
     </button>
-    <h2>Create Booking</h2>
+    <h2>{{ editingBookingId ? 'Edit Booking #' + editingBookingId : 'Create Booking' }}</h2>
     @if (bookingFormError) {
     <div class="alert-admin alert-error-admin">{{ bookingFormError }}</div>
     }
@@ -2065,7 +2066,7 @@
         </div>
         <div class="form-group-admin">
           <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0â€“100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
             [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="bookingDiscountValue"
             name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
@@ -2165,7 +2166,7 @@
       <div class="modal-actions" style="display:flex;flex-wrap:wrap;gap:8px">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminBookingForm()">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin" [disabled]="bookingFormSaving() || !selectedCustomer">
-          {{ bookingFormSaving() ? 'Creating...' : 'Create Booking' }}
+          {{ bookingFormSaving() ? (editingBookingId ? 'Updating...' : 'Creating...') : (editingBookingId ? 'Update Booking' : 'Create Booking') }}
         </button>
       </div>
     </form>
@@ -2268,7 +2269,7 @@
       <div>
         <h3 style="margin:0;font-size:1.15rem;font-weight:700">Booking Details #{{ booking.id || booking.bookingId }}
         </h3>
-        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} â€” {{
+        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{
           booking.spaceName || 'Workspace' }}</span>
       </div>
       <button (click)="showBookingDetailsModal = false"
@@ -2305,7 +2306,7 @@
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Space
             Number / Code</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">
-            {{ booking.spaceNumber || booking.contract?.spaceNumber || booking.spaceCode || booking.spaceName || 'â€”' }}
+            {{ booking.spaceNumber || booking.contract?.spaceNumber || booking.spaceCode || booking.spaceName || '—' }}
           </div>
         </div>
 
@@ -2324,7 +2325,7 @@
             Contract Period</div>
           <div style="font-size:0.88rem;font-weight:600;color:#0f172a">
             {{ (booking.contractStartDate || booking.contract?.contractStartDate || booking.startOn ||
-            booking.startDateTime) | date:'MMM d, y' }} â€“ {{ (booking.contractEndDate ||
+            booking.startDateTime) | date:'MMM d, y' }} – {{ (booking.contractEndDate ||
             booking.contract?.contractEndDate || booking.endOn || booking.endDateTime) | date:'MMM d, y' }}
           </div>
         </div>
@@ -2452,9 +2453,14 @@
 
     <div
       style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
-      <button class="btn-admin btn-outline-admin" (click)="viewBillingChallan(booking)">
-        ðŸ“‹ View Current Billing Challan
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-admin btn-outline-admin" (click)="viewBillingChallan(booking)">
+          View Current Billing Challan
+        </button>
+        <button class="btn-admin btn-primary-admin" (click)="showBookingDetailsModal = false; openAdminBookingForm(booking)" style="background:#2563eb;color:#fff">
+          Edit Booking
+        </button>
+      </div>
       <button class="btn-admin btn-outline-admin" (click)="showBookingDetailsModal = false">Close</button>
     </div>
   </div>
@@ -2600,7 +2606,7 @@
           </span>
         </div>
         <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">
-          Customer: {{ q.customerName || q.customerEmail || 'N/A' }} â€¢ Space: {{ q.spaceName || 'N/A' }}
+          Customer: {{ q.customerName || q.customerEmail || 'N/A' }} • Space: {{ q.spaceName || 'N/A' }}
         </div>
       </div>
       <button (click)="closeQuotationPreviewModal()"
@@ -2612,11 +2618,11 @@
       style="background:#f8fafc;padding:10px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;flex-shrink:0">
       <div style="display:flex;gap:8px">
         <button class="btn-admin btn-outline-admin" (click)="downloadQuotationPdf()" title="Download PDF">
-          ðŸ“¥ Download PDF
+          Download PDF
         </button>
         <button class="btn-admin btn-outline-admin" (click)="sendQuotationEmailNow()"
           title="Email Quotation to Customer">
-          âœ‰ï¸ Email Customer
+          Email Customer
         </button>
       </div>
 
@@ -2624,19 +2630,19 @@
         @if ((q.status || 'Draft') === 'Draft') {
         <button class="btn-admin btn-primary-admin" (click)="sendQuotationVersionToCustomer(q)"
           style="background:#2563eb;color:#fff">
-          ðŸš€ Send Quotation
+          Send Quotation
         </button>
         }
         @if ((q.status || '').toLowerCase() === 'declined') {
         <button class="btn-admin btn-primary-admin" (click)="createNextVersion(q)"
           style="background:#7c3aed;color:#fff">
-          âž• Create Version {{ (q.versionNumber || 1) + 1 }}
+          Create Version {{ (q.versionNumber || 1) + 1 }}
         </button>
         }
         @if (isQuotationAccepted(q)) {
         <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(q)"
           style="background:#16a34a;color:#fff">
-          âœ… Convert to Booking
+          Convert to Booking
         </button>
         }
       </div>
@@ -2656,7 +2662,7 @@
       <div style="margin-bottom:24px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:16px">
         <h4
           style="margin:0 0 12px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;justify-content:space-between">
-          <span>ðŸ“œ Quotation Version History</span>
+          <span>Quotation Version History</span>
           <span style="font-size:0.75rem;color:#64748b;font-weight:normal">{{ quotationVersions().length }} version(s)
             recorded</span>
         </h4>
@@ -2672,17 +2678,17 @@
                   style="font-size:0.7rem;padding:1px 6px">
                   {{ v.status || 'Draft' }}
                 </span>
-                <span style="font-size:0.78rem;color:#64748b">â€¢ PKR {{ (v.totalAmount || v.TotalAmount || 0) |
+                <span style="font-size:0.78rem;color:#64748b">• PKR {{ (v.totalAmount || v.TotalAmount || 0) |
                   number:'1.0-0' }}</span>
               </div>
               <div style="font-size:0.78rem;color:#64748b;margin-top:2px">
-                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos â€¢ Created: {{ (v.createdAt ||
+                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos • Created: {{ (v.createdAt ||
                 v.createdDate) | date:'mediumDate' }}
               </div>
               @if (v.customerNote || v.note) {
               <div
                 style="margin-top:6px;font-size:0.8rem;background:#fef2f2;color:#991b1b;padding:6px 10px;border-radius:6px;border:1px solid #fecaca;font-style:italic">
-                ðŸ’¬ Customer Response: "{{ v.customerNote || v.note }}"
+                Customer Response: "{{ v.customerNote || v.note }}"
               </div>
               }
             </div>
@@ -2697,7 +2703,7 @@
               @if (isQuotationAccepted(v)) {
               <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(v)"
                 style="font-size:0.75rem;padding:4px 10px;background:#16a34a;color:#fff;border:none">
-                âœ… Convert to Booking
+                Convert to Booking
               </button>
               }
             </div>
@@ -2743,7 +2749,7 @@
             <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
               Workspace Details</div>
             <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
-            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} â€¢ {{ q.locationName || 'Main
+            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
               Branch' }}</div>
             <div style="font-size:0.85rem;color:#475569" *ngIf="q.capacity">Capacity: {{ q.capacity }} Person(s)</div>
           </div>
@@ -2836,7 +2842,7 @@
                 <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
               </td>
               <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-                {{ getQuotationBillingMonths(q) }} Mo Ã— PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
+                {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
                 PKR {{ getQuotationFirstCycleRent(q) | number:'1.2-2' }}
@@ -2960,7 +2966,6 @@
     <!-- Alert Info Banner -->
     <div
       style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:1.2rem">â„¹ï¸</span>
       <div style="font-size:0.82rem;color:#1e40af">
         Converting this quotation will create a <strong>Confirmed Booking</strong>, lock historical rate snapshot, and
         issue the initial <strong>Payment Challan</strong>.
@@ -2983,7 +2988,7 @@
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Workspace & Location</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || 'Office' }} â€¢ {{ q.locationName || 'Main
+          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
             Location' }}</div>
         </div>
 
@@ -2991,7 +2996,7 @@
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Contract Dates</div>
           <div style="font-size:0.88rem;font-weight:700;color:#0f172a">
-            {{ (q.startDateTime || q.startOn) | date:'MMM d, y' }} â€“ {{ (q.endDateTime || q.endOn) | date:'MMM d, y' }}
+            {{ (q.startDateTime || q.startOn) | date:'MMM d, y' }} – {{ (q.endDateTime || q.endOn) | date:'MMM d, y' }}
           </div>
           <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths || q.months ||
             12 }} Month(s)</div>
@@ -3093,9 +3098,9 @@
       <button class="btn-admin btn-primary-admin" (click)="executeConversion(q)" [disabled]="conversionSubmitting()"
         style="background:#16a34a;color:#fff;padding:10px 20px;font-size:0.95rem;font-weight:700">
         @if (conversionSubmitting()) {
-        âŒ› Converting to Booking...
+        Converting to Booking...
         } @else {
-        âœ… Confirm & Convert to Booking
+        Confirm & Convert to Booking
         }
       </button>
     </div>
