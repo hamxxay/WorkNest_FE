@@ -33,6 +33,7 @@ export const routes: Routes = [
       { path: 'gallery',      loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'gallery' } },
       { path: 'space-configuration', loadComponent: () => import('./pages/admin/space-config/space-config').then(m => m.SpaceConfig), canActivate: [superAdminGuard] },
       { path: 'manage-spaces',       loadComponent: () => import('./pages/admin/manage-spaces/manage-spaces').then(m => m.ManageSpaces), canActivate: [adminGuard] },
+      { path: 'attendants', loadComponent: () => import('./pages/admin/attendant-management/attendant-management').then(m => m.AttendantManagement), canActivate: [adminGuard] },
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
     ]
   },

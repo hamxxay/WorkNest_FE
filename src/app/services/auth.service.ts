@@ -65,7 +65,7 @@ export class AuthService {
         firebaseAuth,
         async currentUser => {
           if (!currentUser) {
-            // Don't wipe guest sessions — they have no Firebase user by design
+            // Don't wipe guest sessions â€” they have no Firebase user by design
             if (!this.isGuest()) {
               this.clearSession();
             }
@@ -234,12 +234,22 @@ export class AuthService {
     return this.user();
   }
 
+  getPostLoginRedirect(): string {
+    if (this.hasRole('sales_executive')) {
+      return '/admin/quotations';
+    }
+    if (this.hasRole('admin') || this.hasRole('super_admin')) {
+      return '/admin';
+    }
+    return '/dashboard';
+  }
+
   hasRole(role?: string): boolean {
     const currentUser = this.user();
     if (!currentUser) return false;
     if (!role) return true;
-    const target = role.toLowerCase();
-    return (currentUser.roles || []).some(item => String(item).toLowerCase() === target);
+    const target = role.toLowerCase().replace(/[\s_]/g, '');
+    return (currentUser.roles || []).some(item => String(item).toLowerCase().replace(/[\s_]/g, '') === target);
   }
 
   getUserFromToken(): any {

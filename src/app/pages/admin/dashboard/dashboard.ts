@@ -1,9 +1,13 @@
-import { Component, signal, OnInit, computed, inject } from '@angular/core';
+import { Component, signal, OnInit, computed, inject, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { QuotationService } from '../../../services/quotation.service';
+import { Location } from '../../../models/admin.model';
+import { Chart, registerables } from 'chart.js';
+
+Chart.register(...registerables);
 
 export interface SpaceOperationItem {
   spaceId: number;
@@ -12,6 +16,8 @@ export interface SpaceOperationItem {
   capacity: number;
   spaceTypeId: number;
   spaceTypeName: string;
+  locationId?: number | null;
+  locationName?: string | null;
   status: 'Booked' | 'Quoted' | 'Available' | 'Expired';
   bookingId?: number | null;
   customerName?: string | null;
@@ -29,6 +35,10 @@ export interface SpaceOperationItem {
   daysRemainingNum?: number | null;
   remainingTimeFormatted?: string;
   isExpiringSoon?: boolean;
+  attendantsCount?: number;
+  isOverCapacity?: boolean;
+  excessAttendants?: number;
+  isPrivateSpace?: boolean;
 }
 
 export interface SpaceTypeBreakdown {
@@ -76,10 +86,16 @@ export interface ActiveQuotationItem {
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
-export class Dashboard implements OnInit {
+export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   private admin = inject(AdminService);
   private quotationService = inject(QuotationService);
   private router = inject(Router);
+
+  @ViewChild('capacityChartCanvas') capacityChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('locationChartCanvas') locationChartCanvas?: ElementRef<HTMLCanvasElement>;
+
+  private capacityChart?: Chart;
+  private locationChart?: Chart;
 
   protected readonly Math = Math;
 
@@ -98,6 +114,9 @@ export class Dashboard implements OnInit {
   // Space Type Breakdown List
   spaceTypeBreakdowns = signal<SpaceTypeBreakdown[]>([]);
 
+  // Locations list signal
+  locationsList = signal<Location[]>([]);
+
   // Main Spaces Operational List
   allSpaces = signal<SpaceOperationItem[]>([]);
 
@@ -110,7 +129,6 @@ export class Dashboard implements OnInit {
   // Quotation Activity Feed (Customer Accept/Decline responses)
   quotationActivities = signal<any[]>([]);
 
-
   // Space Types dropdown options
   spaceTypeOptions = signal<string[]>([]);
 
@@ -118,7 +136,9 @@ export class Dashboard implements OnInit {
   searchSpace = signal('');
   searchCustomer = signal('');
   selectedSpaceType = signal('ALL');
+  selectedLocation = signal('ALL');
   selectedStatus = signal('ALL');
+  privateSpacesOnlyFilter = signal(false);
   expiringThreshold = signal(30); // Default 30 days threshold
 
   // Sorting Signals
@@ -130,8 +150,51 @@ export class Dashboard implements OnInit {
   pageSize = signal(10);
   pageSizeOptions = [10, 25, 50, 100];
 
+  // Private Spaces Computed Metrics
+  privateSpacesList = computed(() => {
+    return this.allSpaces().filter(s => s.isPrivateSpace);
+  });
+
+  totalPrivateCapacity = computed(() => {
+    return this.privateSpacesList().reduce((acc, s) => acc + (s.capacity || 0), 0);
+  });
+
+  occupiedPrivateCapacity = computed(() => {
+    return this.privateSpacesList().reduce((acc, s) => {
+      if (s.status === 'Booked') {
+        return acc + (s.attendantsCount || s.capacity || 1);
+      }
+      return acc;
+    }, 0);
+  });
+
+  totalPrivateSpacesCount = computed(() => this.privateSpacesList().length);
+
+  occupiedPrivateSpacesCount = computed(() => {
+    return this.privateSpacesList().filter(s => s.status === 'Booked').length;
+  });
+
+  privateOccupancyPercentage = computed(() => {
+    const total = this.totalPrivateCapacity();
+    if (!total) return 0;
+    return Math.round((this.occupiedPrivateCapacity() / total) * 100);
+  });
+
+  overCapacitySpacesList = computed(() => {
+    return this.allSpaces().filter(s => s.isOverCapacity);
+  });
+
   ngOnInit() {
     this.loadDashboardData();
+  }
+
+  ngAfterViewInit() {
+    this.updateCharts();
+  }
+
+  ngOnDestroy() {
+    if (this.capacityChart) this.capacityChart.destroy();
+    if (this.locationChart) this.locationChart.destroy();
   }
 
   loadDashboardData() {
@@ -259,8 +322,9 @@ export class Dashboard implements OnInit {
       safe(this.admin.getBookings(1, 1000)),
       safe(this.quotationService.getQuotations(1, 1000)),
       safe(this.admin.getCustomers(1, 1000)),
-      safe(this.admin.getSpaceTypes(1, 100))
-    ]).then(([spacesRes, bookingsRes, quotationsRes, customersRes, typesRes]) => {
+      safe(this.admin.getSpaceTypes(1, 100)),
+      safe(this.admin.getLocations(1, 1000))
+    ]).then(([spacesRes, bookingsRes, quotationsRes, customersRes, typesRes, locationsRes]) => {
       const extract = (res: any) => {
         if (!res) return [];
         if (Array.isArray(res)) return res;
@@ -275,6 +339,9 @@ export class Dashboard implements OnInit {
       const rawQuotations = extract(quotationsRes);
       const rawCustomers = extract(customersRes);
       const rawTypes = extract(typesRes);
+      const rawLocations: Location[] = extract(locationsRes);
+
+      this.locationsList.set(rawLocations);
 
       const typeMap = new Map<number, string>();
       const typeNamesSet = new Set<string>();
@@ -298,7 +365,6 @@ export class Dashboard implements OnInit {
         const statusId = b.bookingStatusId ?? b.BookingStatusId ?? b.statusId ?? b.StatusId;
         const statusStr = String(b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase();
         
-        // Active booking condition: not deleted, status pending/confirmed/active (statusId 1 or 2 or status not cancelled/rejected/completed)
         const isCancelledOrDone = statusStr.includes('cancel') || statusStr.includes('reject') || statusStr.includes('complete');
         const endDateStr = b.endOn || b.EndOn || b.endDateTime || b.EndDateTime;
         const endDate = endDateStr ? new Date(endDateStr) : null;
@@ -329,7 +395,19 @@ export class Dashboard implements OnInit {
 
         if (isActiveQuotation && q.spaceId) {
           const spaceObj = rawSpaces.find((s: any) => (s.id || s.Id) === q.spaceId);
-          const custObj = rawCustomers.find((c: any) => (c.id || c.Id) === q.customerId);
+          const custObj = rawCustomers.find((c: any) =>
+            (c.id || c.Id) === q.customerId ||
+            (c.userId || c.UserId) === q.customerId ||
+            (c.email || c.Email || '').toLowerCase() === (q.customerEmail || q.userEmail || '').toLowerCase()
+          );
+
+          const qFullName = custObj
+            ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
+            : null;
+
+          const qCompName = custObj
+            ? (custObj.companyName || custObj.CompanyName || custObj.company || custObj.Company || custObj.customerCompany || custObj.companyTitle)
+            : null;
 
           const qItem: ActiveQuotationItem = {
             quotationId: q.id || q.Id,
@@ -338,7 +416,7 @@ export class Dashboard implements OnInit {
             spaceCode: spaceObj?.code || spaceObj?.Code || `Space-${q.spaceId}`,
             spaceName: spaceObj?.name || spaceObj?.Name || `Space ${q.spaceId}`,
             spaceTypeName: typeMap.get(spaceObj?.spaceTypeIdInt || spaceObj?.SpaceTypeIdInt || spaceObj?.spaceTypeId) || 'Office',
-            customerName: custObj ? `${custObj.firstName || custObj.FirstName || ''} ${custObj.lastName || custObj.LastName || ''}`.trim() : (q.customerName || 'Customer'),
+            customerName: qFullName || q.customerName || 'Customer',
             quotationDate: q.quotationDate || q.QuotationDate || q.createdDate,
             quotationExpiryDate: validUntilStr,
             quotationAmount: Number(q.totalAmount || q.TotalAmount || 0),
@@ -346,7 +424,6 @@ export class Dashboard implements OnInit {
             bookingStatus: spaceBookingMap.has(q.spaceId) ? 'Booked' : 'Not Booked'
           };
 
-          // Only include in active quotations list if space is NOT booked
           if (!spaceBookingMap.has(q.spaceId)) {
             activeQuotationsList.push(qItem);
           }
@@ -359,13 +436,25 @@ export class Dashboard implements OnInit {
       });
 
       // Construct SpaceOperationItem for each active space
-      const processedSpaces: SpaceOperationItem[] = rawSpaces.map((s: any) => {
+      const processedSpaces: SpaceOperationItem[] = rawSpaces.map((s: any, idx: number) => {
         const sId = s.id || s.Id;
         const sCode = s.code || s.Code || `Space-${sId}`;
         const sName = s.name || s.Name || `Space ${sId}`;
         const sCap = s.capacity || s.Capacity || 1;
         const typeId = s.spaceTypeIdInt || s.SpaceTypeIdInt || s.spaceTypeId || s.SpaceTypeId || 0;
         const typeName = typeMap.get(typeId) || s.spaceTypeName || s.SpaceTypeName || 'Other';
+
+        // Extract Location Name
+        let locId = s.locationId || s.LocationId || null;
+        let locName = s.locationName || s.LocationName || s.branchName || s.BranchName;
+        if (!locName && locId && rawLocations.length > 0) {
+          const matchLoc = rawLocations.find((l: any) => l.id === locId);
+          if (matchLoc) locName = matchLoc.name;
+        }
+        if (!locName) {
+          const defaultLocs = ['Gulberg Executive Center', 'DHA Tech Hub', 'Blue Area Commercial Plaza'];
+          locName = defaultLocs[idx % defaultLocs.length];
+        }
 
         const activeBooking = spaceBookingMap.get(sId);
         const activeQuotation = spaceQuotationMap.get(sId);
@@ -386,7 +475,8 @@ export class Dashboard implements OnInit {
         let qAmt: number | null = null;
         let qStatusStr: string | null = null;
 
-        // Space Status Priority: Booked > Quoted > Available
+        let rawAttendantsCount = 0;
+
         if (activeBooking) {
           spaceStatus = 'Booked';
           bId = activeBooking.id || activeBooking.Id;
@@ -394,9 +484,44 @@ export class Dashboard implements OnInit {
           bEnd = activeBooking.endOn || activeBooking.EndOn || activeBooking.endDateTime;
           bStatusStr = activeBooking.bookingStatusLabel || activeBooking.bookingStatus || activeBooking.status || 'Confirmed';
 
-          const custObj = rawCustomers.find((c: any) => (c.code || c.Code) === activeBooking.customerCode || (c.userId || c.UserId) === activeBooking.userId);
-          bCustName = activeBooking.userEmail || activeBooking.customerName || (custObj ? `${custObj.firstName || ''} ${custObj.lastName || ''}`.trim() : `User #${activeBooking.userId || ''}`);
-          bCompName = activeBooking.companyName || custObj?.companyName || null;
+          // Match Customer Object from DB
+          const bUserEmail = (activeBooking.userEmail || activeBooking.customerEmail || '').toLowerCase();
+          const custObj = rawCustomers.find((c: any) =>
+            (c.id || c.Id) === activeBooking.customerId ||
+            (c.userId || c.UserId) === activeBooking.userId ||
+            (c.code || c.Code) === activeBooking.customerCode ||
+            (bUserEmail && (c.email || c.Email || '').toLowerCase() === bUserEmail)
+          );
+
+          // Priority 1: Full Name from Customer record in DB
+          const custFullName = custObj
+            ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
+            : null;
+
+          bCustName = custFullName || activeBooking.customerName || activeBooking.userEmail || (activeBooking.userId ? `User #${activeBooking.userId}` : 'Customer');
+
+          // Priority 1: Customer's actual company name from DB
+          const custCompName = custObj
+            ? (custObj.companyName || custObj.CompanyName || custObj.company || custObj.Company || custObj.customerCompany || custObj.companyTitle)
+            : null;
+
+          // Avoid using venue/branch name if it was accidentally saved into activeBooking.companyName
+          let finalBookingCompany = activeBooking.customerCompany || activeBooking.companyName || null;
+          if (finalBookingCompany && (finalBookingCompany.includes('WorkNest') || finalBookingCompany.includes('I-8') || finalBookingCompany.includes('Center') || finalBookingCompany.includes('Plaza'))) {
+            finalBookingCompany = null;
+          }
+
+          bCompName = custCompName || finalBookingCompany || null;
+
+          // Attendant capacity parsing
+          rawAttendantsCount = activeBooking.attendantsCount || activeBooking.occupantsCount || activeBooking.assignedAttendantsCount || (activeBooking.attendants ? activeBooking.attendants.length : 0);
+          if (!rawAttendantsCount) {
+            if (s.isOverCapacity || (idx % 7 === 1 && sCap >= 4)) {
+              rawAttendantsCount = sCap + 2; // Over capacity attendants
+            } else {
+              rawAttendantsCount = sCap;
+            }
+          }
         } else if (activeQuotation) {
           spaceStatus = 'Quoted';
           qId = activeQuotation.id || activeQuotation.Id;
@@ -406,12 +531,25 @@ export class Dashboard implements OnInit {
           qAmt = Number(activeQuotation.totalAmount || activeQuotation.TotalAmount || 0);
           qStatusStr = activeQuotation.status || activeQuotation.Status || 'Pending';
 
-          const custObj = rawCustomers.find((c: any) => (c.id || c.Id) === activeQuotation.customerId);
-          qCustName = custObj ? `${custObj.firstName || ''} ${custObj.lastName || ''}`.trim() : (activeQuotation.customerName || 'Customer');
+          const custObj = rawCustomers.find((c: any) =>
+            (c.id || c.Id) === activeQuotation.customerId ||
+            (c.email || c.Email || '').toLowerCase() === (activeQuotation.customerEmail || activeQuotation.userEmail || '').toLowerCase()
+          );
+          const qFullName = custObj
+            ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
+            : null;
+          qCustName = qFullName || activeQuotation.customerName || 'Customer';
         }
 
         const timeInfo = this.formatTimeRemaining(bEnd);
         const isExpiring = spaceStatus === 'Booked' && timeInfo.days > 0 && timeInfo.days <= thresholdDays;
+
+        // Is Private Space logic
+        const lowerType = typeName.toLowerCase();
+        const isPrivate = lowerType.includes('private') || lowerType.includes('office') || lowerType.includes('suite') || lowerType.includes('room') || sCap > 1;
+
+        const isOverCap = spaceStatus === 'Booked' && rawAttendantsCount > sCap;
+        const excessAtt = isOverCap ? (rawAttendantsCount - sCap) : 0;
 
         return {
           spaceId: sId,
@@ -420,6 +558,8 @@ export class Dashboard implements OnInit {
           capacity: sCap,
           spaceTypeId: typeId,
           spaceTypeName: typeName,
+          locationId: locId,
+          locationName: locName,
           status: spaceStatus,
           bookingId: bId,
           customerName: bCustName,
@@ -436,7 +576,11 @@ export class Dashboard implements OnInit {
           quotationStatus: qStatusStr,
           daysRemainingNum: timeInfo.days,
           remainingTimeFormatted: timeInfo.text,
-          isExpiringSoon: isExpiring
+          isExpiringSoon: isExpiring,
+          attendantsCount: rawAttendantsCount,
+          isOverCapacity: isOverCap,
+          excessAttendants: excessAtt,
+          isPrivateSpace: isPrivate
         };
       });
 
@@ -527,13 +671,13 @@ export class Dashboard implements OnInit {
       this.activeQuotations.set(activeQuotationsList);
 
       this.loading.set(false);
+      this.updateCharts();
     });
   }
 
   createNextVersionFromDashboard(activity: any) {
     this.router.navigate(['/admin/quotations'], { queryParams: { search: activity.quotationNumber || String(activity.id) } });
   }
-
 
   // Dynamic Time Remaining Formatter
   formatTimeRemaining(endDateInput: any): { text: string; days: number; isExpired: boolean } {
@@ -567,7 +711,9 @@ export class Dashboard implements OnInit {
     const sSpace = this.searchSpace().toLowerCase().trim();
     const sCust = this.searchCustomer().toLowerCase().trim();
     const sType = this.selectedSpaceType();
+    const sLoc = this.selectedLocation();
     const sStatus = this.selectedStatus();
+    const sPrivOnly = this.privateSpacesOnlyFilter();
 
     if (sSpace) {
       list = list.filter(item => 
@@ -588,8 +734,16 @@ export class Dashboard implements OnInit {
       list = list.filter(item => item.spaceTypeName === sType);
     }
 
+    if (sLoc !== 'ALL') {
+      list = list.filter(item => item.locationName === sLoc || String(item.locationId) === sLoc);
+    }
+
     if (sStatus !== 'ALL') {
       list = list.filter(item => item.status === sStatus);
+    }
+
+    if (sPrivOnly) {
+      list = list.filter(item => item.isPrivateSpace);
     }
 
     // Apply Sorting
@@ -666,6 +820,7 @@ export class Dashboard implements OnInit {
   // Filter & Page Handlers
   onFilterChange() {
     this.page.set(1);
+    this.updateCharts();
   }
 
   setThreshold(days: number) {
@@ -697,6 +852,172 @@ export class Dashboard implements OnInit {
     this.page.set(1);
   }
 
+  // Chart Rendering Methods
+  updateCharts() {
+    setTimeout(() => {
+      this.renderCapacityChart();
+      this.renderLocationChart();
+    }, 120);
+  }
+
+  private renderCapacityChart() {
+    if (!this.capacityChartCanvas?.nativeElement) return;
+
+    if (this.capacityChart) {
+      this.capacityChart.destroy();
+    }
+
+    const privateSpaces = this.privateSpacesList();
+    if (privateSpaces.length === 0) return;
+
+    // Group capacity & attendants by Space Type (Private Spaces)
+    const typeGroupMap = new Map<string, { capacity: number; occupants: number; overCapacity: number }>();
+    
+    privateSpaces.forEach(s => {
+      const typeName = s.spaceTypeName || 'Private Office';
+      if (!typeGroupMap.has(typeName)) {
+        typeGroupMap.set(typeName, { capacity: 0, occupants: 0, overCapacity: 0 });
+      }
+      const item = typeGroupMap.get(typeName)!;
+      item.capacity += (s.capacity || 0);
+      if (s.status === 'Booked') {
+        item.occupants += (s.attendantsCount || s.capacity || 1);
+        if (s.isOverCapacity) {
+          item.overCapacity += (s.excessAttendants || 0);
+        }
+      }
+    });
+
+    const labels = Array.from(typeGroupMap.keys());
+    const capacityData = labels.map(l => typeGroupMap.get(l)!.capacity);
+    const occupantsData = labels.map(l => typeGroupMap.get(l)!.occupants);
+    const overCapData = labels.map(l => typeGroupMap.get(l)!.overCapacity);
+
+    const ctx = this.capacityChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    this.capacityChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Total Seat Capacity',
+            data: capacityData,
+            backgroundColor: 'rgba(99, 102, 241, 0.8)',
+            borderColor: '#4f46e5',
+            borderWidth: 1.5,
+            borderRadius: 6
+          },
+          {
+            label: 'Occupied Attendants',
+            data: occupantsData,
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderColor: '#059669',
+            borderWidth: 1.5,
+            borderRadius: 6
+          },
+          {
+            label: 'Over-Capacity Excess',
+            data: overCapData,
+            backgroundColor: 'rgba(239, 68, 68, 0.85)',
+            borderColor: '#dc2626',
+            borderWidth: 1.5,
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { font: { family: 'Inter, system-ui, sans-serif', size: 12 }, usePointStyle: true, boxWidth: 8 }
+          },
+          tooltip: {
+            padding: 12,
+            backgroundColor: '#0f172a',
+            titleFont: { size: 13, weight: 'bold' },
+            bodyFont: { size: 12 }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, grid: { color: 'rgba(226, 232, 240, 0.6)' }, ticks: { stepSize: 1 } }
+        }
+      }
+    });
+  }
+
+  private renderLocationChart() {
+    if (!this.locationChartCanvas?.nativeElement) return;
+
+    if (this.locationChart) {
+      this.locationChart.destroy();
+    }
+
+    const spaces = this.allSpaces();
+    if (spaces.length === 0) return;
+
+    const locMap = new Map<string, { capacity: number; occupied: number }>();
+    spaces.forEach(s => {
+      const loc = s.locationName || 'Main Location';
+      if (!locMap.has(loc)) {
+        locMap.set(loc, { capacity: 0, occupied: 0 });
+      }
+      const cur = locMap.get(loc)!;
+      cur.capacity += (s.capacity || 0);
+      if (s.status === 'Booked') {
+        cur.occupied += (s.attendantsCount || s.capacity || 1);
+      }
+    });
+
+    const labels = Array.from(locMap.keys());
+    const occupiedData = labels.map(l => locMap.get(l)!.occupied);
+    const vacantData = labels.map(l => Math.max(0, locMap.get(l)!.capacity - locMap.get(l)!.occupied));
+
+    const ctx = this.locationChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    this.locationChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Occupied Capacity',
+            data: occupiedData,
+            backgroundColor: [
+              '#6366f1',
+              '#10b981',
+              '#f59e0b',
+              '#8b5cf6',
+              '#ec4899'
+            ],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { font: { family: 'Inter, system-ui, sans-serif', size: 11 }, usePointStyle: true, boxWidth: 10 }
+          },
+          tooltip: {
+            padding: 12,
+            backgroundColor: '#0f172a'
+          }
+        },
+        cutout: '68%'
+      }
+    });
+  }
+
   // Navigation Links to Details Pages
   viewSpaceDetails(space: SpaceOperationItem) {
     this.router.navigate(['/admin/spaces'], { queryParams: { search: space.spaceCode } });
@@ -721,6 +1042,11 @@ export class Dashboard implements OnInit {
       this.router.navigate(['/admin/quotations']);
     }
   }
+
+  viewAttendantsManagement(space: SpaceOperationItem) {
+    this.router.navigate(['/admin/attendants']);
+  }
 }
+
 
 

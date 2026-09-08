@@ -83,6 +83,121 @@
       </a>
     </div>
 
+    <!-- SECTION 1B: PRIVATE SPACES CAPACITY & CHARTS CONTROL CENTER -->
+    <div class="admin-card capacity-overview-card">
+      <div class="card-title-row">
+        <div>
+          <div class="section-tag-pill">Private Spaces Capacity Analysis</div>
+          <h3>Private Spaces Total Capacity & Attendants Overview</h3>
+          <p class="summary-sub">Capacity view for private offices and dedicated suites, tracking total seats vs. assigned occupants and over-capacity attendants.</p>
+        </div>
+        <div class="capacity-stats-row">
+          <div class="c-stat-box">
+            <span class="c-stat-val">{{ totalPrivateCapacity() }}</span>
+            <span class="c-stat-lbl">Total Capacity Seats</span>
+          </div>
+          <div class="c-stat-box occupied">
+            <span class="c-stat-val">{{ occupiedPrivateCapacity() }}</span>
+            <span class="c-stat-lbl">Occupied Attendants</span>
+          </div>
+          <div class="c-stat-box">
+            <span class="c-stat-val">{{ occupiedPrivateSpacesCount() }} / {{ totalPrivateSpacesCount() }}</span>
+            <span class="c-stat-lbl">Occupied Spaces</span>
+          </div>
+          <div class="c-stat-box utilization">
+            <span class="c-stat-val">{{ privateOccupancyPercentage() }}%</span>
+            <span class="c-stat-lbl">Capacity Utilization</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE CHARTS & GRAPHS GRID -->
+      <div class="dashboard-charts-grid">
+        <div class="chart-panel">
+          <div class="chart-panel-header">
+            <h4>Private Space Seat Capacity vs Attendants</h4>
+            <span class="chart-subtitle">Max Capacity vs. Active Occupants</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas #capacityChartCanvas></canvas>
+          </div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="chart-panel-header">
+            <h4>Location Seat Distribution</h4>
+            <span class="chart-subtitle">Occupied Capacity across Locations</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas #locationChartCanvas></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 1C: OVER-CAPACITY ATTENDANTS ALERT -->
+    @if (overCapacitySpacesList().length > 0) {
+      <div class="admin-card overcapacity-alert-card">
+        <div class="card-title-row alert-header">
+          <div class="alert-title-group">
+            <span class="overcap-icon-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <div>
+              <h3 class="text-danger-title">Spaces Exceeding Capacity Attendants ({{ overCapacitySpacesList().length }})</h3>
+              <p class="summary-sub">Active spaces where assigned attendants exceed max seat capacity limit.</p>
+            </div>
+          </div>
+          <button class="btn btn-warning-sm" (click)="viewAttendantsManagement(overCapacitySpacesList()[0])">Manage Attendants →</button>
+        </div>
+
+        <div class="table-container">
+          <table class="clean-table">
+            <thead>
+              <tr>
+                <th>Space</th>
+                <th>Location</th>
+                <th>Space Type</th>
+                <th>Seat Capacity</th>
+                <th>Active Attendants</th>
+                <th>Excess Attendants</th>
+                <th>Customer / Company</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (oc of overCapacitySpacesList(); track oc.spaceId) {
+                <tr class="row-overcapacity">
+                  <td>
+                    <strong class="space-title text-danger-code">{{ oc.spaceCode }}</strong>
+                    <div class="space-subtitle" *ngIf="oc.spaceName && oc.spaceName !== oc.spaceCode">{{ oc.spaceName }}</div>
+                  </td>
+                  <td><span class="location-badge">{{ oc.locationName }}</span></td>
+                  <td><span class="type-tag">{{ oc.spaceTypeName }}</span></td>
+                  <td><span class="cap-val">{{ oc.capacity }} seats</span></td>
+                  <td><span class="attendants-val text-danger font-bold">{{ oc.attendantsCount }} assigned</span></td>
+                  <td>
+                    <span class="excess-badge">
+                      +{{ oc.excessAttendants }} Over-Cap
+                    </span>
+                  </td>
+                  <td>
+                    <div class="cust-block">
+                      <span class="cust-main">{{ oc.customerName || '—' }}</span>
+                      <span class="cust-sub" *ngIf="oc.companyName">{{ oc.companyName }}</span>
+                    </div>
+                  </td>
+                  <td class="text-right">
+                    <button class="btn-sm btn-booking" (click)="viewAttendantsManagement(oc)">Fix Attendants</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
     <!-- SECTION 2: SPACE STATUS BREAKDOWN -->
     <div class="admin-card summary-card">
       <div class="summary-header">
@@ -138,6 +253,19 @@
       <!-- Filters & Controls Bar -->
       <div class="filters-panel">
         <div class="filter-item">
+          <label>Filter Location</label>
+          <div class="search-input-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <select [(ngModel)]="selectedLocation" (ngModelChange)="onFilterChange()">
+              <option value="ALL">All Locations</option>
+              @for (loc of locationsList(); track loc.id) {
+                <option [value]="loc.name">{{ loc.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-item">
           <label>Search Space</label>
           <div class="search-input-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -174,6 +302,13 @@
           </select>
         </div>
 
+        <div class="filter-item toggle-item">
+          <label>Private Only</label>
+          <button class="btn-filter-toggle" [class.active]="privateSpacesOnlyFilter()" (click)="privateSpacesOnlyFilter.set(!privateSpacesOnlyFilter()); onFilterChange()">
+            {{ privateSpacesOnlyFilter() ? '🔒 Private Spaces Only' : '🏢 All Spaces' }}
+          </button>
+        </div>
+
         <div class="filter-item">
           <label>Expiry Threshold</label>
           <select [ngModel]="expiringThreshold()" (ngModelChange)="setThreshold($event)">
@@ -201,8 +336,9 @@
                   Space
                   <span class="sort-icon" *ngIf="sortBy() === 'spaceCode'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
                 </th>
+                <th>Location</th>
                 <th>Type</th>
-                <th>Cap</th>
+                <th>Capacity / Occupants</th>
                 <th (click)="toggleSort('status')" class="sortable">
                   Status
                   <span class="sort-icon" *ngIf="sortBy() === 'status'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
@@ -230,8 +366,14 @@
                     <span class="space-title">{{ sp.spaceCode }}</span>
                     <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName }}</span>
                   </td>
+                  <td><span class="location-badge-sm">{{ sp.locationName }}</span></td>
                   <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>
-                  <td class="col-cap">{{ sp.capacity }}</td>
+                  <td class="col-cap">
+                    <span class="cap-pill" [class.cap-overcapacity]="sp.isOverCapacity">
+                      {{ sp.status === 'Booked' && sp.attendantsCount ? sp.attendantsCount : (sp.status === 'Booked' ? sp.capacity : 0) }} / {{ sp.capacity }}
+                    </span>
+                    <span *ngIf="sp.isOverCapacity" class="mini-overcap-badge" title="Over-capacity attendants!">OVER</span>
+                  </td>
                   <td>
                     <span class="status-badge" [class]="'badge-' + sp.status.toLowerCase()">
                       <span class="badge-dot"></span>

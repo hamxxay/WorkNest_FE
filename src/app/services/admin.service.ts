@@ -460,5 +460,36 @@ export class AdminService {
   getDashboardSpaceStatus(expiringDays: number = 30): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/dashboard/space-status?expiringDays=${expiringDays}`);
   }
-}
 
+  // ============= ATTENDANTS & ACCESS CONTROL =============
+  addAttendant(data: any): Observable<any> {
+    return this.http.post<any>(`${this.api}/attendants`, data);
+  }
+  updateAttendant(personId: number, data: any): Observable<any> {
+    return this.http.put<any>(`${this.api}/attendants/${personId}`, data);
+  }
+  getCustomerAttendants(customerId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.api}/customers/${customerId}/attendants`);
+  }
+  getCustomerActiveSpaces(customerId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.api}/customers/${customerId}/active-spaces`);
+  }
+  getBookingAttendants(bookingDetailId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.api}/bookings/${bookingDetailId}/attendants`);
+  }
+  checkAttendantCapacity(bookingDetailId: number): Observable<any> {
+    return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/capacity-check`);
+  }
+  assignAttendantToBooking(bookingDetailId: number, data: any): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/attendants`, data);
+  }
+  removeAttendantFromBooking(bookingDetailId: number, personId: number): Observable<any> {
+    return this.http.delete<any>(`${this.api}/bookings/${bookingDetailId}/attendants/${personId}`);
+  }
+  toggleAccessStatus(data: any): Observable<any> {
+    return this.http.patch<any>(`${this.api}/access-status`, data);
+  }
+  getHikvisionExport(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.api}/access-status/export`);
+  }
+}

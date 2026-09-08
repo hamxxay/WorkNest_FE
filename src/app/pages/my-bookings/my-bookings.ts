@@ -24,7 +24,6 @@ export class MyBookings implements OnInit {
     private authService: AuthService
   ) {}
 
-
   ngOnInit() {
     this.loadBookings();
   }

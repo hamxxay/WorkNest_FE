@@ -13,6 +13,7 @@ export class AdminLayout {
   userRole = '';
 
   isSuperAdmin = false;
+  isSalesExecutive = false;
 
   menuItems = [
     { route: '/admin',                label: 'Dashboard',         icon: 'dashboard'       },
@@ -31,6 +32,7 @@ export class AdminLayout {
     { route: '/admin/gallery',             label: 'Gallery',           icon: 'gallery'                        },
     { route: '/admin/space-configuration',  label: 'Space Config',      icon: 'spaceconfig',  superAdminOnly: true },
     { route: '/admin/manage-spaces',        label: 'Manage Spaces',     icon: 'managespaces' },
+    { route: '/admin/attendants',        label: 'Attendants & Access', icon: 'users' },
     { route: '/admin/challan-validity',     label: 'Challan Validity',  icon: 'challan',      superAdminOnly: true },
   ];
 
@@ -40,7 +42,17 @@ export class AdminLayout {
   constructor() {
     const u = this.auth.getUser();
     this.userRole = u?.roles?.[0] ?? 'Admin';
-    this.isSuperAdmin = this.auth.hasRole('super_admin') || this.auth.hasRole('superadmin');
+    this.isSuperAdmin = this.auth.hasRole('super_admin');
+    const isAdmin = this.auth.hasRole('admin');
+    this.isSalesExecutive = this.auth.hasRole('sales_executive');
+    if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
+      this.userRole = 'Sales Executive';
+      const allowedRoutes = ['/admin/quotations', '/admin/invoices', '/admin/bookings'];
+      this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
+      if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
+        this.router.navigate(['/admin/quotations']);
+      }
+    }
   }
 
   toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; }

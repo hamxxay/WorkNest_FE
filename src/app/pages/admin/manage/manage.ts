@@ -1,4 +1,4 @@
-﻿import { Component, signal, OnInit, computed, inject } from '@angular/core';
+import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -263,7 +263,7 @@ export class Manage implements OnInit {
   quickCustomerForm: any = {
     firstName: '',
     lastName: '',
-      company: '',
+    company: '',
     email: '',
     countryCode: '+92',
     phoneNumber: '',
@@ -297,6 +297,10 @@ export class Manage implements OnInit {
   selectedQuotationLocationId = '';
   selectedQuotationSpaceTypeId = '';
   selectedQuotationCapacity: number | string | null = null;
+  quotationPerSeatBasePrice: number = 0;
+  quotationMinPerSeatBasePrice: number = 0;
+  quotationCapacity: number = 1;
+  quotationSuccessMessage = '';
   quotationSubtotal = 0;
   quotationSecurityDeposit = 0;
   quotationSecurityDepositMonthsOverride: number | null = null;
@@ -314,15 +318,31 @@ export class Manage implements OnInit {
   quotationBillingPeriodMonths = 3;
   quotationSecurityDepositMonths = 2;
 
+  get quotationMonthlyBasePrice(): number {
+    return parseFloat((Number(this.quotationPerSeatBasePrice || 0) * Math.max(1, Number(this.quotationCapacity || 1))).toFixed(2));
+  }
+
+  get quotationMaxDiscountPercent(): number {
+    const spaceId = this.quotationFormData?.spaceId;
+    if (!spaceId) return 20;
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    return Number(space?.maxDiscountPercent || space?.MaxDiscountPercent || 20);
+  }
+
+  get maxAllowedDiscountValue(): number {
+    if (this.quotationDiscountType === 'Percentage') return this.quotationMaxDiscountPercent;
+    return parseFloat((this.quotationMonthlyBasePrice * (this.quotationMaxDiscountPercent / 100)).toFixed(2));
+  }
+
+  onDiscountTypeChange() {
+    this.quotationDiscountValue = 0;
+    this.quotationDiscountPercentage = 0;
+    this.recalcQuotationAmount();
+  }
+
   get quotationMonthlyRent(): number {
     if (this.isQuotationMeetingRoom) return this.quotationSubtotal;
-    const spaceId = this.quotationFormData?.spaceId;
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
-    if (space) {
-      return this.getSpaceMonthlyRent(space, this.selectedQuotationCapacity ? Number(this.selectedQuotationCapacity) : null);
-    }
-    const months = Number(this.quotationMonths || 1);
-    return parseFloat(((this.quotationSubtotal || 0) / months).toFixed(2));
+    return this.quotationMonthlyBasePrice;
   }
 
   get quotationBillingAmount(): number {
@@ -1026,7 +1046,7 @@ export class Manage implements OnInit {
           const day = String(d.getDate()).padStart(2, '0');
           this.adminStartDate = `${y}-${m}-${day}`;
         }
-      } catch {}
+      } catch { }
     }
 
     const monthsVal = booking.numberOfMonths || booking.NumberOfMonths || booking.contractPeriodMonths || booking.ContractPeriodMonths || booking.months;
@@ -1889,7 +1909,7 @@ export class Manage implements OnInit {
                     const start = new Date(this.adminStartDate);
                     const end = new Date(this.adminMeetingDayEnd);
                     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1);
-                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room - Full Day (${days} day${days > 1 ? 's' : ''} Ã— 9 hrs/day)` };
+                    return { feeType: 'RoomRent', amount: this.bookingSubtotal, description: `Meeting Room - Full Day (${days} day${days > 1 ? 's' : ''}9 hrs/day)` };
                   }
                   return { feeType: 'RoomRent', amount: this.bookingSubtotal };
                 })(),
@@ -2278,8 +2298,8 @@ export class Manage implements OnInit {
         return item.spaceName || item.SpaceName || (item.bookingId || item.BookingId ? `Booking #${item.bookingId || item.BookingId}` : 'Workspace');
       }
       if (col.key === 'billingPeriodDisplay') {
-        const start = item.issuedOn || item.IssuedOn || item.startOn || item.StartOn || item.billingPeriodStart;
-        const end = item.dueOn || item.DueOn || item.endOn || item.EndOn || item.billingPeriodEnd;
+        const start = item.billingPeriodStart || item.BillingPeriodStart || item.startOn || item.StartOn;
+        const end = item.billingPeriodEnd || item.BillingPeriodEnd || item.endOn || item.EndOn;
         if (start && end) {
           const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           const e = new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -2477,7 +2497,12 @@ export class Manage implements OnInit {
         this.quickCustomerSaving.set(false);
         this.showQuickCreateCustomer = false;
         const created = res?.data ?? res;
-        if (created) this.selectCustomer(created);
+        if (created) {
+          if (!this.showQuotationForm) {
+            this.openAdminQuotationForm();
+          }
+          this.selectCustomer(created);
+        }
       },
       error: (e: any) => {
         this.quickCustomerSaving.set(false);
@@ -3312,7 +3337,6 @@ export class Manage implements OnInit {
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         getFn: (p, l, s) => this.quotationSvc.getQuotations(p, l, s),
-        createFn: (d) => this.quotationSvc.createQuotation(d),
       };
 
       case 'invoices': return {
@@ -3321,7 +3345,7 @@ export class Manage implements OnInit {
           { key: 'invoiceNumber', label: 'Invoice #' },
           { key: 'customerName', label: 'Customer / User' },
           { key: 'spaceName', label: 'Space' },
-          { key: 'billingPeriodDisplay', label: 'Billing Period' },
+          { key: 'billingPeriodDisplay', label: 'Rent Period' },
           { key: 'issuedOn', label: 'Issued On', type: 'date' },
           { key: 'dueOn', label: 'Due On', type: 'date' },
           { key: 'grandTotal', label: 'Total (PKR)', type: 'currency' },
@@ -3561,18 +3585,18 @@ export class Manage implements OnInit {
       const st = (s.status || s.Status || '').toString().trim().toLowerCase();
       const isBooked = st === 'booked' || st === 'occupied';
       const rawDate = s.bookedTill ?? s.BookedTill ?? s.bookedUntil ?? s.BookedUntil ?? s.endOn ?? s.EndOn;
-        let bookedTillStr = '';
-        if (isBooked && rawDate) {
-          const d = new Date(rawDate);
-          if (!isNaN(d.getTime())) {
-            const day = String(d.getDate()).padStart(2, '0');
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const month = months[d.getMonth()];
-            const year = d.getFullYear();
-            bookedTillStr = ' till ' + day + ' ' + month + ' ' + year;
-          }
+      let bookedTillStr = '';
+      if (isBooked && rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const month = months[d.getMonth()];
+          const year = d.getFullYear();
+          bookedTillStr = ' till ' + day + ' ' + month + ' ' + year;
         }
-        const tag = isBooked ? (' [Booked' + bookedTillStr + ']') : ' [Available]';
+      }
+      const tag = isBooked ? (' [Booked' + bookedTillStr + ']') : ' [Available]';
       return { v: s.id, l: `${s.name}${tag}` };
     });
   }
@@ -3582,6 +3606,9 @@ export class Manage implements OnInit {
     if (spaceId) {
       const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
       if (space) {
+        this.quotationCapacity = Number(space.capacity || space.Capacity || 1);
+        const { monthly } = this.getSpacePrice(space);
+        this.quotationPerSeatBasePrice = monthly > 0 ? monthly : Number(space.price || space.Price || 35000);
         const name = String(space.name || space.Name || '').toLowerCase();
         const { hourly, daily } = this.getSpacePrice(space);
         if (name.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
@@ -3636,7 +3663,7 @@ export class Manage implements OnInit {
       }
       this.quotationSecurityDeposit = 0;
     } else {
-      const roomMonthlyRent = this.getSpaceMonthlyRent(space, this.selectedQuotationCapacity ? Number(this.selectedQuotationCapacity) : null);
+      const roomMonthlyRent = this.quotationMonthlyBasePrice;
       this.quotationSubtotal = parseFloat((roomMonthlyRent * Number(this.quotationMonths || 1)).toFixed(2));
       this.quotationSecurityDeposit = roomMonthlyRent;
     }
@@ -3669,8 +3696,13 @@ export class Manage implements OnInit {
       this.quotationFormSaving.set(false);
       return;
     }
-    if (this.quotationDiscountPercentage < 0 || this.quotationDiscountPercentage > 100) {
-      this.quotationFormError = 'Discount must be between 0% and 100%.';
+    if (this.quotationDiscountType === 'Percentage' && Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) > this.quotationMaxDiscountPercent) {
+      this.quotationFormError = "Discount percentage (" + this.quotationDiscountValue + "%) exceeds maximum allowed discount cap of " + this.quotationMaxDiscountPercent + "%.";
+      this.quotationFormSaving.set(false);
+      return;
+    }
+    if (this.quotationDiscountType === 'Fixed' && Number(this.quotationDiscountValue || 0) > this.maxAllowedDiscountValue) {
+      this.quotationFormError = "Fixed monthly discount (PKR " + this.quotationDiscountValue + ") exceeds maximum allowed cap of PKR " + this.maxAllowedDiscountValue + " per month.";
       this.quotationFormSaving.set(false);
       return;
     }
@@ -3713,6 +3745,10 @@ export class Manage implements OnInit {
       BillingPeriodMonths: this.quotationBillingPeriodMonths,
       SecurityDepositMonths: this.quotationSecurityDepositMonths,
       FloorId: this.quotationFloorId ?? null,
+      PerSeatBasePrice: Number(this.quotationPerSeatBasePrice || 0),
+      Capacity: Number(this.quotationCapacity || 1),
+      MonthlyBasePrice: Number(this.quotationMonthlyBasePrice || 0),
+      MaxDiscountPercent: Number(this.quotationMaxDiscountPercent || 20),
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
@@ -3726,8 +3762,8 @@ export class Manage implements OnInit {
     obs.subscribe({
       next: (res: any) => {
         this.quotationFormSaving.set(false);
-        this.closeAdminQuotationForm();
-        this.success = this.isCreatingNewVersion ? `Version ${this.targetVersionNumber} generated successfully!` : 'Quotation generated successfully!';
+        // Keep form open for prefill post-save
+        this.quotationSuccessMessage = this.isCreatingNewVersion ? "Version saved successfully!" : "Quotation saved successfully!";
         setTimeout(() => this.success = '', 3000);
         this.load();
 
@@ -4686,8 +4722,8 @@ export class Manage implements OnInit {
 
     // Explicit rule for Private Rooms / Private Offices / Offices / Room spaces
     const isPrivate = this.isPrivateRoom(item) ||
-                      name.includes('private') || name.includes('office') || name.includes('room') ||
-                      spaceType.includes('private') || spaceType.includes('office') || spaceType.includes('room');
+      name.includes('private') || name.includes('office') || name.includes('room') ||
+      spaceType.includes('private') || spaceType.includes('office') || spaceType.includes('room');
 
     if (isPrivate && !name.includes('meeting') && !spaceType.includes('meeting')) {
       const perSeatPrice = Number(item.seatPrice ?? item.SeatPrice ?? item.pricePerSeat ?? item.PricePerSeat ?? (pDay > 0 ? pDay : (pMonth > 0 ? pMonth : (item?.price ? Number(item.price) : 35000))));

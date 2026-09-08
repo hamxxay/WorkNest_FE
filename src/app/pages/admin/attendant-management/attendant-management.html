@@ -1,0 +1,208 @@
+<div class="attendant-container">
+  <div class="page-header">
+    <div>
+      <h2>Attendant & Access Control</h2>
+      <p class="subtitle">Manage company attendants, room capacity overage billing, and Hikvision fingerprint access
+        status.</p>
+    </div>
+    <button class="btn btn-outline" (click)="openExportModal()">”’ Hikvision Export Preview</button>
+  </div>
+
+  <div class="grid-container">
+    <!-- Sidebar: Steps 1 & 2 -->
+    <div class="sidebar-col">
+      <div class="card">
+        <div class="card-title">Step 1 - Select Customer</div>
+        <div class="form-group">
+          <label>Customer Company / Name</label>
+          <select class="form-control" [(ngModel)]="selectedCustomerId" (change)="onCustomerChange()">
+            <option value="">-- Choose Active Customer --</option>
+            @for (c of customers(); track c.id) {
+            <option [value]="c.id">{{ c.company || c.name || c.email }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Step 2 - Select Booked Space</div>
+        @if (activeSpaces().length === 0) {
+        <div class="empty-state">Select a customer to view active rooms</div>
+        } @else {
+        <div class="spaces-list">
+          @for (s of activeSpaces(); track s.bookingDetailId) {
+          <div class="space-card" [class.active]="selectedBookingDetailId === s.bookingDetailId"
+            (click)="selectSpace(s)">
+            <div class="space-title">{{ s.spaceName }}</div>
+            <div class="space-meta">{{ s.spaceCategory || 'Dedicated Office' }} Cap: {{ s.capacity }} seats</div>
+            <span class="badge">{{ s.activeAttendantsCount }}/{{ s.capacity }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- Main Content: Step 3 Attendant Workspace -->
+    <div class="main-col">
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Step 3 - Attendants & Access Status</div>
+          <button class="btn btn-primary" [disabled]="!selectedBookingDetailId" (click)="openAddModal()">+ Add
+            Attendant</button>
+        </div>
+
+        @if (capacityInfo()) {
+        <div class="capacity-box">
+          <div class="cap-header">
+            <span><strong>Space:</strong> {{ capacityInfo().spaceName }} ({{ capacityInfo().spaceCategory }})</span>
+            <span><strong>Seat Capacity:</strong> {{ attendants().length }} / {{ capacityInfo().roomCapacity }}</span>
+          </div>
+          <div class="cap-bar">
+            <div class="cap-fill" [style.width.%]="(attendants().length / capacityInfo().roomCapacity) * 100"></div>
+          </div>
+          <div class="batch-row">
+            <span>Batch Space Access Switch:</span>
+            <input type="checkbox" [checked]="allAttendantsEnabled" (change)="toggleBatchAccess($event)">
+          </div>
+        </div>
+        }
+
+        @if (!selectedBookingDetailId) {
+        <div class="empty-state">Select a customer and room/space to manage attendants</div>
+        } @else if (attendants().length === 0) {
+        <div class="empty-state">No attendants assigned to this space yet. Click <strong>+ Add Attendant</strong> above.
+        </div>
+        } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Attendant Name</th>
+              <th>CNIC / Passport</th>
+              <th>Contact</th>
+              <th>Surcharge</th>
+              <th>Access Status</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of attendants(); track a.personId) {
+            <tr>
+              <td>
+                <strong>{{ a.name }}</strong><br>
+                <small class="text-muted">{{ a.personGuid.substring(0, 8) }}...</small>
+              </td>
+              <td>{{ a.idType }}: {{ a.idNumber }}</td>
+              <td>{{ a.email }}<br><small class="text-muted">{{ a.phone }}</small></td>
+              <td>
+                @if (a.isOverCapacity) {
+                <span class="badge-surcharge">+PKR{{ a.surchargeApplied || 0 }}</span>
+                } @else {
+                <span class="text-muted">Standard</span>
+                }
+              </td>
+              <td>
+                <input type="checkbox" [checked]="a.isEnabled" (change)="toggleIndividualAccess(a, $event)">
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-danger" (click)="removeAttendant(a.personId)">Remove</button>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add Attendant -->
+@if (showAddModal) {
+<div class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Add Attendant to Space</h3>
+    <div class="form-group">
+      <label>Mode</label>
+      <select class="form-control" [(ngModel)]="addMode">
+        <option value="new">Create New Person Identity</option>
+        <option value="existing">Assign Existing Company Attendant</option>
+      </select>
+    </div>
+
+    @if (addMode === 'existing') {
+    <div class="form-group">
+      <label>Company Attendant</label>
+      <select class="form-control" [(ngModel)]="selectedExistingPersonId">
+        <option [value]="null">-- Select Attendant --</option>
+        @for (p of existingCompanyAttendants(); track p.personId) {
+        <option [value]="p.personId">{{ p.name }} ({{ p.idType }}: {{ p.idNumber }})</option>
+        }
+      </select>
+    </div>
+    } @else {
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" class="form-control" [(ngModel)]="newName" placeholder="John Doe">
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" class="form-control" [(ngModel)]="newEmail" placeholder="john@company.com">
+    </div>
+    <div class="form-group">
+      <label>Phone</label>
+      <input type="text" class="form-control" [(ngModel)]="newPhone" placeholder="+92 300 1234567">
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>ID Type</label>
+        <select class="form-control" [(ngModel)]="newIdType">
+          <option value="CNIC">CNIC</option>
+          <option value="Passport">Passport</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ID Number</label>
+        <input type="text" class="form-control" [(ngModel)]="newIdNumber" placeholder="61101-1234567-1">
+      </div>
+    </div>
+    }
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" (click)="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" (click)="submitAddAttendant()">Proceed</button>
+    </div>
+  </div>
+</div>
+}
+
+<!-- Modal: Over Capacity Warning -->
+@if (showWarningModal) {
+<div class="modal-backdrop">
+  <div class="modal-card">
+    <h3 style="color: #f59e0b;">Room Capacity Reached</h3>
+    <div class="warning-alert">
+      <p>{{ warningModalText }}</p>
+    </div>
+    <p><small class="text-muted">Surcharge calculation: ExcessSeatCount 0.5 SeatPrice. Surcharges remain
+        snapshot-billed for the active cycle once applied.</small></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" (click)="showWarningModal = false">Cancel</button>
+      <button class="btn btn-warning" (click)="confirmOverCapacityAssignment()">Confirm & Apply Surcharge</button>
+    </div>
+  </div>
+</div>
+}
+
+<!-- Modal: Hikvision Export Preview -->
+@if (showExportModal) {
+<div class="modal-backdrop">
+  <div class="modal-card" style="max-width: 650px;">
+    <h3>Hikvision Export Preview</h3>
+    <pre class="json-code">{{ exportDataJson }}</pre>
+    <div class="modal-actions">
+      <button class="btn btn-outline" (click)="showExportModal = false">Close</button>
+    </div>
+  </div>
+</div>
+}

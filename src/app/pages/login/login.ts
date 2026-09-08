@@ -118,7 +118,12 @@ export class Login {
 
   private getRoleBasedRedirect(user?: any): string {
     const roles: string[] = user?.roles ?? [];
-    const isAdmin = roles.some(r => r.toLowerCase() === 'admin');
+    const isSales = roles.some(r => String(r).toLowerCase().replace(/[\s_]/g, '') === 'salesexecutive');
+    if (isSales) return '/admin/quotations';
+    const isAdmin = roles.some(r => {
+      const norm = String(r).toLowerCase().replace(/[\s_]/g, '');
+      return norm === 'admin' || norm === 'superadmin';
+    });
     if (isAdmin) return '/admin/dashboard';
     const redirectParam = this.route.snapshot.queryParamMap.get('redirect');
     return redirectParam || this.fallbackRedirect;
