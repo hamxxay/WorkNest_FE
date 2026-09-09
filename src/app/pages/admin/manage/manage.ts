@@ -2810,11 +2810,32 @@ export class Manage implements OnInit {
     if (!role || !this.isSuperAdmin) return;
     this.admin.updateUserRole(item.idGuid, role).subscribe({
       next: () => {
-        this.success = `Role updated to "${role}" successfully.`;
+        this.success = `Role updated to "${this.getRoleLabel(role)}" successfully.`;
         setTimeout(() => this.success = '', 3000);
         this.load();
       }
     });
+  }
+
+  getRoleLabel(roleValue: any): string {
+    if (!roleValue) return 'General User';
+    const str = String(roleValue).toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    if (str === '1' || str === 'superadmin' || str === 'super_admin') return 'Super Admin';
+    if (str === '2' || str === 'admin') return 'Admin';
+    if (str === '14' || str === 'general') return 'General User';
+    if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'Sales Executive';
+    const match = this.assignableRoles.find(r => r.v === str);
+    return match ? match.l : String(roleValue);
+  }
+
+  getRoleClass(roleValue: any): string {
+    if (!roleValue) return 'general';
+    const str = String(roleValue).toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    if (str === '1' || str === 'superadmin' || str === 'super_admin') return 'super_admin';
+    if (str === '2' || str === 'admin') return 'admin';
+    if (str === '14' || str === 'general') return 'general';
+    if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'sales_executive';
+    return str;
   }
 
   openBookingUser(item: any) { this.openUserModal(item.userEmail ?? item.userPublicId ?? item.userId); }

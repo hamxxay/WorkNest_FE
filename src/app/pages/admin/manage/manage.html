@@ -154,7 +154,7 @@
               <span class="role-tag">{{ r }}</span>
               }
               } @else if (col.type === 'role') {
-              <span class="role-badge role-{{ item[col.key] }}">{{ item[col.key] }}</span>
+              <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key]) }}</span>
               } @else {
               {{ getCellValue(item, col) }}
               }
@@ -420,7 +420,7 @@
               @if (isSuperAdmin) {
               <select class="status-select role-select"
                 (change)="changeUserRole(item, $any($event.target).value); $any($event.target).value = ''"
-                [title]="'Current: ' + (item.role || 'none')">
+                [title]="'Current: ' + getRoleLabel(item.role)">
                 <option value="" disabled selected>Change Role</option>
                 @for (r of assignableRoles; track r.v) {
                 <option [value]="r.v">{{ r.l }}</option>
