@@ -2801,14 +2801,18 @@ export class Manage implements OnInit {
   }
 
   toggleActive(item: any) {
+    const userId = item.id ?? item.publicId ?? item.idGuid ?? item.idGUID ?? item.userId;
+    if (!userId) return;
     const isActive = item.isActive ?? (item.status == 1);
-    const obs = isActive ? this.admin.deactivateUser(item.idGuid) : this.admin.activateUser(item.idGuid);
+    const obs = isActive ? this.admin.deactivateUser(userId) : this.admin.activateUser(userId);
     obs.subscribe({ next: () => this.load() });
   }
 
   changeUserRole(item: any, role: string) {
     if (!role || !this.isSuperAdmin) return;
-    this.admin.updateUserRole(item.idGuid, role).subscribe({
+    const userId = item.id ?? item.publicId ?? item.idGuid ?? item.idGUID ?? item.userId;
+    if (!userId) return;
+    this.admin.updateUserRole(userId, role).subscribe({
       next: () => {
         this.success = `Role updated to "${this.getRoleLabel(role)}" successfully.`;
         setTimeout(() => this.success = '', 3000);
