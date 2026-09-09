@@ -532,11 +532,10 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
-            placeholder="11 digits (e.g. 03001234567)" maxlength="11" (input)="onPhoneInput($event, field.key)"
+            placeholder="11 digits (e.g. 03160577702)" maxlength="11" (input)="onPhoneInput($event, field.key)"
             style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter exactly 11 digits without
-          spaces or special characters.</small>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702). Country code will be joined automatically.</small>
         } @else if (field.type === 'price-with-unit') {
         <div class="price-split-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
           <div style="flex:1;min-width:180px">
@@ -1620,8 +1619,8 @@
         </div>
         <div class="form-group-admin">
           <label>Base Price (per seat) *</label>
-          <input class="form-input-admin" type="number" [min]="quotationMinPerSeatBasePrice || 0" [(ngModel)]="quotationPerSeatBasePrice"
-            name="qPerSeatPrice" (input)="recalcQuotationAmount()" required />
+          <input class="form-input-admin" type="number" [min]="quotationMinPerSeatBasePrice || 0"
+            [(ngModel)]="quotationPerSeatBasePrice" name="qPerSeatPrice" (input)="recalcQuotationAmount()" required />
         </div>
         <div class="form-group-admin">
           <label>Capacity (Seats)</label>
@@ -2244,11 +2243,10 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.phoneNumber" name="qcPhone"
-            placeholder="11 digits (e.g. 03001234567)" maxlength="11" (input)="onQuickPhoneInput($event)"
+            placeholder="11 digits (e.g. 03160577702)" maxlength="11" (input)="onQuickPhoneInput($event)"
             style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter exactly 11 digits without
-          spaces or special characters.</small>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702). Country code will be joined automatically.</small>
       </div>
       <div class="form-group-admin">
         <label>Address Line 1 <span style="color:#ef4444;font-weight:bold">*</span></label>
@@ -3024,33 +3022,30 @@
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Customer Info</div>
-          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || 'Customer' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ q.customerEmail || '-' }}</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || q.CustomerName || 'Customer' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ q.customerEmail || q.CustomerEmail || '-' }}</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Workspace & Location</div>
-          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
-            Location' }}</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || q.SpaceName || 'Workspace' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || q.SpaceTypeName || 'Office' }} • {{ q.locationName || q.LocationName || 'Main Location' }}</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Contract Dates</div>
           <div style="font-size:0.88rem;font-weight:700;color:#0f172a">
-            {{ (q.startDateTime || q.startOn) | date:'MMM d, y' }} – {{ (q.endDateTime || q.endOn) | date:'MMM d, y' }}
+            {{ (q.startDateTime || q.StartDateTime || q.startDate || q.StartDate || q.startOn) | date:'MMM d, y' }} – {{ (q.endDateTime || q.EndDateTime || q.endDate || q.EndDate || q.endOn) | date:'MMM d, y' }}
           </div>
-          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths || q.months ||
-            12 }} Month(s)</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths || q.ContractPeriodMonths || q.months || 12 }} Month(s)</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">User
-            will be billed</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">User will be billed</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0284c7">
-            Every {{ q.billingPeriodMonths || 3 }} Month(s) Advance
+            Every {{ q.billingPeriodMonths || q.BillingPeriodMonths || 3 }} Month(s) Advance
           </div>
           <div style="font-size:0.78rem;color:#64748b;margin-top:2px">1st Cycle Billed Rent Period</div>
         </div>
@@ -3071,17 +3066,17 @@
               <div style="font-size:0.75rem;color:#64748b">Before discount & tax</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              PKR {{ (q.subtotalAmount || q.SubtotalAmount || 0) | number:'1.2-2' }}
+              PKR {{ getQuotationTotalContract(q) | number:'1.2-2' }}
             </td>
           </tr>
 
-          @if (q.discountAmount) {
+          @if (q.discountAmount || q.DiscountAmount) {
           <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
             <td style="padding:10px 14px;color:#16a34a">
               <strong>Special Discount</strong>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
-              - PKR {{ (q.discountAmount || 0) | number:'1.2-2' }}
+              - PKR {{ (q.discountAmount || q.DiscountAmount || 0) | number:'1.2-2' }}
             </td>
           </tr>
           }
@@ -3089,21 +3084,20 @@
           <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
             <td style="padding:10px 14px">
               <strong style="color:#15803d">Service Charge (10%) & Province Tax (16%)</strong>
-              <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines
-                & challan</div>
+              <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines & challan</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
               + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
             </td>
           </tr>
 
-          @if (q.securityDepositOverride || q.securityDeposit) {
+          @if (getQuotationSecurityDeposit(q) > 0) {
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:10px 14px">
               <strong>Security Deposit (Refundable)</strong>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              + PKR {{ (q.securityDepositOverride || q.securityDeposit || 0) | number:'1.2-2' }}
+              + PKR {{ getQuotationSecurityDeposit(q) | number:'1.2-2' }}
             </td>
           </tr>
           }
@@ -3112,8 +3106,7 @@
           <tr style="background:#f8fafc;font-size:0.95rem;border-top:1px solid #cbd5e1">
             <td style="padding:10px 14px;font-weight:700;color:#475569">Total Booking Contract Value</td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              PKR {{ (getQuotationNetTotal(q) + (q.securityDepositOverride || q.securityDeposit || 0)) | number:'1.2-2'
-              }}
+              PKR {{ (getQuotationTotalContract(q) + getQuotationContractTaxAmount(q) + getQuotationSecurityDeposit(q) - (q.discountAmount || q.DiscountAmount || 0)) | number:'1.2-2' }}
             </td>
           </tr>
           <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
@@ -3121,9 +3114,7 @@
               Initial Challan Amount Payable (1st Cycle Rent + Tax + Security Deposit)
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
-              PKR {{ ((( (q.subtotalAmount || q.totalAmount || 0) / (q.contractPeriodMonths || q.months || 12) ) *
-              (q.billingPeriodMonths || 3)) + (q.securityDepositOverride || q.securityDeposit || 0) - (q.discountAmount
-              || 0) + getQuotationTaxAmount(q)) | number:'1.2-2' }}
+              PKR {{ getQuotationInitialPayable(q) | number:'1.2-2' }}
             </td>
           </tr>
         </tfoot>
@@ -3152,6 +3143,165 @@
   </div>
 </div>
 }
+<!-- Initial Payment Invoice Sending Preview Modal -->
+@if (showInitialInvoicePreviewModal && selectedInitialInvoiceItem(); as item) {
+<div class="modal-overlay" (click)="showInitialInvoicePreviewModal = false">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(90vh,850px)">
+
+    <!-- Modal Header -->
+    <div style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <h3 style="margin:0;font-size:1.15rem;font-weight:700">Preview Initial Payment Invoice</h3>
+          <span style="background:#2563eb;color:#fff;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
+            Booking #{{ item.bookingId || item.BookingId || item.id || item.Id }}
+          </span>
+        </div>
+        <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">
+          Review initial invoice details and payment procedure before sending to customer email.
+        </div>
+      </div>
+      <button (click)="showInitialInvoicePreviewModal = false"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <!-- Alert Info Banner -->
+    <div style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:0.82rem;color:#1e40af">
+        Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>, <strong>Security Deposit</strong>, and <strong>Bank Payment Procedure</strong> directly to the customer.
+      </div>
+    </div>
+
+    <!-- Body Content -->
+    <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
+
+      <!-- Summary Cards Grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Customer Information</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.customerName || item.userName || item.name || 'Customer' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ item.customerEmail || item.userEmail || item.email || '-' }}</div>
+        </div>
+
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Workspace & Location</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.spaceName || item.SpaceName || 'Workspace' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ item.spaceTypeName || item.SpaceTypeName || 'Office' }} • {{ item.locationName || item.LocationName || 'Main Location' }}</div>
+        </div>
+      </div>
+
+      <!-- Recipient Email Field -->
+      <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px">
+        <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">
+          Customer Email Address <span style="color:#ef4444">*</span>
+        </label>
+        <input class="form-input-admin" type="email" [(ngModel)]="initialInvoiceRecipientEmail"
+          placeholder="customer@example.com" style="width:100%;font-size:0.9rem" />
+      </div>
+
+      <!-- Financial Conversion Itemization Table -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
+        <thead>
+          <tr style="background:#0f172a;color:#fff">
+            <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Line Description</th>
+            <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:10px 14px">
+              <strong>1st Cycle Advance Rent ({{ item.billingPeriodMonths || 3 }} Month(s))</strong>
+              <div style="font-size:0.75rem;color:#64748b">Advance rent for initial contract period</div>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:600">
+              PKR {{ (item.firstCycleRent || item.currentCycleAmount || item.subtotalAmount || 0) | number:'1.2-2' }}
+            </td>
+          </tr>
+
+          @if (item.discountAmount) {
+          <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+            <td style="padding:10px 14px;color:#16a34a">
+              <strong>Special Discount</strong>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
+              - PKR {{ (item.discountAmount || 0) | number:'1.2-2' }}
+            </td>
+          </tr>
+          }
+
+          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+            <td style="padding:10px 14px">
+              <strong style="color:#15803d">Service Charge (10%) & Province Tax (16%)</strong>
+              <div style="font-size:0.75rem;color:#166534">Effective-dated provincial tax snapshot</div>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
+              + PKR {{ (item.taxAmount || item.totalTax || getQuotationTaxAmount(item)) | number:'1.2-2' }}
+            </td>
+          </tr>
+
+          @if (item.securityDeposit || item.securityDepositOverride) {
+          <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:10px 14px">
+              <strong>Security Deposit (Refundable)</strong>
+            </td>
+            <td style="padding:10px 14px;text-align:right;font-weight:600">
+              + PKR {{ (item.securityDepositOverride || item.securityDeposit || 0) | number:'1.2-2' }}
+            </td>
+          </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+            <td style="padding:12px 14px;font-weight:800;color:#1e40af">
+              Total Initial Amount Payable
+            </td>
+            <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
+              PKR {{ (item.totalPayable || item.totalAmount || getQuotationInitialPayable(item)) | number:'1.2-2' }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Bank Deposit Payment Procedure Section -->
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:14px;margin-bottom:10px">
+        <div style="font-size:0.82rem;font-weight:700;color:#0f172a;margin-bottom:6px">Payment Procedure & Bank Deposit Details</div>
+        <div style="font-size:0.8rem;color:#334155;line-height:1.6">
+          1. Please deposit this payment in the following bank account:<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;<strong>Bank Name:</strong> Bank Of Punjab<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;<strong>Account Title:</strong> Worknest pvt Ltd<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;<strong>Account Number:</strong> 15570100744731<br />
+          2. Send the receipt on <strong>+923201809696</strong>.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <button class="btn-admin btn-outline-admin" (click)="showInitialInvoicePreviewModal = false"
+        [disabled]="sendingInitialInvoiceId() !== null">
+        Cancel
+      </button>
+
+      <button class="btn-admin btn-primary-admin" (click)="confirmSendInitialInvoice()"
+        [disabled]="sendingInitialInvoiceId() !== null"
+        style="background:#2563eb;color:#fff;padding:10px 20px;font-size:0.95rem;font-weight:700;display:flex;align-items:center;gap:8px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 2L11 13" />
+          <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+        </svg>
+        {{ sendingInitialInvoiceId() !== null ? 'Sending Invoice...' : 'Confirm & Send Initial Invoice' }}
+      </button>
+    </div>
+
+  </div>
+</div>
+}
+
 <!-- Create Custom Invoice Modal -->
 @if (showCreateCustomInvoiceModal) {
 <div class="modal-overlay" (click)="showCreateCustomInvoiceModal = false">

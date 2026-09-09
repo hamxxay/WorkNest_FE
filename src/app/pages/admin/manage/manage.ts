@@ -2444,7 +2444,10 @@ export class Manage implements OnInit {
     const { firstName, lastName, company, email, phoneNumber, countryCode, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
     const fn = (firstName || '').trim();
     const em = (email || '').trim();
-    const phoneDigits = (phoneNumber || '').replace(/\D/g, '');
+    let phoneDigits = (phoneNumber || '').replace(/\D/g, '');
+    if (phoneDigits.startsWith('0')) {
+      phoneDigits = phoneDigits.substring(1);
+    }
     const addr1 = (addressLine1 || '').trim();
 
     if (!fn) {
@@ -2460,8 +2463,8 @@ export class Manage implements OnInit {
       this.quickCustomerError = 'Please enter a valid email address (e.g. user@example.com).';
       return;
     }
-    if (!phoneDigits || phoneDigits.length !== 11) {
-      this.quickCustomerError = 'Phone number must contain exactly 11 digits.';
+    if (!phoneDigits || phoneDigits.length !== 10) {
+      this.quickCustomerError = 'Phone number must contain 11 digits (e.g. 03160577702).';
       return;
     }
     if (!addr1) {
@@ -2530,14 +2533,23 @@ export class Manage implements OnInit {
         const match = this.countryCodeOptions.find(c => rawPhone.startsWith(c.v));
         if (match) {
           this.selectedCountryCode = match.v;
-          this.formData.phoneNumber = rawPhone.slice(match.v.length).replace(/\D/g, '').slice(0, 11);
+          const national = rawPhone.slice(match.v.length).replace(/\D/g, '');
+          this.formData.phoneNumber = national.length === 10 ? '0' + national : national.slice(0, 11);
         } else {
           this.selectedCountryCode = '+92';
-          this.formData.phoneNumber = rawPhone.replace(/\D/g, '').slice(0, 11);
+          const digits = rawPhone.replace(/\D/g, '');
+          this.formData.phoneNumber = digits.length === 10 ? '0' + digits : digits.slice(0, 11);
         }
       } else {
         this.selectedCountryCode = '+92';
-        this.formData.phoneNumber = rawPhone.replace(/\D/g, '').slice(0, 11);
+        const digits = rawPhone.replace(/\D/g, '');
+        if (digits.length === 10 && !digits.startsWith('0')) {
+          this.formData.phoneNumber = '0' + digits;
+        } else if (digits.length === 12 && digits.startsWith('92')) {
+          this.formData.phoneNumber = '0' + digits.slice(2);
+        } else {
+          this.formData.phoneNumber = digits.slice(0, 11);
+        }
       }
     }
     if (this.entity === 'spaces') {
@@ -2641,7 +2653,10 @@ export class Manage implements OnInit {
     if (this.entity === 'customers') {
       const fn = (this.formData.firstName || '').trim();
       const em = (this.formData.email || '').trim();
-      const phoneDigits = (this.formData.phoneNumber || '').replace(/\D/g, '');
+      let phoneDigits = (this.formData.phoneNumber || '').replace(/\D/g, '');
+      if (phoneDigits.startsWith('0')) {
+        phoneDigits = phoneDigits.substring(1);
+      }
       const addr1 = (this.formData.addressLine1 || '').trim();
 
       if (!fn) {
@@ -2660,8 +2675,8 @@ export class Manage implements OnInit {
         this.saving = false;
         return;
       }
-      if (!phoneDigits || phoneDigits.length !== 11) {
-        this.error = 'Phone number must contain exactly 11 digits.';
+      if (!phoneDigits || phoneDigits.length !== 10) {
+        this.error = 'Phone number must contain 11 digits (e.g. 03160577702).';
         this.saving = false;
         return;
       }
@@ -4054,23 +4069,7 @@ export class Manage implements OnInit {
 
   convertQuotationToBooking(item: any) {
     if (!item) return;
-    const qId = item.id || item.quotationId || item.Id;
-    const vId = item.versionId || item.versionNumber || item.version || 1;
-    const qNo = item.quotationNumber || item.QuotationNumber || (`#` + qId);
-
-    if (!confirm(`Are you sure you want to convert Quotation ${qNo} (Version ${vId}) into a Confirmed Booking?`)) return;
-
-    this.quotationSvc.convertToBooking(qId, vId).subscribe({
-      next: (res: any) => {
-        this.success = `Quotation ${qNo} successfully converted to Booking!`;
-        setTimeout(() => this.success = '', 3500);
-        this.closeQuotationPreviewModal();
-        this.load();
-      },
-      error: (err: any) => {
-        alert(err?.error?.message || err?.message || 'Failed to convert quotation.');
-      }
-    });
+    this.openConversionPreviewModal(item);
   }
 
 
@@ -4306,20 +4305,39 @@ export class Manage implements OnInit {
     { description: 'Workspace Rent / Custom Fee', quantity: 1, unitPrice: 50000, discountAmount: 0, taxRate: 0.016 }
   ];
 
+  // Initial Invoice Preview Modal State
+  showInitialInvoicePreviewModal = false;
+  selectedInitialInvoiceItem = signal<any>(null);
+  initialInvoiceRecipientEmail = signal<string>('');
+
   sendInitialInvoice(item: any) {
+    if (!item) return;
     const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
     if (!bookingId) {
       alert('Booking ID is missing.');
       return;
     }
+    this.selectedInitialInvoiceItem.set(item);
+    const targetEmail = item.customerEmail || item.userEmail || item.email || '';
+    this.initialInvoiceRecipientEmail.set(targetEmail);
+    this.showInitialInvoicePreviewModal = true;
+  }
+
+  confirmSendInitialInvoice() {
+    const item = this.selectedInitialInvoiceItem();
+    if (!item) return;
+    const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
+    if (!bookingId) return;
+
     this.sendingInitialInvoiceId.set(bookingId);
 
     this.admin.sendInitialInvoice(bookingId).subscribe({
       next: (res: any) => {
         this.sendingInitialInvoiceId.set(null);
+        this.showInitialInvoicePreviewModal = false;
         if (item) item.initialInvoiceSent = true;
         this.sentInitialInvoices.add(bookingId);
-        alert(res?.message || 'Initial payment invoice generated and sent successfully to customer email!');
+        alert(res?.message || 'Initial payment invoice generated and emailed successfully to customer!');
         this.load();
       },
       error: (err: any) => {

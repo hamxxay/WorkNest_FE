@@ -1,8 +1,8 @@
-<div class="attendant-container">
+<div class="Userainer">
   <div class="page-header">
     <div>
-      <h2>Attendant & Access Control</h2>
-      <p class="subtitle">Manage company attendants, room capacity overage billing, and Hikvision fingerprint access
+      <h2>User & Access Control</h2>
+      <p class="subtitle">Manage company Users, room capacity overage billing, and Hikvision fingerprint access
         status.</p>
     </div>
     <button class="btn btn-outline" (click)="openExportModal()">”’ Hikvision Export Preview</button>
@@ -47,9 +47,9 @@
     <div class="main-col">
       <div class="card">
         <div class="card-header-row">
-          <div class="card-title">Step 3 - Attendants & Access Status</div>
+          <div class="card-title">Step 3 - Users & Access Status</div>
           <button class="btn btn-primary" [disabled]="!selectedBookingDetailId" (click)="openAddModal()">+ Add
-            Attendant</button>
+            User</button>
         </div>
 
         @if (capacityInfo()) {
@@ -71,13 +71,13 @@
         @if (!selectedBookingDetailId) {
         <div class="empty-state">Select a customer and room/space to manage attendants</div>
         } @else if (attendants().length === 0) {
-        <div class="empty-state">No attendants assigned to this space yet. Click <strong>+ Add Attendant</strong> above.
+        <div class="empty-state">No Users assigned to this space yet. Click <strong>+ Add Attendant</strong> above.
         </div>
         } @else {
         <table class="data-table">
           <thead>
             <tr>
-              <th>Attendant Name</th>
+              <th>User Name</th>
               <th>CNIC / Passport</th>
               <th>Contact</th>
               <th>Surcharge</th>
@@ -121,18 +121,18 @@
 @if (showAddModal) {
 <div class="modal-backdrop">
   <div class="modal-card">
-    <h3>Add Attendant to Space</h3>
+    <h3>Add User to Space</h3>
     <div class="form-group">
       <label>Mode</label>
       <select class="form-control" [(ngModel)]="addMode">
         <option value="new">Create New Person Identity</option>
-        <option value="existing">Assign Existing Company Attendant</option>
+        <option value="existing">Assign Existing Company User</option>
       </select>
     </div>
 
     @if (addMode === 'existing') {
     <div class="form-group">
-      <label>Company Attendant</label>
+      <label>Company User</label>
       <select class="form-control" [(ngModel)]="selectedExistingPersonId">
         <option [value]="null">-- Select Attendant --</option>
         @for (p of existingCompanyAttendants(); track p.personId) {

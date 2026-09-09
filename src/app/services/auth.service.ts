@@ -442,11 +442,13 @@ export class AuthService {
   }
 
   private syncRegisterToApi$(email: string, password: string, firstName?: string, lastName?: string): Observable<any> {
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
     const payload = {
       email,
       password,
       firstName,
-      lastName
+      lastName,
+      name: fullName || email.split('@')[0]
     };
 
     return this.http.post<any>(`${environment.apiUrl}/auth/register`, payload).pipe(
@@ -479,11 +481,13 @@ export class AuthService {
   private syncGoogleLoginToApi$(firebaseUser: User, idToken: string): Observable<any> {
     const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
     const lastName = rest.join(' ') || undefined;
+    const fullName = firebaseUser.displayName || [firstName, lastName].filter(Boolean).join(' ').trim();
     const payload = {
       idToken,
       email: firebaseUser.email ?? undefined,
       firstName: firstName || undefined,
-      lastName
+      lastName,
+      name: fullName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User')
     };
 
     return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, payload).pipe(
@@ -499,8 +503,17 @@ export class AuthService {
     );
   }
 
-  private syncLoginToApi$(email: string, password: string): Observable<any> {
-    const payload = { email, password };
+  private syncLoginToApi$(email: string, password: string, firebaseUser?: User | null): Observable<any> {
+    const [firstName, ...rest] = (firebaseUser?.displayName || '').trim().split(/\s+/).filter(Boolean);
+    const lastName = rest.join(' ') || undefined;
+    const fullName = firebaseUser?.displayName || [firstName, lastName].filter(Boolean).join(' ').trim();
+    const payload = {
+      email,
+      password,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      name: fullName || email.split('@')[0]
+    };
 
     return this.http.post<any>(`${environment.apiUrl}/auth/login`, payload).pipe(
       catchError(error => {
@@ -519,7 +532,7 @@ export class AuthService {
     const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
     const lastName = rest.join(' ') || undefined;
 
-    return this.syncLoginToApi$(email, password).pipe(
+    return this.syncLoginToApi$(email, password, firebaseUser).pipe(
       catchError(error => {
         const message = String(error?.error?.message ?? '').toLowerCase();
         const missingBackendUser =
