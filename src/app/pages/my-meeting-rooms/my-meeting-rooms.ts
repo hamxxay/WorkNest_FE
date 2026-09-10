@@ -196,14 +196,18 @@ export class MyMeetingRooms implements OnInit {
 
   submitBooking() {
     if (this.bookingForm.invalid) {
-      this.errorMessage.set('Please fill out all booking fields.');
+      const msg = 'Please fill out all booking fields.';
+      alert(msg);
+      this.errorMessage.set(msg);
       return;
     }
 
     const { spaceId, date, startSlot, durationHours } = this.bookingForm.value;
     const rem = this.remainingHours();
     if (durationHours > rem) {
-      this.errorMessage.set(`Duration exceeds your remaining monthly allowance of ${rem} hours.`);
+      const msg = `Duration exceeds your remaining monthly allowance of ${rem} hours.`;
+      alert(msg);
+      this.errorMessage.set(msg);
       return;
     }
 
@@ -231,7 +235,9 @@ export class MyMeetingRooms implements OnInit {
       },
       error: (err: any) => {
         this.submitting.set(false);
-        this.errorMessage.set(err?.error?.message || err?.message || 'Failed to book meeting room.');
+        const msg = err?.error?.message || err?.message || 'Failed to book meeting room.';
+        alert(msg);
+        this.errorMessage.set(msg);
       }
     });
   }
@@ -259,7 +265,9 @@ export class MyMeetingRooms implements OnInit {
         setTimeout(() => this.successMessage.set(''), 5000);
       },
       error: (err: any) => {
-        this.errorMessage.set(err?.error?.message || 'Failed to cancel booking.');
+        const msg = err?.error?.message || 'Failed to cancel booking.';
+        alert(msg);
+        this.errorMessage.set(msg);
         this.closeCancelModal();
       }
     });

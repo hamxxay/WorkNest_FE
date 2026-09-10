@@ -82,7 +82,9 @@ export class ChallanValidity {
   search() {
     if (!this.searchQuery.trim()) return;
     if (!this.searchValid) {
-      this.searchError = 'Invalid search input. Use booking number or challan number only.';
+      const msg = 'Invalid search input. Use booking number or challan number only.';
+      alert(msg);
+      this.searchError = msg;
       return;
     }
     this.searching.set(true);
@@ -98,14 +100,18 @@ export class ChallanValidity {
         this.searching.set(false);
         const data = res?.data ?? res;
         if (!data || (!data.bookingId && !data.challanNumber)) {
-          this.searchError = 'No challan found for the given search term.';
+          const msg = 'No challan found for the given search term.';
+          alert(msg);
+          this.searchError = msg;
         } else {
           this.result.set(data);
         }
       },
       error: (e: any) => {
         this.searching.set(false);
-        this.searchError = e?.error?.message ?? 'Search failed. Please try again.';
+        const msg = e?.error?.message ?? 'Search failed. Please try again.';
+        alert(msg);
+        this.searchError = msg;
       }
     });
   }
@@ -113,13 +119,17 @@ export class ChallanValidity {
   extend() {
     const r = this.result();
     if (!r || !this.newExpiryDate) {
-      this.saveError = !r ? 'No booking loaded.' : 'Please select a new expiry date.';
+      const msg = !r ? 'No booking loaded.' : 'Please select a new expiry date.';
+      alert(msg);
+      this.saveError = msg;
       return;
     }
 
     const currentIso = this.toIso(r.currentExpiryDate ?? '');
     if (currentIso && this.newExpiryDate <= currentIso) {
-      this.saveError = 'New expiry date must be after the current expiry date.';
+      const msg = 'New expiry date must be after the current expiry date.';
+      alert(msg);
+      this.saveError = msg;
       return;
     }
 
@@ -142,7 +152,9 @@ export class ChallanValidity {
       },
       error: (e: any) => {
         this.saving.set(false);
-        this.saveError = e?.error?.message ?? 'Failed to extend validity. Please try again.';
+        const msg = e?.error?.message ?? 'Failed to extend validity. Please try again.';
+        alert(msg);
+        this.saveError = msg;
       }
     });
   }

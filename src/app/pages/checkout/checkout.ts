@@ -236,12 +236,16 @@ export class Checkout implements OnInit {
           onSuccess(bookingId, assignedSpace, res.data);
         } else {
           this.submitting.set(false);
-          this.error.set(res.message || res.error || 'Booking failed.');
+          const msg = res.message || res.error || 'Booking failed.';
+          alert(msg);
+          this.error.set(msg);
         }
       },
       error: (err: any) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || err?.error?.error || 'Failed to create booking. Please try again.');
+        const msg = err?.error?.message || err?.error?.error || 'Failed to create booking. Please try again.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }
@@ -299,7 +303,7 @@ export class Checkout implements OnInit {
   // ── Card submit ────────────────────────────────────────────
   submitCard() {
     const err = this.validateCard();
-    if (err) { this.error.set(err); return; }
+    if (err) { alert(err); this.error.set(err); return; }
 
     this.createBookingWith('Card', (bookingId, assignedSpace) => {
       const idempotencyKey = `${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -330,7 +334,9 @@ export class Checkout implements OnInit {
         error: (err: any) => {
           this.clearCardFields();
           this.submitting.set(false);
-          this.error.set(err?.error?.message || 'Card payment failed. Please try again.');
+          const msg = err?.error?.message || 'Card payment failed. Please try again.';
+          alert(msg);
+          this.error.set(msg);
         }
       });
     });
@@ -378,12 +384,16 @@ export class Checkout implements OnInit {
             });
             if (assignedSpace) this.voucher.update(v => ({ ...v!, assignedSpace }));
           } else {
-            this.error.set(res.message || 'Failed to generate voucher.');
+            const msg = res.message || 'Failed to generate voucher.';
+            alert(msg);
+            this.error.set(msg);
           }
         },
         error: (err: any) => {
           this.submitting.set(false);
-          this.error.set(err?.error?.message || 'Failed to generate voucher. Please try again.');
+          const msg = err?.error?.message || 'Failed to generate voucher. Please try again.';
+          alert(msg);
+          this.error.set(msg);
         }
       });
     });
@@ -565,12 +575,16 @@ export class Checkout implements OnInit {
             if (assignedSpace) sessionStorage.setItem(`assignedSpace_${bookingId}`, JSON.stringify(assignedSpace));
             this.payfastService.redirectToPayFast(res.data);
           } else {
-            this.error.set(res.message || 'PayFast initiation failed.');
+            const msg = res.message || 'PayFast initiation failed.';
+            alert(msg);
+            this.error.set(msg);
           }
         },
         error: (err: any) => {
           this.payfastSubmitting.set(false);
-          this.error.set(err?.error?.detail || 'PayFast initiation failed. Please try again.');
+          const msg = err?.error?.detail || 'PayFast initiation failed. Please try again.';
+          alert(msg);
+          this.error.set(msg);
         }
       });
     });

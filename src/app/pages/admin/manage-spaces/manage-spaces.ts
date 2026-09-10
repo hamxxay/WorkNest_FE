@@ -344,7 +344,9 @@ export class ManageSpaces implements OnInit {
         const blocked: any[] = res?.data?.blocked ?? [];
         this.blockedSpaces = blocked;
         if (blocked.length) {
-          this.error = `${blocked.length} space(s) could not be deleted — they have active bookings.`;
+          const msg = `${blocked.length} space(s) could not be deleted — they have active bookings.`;
+          alert(msg);
+          this.error = msg;
         } else {
           this.success = 'Spaces deleted successfully.';
           setTimeout(() => this.success = '', 4000);
@@ -354,7 +356,9 @@ export class ManageSpaces implements OnInit {
       },
       error: (e: any) => {
         this.deleting.set(false);
-        this.error = e?.error?.message ?? 'Failed to delete spaces.';
+        const msg = e?.error?.message ?? 'Failed to delete spaces.';
+        alert(msg);
+        this.error = msg;
       }
     });
   }

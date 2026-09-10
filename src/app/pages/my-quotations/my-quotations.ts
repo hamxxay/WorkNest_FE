@@ -173,6 +173,7 @@ export class MyQuotations implements OnInit {
       error: (err: any) => {
         this.submitting.set(false);
         const msg = err?.error?.message || err?.error?.detail || err?.message || 'Failed to accept quotation. Please try again.';
+        alert(msg);
         this.errorMsg.set(msg);
         setTimeout(() => this.errorMsg.set(''), 5000);
       }
@@ -197,7 +198,9 @@ export class MyQuotations implements OnInit {
   confirmDecline() {
     const trimmed = (this.declineNote || '').trim();
     if (!trimmed) {
-      this.declineValidationError = 'Please provide a valid reason for declining this quotation.';
+      const msg = 'Please provide a valid reason for declining this quotation.';
+      alert(msg);
+      this.declineValidationError = msg;
       return;
     }
 
@@ -231,6 +234,7 @@ export class MyQuotations implements OnInit {
       error: (err: any) => {
         this.submitting.set(false);
         const msg = err?.error?.message || err?.error?.detail || err?.message || 'Failed to decline quotation.';
+        alert(msg);
         this.errorMsg.set(msg);
         setTimeout(() => this.errorMsg.set(''), 5000);
       }

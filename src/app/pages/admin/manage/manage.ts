@@ -1726,47 +1726,65 @@ export class Manage implements OnInit {
     this.bookingFormError = '';
 
     if (!this.selectedCustomer) {
-      this.bookingFormError = 'Please select a customer.';
+      const msg = 'Please select a customer.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.selectedSpaceTypeId) {
-      this.bookingFormError = 'Please select space type.';
+      const msg = 'Please select space type.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.isAdminPrivateRoom && !this.selectedAdminCapacity) {
-      this.bookingFormError = 'Please select room capacity.';
+      const msg = 'Please select room capacity.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.bookingFormData.spaceId) {
-      this.bookingFormError = 'Please select a space.';
+      const msg = 'Please select a space.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot' && this.adminSelectedSlots.size === 0) {
-      this.bookingFormError = 'Please select at least one time slot.';
+      const msg = 'Please select at least one time slot.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.isAdminMeetingRoom && (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1)) {
-      this.bookingFormError = 'Please specify start date and number of months.';
+      const msg = 'Please specify start date and number of months.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && (!this.adminStartDate || !this.adminMeetingDayEnd)) {
-      this.bookingFormError = 'Please specify start and end date for the meeting room booking.';
+      const msg = 'Please specify start and end date for the meeting room booking.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.bookingDiscountType === 'Percentage' && (this.bookingDiscountValue < 0 || this.bookingDiscountValue > 100)) {
-      this.bookingFormError = 'Percentage discount must be between 0% and 100%.';
+      const msg = 'Percentage discount must be between 0% and 100%.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.bookingDiscountType === 'Amount' && this.bookingDiscountValue < 0) {
-      this.bookingFormError = 'Discount amount cannot be negative.';
+      const msg = 'Discount amount cannot be negative.';
+      alert(msg);
+      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
@@ -2451,24 +2469,34 @@ export class Manage implements OnInit {
     const addr1 = (addressLine1 || '').trim();
 
     if (!fn) {
-      this.quickCustomerError = 'First Name is required.';
+      const msg = 'First Name is required.';
+      alert(msg);
+      this.quickCustomerError = msg;
       return;
     }
     if (!em) {
-      this.quickCustomerError = 'Email address is required.';
+      const msg = 'Email address is required.';
+      alert(msg);
+      this.quickCustomerError = msg;
       return;
     }
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(em)) {
-      this.quickCustomerError = 'Please enter a valid email address (e.g. user@example.com).';
+      const msg = 'Please enter a valid email address (e.g. user@example.com).';
+      alert(msg);
+      this.quickCustomerError = msg;
       return;
     }
     if (!phoneDigits || phoneDigits.length !== 10) {
-      this.quickCustomerError = 'Phone number must contain 11 digits (e.g. 03160577702).';
+      const msg = 'Phone number must contain 11 digits (e.g. 03160577702).';
+      alert(msg);
+      this.quickCustomerError = msg;
       return;
     }
     if (!addr1) {
-      this.quickCustomerError = 'Address Line 1 is required.';
+      const msg = 'Address Line 1 is required.';
+      alert(msg);
+      this.quickCustomerError = msg;
       return;
     }
 
@@ -2509,7 +2537,9 @@ export class Manage implements OnInit {
       },
       error: (e: any) => {
         this.quickCustomerSaving.set(false);
-        this.quickCustomerError = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to create customer.';
+        const msg = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to create customer.';
+        alert(msg);
+        this.quickCustomerError = msg;
       }
     });
   }
@@ -2661,27 +2691,32 @@ export class Manage implements OnInit {
 
       if (!fn) {
         this.error = 'First Name is required.';
+        alert(this.error);
         this.saving = false;
         return;
       }
       if (!em) {
         this.error = 'Email address is required.';
+        alert(this.error);
         this.saving = false;
         return;
       }
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(em)) {
         this.error = 'Please enter a valid email address (e.g. user@example.com).';
+        alert(this.error);
         this.saving = false;
         return;
       }
       if (!phoneDigits || phoneDigits.length !== 10) {
         this.error = 'Phone number must contain 11 digits (e.g. 03160577702).';
+        alert(this.error);
         this.saving = false;
         return;
       }
       if (!addr1) {
         this.error = 'Address Line 1 is required.';
+        alert(this.error);
         this.saving = false;
         return;
       }
@@ -2714,21 +2749,25 @@ export class Manage implements OnInit {
 
       if (!name) {
         this.error = 'Location name is required.';
+        alert(this.error);
         this.saving = false;
         return;
       }
       if (!branchId) {
         this.error = 'Please select a Branch.';
+        alert(this.error);
         this.saving = false;
         return;
       }
       if (!cityId) {
         this.error = 'Please select a City.';
+        alert(this.error);
         this.saving = false;
         return;
       }
       if (!address) {
         this.error = 'Address is required.';
+        alert(this.error);
         this.saving = false;
         return;
       }
@@ -2777,6 +2816,7 @@ export class Manage implements OnInit {
       error: (e: any) => {
         this.saving = false;
         this.error = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'An error occurred.';
+        alert(this.error);
       }
     });
   }
@@ -2790,7 +2830,6 @@ export class Manage implements OnInit {
   changeStatus(item: any, status: string) {
     if (!status) return;
     const id = item.bookingId ?? item.bookingPublicId ?? item.idGuid ?? item.id;
-    // Map string status names to numeric statusIds matching WN lookup tables
     const bookingStatusMap: Record<string, number> = { 'Pending': 1, 'Confirmed': 2, 'Cancelled': 3, 'Completed': 4, 'NoShow': 5 };
     const paymentStatusMap: Record<string, number> = { 'Pending': 1, 'Paid': 2, 'Failed': 3, 'Refunded': 4, 'Cancelled': 5 };
     const contactStatusMap: Record<string, number> = { 'New': 1, 'InProgress': 2, 'Resolved': 3, 'Closed': 4 };
