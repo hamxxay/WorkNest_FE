@@ -3205,7 +3205,7 @@ export class Manage implements OnInit {
           { key: 'phone', label: 'Phone' },
           { key: 'role', label: 'Role', type: 'role' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
-          { key: 'createdAt', label: 'Created', type: 'date' },
+          // { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
@@ -5185,7 +5185,7 @@ export class Manage implements OnInit {
         this.closeConversionPreviewModal();
         this.success = 'Quotation successfully converted to booking!';
         setTimeout(() => this.success = '', 4000);
-        
+
         // 1. Switch view to bookings page
         this.entity = 'bookings';
         this.load();
