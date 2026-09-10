@@ -156,7 +156,19 @@ export class AuthService {
         }
 
         return this.syncGoogleLoginToApi$(credential.user, idToken).pipe(
-          catchError(() => of(null)),
+          catchError((err) => {
+            console.warn('Google login API sync failed, falling back to /auth/me:', err);
+            if (credential.user.email) {
+              return this.hydrateBackendSession$({
+                email: credential.user.email,
+                userId: credential.user.uid,
+                roles: []
+              }).pipe(
+                map(user => user ? { data: user } : null)
+              );
+            }
+            return of(null);
+          }),
           switchMap(response => this.toAuthSuccess(credential, response))
         );
       })
@@ -272,9 +284,12 @@ export class AuthService {
       map(res => {
         const data = res?.data;
         if (!data) return fallbackUser;
+        const roles = this.extractRoles(data, fallbackUser?.roles ?? []);
         const updated: UserInfo = {
           ...fallbackUser!,
-          roles: data.role ? [data.role] : (fallbackUser?.roles ?? [])
+          email: data.email || fallbackUser?.email || email,
+          userId: data.id || data.userId || fallbackUser?.userId || '',
+          roles: roles.length ? roles : (fallbackUser?.roles ?? [])
         };
         this.user.set(updated);
         localStorage.setItem(this.userKey, JSON.stringify(updated));
@@ -374,7 +389,7 @@ export class AuthService {
 
     const sameUser =
       (primary.userId && fallback.userId && primary.userId === fallback.userId) ||
-      (primary.email && fallback.email && primary.email === fallback.email);
+      (primary.email && fallback.email && primary.email.toLowerCase() === fallback.email.toLowerCase());
 
     if (!sameUser) {
       return primary;
@@ -383,7 +398,7 @@ export class AuthService {
     return {
       ...fallback,
       ...primary,
-      roles: primary.roles?.length ? primary.roles : fallback.roles
+      roles: primary.roles?.length ? primary.roles : (fallback.roles?.length ? fallback.roles : [])
     };
   }
 

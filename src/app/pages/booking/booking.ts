@@ -564,26 +564,39 @@ export class Booking implements OnInit {
   openTncModal() {
     this.bookingForm.markAllAsTouched();
     if (this.bookingForm.invalid) {
-      this.bookingError.set('Please fill in all required fields correctly.');
+      const msg = 'Please fill in all required fields correctly.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
     if (this.isMeeting && this.selectedSlots().size === 0) {
-      this.bookingError.set('Please select at least one time slot.');
+      const msg = 'Please select at least one time slot.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
     if (this.isSpaceFull() || this.availableCount() === 0) {
-      this.bookingError.set('No available spaces found for the selected time slot. Please choose another date or time.');
+      const msg = 'No available spaces found for the selected time slot. Please choose another date or time.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
     const [start, end] = this.calcDateRange();
-    if (!start || !end) { this.bookingError.set('Invalid date/time selection.'); return; }
+    if (!start || !end) {
+      const msg = 'Invalid date/time selection.';
+      alert(msg);
+      this.bookingError.set(msg);
+      return;
+    }
     if (!this.isPrivate) {
       const [openH, openM] = this.openingTime.split(':').map(Number);
       const [closeH, closeM] = this.closingTime.split(':').map(Number);
       const startMins = start.getHours() * 60 + start.getMinutes();
       const endMins   = end.getHours()   * 60 + end.getMinutes();
       if (startMins < openH * 60 + openM || endMins > closeH * 60 + closeM) {
-        this.bookingError.set(`Booking must be between ${this.openingTime} and ${this.closingTime}.`);
+        const msg = `Booking must be between ${this.openingTime} and ${this.closingTime}.`;
+        alert(msg);
+        this.bookingError.set(msg);
         return;
       }
     }
@@ -641,21 +654,29 @@ export class Booking implements OnInit {
   submitBooking() {
     this.bookingForm.markAllAsTouched();
     if (this.bookingForm.invalid) {
-      this.bookingError.set('Please fill in all required fields correctly.');
+      const msg = 'Please fill in all required fields correctly.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
     if (this.isMeeting && this.selectedSlots().size === 0) {
-      this.bookingError.set('Please select at least one time slot.');
+      const msg = 'Please select at least one time slot.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
     if (this.isSpaceFull() || this.availableCount() === 0) {
-      this.bookingError.set('No available spaces found for the selected time slot. Please choose another date or time.');
+      const msg = 'No available spaces found for the selected time slot. Please choose another date or time.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
 
     const [start, end] = this.calcDateRange();
     if (!start || !end) {
-      this.bookingError.set('Invalid date/time selection.');
+      const msg = 'Invalid date/time selection.';
+      alert(msg);
+      this.bookingError.set(msg);
       return;
     }
 

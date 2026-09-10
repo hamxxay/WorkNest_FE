@@ -33,15 +33,21 @@ export class Signup {
     this.success.set('');
 
     if (!this.fullName || !this.email || !this.password || !this.confirmPassword) {
-      this.error.set('Please fill in all fields.');
+      const msg = 'Please fill in all fields.';
+      alert(msg);
+      this.error.set(msg);
       return;
     }
     if (this.password !== this.confirmPassword) {
-      this.error.set('Passwords do not match.');
+      const msg = 'Passwords do not match.';
+      alert(msg);
+      this.error.set(msg);
       return;
     }
     if (this.password.length < 8) {
-      this.error.set('Password must be at least 8 characters.');
+      const msg = 'Password must be at least 8 characters.';
+      alert(msg);
+      this.error.set(msg);
       return;
     }
 
@@ -58,12 +64,16 @@ export class Signup {
           this.success.set('Account created successfully! Redirecting to login...');
           setTimeout(() => this.router.navigate(['/login']), 2000);
         } else {
-          this.error.set(res.message || 'Registration failed.');
+          const msg = res.message || 'Registration failed.';
+          alert(msg);
+          this.error.set(msg);
         }
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err.error?.message || 'Registration failed. Please try again.');
+        const msg = err.error?.message || 'Registration failed. Please try again.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }
@@ -84,7 +94,9 @@ export class Signup {
       },
       error: (err) => {
         this.socialLoading.set(null);
-        this.error.set(err.error?.message || 'Social sign-up failed. Please try again.');
+        const msg = err.error?.message || 'Social sign-up failed. Please try again.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }

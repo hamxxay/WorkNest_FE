@@ -41,7 +41,9 @@ export class BookATour {
 
   onSubmit() {
     if (!this.form.fullName || !this.form.email || !this.form.phone || !this.form.preferredDate || !this.form.timeSlot) {
-      this.error.set('Please fill in all required fields.');
+      const msg = 'Please fill in all required fields.';
+      alert(msg);
+      this.error.set(msg);
       return;
     }
     this.error.set('');
@@ -62,7 +64,9 @@ export class BookATour {
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err.error?.message || 'Failed to submit. Please try again.');
+        const msg = err.error?.message || 'Failed to submit. Please try again.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }

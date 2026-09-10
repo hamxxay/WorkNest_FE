@@ -34,7 +34,9 @@ export class Login {
 
   onSubmit() {
     if (!this.email || !this.password) {
-      this.error.set('Please fill in all fields.');
+      const msg = 'Please fill in all fields.';
+      alert(msg);
+      this.error.set(msg);
       return;
     }
     this.error.set('');
@@ -46,12 +48,16 @@ export class Login {
         if (res.isSuccessful) {
           this.router.navigateByUrl(this.getRoleBasedRedirect(res.data));
         } else {
-          this.error.set(res.message || 'Login failed.');
+          const msg = res.message || 'Login failed.';
+          alert(msg);
+          this.error.set(msg);
         }
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err.error?.message || 'Invalid email or password.');
+        const msg = err.error?.message || 'Invalid email or password.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }
@@ -67,7 +73,9 @@ export class Login {
       },
       error: (err) => {
         this.socialLoading.set(null);
-        this.error.set(err.error?.message || 'Google sign-in failed. Please try again.');
+        const msg = err.error?.message || 'Google sign-in failed. Please try again.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }
@@ -93,7 +101,9 @@ export class Login {
 
   submitReset() {
     if (!this.resetEmail) {
-      this.resetError.set('Please enter your email address.');
+      const msg = 'Please enter your email address.';
+      alert(msg);
+      this.resetError.set(msg);
       return;
     }
     this.resetError.set('');
@@ -107,11 +117,11 @@ export class Login {
       error: (err) => {
         this.resetLoading.set(false);
         const code = err?.code ?? '';
-        if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
-          this.resetError.set('No account found with that email address.');
-        } else {
-          this.resetError.set(err.error?.message || 'Failed to send reset email. Please try again.');
-        }
+        const msg = (code === 'auth/user-not-found' || code === 'auth/invalid-email')
+          ? 'No account found with that email address.'
+          : (err.error?.message || 'Failed to send reset email. Please try again.');
+        alert(msg);
+        this.resetError.set(msg);
       }
     });
   }

@@ -24,7 +24,9 @@ export class Contact {
 
   onSubmit() {
     if (!this.form.fullName || !this.form.email || !this.form.message) {
-      this.error.set('Please fill in all required fields.');
+      const msg = 'Please fill in all required fields.';
+      alert(msg);
+      this.error.set(msg);
       return;
     }
     this.error.set('');
@@ -40,11 +42,15 @@ export class Contact {
             this.form = { fullName: '', email: '', phone: '', message: '' };
           }, 3000);
         } else {
-          this.error.set(res.message || 'Failed to send message.');
+          const msg = res.message || 'Failed to send message.';
+          alert(msg);
+          this.error.set(msg);
         }
       },
       error: (err) => {
-        this.error.set(err.error?.message || 'Failed to send message. Please try again.');
+        const msg = err.error?.message || 'Failed to send message. Please try again.';
+        alert(msg);
+        this.error.set(msg);
       }
     });
   }
