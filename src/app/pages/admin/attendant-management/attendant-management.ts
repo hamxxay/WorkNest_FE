@@ -2,6 +2,7 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
+import { ToastService } from '../../../services/toast.service';
 
 @Component({
   selector: 'app-attendant-management',
@@ -12,6 +13,7 @@ import { AdminService } from '../../../services/admin.service';
 })
 export class AttendantManagement implements OnInit {
   private admin = inject(AdminService);
+  private toast = inject(ToastService);
 
   customers = signal<any[]>([]);
   selectedCustomerId = '';
@@ -78,7 +80,7 @@ export class AttendantManagement implements OnInit {
       next: (res: any) => {
         this.activeSpaces.set(res || []);
       },
-      error: (err) => alert('Failed to load active spaces for customer: ' + (err.error?.message || err.message))
+      error: (err) => this.toast.error('Failed to load active spaces for customer: ' + (err.error?.message || err.message))
     });
 
     this.admin.getCustomerAttendants(cid).subscribe({
@@ -131,7 +133,7 @@ export class AttendantManagement implements OnInit {
 
     if (this.addMode === 'new') {
       if (!this.newName || !this.newEmail || !this.newPhone || !this.newIdNumber) {
-        alert('Please fill in all required person identity fields.');
+        this.toast.error('Please fill in all required person identity fields.');
         return;
       }
 
@@ -149,11 +151,11 @@ export class AttendantManagement implements OnInit {
           this.closeAddModal();
           this.processBookingAssignment(res.personId);
         },
-        error: (err) => alert('Failed to create person: ' + (err.error?.message || err.message))
+        error: (err) => this.toast.error('Failed to create person: ' + (err.error?.message || err.message))
       });
     } else {
       if (!this.selectedExistingPersonId) {
-        alert('Please select an existing company attendant.');
+        this.toast.error('Please select an existing company attendant.');
         return;
       }
       this.closeAddModal();
@@ -176,7 +178,7 @@ export class AttendantManagement implements OnInit {
 
         if (cap.wouldExceedCapacity) {
           if (!cap.allowsOverCapacity) {
-            alert(`Over-capacity assignment is strictly not allowed for ${cap.spaceCategory} (${cap.spaceName}). Capacity limit is ${cap.roomCapacity}.`);
+            this.toast.error(`Over-capacity assignment is strictly not allowed for ${cap.spaceCategory} (${cap.spaceName}). Capacity limit is ${cap.roomCapacity}.`);
             return;
           }
 
@@ -203,7 +205,7 @@ export class AttendantManagement implements OnInit {
         this.pendingAssignmentPayload = null;
         this.onCustomerChange();
       },
-      error: (err) => alert('Assignment failed: ' + (err.error?.message || err.message))
+      error: (err) => this.toast.error('Assignment failed: ' + (err.error?.message || err.message))
     });
   }
 
@@ -217,7 +219,7 @@ export class AttendantManagement implements OnInit {
     };
     this.admin.toggleAccessStatus(body).subscribe({
       error: () => {
-        alert('Failed to update access status');
+        this.toast.error('Failed to update access status');
         this.loadAttendantsForSpace();
       }
     });
@@ -233,7 +235,7 @@ export class AttendantManagement implements OnInit {
     };
     this.admin.toggleAccessStatus(body).subscribe({
       next: () => this.loadAttendantsForSpace(),
-      error: () => alert('Failed to update batch access status')
+      error: () => this.toast.error('Failed to update batch access status')
     });
   }
 
@@ -241,7 +243,7 @@ export class AttendantManagement implements OnInit {
     if (!confirm('Are you sure you want to remove this attendant from this booking assignment?')) return;
     this.admin.removeAttendantFromBooking(this.selectedBookingDetailId!, personId).subscribe({
       next: () => this.loadAttendantsForSpace(),
-      error: (err) => alert('Failed to remove attendant: ' + (err.error?.message || err.message))
+      error: (err) => this.toast.error('Failed to remove attendant: ' + (err.error?.message || err.message))
     });
   }
 
@@ -251,7 +253,7 @@ export class AttendantManagement implements OnInit {
         this.exportDataJson = JSON.stringify(res, null, 2);
         this.showExportModal = true;
       },
-      error: (err) => alert('Failed to fetch export: ' + (err.error?.message || err.message))
+      error: (err) => this.toast.error('Failed to fetch export: ' + (err.error?.message || err.message))
     });
   }
 

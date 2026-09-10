@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
+import { ToastService } from '../../../services/toast.service';
 
 @Component({
   selector: 'app-admin-layout',
@@ -14,6 +15,10 @@ export class AdminLayout {
 
   isSuperAdmin = false;
   isSalesExecutive = false;
+
+  public toastService = inject(ToastService);
+  private auth = inject(AuthService);
+  private router = inject(Router);
 
   menuItems = [
     { route: '/admin',                label: 'Dashboard',         icon: 'dashboard'       },
@@ -36,9 +41,6 @@ export class AdminLayout {
     { route: '/admin/challan-validity',     label: 'Challan Validity',  icon: 'challan',      superAdminOnly: true },
   ];
 
-  private auth = inject(AuthService);
-  private router = inject(Router);
-
   constructor() {
     const u = this.auth.getUser();
     this.userRole = u?.roles?.[0] ?? 'Admin';
@@ -47,7 +49,7 @@ export class AdminLayout {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/quotations', '/admin/invoices', '/admin/bookings'];
+      const allowedRoutes = ['/admin/quotations', '/admin/invoices', '/admin/bookings', '/admin/attendants'];
       this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
       if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
         this.router.navigate(['/admin/quotations']);

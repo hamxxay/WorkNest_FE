@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, computed, inject } from '@angular/core';
+import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -10,6 +10,7 @@ import { ASSIGNABLE_ROLES, BILLING_CYCLES, BILLING_PERIOD_OPTIONS } from '../../
 import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { BookingBillingSummary } from '../../../models/admin.model';
+import { ToastService } from '../../../services/toast.service';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -132,6 +133,8 @@ export class Manage implements OnInit {
   bookingFormData: any = {};
   bookingFormSaving = signal(false);
   bookingFormError = '';
+  bookingFormErrorField = '';
+  quotationFormErrorField = '';
   cityOptions: { v: any; l: string }[] = [];
   allSpaces: any[] = [];
   filteredSpaceOptions: { v: any; l: string }[] = [];
@@ -412,7 +415,7 @@ export class Manage implements OnInit {
         const targetEmail = challan?.customerEmail || item?.customerEmail || item?.userEmail || challan?.userEmail || '';
         if (!targetEmail) {
           this.resendingBookingEmailId.set(null);
-          alert('No customer email address found for this booking.');
+          this.showError('No customer email address found for this booking.');
           return;
         }
 
@@ -462,7 +465,7 @@ export class Manage implements OnInit {
       },
       error: () => {
         this.resendingBookingEmailId.set(null);
-        alert('Failed to load booking details. Please try again.');
+        this.showError('Failed to load booking details. Please try again.');
       }
     });
   }
@@ -479,6 +482,45 @@ export class Manage implements OnInit {
   private amountFieldSvc = inject(AmountFieldService);
   private bookingService = inject(BookingService);
   private quotationSvc = inject(QuotationService);
+  private toast = inject(ToastService);
+
+  showError(msg: string, title: string = 'Error') {
+    if (!msg) return;
+    this.toast.error(msg, title);
+  }
+
+  showSuccess(msg: string, title: string = 'Success') {
+    if (!msg) return;
+    this.toast.success(msg, title);
+  }
+
+  @HostListener('wheel', ['$event'])
+  onWheelPreventScroll(event: WheelEvent) {
+    const target = event.target as HTMLElement;
+    if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') {
+      (target as HTMLInputElement).blur();
+      event.preventDefault();
+    }
+  }
+
+  scrollToTopAndHighlight(fieldKey?: string) {
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const modalContainers = document.querySelectorAll('.modal-content, .modal-overlay, .booking-modal');
+      modalContainers.forEach(el => {
+        el.scrollTop = 0;
+      });
+
+      if (fieldKey) {
+        const targetEl = document.querySelector(`[data-field="${fieldKey}"]`) || document.querySelector(`.field-${fieldKey}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const focusable = (targetEl as HTMLElement).querySelector('input, select, textarea') || targetEl;
+          (focusable as HTMLElement).focus?.();
+        }
+      }
+    }, 60);
+  }
 
   constructor() {
     this.isSuperAdmin = this.auth.hasRole('super_admin');
@@ -512,6 +554,7 @@ export class Manage implements OnInit {
           this.loadBranchOptions();
         }
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
+        if (this.entity === 'invoices') this.loadSpaceInventoryForConfig();
       });
     });
   }
@@ -1375,7 +1418,7 @@ export class Manage implements OnInit {
         window.URL.revokeObjectURL(url);
       },
       error: () => {
-        alert('Failed to download Challan PDF.');
+        this.showError('Failed to download Challan PDF.');
       }
     });
   }
@@ -1724,60 +1767,86 @@ export class Manage implements OnInit {
   submitAdminBooking() {
     this.bookingFormSaving.set(true);
     this.bookingFormError = '';
+    this.bookingFormErrorField = '';
 
     if (!this.selectedCustomer) {
       const msg = 'Please select a customer.';
-      alert(msg);
+      this.bookingFormErrorField = 'customer';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('customer');
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.selectedSpaceTypeId) {
       const msg = 'Please select space type.';
-      alert(msg);
+      this.bookingFormErrorField = 'spaceType';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('spaceType');
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.isAdminPrivateRoom && !this.selectedAdminCapacity) {
       const msg = 'Please select room capacity.';
-      alert(msg);
+      this.bookingFormErrorField = 'capacity';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('capacity');
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.bookingFormData.spaceId) {
       const msg = 'Please select a space.';
-      alert(msg);
+      this.bookingFormErrorField = 'space';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('space');
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot' && this.adminSelectedSlots.size === 0) {
       const msg = 'Please select at least one time slot.';
-      alert(msg);
+      this.bookingFormErrorField = 'slots';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('slots');
       this.bookingFormSaving.set(false);
       return;
     }
     if (!this.isAdminMeetingRoom && (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1)) {
       const msg = 'Please specify start date and number of months.';
-      alert(msg);
+      this.bookingFormErrorField = 'startDate';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('startDate');
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && (!this.adminStartDate || !this.adminMeetingDayEnd)) {
       const msg = 'Please specify start and end date for the meeting room booking.';
-      alert(msg);
+      this.bookingFormErrorField = 'meetingDayEnd';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('meetingDayEnd');
       this.bookingFormSaving.set(false);
       return;
     }
     if (this.bookingDiscountType === 'Percentage' && (this.bookingDiscountValue < 0 || this.bookingDiscountValue > 100)) {
       const msg = 'Percentage discount must be between 0% and 100%.';
-      alert(msg);
+      this.bookingFormErrorField = 'discount';
       this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('discount');
+      this.bookingFormSaving.set(false);
+      return;
+    }
+    if (this.bookingDiscountType === 'Amount' && this.bookingDiscountValue < 0) {
+      const msg = 'Discount amount cannot be negative.';
+      this.bookingFormErrorField = 'discount';
+      this.bookingFormError = msg;
+      this.showError(msg);
+      this.scrollToTopAndHighlight('discount');
       this.bookingFormSaving.set(false);
       return;
     }
@@ -1862,6 +1931,9 @@ export class Manage implements OnInit {
             if (errorMsg) {
               this.bookingFormSaving.set(false);
               this.bookingFormError = errorMsg;
+              this.bookingFormErrorField = 'space';
+              this.showError(errorMsg);
+              this.scrollToTopAndHighlight('space');
               return;
             }
 
@@ -1870,12 +1942,16 @@ export class Manage implements OnInit {
             const bId = this.editingBookingId;
             this.editingBookingId = null;
             this.success = `Booking #${bId} updated successfully.`;
+            this.showSuccess(this.success);
             setTimeout(() => this.success = '', 3500);
             this.load();
           },
           error: (err: any) => {
             this.bookingFormSaving.set(false);
             this.bookingFormError = err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.';
+            this.bookingFormErrorField = 'space';
+            this.showError(this.bookingFormError);
+            this.scrollToTopAndHighlight('space');
           }
         });
         return;
@@ -1894,6 +1970,9 @@ export class Manage implements OnInit {
             console.error('[BOOKING TEST] Creation returned error message:', errorMsg);
             this.bookingFormSaving.set(false);
             this.bookingFormError = errorMsg;
+            this.bookingFormErrorField = 'space';
+            this.showError(errorMsg);
+            this.scrollToTopAndHighlight('space');
             return;
           }
 
@@ -2087,7 +2166,11 @@ export class Manage implements OnInit {
         },
         error: (err: any) => {
           this.bookingFormSaving.set(false);
-          this.bookingFormError = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
+          const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
+          this.bookingFormError = msg;
+          this.bookingFormErrorField = 'space';
+          this.showError(msg);
+          this.scrollToTopAndHighlight('space');
         }
       });
     };
@@ -2316,13 +2399,19 @@ export class Manage implements OnInit {
         const directName = item.spaceName || item.SpaceName || item.spaceTitle || item.SpaceTitle;
         if (directName && !directName.toLowerCase().startsWith('booking #')) return directName;
 
-        const spaceNum = item.spaceCode || item.SpaceCode || item.spaceNumber || item.SpaceNumber || item.spaceId || item.SpaceId;
+        const sId = item.spaceId || item.SpaceId;
+        if (sId && this.allSpaces?.length) {
+          const found = this.allSpaces.find((sp: any) => sp.id === sId || sp.Id === sId || sp.code == sId);
+          if (found?.name || found?.Name) return found.name || found.Name;
+        }
+
+        const spaceNum = item.spaceCode || item.SpaceCode || item.spaceNumber || item.SpaceNumber || sId;
         if (spaceNum) return `Space #${spaceNum}`;
 
         const bId = item.bookingId || item.BookingId;
         if (bId) return `Space #${bId}`;
 
-        return 'Workspace';
+        return '-';
       }
       if (col.key === 'billingPeriodDisplay') {
         const start = item.billingPeriodStart || item.BillingPeriodStart || item.startOn || item.StartOn;
@@ -2479,26 +2568,26 @@ export class Manage implements OnInit {
 
     if (!fn) {
       const msg = 'First Name is required.';
-      alert(msg);
+      this.showError(msg);
       this.quickCustomerError = msg;
       return;
     }
     if (!em) {
       const msg = 'Email address is required.';
-      alert(msg);
+      this.showError(msg);
       this.quickCustomerError = msg;
       return;
     }
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(em)) {
       const msg = 'Please enter a valid email address (e.g. user@example.com).';
-      alert(msg);
+      this.showError(msg);
       this.quickCustomerError = msg;
       return;
     }
     if (!phoneDigits || phoneDigits.length !== 10) {
       const msg = 'Phone number must contain 11 digits (e.g. 03160577702).';
-      alert(msg);
+      this.showError(msg);
       this.quickCustomerError = msg;
       return;
     }
@@ -2547,7 +2636,7 @@ export class Manage implements OnInit {
       error: (e: any) => {
         this.quickCustomerSaving.set(false);
         const msg = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to create customer.';
-        alert(msg);
+        this.showError(msg);
         this.quickCustomerError = msg;
       }
     });
@@ -2700,32 +2789,32 @@ export class Manage implements OnInit {
 
       if (!fn) {
         this.error = 'First Name is required.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       if (!em) {
         this.error = 'Email address is required.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(em)) {
         this.error = 'Please enter a valid email address (e.g. user@example.com).';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       if (!phoneDigits || phoneDigits.length !== 10) {
         this.error = 'Phone number must contain 11 digits (e.g. 03160577702).';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       if (!addr1) {
         this.error = 'Address Line 1 is required.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
@@ -2758,25 +2847,25 @@ export class Manage implements OnInit {
 
       if (!name) {
         this.error = 'Location name is required.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       if (!branchId) {
         this.error = 'Please select a Branch.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       if (!cityId) {
         this.error = 'Please select a City.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
       if (!address) {
         this.error = 'Address is required.';
-        alert(this.error);
+        this.showError(this.error);
         this.saving = false;
         return;
       }
@@ -2825,7 +2914,7 @@ export class Manage implements OnInit {
       error: (e: any) => {
         this.saving = false;
         this.error = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'An error occurred.';
-        alert(this.error);
+        this.showError(this.error);
       }
     });
   }
@@ -2840,7 +2929,7 @@ export class Manage implements OnInit {
     if (!status || !item) return;
     const id = item.id ?? item.Id ?? item.bookingId ?? item.BookingId ?? item.bookingPublicId ?? item.idGuid;
     if (!id) {
-      alert('Unable to update status: Missing booking ID.');
+      this.showError('Unable to update status: Missing booking ID.');
       return;
     }
     const bookingStatusMap: Record<string, number> = { 'Confirmed': 1, 'Pending': 2, 'Cancelled': 3, 'Completed': 4, 'NoShow': 5, 'No Show': 5 };
@@ -2862,7 +2951,7 @@ export class Manage implements OnInit {
           this.load();
         },
         error: (err: any) => {
-          alert('Failed to update status: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.showError('Failed to update status: ' + (err?.error?.message || err?.message || 'Server error'));
         }
       });
     }
@@ -2986,6 +3075,7 @@ export class Manage implements OnInit {
       },
       error: (e: any) => {
         this.error = e?.error?.message ?? 'Failed to approve payment.';
+        this.showError(this.error);
         this.approvingPaymentId.set(null);
       }
     });
@@ -3046,6 +3136,7 @@ export class Manage implements OnInit {
       },
       error: (err: any) => {
         this.reassignError = err?.error?.message || 'Failed to reassign booking';
+        this.showError(this.reassignError);
         this.reassignLoading.set(false);
       }
     });
@@ -3783,34 +3874,53 @@ export class Manage implements OnInit {
   submitAdminQuotation(sendEmail: boolean = false) {
     this.quotationFormSaving.set(true);
     this.quotationFormError = '';
+    this.quotationFormErrorField = '';
 
     if (!this.selectedCustomer) {
+      this.quotationFormErrorField = 'customer';
       this.quotationFormError = 'Please select a customer.';
+      this.showError(this.quotationFormError);
+      this.scrollToTopAndHighlight('customer');
       this.quotationFormSaving.set(false);
       return;
     }
     if (!this.quotationFormData.spaceId) {
+      this.quotationFormErrorField = 'space';
       this.quotationFormError = 'Please select a space.';
+      this.showError(this.quotationFormError);
+      this.scrollToTopAndHighlight('space');
       this.quotationFormSaving.set(false);
       return;
     }
     if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'slot' && this.quotationSelectedSlots.size === 0) {
+      this.quotationFormErrorField = 'slots';
       this.quotationFormError = 'Please select at least one time slot.';
+      this.showError(this.quotationFormError);
+      this.scrollToTopAndHighlight('slots');
       this.quotationFormSaving.set(false);
       return;
     }
     if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'day' && (!this.quotationStartDate || !this.quotationMeetingDayEnd)) {
+      this.quotationFormErrorField = 'startDate';
       this.quotationFormError = 'Please specify start and end date for the meeting room booking.';
+      this.showError(this.quotationFormError);
+      this.scrollToTopAndHighlight('startDate');
       this.quotationFormSaving.set(false);
       return;
     }
     if (this.quotationDiscountType === 'Percentage' && Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) > this.quotationMaxDiscountPercent) {
+      this.quotationFormErrorField = 'discount';
       this.quotationFormError = "Discount percentage (" + this.quotationDiscountValue + "%) exceeds maximum allowed discount cap of " + this.quotationMaxDiscountPercent + "%.";
+      this.showError(this.quotationFormError);
+      this.scrollToTopAndHighlight('discount');
       this.quotationFormSaving.set(false);
       return;
     }
     if (this.quotationDiscountType === 'Fixed' && Number(this.quotationDiscountValue || 0) > this.maxAllowedDiscountValue) {
+      this.quotationFormErrorField = 'discount';
       this.quotationFormError = "Fixed monthly discount (PKR " + this.quotationDiscountValue + ") exceeds maximum allowed cap of PKR " + this.maxAllowedDiscountValue + " per month.";
+      this.showError(this.quotationFormError);
+      this.scrollToTopAndHighlight('discount');
       this.quotationFormSaving.set(false);
       return;
     }
@@ -3872,7 +3982,7 @@ export class Manage implements OnInit {
         this.quotationFormSaving.set(false);
         this.showQuotationForm = false; // Close quotation form modal on save & quoted
         this.quotationSuccessMessage = this.isCreatingNewVersion ? "Version saved successfully!" : "Quotation saved successfully!";
-        setTimeout(() => this.success = '', 3000);
+        this.showSuccess(this.quotationSuccessMessage);
         this.load();
 
         const createdQ = res?.data ?? res;
@@ -3885,7 +3995,11 @@ export class Manage implements OnInit {
       },
       error: (err: any) => {
         this.quotationFormSaving.set(false);
-        this.quotationFormError = err?.error?.message || err?.message || 'Failed to generate quotation.';
+        const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to generate quotation.';
+        this.quotationFormError = msg;
+        this.quotationFormErrorField = 'space';
+        this.showError(msg);
+        this.scrollToTopAndHighlight('space');
       }
     });
   }
@@ -4015,11 +4129,12 @@ export class Manage implements OnInit {
     this.quotationSvc.sendQuotationVersion(qId, vId).subscribe({
       next: () => {
         this.success = `Quotation Version ${vId} sent to customer. Status updated to Sent.`;
+        this.showSuccess(this.success);
         setTimeout(() => this.success = '', 4000);
         this.load();
       },
       error: (err: any) => {
-        alert(err?.error?.message || err?.message || 'Failed to send quotation.');
+        this.showError(err?.error?.message || err?.message || 'Failed to send quotation.');
       }
     });
   }
@@ -4134,7 +4249,7 @@ export class Manage implements OnInit {
     if (!c) return;
     const targetEmail = c.customerEmail || c.userEmail || '';
     if (!targetEmail) {
-      alert('No customer email address available for this challan.');
+      this.showError('No customer email address available for this challan.');
       return;
     }
     this.sendingChallanEmail.set(true);
@@ -4355,7 +4470,7 @@ export class Manage implements OnInit {
           this.showChallanModal = true;
         },
         error: () => {
-          alert('Failed to load challan details.');
+          this.showError('Failed to load challan details.');
         }
       });
     }
@@ -4407,7 +4522,7 @@ export class Manage implements OnInit {
     if (!item) return;
     const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
     if (!bookingId) {
-      alert('Booking ID is missing.');
+      this.showError('Booking ID is missing.');
       return;
     }
     this.selectedInitialInvoiceItem.set(item);
@@ -4430,12 +4545,12 @@ export class Manage implements OnInit {
         this.showInitialInvoicePreviewModal = false;
         if (item) item.initialInvoiceSent = true;
         this.sentInitialInvoices.add(bookingId);
-        alert(res?.message || 'Initial payment invoice generated and emailed successfully to customer!');
+        this.showSuccess(res?.message || 'Initial payment invoice generated and emailed successfully to customer!');
         this.load();
       },
       error: (err: any) => {
         this.sendingInitialInvoiceId.set(null);
-        alert(err?.error?.message || err?.message || 'Failed to send initial payment invoice.');
+        this.showError(err?.error?.message || err?.message || 'Failed to send initial payment invoice.');
       }
     });
   }
@@ -4699,11 +4814,11 @@ export class Manage implements OnInit {
 
   submitCustomInvoice(sendEmail: boolean = false) {
     if (!this.customInvoiceFormData.userId || this.customInvoiceFormData.userId <= 0) {
-      alert('Please select a customer.');
+      this.showError('Please select a customer.');
       return;
     }
     if (!this.customInvoiceLines || this.customInvoiceLines.length === 0) {
-      alert('Please add at least one line item.');
+      this.showError('Please add at least one line item.');
       return;
     }
 
@@ -4728,11 +4843,11 @@ export class Manage implements OnInit {
         }
         this.load();
         const msg = sendEmail ? 'Invoice created and sent successfully to customer via email!' : 'Invoice created successfully!';
-        alert(res?.message || msg);
+        this.showSuccess(res?.message || msg);
       },
       error: (err: any) => {
         this.submittingCustomInvoice.set(false);
-        alert(err?.error?.message || 'Failed to process invoice.');
+        this.showError(err?.error?.message || 'Failed to process invoice.');
       }
     });
   }
@@ -4745,11 +4860,11 @@ export class Manage implements OnInit {
     this.admin.sendInvoiceEmail(id).subscribe({
       next: (res: any) => {
         this.sendingInvoiceEmailId.set(null);
-        alert(res?.message || 'Invoice email sent successfully!');
+        this.showSuccess(res?.message || 'Invoice email sent successfully!');
       },
       error: (err: any) => {
         this.sendingInvoiceEmailId.set(null);
-        alert(err?.error?.message || 'Failed to send invoice email.');
+        this.showError(err?.error?.message || 'Failed to send invoice email.');
       }
     });
   }
@@ -4806,7 +4921,7 @@ export class Manage implements OnInit {
 
   submitRecordPayment() {
     if (!this.recordPaymentFormData.paidAmount || this.recordPaymentFormData.paidAmount <= 0) {
-      alert('Please enter a valid payment amount.');
+      this.showError('Please enter a valid payment amount.');
       return;
     }
     this.recordPaymentSaving.set(true);
@@ -4816,12 +4931,13 @@ export class Manage implements OnInit {
         this.showRecordPaymentModal = false;
         this.showInvoiceDetailsModal = false;
         this.success = 'Payment recorded successfully! Associated periods marked as Prepaid.';
+        this.showSuccess(this.success);
         setTimeout(() => this.success = '', 4000);
         this.load();
       },
       error: (err: any) => {
         this.recordPaymentSaving.set(false);
-        alert(err?.error?.message || err?.message || 'Failed to record payment.');
+        this.showError(err?.error?.message || err?.message || 'Failed to record payment.');
       }
     });
   }
@@ -5218,7 +5334,7 @@ export class Manage implements OnInit {
       },
       error: (err: any) => {
         this.conversionSubmitting.set(false);
-        alert(err?.error?.message || err?.message || 'Failed to convert quotation.');
+        this.showError(err?.error?.message || err?.message || 'Failed to convert quotation.');
       }
     });
   }

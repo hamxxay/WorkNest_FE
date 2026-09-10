@@ -395,3 +395,36 @@ select.form-input {
   .section-title { font-size: 1.6rem; }
   .section-subtitle { font-size: 1rem; }
 }
+
+/* Hide number input spin buttons (up/down arrows) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Error Field Highlighting & Animation */
+.has-error input,
+.has-error select,
+.has-error textarea,
+.has-error button,
+.has-error .admin-slot-btn,
+input.has-error,
+select.has-error,
+textarea.has-error,
+.field-error-highlight {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+  background-color: #fef2f2 !important;
+  animation: shakeError 0.4s ease-in-out;
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}

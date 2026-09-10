@@ -1527,7 +1527,7 @@
     <form (ngSubmit)="submitAdminQuotation(false)">
 
       <p class="form-section-label">Customer</p>
-      <div class="form-group-admin" style="position:relative">
+      <div class="form-group-admin" data-field="customer" [class.has-error]="quotationFormErrorField === 'customer'" style="position:relative">
         <label>Search Customer *</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="quotationCustomerSearch"
@@ -1578,7 +1578,7 @@
             }
           </select>
         </div>
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="spaceType" [class.has-error]="quotationFormErrorField === 'spaceType'">
           <label>Space Type *</label>
           <select class="form-input-admin" [(ngModel)]="selectedQuotationSpaceTypeId" name="qSpaceTypeId" required
             (change)="onQuotationSpaceTypeChange()">
@@ -1589,7 +1589,7 @@
           </select>
         </div>
         @if (isQuotationPrivateRoom) {
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="capacity" [class.has-error]="quotationFormErrorField === 'capacity'">
           <label>Capacity *</label>
           <select class="form-input-admin" [(ngModel)]="selectedQuotationCapacity" name="qCapacity" required
             (change)="onQuotationCapacityChange()">
@@ -1600,7 +1600,7 @@
           </select>
         </div>
         }
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="space" [class.has-error]="quotationFormErrorField === 'space'">
           <label>{{ isQuotationPrivateRoom ? 'Office No.' : (isQuotationMeetingRoom ? 'Space' : 'Space No.') }}
             *</label>
           <select class="form-input-admin" [(ngModel)]="quotationFormData.spaceId" name="qSpaceId" required
@@ -1656,12 +1656,12 @@
         </div>
       </div>
       @if (quotationMeetingRoomMode === 'slot') {
-      <div class="form-group-admin">
+      <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
         <label>Date *</label>
         <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" [min]="today"
           required (change)="generateQuotationMeetingSlots()" />
       </div>
-      <div class="form-group-admin">
+      <div class="form-group-admin" data-field="slots" [class.has-error]="quotationFormErrorField === 'slots'">
         <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{
             quotationSelectedSlots.size }} selected)</span></label>
         @if (!quotationStartDate) {
@@ -1681,7 +1681,7 @@
       </div>
       } @else {
       <div class="form-row-admin">
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Start Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart"
             [min]="today" required (change)="recalcQuotationAmount()" />
@@ -1695,7 +1695,7 @@
       }
       } @else {
       <div class="form-row-admin">
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" [min]="today"
             required (change)="onQuotationMonthPeriodChange()" />
@@ -1725,7 +1725,7 @@
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
         </div>
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="discount" [class.has-error]="quotationFormErrorField === 'discount'">
           <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small
               style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
@@ -1853,7 +1853,7 @@
 
       <p class="form-section-label">Customer</p>
 
-      <div class="form-group-admin" style="position:relative">
+      <div class="form-group-admin" data-field="customer" [class.has-error]="bookingFormErrorField === 'customer'" style="position:relative">
         <label>Search Customer *</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="customerSearch"
@@ -1950,7 +1950,7 @@
             }
           </select>
         </div>
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="spaceType" [class.has-error]="bookingFormErrorField === 'spaceType'">
           <label>Space Type *</label>
           <select class="form-input-admin" [(ngModel)]="selectedSpaceTypeId" name="spaceTypeId" required
             (change)="onSpaceTypeChange()">
@@ -1961,7 +1961,7 @@
           </select>
         </div>
         @if (isAdminPrivateRoom) {
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="capacity" [class.has-error]="bookingFormErrorField === 'capacity'">
           <label>Capacity *</label>
           <select class="form-input-admin" [(ngModel)]="selectedAdminCapacity" name="adminCapacity" required
             (change)="onAdminCapacityChange()">
@@ -1972,7 +1972,7 @@
           </select>
         </div>
         }
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="space" [class.has-error]="bookingFormErrorField === 'space'">
           <label>{{ isAdminPrivateRoom ? 'Office No.' : (isAdminMeetingRoom ? 'Space' : 'Space No.') }} *</label>
           <select class="form-input-admin" [(ngModel)]="bookingFormData.spaceId" name="spaceId" required
             (change)="onBookingSpaceSelected()">
@@ -2018,12 +2018,12 @@
         </div>
       </div>
       @if (meetingRoomBookingMode === 'slot') {
-      <div class="form-group-admin">
+      <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
         <label>Date *</label>
         <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDate" name="adminMeetingDate" [min]="today"
           required (change)="generateAdminMeetingSlots()" />
       </div>
-      <div class="form-group-admin">
+      <div class="form-group-admin" data-field="slots" [class.has-error]="bookingFormErrorField === 'slots'">
         <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{
             adminSelectedSlots.size }} selected)</span></label>
         @if (!adminMeetingDate) {
@@ -2043,7 +2043,7 @@
       </div>
       } @else {
       <div class="form-row-admin">
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
           <label>Start Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart"
             [min]="today" required (change)="onAdminMeetingDayChange()" />
@@ -2057,7 +2057,7 @@
       }
       } @else {
       <div class="form-row-admin">
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
           <label>Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminStartDate" [min]="today"
             required (change)="onAdminMonthPeriodChange()" />
@@ -2087,7 +2087,7 @@
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
         </div>
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="discount" [class.has-error]="bookingFormErrorField === 'discount'">
           <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small
               style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
