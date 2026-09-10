@@ -2313,7 +2313,16 @@ export class Manage implements OnInit {
         return item.customerName || item.CustomerName || item.userEmail || item.UserEmail || item.customerEmail || item.CustomerEmail || 'Customer';
       }
       if (col.key === 'spaceName') {
-        return item.spaceName || item.SpaceName || (item.bookingId || item.BookingId ? `Booking #${item.bookingId || item.BookingId}` : 'Workspace');
+        const directName = item.spaceName || item.SpaceName || item.spaceTitle || item.SpaceTitle;
+        if (directName && !directName.toLowerCase().startsWith('booking #')) return directName;
+
+        const spaceNum = item.spaceCode || item.SpaceCode || item.spaceNumber || item.SpaceNumber || item.spaceId || item.SpaceId;
+        if (spaceNum) return `Space #${spaceNum}`;
+
+        const bId = item.bookingId || item.BookingId;
+        if (bId) return `Space #${bId}`;
+
+        return 'Workspace';
       }
       if (col.key === 'billingPeriodDisplay') {
         const start = item.billingPeriodStart || item.BillingPeriodStart || item.startOn || item.StartOn;

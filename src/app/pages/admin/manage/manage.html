@@ -2558,7 +2558,7 @@
             Space &amp; Location Details
           </div>
           <div style="font-size:.82rem;line-height:1.8">
-            <div><span style="color:#64748b">Space: </span><strong>{{ inv.spaceName || 'Workspace' }}</strong></div>
+            <div><span style="color:#64748b">Space: </span><strong>{{ getCellValue(inv, { key: 'spaceName', label: 'Space' }) }}</strong></div>
             @if (inv.locationName) {
             <div><span style="color:#64748b">Location: </span><strong>{{ inv.locationName }}</strong></div>
             }
