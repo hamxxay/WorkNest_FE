@@ -35,7 +35,7 @@
             (click)="selectSpace(s)">
             <div class="space-title">{{ s.spaceName }}</div>
             <div class="space-meta">{{ s.spaceCategory || 'Dedicated Office' }} Cap: {{ s.capacity }} seats</div>
-            <span class="badge">{{ s.activeAttendantsCount }}/{{ s.capacity }}</span>
+            <span class="badge">{{ s.activeAttendantsCount || 0 }}/{{ s.capacity }}</span>
           </div>
           }
         </div>

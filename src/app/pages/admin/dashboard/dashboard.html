@@ -370,7 +370,7 @@
                   <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>
                   <td class="col-cap">
                     <span class="cap-pill" [class.cap-overcapacity]="sp.isOverCapacity">
-                      {{ sp.status === 'Booked' && sp.attendantsCount ? sp.attendantsCount : (sp.status === 'Booked' ? sp.capacity : 0) }} / {{ sp.capacity }}
+                      {{ sp.status === 'Booked' ? (sp.attendantsCount || 0) : 0 }} / {{ sp.capacity }}
                     </span>
                     <span *ngIf="sp.isOverCapacity" class="mini-overcap-badge" title="Over-capacity attendants!">OVER</span>
                   </td>

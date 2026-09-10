@@ -2828,15 +2828,35 @@ export class Manage implements OnInit {
   }
 
   changeStatus(item: any, status: string) {
-    if (!status) return;
-    const id = item.bookingId ?? item.bookingPublicId ?? item.idGuid ?? item.id;
-    const bookingStatusMap: Record<string, number> = { 'Pending': 1, 'Confirmed': 2, 'Cancelled': 3, 'Completed': 4, 'NoShow': 5 };
+    if (!status || !item) return;
+    const id = item.id ?? item.Id ?? item.bookingId ?? item.BookingId ?? item.bookingPublicId ?? item.idGuid;
+    if (!id) {
+      alert('Unable to update status: Missing booking ID.');
+      return;
+    }
+    const bookingStatusMap: Record<string, number> = { 'Confirmed': 1, 'Pending': 2, 'Cancelled': 3, 'Completed': 4, 'NoShow': 5, 'No Show': 5 };
     const paymentStatusMap: Record<string, number> = { 'Pending': 1, 'Paid': 2, 'Failed': 3, 'Refunded': 4, 'Cancelled': 5 };
     const contactStatusMap: Record<string, number> = { 'New': 1, 'InProgress': 2, 'Resolved': 3, 'Closed': 4 };
     const membershipStatusMap: Record<string, number> = { 'Active': 1, 'Inactive': 2, 'Suspended': 3, 'Expired': 4 };
     const allMaps = [bookingStatusMap, paymentStatusMap, contactStatusMap, membershipStatusMap];
     const statusId = allMaps.reduce((found, map) => found ?? map[status], undefined as number | undefined) ?? 1;
-    this.config.statusFn!(id, statusId).subscribe({ next: () => this.load() });
+
+    if (this.config.statusFn) {
+      this.config.statusFn(id, statusId).subscribe({
+        next: () => {
+          if (item) {
+            item.bookingStatusLabel = status;
+            item.bookingStatus = status;
+            item.status = status;
+            item.Status = status;
+          }
+          this.load();
+        },
+        error: (err: any) => {
+          alert('Failed to update status: ' + (err?.error?.message || err?.message || 'Server error'));
+        }
+      });
+    }
   }
 
   toggleActive(item: any) {
@@ -3841,7 +3861,7 @@ export class Manage implements OnInit {
     obs.subscribe({
       next: (res: any) => {
         this.quotationFormSaving.set(false);
-        // Keep form open for prefill post-save
+        this.showQuotationForm = false; // Close quotation form modal on save & quoted
         this.quotationSuccessMessage = this.isCreatingNewVersion ? "Version saved successfully!" : "Quotation saved successfully!";
         setTimeout(() => this.success = '', 3000);
         this.load();
@@ -4742,9 +4762,17 @@ export class Manage implements OnInit {
   }
 
   openInvoiceDetails(invoice: any) {
-    this.admin.getInvoiceDetails(invoice.id).subscribe({
+    if (!invoice) return;
+    const invId = invoice.id ?? invoice.Id ?? invoice.invoiceId ?? invoice.InvoiceId;
+    if (!invId) {
+      this.selectedInvoiceDetails.set(invoice);
+      this.showInvoiceDetailsModal = true;
+      return;
+    }
+    this.admin.getInvoiceDetails(invId).subscribe({
       next: (res: any) => {
-        this.selectedInvoiceDetails.set(res?.data ?? res);
+        const data = res?.data ?? res;
+        this.selectedInvoiceDetails.set({ ...invoice, ...data });
         this.showInvoiceDetailsModal = true;
       },
       error: () => {
@@ -5148,15 +5176,36 @@ export class Manage implements OnInit {
   }
 
   executeConversion(q: any) {
-    if (!q || !q.id) return;
+    if (!q || (!q.id && !q.Id)) return;
+    const qId = q.id || q.Id;
     this.conversionSubmitting.set(true);
-    this.quotationSvc.convertToBooking(q.id).subscribe({
+    this.quotationSvc.convertToBooking(qId).subscribe({
       next: (res: any) => {
         this.conversionSubmitting.set(false);
         this.closeConversionPreviewModal();
         this.success = 'Quotation successfully converted to booking!';
         setTimeout(() => this.success = '', 4000);
+        
+        // 1. Switch view to bookings page
+        this.entity = 'bookings';
         this.load();
+
+        // 2. Open invoice preview in bookings page
+        const bookingData = res?.data ?? res ?? {};
+        const bId = bookingData.bookingId || bookingData.BookingId || bookingData.id || bookingData.Id || q.bookingId || q.id;
+        const bookingItem = {
+          id: bId,
+          bookingId: bId,
+          customerEmail: q.customerEmail || q.userEmail || bookingData.customerEmail,
+          customerName: q.customerName || q.userName || bookingData.customerName,
+          spaceName: q.spaceName || q.spaceCode || bookingData.spaceName || 'Workspace',
+          totalAmount: q.totalAmount || q.totalContractAmount || bookingData.totalAmount || 0,
+          ...bookingData
+        };
+
+        setTimeout(() => {
+          this.sendInitialInvoice(bookingItem);
+        }, 400);
       },
       error: (err: any) => {
         this.conversionSubmitting.set(false);

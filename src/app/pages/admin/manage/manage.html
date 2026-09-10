@@ -2573,26 +2573,26 @@
           Payment Breakdown
         </div>
         <div style="padding:0 16px">
-          @for (line of (inv.items || inv.lineItems || inv.details || []); track line.id || $index) {
+          @for (line of (inv.items || inv.lineItems || inv.LineItems || inv.lines || inv.Lines || inv.details || inv.Details || []); track line.id || $index) {
           <div
             style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
-            <span>{{ line.description || line.chargeTypeLabel || line.feeType || 'Item' }}</span>
-            <strong>PKR {{ (line.amount || line.lineTotal || 0) | number:'1.2-2' }}</strong>
+            <span>{{ line.description || line.Description || line.chargeTypeLabel || line.feeType || 'Item' }}</span>
+            <strong>PKR {{ (line.amount || line.Amount || line.unitPrice || line.lineTotal || 0) | number:'1.2-2' }}</strong>
           </div>
           }
           <div
             style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
             <span>Total Amount</span>
-            <span>PKR {{ (inv.totalAmount || inv.total || 0) | number:'1.2-2' }}</span>
+            <span>PKR {{ (inv.totalAmount ?? inv.TotalAmount ?? inv.total ?? inv.Total ?? 0) | number:'1.2-2' }}</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#166534">
             <span>Amount Paid</span>
-            <span>PKR {{ (inv.paidAmount || 0) | number:'1.2-2' }}</span>
+            <span>PKR {{ (inv.paidAmount ?? inv.PaidAmount ?? 0) | number:'1.2-2' }}</span>
           </div>
           <div
             style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
             <span>Balance Due</span>
-            <span>PKR {{ (inv.balanceAmount || (inv.totalAmount - inv.paidAmount) || 0) | number:'1.2-2' }}</span>
+            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balance ?? ((inv.totalAmount || inv.TotalAmount || 0) - (inv.paidAmount || inv.PaidAmount || 0))) | number:'1.2-2' }}</span>
           </div>
         </div>
       </div>
@@ -3390,14 +3390,14 @@
               </td>
               <td>
                 <select class="form-input-admin" [(ngModel)]="line.taxRate" style="padding:6px 8px;font-size:.82rem">
-                  <option [value]="0.016">1.6% (16% PST on 10% Support)</option>
-                  <option [value]="0">0% (Exempt)</option>
-                  <option [value]="0.16">16% (Full PST)</option>
-                  <option [value]="0.15">15% (VAT)</option>
+                  <option [ngValue]="0.016">1.6% (16% PST on 10% Support)</option>
+                  <option [ngValue]="0">0% (Exempt)</option>
+                  <option [ngValue]="0.16">16% (Full PST)</option>
+                  <option [ngValue]="0.15">15% (VAT)</option>
                 </select>
               </td>
               <td style="text-align:right;font-weight:600;color:#0f172a">
-                PKR {{ (((line.quantity || 1) * (line.unitPrice || 0)) * (1 + (line.taxRate || 0))) | number:'1.2-2' }}
+                PKR {{ (((line.quantity || 1) * (line.unitPrice || 0)) * (1 + (+line.taxRate || 0))) | number:'1.2-2' }}
               </td>
               <td style="text-align:center">
                 @if (customInvoiceLines.length > 1) {

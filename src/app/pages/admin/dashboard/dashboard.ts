@@ -162,7 +162,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   occupiedPrivateCapacity = computed(() => {
     return this.privateSpacesList().reduce((acc, s) => {
       if (s.status === 'Booked') {
-        return acc + (s.attendantsCount || s.capacity || 1);
+        return acc + (s.attendantsCount || 0);
       }
       return acc;
     }, 0);
@@ -514,14 +514,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           bCompName = custCompName || finalBookingCompany || null;
 
           // Attendant capacity parsing
-          rawAttendantsCount = activeBooking.attendantsCount || activeBooking.occupantsCount || activeBooking.assignedAttendantsCount || (activeBooking.attendants ? activeBooking.attendants.length : 0);
-          if (!rawAttendantsCount) {
-            if (s.isOverCapacity || (idx % 7 === 1 && sCap >= 4)) {
-              rawAttendantsCount = sCap + 2; // Over capacity attendants
-            } else {
-              rawAttendantsCount = sCap;
-            }
-          }
+          rawAttendantsCount = activeBooking.attendantsCount ?? activeBooking.occupantsCount ?? activeBooking.assignedAttendantsCount ?? (activeBooking.attendants ? activeBooking.attendants.length : 0);
         } else if (activeQuotation) {
           spaceStatus = 'Quoted';
           qId = activeQuotation.id || activeQuotation.Id;
@@ -881,7 +874,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       const item = typeGroupMap.get(typeName)!;
       item.capacity += (s.capacity || 0);
       if (s.status === 'Booked') {
-        item.occupants += (s.attendantsCount || s.capacity || 1);
+        item.occupants += (s.attendantsCount || 0);
         if (s.isOverCapacity) {
           item.overCapacity += (s.excessAttendants || 0);
         }
@@ -969,7 +962,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       const cur = locMap.get(loc)!;
       cur.capacity += (s.capacity || 0);
       if (s.status === 'Booked') {
-        cur.occupied += (s.attendantsCount || s.capacity || 1);
+        cur.occupied += (s.attendantsCount || 0);
       }
     });
 
