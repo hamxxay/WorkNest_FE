@@ -154,7 +154,8 @@
               <span class="role-tag">{{ r }}</span>
               }
               } @else if (col.type === 'role') {
-              <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key]) }}</span>
+              <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
+                }}</span>
               } @else {
               {{ getCellValue(item, col) }}
               }
@@ -231,13 +232,13 @@
               }
               }
               @if (entity === 'users') {
-              <button class="action-btn info" (click)="openUserFromUsers(item)" title="User Details">
+              <!-- <button class="action-btn info" (click)="openUserFromUsers(item)" title="User Details">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21a8 8 0 1 0-16 0" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
-              </button>
+              </button> -->
               }
               @if (entity === 'invoices') {
               <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View Invoice Details"
@@ -535,7 +536,8 @@
             placeholder="11 digits (e.g. 03160577702)" maxlength="11" (input)="onPhoneInput($event, field.key)"
             style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702). Country code will be joined automatically.</small>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702).
+          Country code will be joined automatically.</small>
         } @else if (field.type === 'price-with-unit') {
         <div class="price-split-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
           <div style="flex:1;min-width:180px">
@@ -2246,7 +2248,8 @@
             placeholder="11 digits (e.g. 03160577702)" maxlength="11" (input)="onQuickPhoneInput($event)"
             style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702). Country code will be joined automatically.</small>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702).
+          Country code will be joined automatically.</small>
       </div>
       <div class="form-group-admin">
         <label>Address Line 1 <span style="color:#ef4444;font-weight:bold">*</span></label>
@@ -2573,11 +2576,13 @@
           Payment Breakdown
         </div>
         <div style="padding:0 16px">
-          @for (line of (inv.items || inv.lineItems || inv.LineItems || inv.lines || inv.Lines || inv.details || inv.Details || []); track line.id || $index) {
+          @for (line of (inv.items || inv.lineItems || inv.LineItems || inv.lines || inv.Lines || inv.details ||
+          inv.Details || []); track line.id || $index) {
           <div
             style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
             <span>{{ line.description || line.Description || line.chargeTypeLabel || line.feeType || 'Item' }}</span>
-            <strong>PKR {{ (line.amount || line.Amount || line.unitPrice || line.lineTotal || 0) | number:'1.2-2' }}</strong>
+            <strong>PKR {{ (line.amount || line.Amount || line.unitPrice || line.lineTotal || 0) | number:'1.2-2'
+              }}</strong>
           </div>
           }
           <div
@@ -2592,7 +2597,8 @@
           <div
             style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
             <span>Balance Due</span>
-            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balance ?? ((inv.totalAmount || inv.TotalAmount || 0) - (inv.paidAmount || inv.PaidAmount || 0))) | number:'1.2-2' }}</span>
+            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balance ?? ((inv.totalAmount || inv.TotalAmount
+              || 0) - (inv.paidAmount || inv.PaidAmount || 0))) | number:'1.2-2' }}</span>
           </div>
         </div>
       </div>
@@ -3022,28 +3028,34 @@
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Customer Info</div>
-          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || q.CustomerName || 'Customer' }}</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || q.CustomerName || 'Customer'
+            }}</div>
           <div style="font-size:0.82rem;color:#64748b">{{ q.customerEmail || q.CustomerEmail || '-' }}</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Workspace & Location</div>
-          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || q.SpaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || q.SpaceTypeName || 'Office' }} • {{ q.locationName || q.LocationName || 'Main Location' }}</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || q.SpaceName || 'Workspace' }}
+          </div>
+          <div style="font-size:0.82rem;color:#64748b">{{ q.spaceTypeName || q.SpaceTypeName || 'Office' }} • {{
+            q.locationName || q.LocationName || 'Main Location' }}</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Contract Dates</div>
           <div style="font-size:0.88rem;font-weight:700;color:#0f172a">
-            {{ (q.startDateTime || q.StartDateTime || q.startDate || q.StartDate || q.startOn) | date:'MMM d, y' }} – {{ (q.endDateTime || q.EndDateTime || q.endDate || q.EndDate || q.endOn) | date:'MMM d, y' }}
+            {{ (q.startDateTime || q.StartDateTime || q.startDate || q.StartDate || q.startOn) | date:'MMM d, y' }} – {{
+            (q.endDateTime || q.EndDateTime || q.endDate || q.EndDate || q.endOn) | date:'MMM d, y' }}
           </div>
-          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths || q.ContractPeriodMonths || q.months || 12 }} Month(s)</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths ||
+            q.ContractPeriodMonths || q.months || 12 }} Month(s)</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">User will be billed</div>
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">User
+            will be billed</div>
           <div style="font-size:0.95rem;font-weight:700;color:#0284c7">
             Every {{ q.billingPeriodMonths || q.BillingPeriodMonths || 3 }} Month(s) Advance
           </div>
@@ -3084,7 +3096,8 @@
           <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
             <td style="padding:10px 14px">
               <strong style="color:#15803d">Service Charge (10%) & Province Tax (16%)</strong>
-              <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines & challan</div>
+              <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines
+                & challan</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
               + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
@@ -3106,7 +3119,8 @@
           <tr style="background:#f8fafc;font-size:0.95rem;border-top:1px solid #cbd5e1">
             <td style="padding:10px 14px;font-weight:700;color:#475569">Total Booking Contract Value</td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              PKR {{ (getQuotationTotalContract(q) + getQuotationContractTaxAmount(q) + getQuotationSecurityDeposit(q) - (q.discountAmount || q.DiscountAmount || 0)) | number:'1.2-2' }}
+              PKR {{ (getQuotationTotalContract(q) + getQuotationContractTaxAmount(q) + getQuotationSecurityDeposit(q) -
+              (q.discountAmount || q.DiscountAmount || 0)) | number:'1.2-2' }}
             </td>
           </tr>
           <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
@@ -3150,11 +3164,13 @@
     style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(90vh,850px)">
 
     <!-- Modal Header -->
-    <div style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
       <div>
         <div style="display:flex;align-items:center;gap:10px">
           <h3 style="margin:0;font-size:1.15rem;font-weight:700">Preview Initial Payment Invoice</h3>
-          <span style="background:#2563eb;color:#fff;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
+          <span
+            style="background:#2563eb;color:#fff;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
             Booking #{{ item.bookingId || item.BookingId || item.id || item.Id }}
           </span>
         </div>
@@ -3167,9 +3183,11 @@
     </div>
 
     <!-- Alert Info Banner -->
-    <div style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
+    <div
+      style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
       <div style="font-size:0.82rem;color:#1e40af">
-        Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>, <strong>Security Deposit</strong>, and <strong>Bank Payment Procedure</strong> directly to the customer.
+        Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>, <strong>Security Deposit</strong>,
+        and <strong>Bank Payment Procedure</strong> directly to the customer.
       </div>
     </div>
 
@@ -3181,15 +3199,19 @@
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Customer Information</div>
-          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.customerName || item.userName || item.name || 'Customer' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ item.customerEmail || item.userEmail || item.email || '-' }}</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.customerName || item.userName ||
+            item.name || 'Customer' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ item.customerEmail || item.userEmail || item.email || '-' }}
+          </div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Workspace & Location</div>
-          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.spaceName || item.SpaceName || 'Workspace' }}</div>
-          <div style="font-size:0.82rem;color:#64748b">{{ item.spaceTypeName || item.SpaceTypeName || 'Office' }} • {{ item.locationName || item.LocationName || 'Main Location' }}</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.spaceName || item.SpaceName ||
+            'Workspace' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ item.spaceTypeName || item.SpaceTypeName || 'Office' }} • {{
+            item.locationName || item.LocationName || 'Main Location' }}</div>
         </div>
       </div>
 
@@ -3267,7 +3289,8 @@
 
       <!-- Bank Deposit Payment Procedure Section -->
       <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:14px;margin-bottom:10px">
-        <div style="font-size:0.82rem;font-weight:700;color:#0f172a;margin-bottom:6px">Payment Procedure & Bank Deposit Details</div>
+        <div style="font-size:0.82rem;font-weight:700;color:#0f172a;margin-bottom:6px">Payment Procedure & Bank Deposit
+          Details</div>
         <div style="font-size:0.8rem;color:#334155;line-height:1.6">
           1. Please deposit this payment in the following bank account:<br />
           &nbsp;&nbsp;&nbsp;&nbsp;<strong>Bank Name:</strong> Bank Of Punjab<br />
@@ -3280,7 +3303,8 @@
     </div>
 
     <!-- Modal Footer Actions -->
-    <div style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+    <div
+      style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <button class="btn-admin btn-outline-admin" (click)="showInitialInvoicePreviewModal = false"
         [disabled]="sendingInitialInvoiceId() !== null">
         Cancel
