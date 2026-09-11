@@ -2358,7 +2358,7 @@ export class Manage implements OnInit {
         return st || 'Confirmed';
       }
       if (col.key === 'challanNumber') {
-        return item.challanNumber || item.ChallanNumber || item.challanNo || item.ChallanNo || item.code || '-';
+        return this.formatChallanDisplay(item);
       }
       if (col.key === 'totalAmount') {
         const directVal = item.totalAmount ?? item.TotalAmount ?? item.rentAmount ?? item.RentAmount ?? item.amount ?? item.Amount;
@@ -2470,7 +2470,7 @@ export class Manage implements OnInit {
         return item.paymentMethod || item.PaymentMethod || item.paymentMethodLabel || 'Bank Transfer';
       }
       if (col.key === 'challanNumber') {
-        return item.challanNumber || item.ChallanNumber || item.transactionRef || item.TransactionRef || '-';
+        return this.formatChallanDisplay(item);
       }
       if (col.key === 'paymentStatus') {
         return item.paymentStatus || item.PaymentStatus || (item.statusId === 2 ? 'Paid' : 'Pending');
@@ -2508,6 +2508,36 @@ export class Manage implements OnInit {
     }
 
     return item[col.key] ?? '';
+  }
+
+  formatChallanDisplay(c: any): string {
+    if (!c) return '-';
+    const val = c.challanNumber
+      || c.ChallanNumber
+      || c.challan_number
+      || c.Challan_Number
+      || c.challanNo
+      || c.ChallanNo
+      || c.challanCode
+      || c.ChallanCode
+      || c.code
+      || c.Code;
+
+    if (val && String(val).trim() !== '' && String(val).trim() !== '-') return String(val).trim();
+
+    const bId = c.bookingId ?? c.BookingId ?? c.id ?? c.Id;
+    if (!bId) return '-';
+
+    let dateObj = new Date();
+    const dStr = c.createdOn || c.createdAt || c.bookedOn || c.startOn || c.startDateTime || c.BookedOn || c.CreatedOn || c.StartOn || c.StartDateTime;
+    if (dStr) {
+      const parsed = new Date(dStr);
+      if (!isNaN(parsed.getTime())) dateObj = parsed;
+    }
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    return `WN-${yyyy}${mm}${dd}-${String(bId).padStart(6, '0')}`;
   }
 
 
