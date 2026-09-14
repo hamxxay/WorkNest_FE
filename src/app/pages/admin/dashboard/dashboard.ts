@@ -48,6 +48,12 @@ export interface SpaceTypeBreakdown {
   available: number;
   quoted: number;
   booked: number;
+  totalCapacity: number;
+  filledCapacity: number;
+  emptyCapacity: number;
+  bookedCapacity: number;
+  quotedCapacity: number;
+  occupancyPercentage: number;
 }
 
 export interface ExpiringBookingItem {
@@ -219,14 +225,29 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     // Process Space Type breakdown
     const breakdownsData = data.spaceTypeBreakdowns || data.spaceTypes || (Array.isArray(data) ? data[1] : []);
     if (Array.isArray(breakdownsData)) {
-      const breakdowns: SpaceTypeBreakdown[] = breakdownsData.map((b: any) => ({
-        spaceTypeId: Number(b.spaceTypeId || b.SpaceTypeId || 0),
-        spaceTypeName: String(b.spaceTypeName || b.SpaceTypeName || 'Other'),
-        total: Number(b.total || b.Total || 0),
-        available: Number(b.available || b.Available || 0),
-        quoted: Number(b.quoted || b.Quoted || 0),
-        booked: Number(b.booked || b.Booked || 0)
-      }));
+      const breakdowns: SpaceTypeBreakdown[] = breakdownsData.map((b: any) => {
+        const totCap = Number(b.totalCapacity || b.TotalCapacity || 0);
+        const fillCap = Number(b.filledCapacity || b.FilledCapacity || 0);
+        const empCap = Number(b.emptyCapacity || b.EmptyCapacity || Math.max(0, totCap - fillCap));
+        const bkdCap = Number(b.bookedCapacity || b.BookedCapacity || 0);
+        const qtdCap = Number(b.quotedCapacity || b.QuotedCapacity || 0);
+        const occPct = totCap > 0 ? Math.round((fillCap / totCap) * 100) : Number(b.occupancyPercentage || b.OccupancyPercentage || 0);
+
+        return {
+          spaceTypeId: Number(b.spaceTypeId || b.SpaceTypeId || 0),
+          spaceTypeName: String(b.spaceTypeName || b.SpaceTypeName || 'Other'),
+          total: Number(b.total || b.Total || 0),
+          available: Number(b.available || b.Available || 0),
+          quoted: Number(b.quoted || b.Quoted || 0),
+          booked: Number(b.booked || b.Booked || 0),
+          totalCapacity: totCap,
+          filledCapacity: fillCap,
+          emptyCapacity: empCap,
+          bookedCapacity: bkdCap,
+          quotedCapacity: qtdCap,
+          occupancyPercentage: occPct
+        };
+      });
       this.spaceTypeBreakdowns.set(breakdowns);
       this.spaceTypeOptions.set(breakdowns.map(b => b.spaceTypeName));
     }
@@ -597,27 +618,77 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       });
 
       // Compute Space Type Breakdown
-      const breakdownMap = new Map<string, { id: number; name: string; total: number; available: number; quoted: number; booked: number }>();
+      const breakdownMap = new Map<string, {
+        id: number;
+        name: string;
+        total: number;
+        available: number;
+        quoted: number;
+        booked: number;
+        totalCapacity: number;
+        filledCapacity: number;
+        emptyCapacity: number;
+        bookedCapacity: number;
+        quotedCapacity: number;
+      }>();
+
       processedSpaces.forEach(s => {
         const typeName = s.spaceTypeName || 'Other';
         if (!breakdownMap.has(typeName)) {
-          breakdownMap.set(typeName, { id: s.spaceTypeId, name: typeName, total: 0, available: 0, quoted: 0, booked: 0 });
+          breakdownMap.set(typeName, {
+            id: s.spaceTypeId,
+            name: typeName,
+            total: 0,
+            available: 0,
+            quoted: 0,
+            booked: 0,
+            totalCapacity: 0,
+            filledCapacity: 0,
+            emptyCapacity: 0,
+            bookedCapacity: 0,
+            quotedCapacity: 0
+          });
         }
         const b = breakdownMap.get(typeName)!;
+        const cap = s.capacity || 0;
         b.total++;
-        if (s.status === 'Available') b.available++;
-        else if (s.status === 'Quoted') b.quoted++;
-        else if (s.status === 'Booked') b.booked++;
+        b.totalCapacity += cap;
+
+        if (s.status === 'Available') {
+          b.available++;
+          b.emptyCapacity += cap;
+        } else if (s.status === 'Quoted') {
+          b.quoted++;
+          b.quotedCapacity += cap;
+          b.emptyCapacity += cap;
+        } else if (s.status === 'Booked') {
+          b.booked++;
+          b.bookedCapacity += cap;
+          const occupiedSeats = (s.attendantsCount && s.attendantsCount > 0) ? s.attendantsCount : cap;
+          b.filledCapacity += occupiedSeats;
+          if (cap > occupiedSeats) {
+            b.emptyCapacity += (cap - occupiedSeats);
+          }
+        }
       });
 
-      const typeBreakdowns: SpaceTypeBreakdown[] = Array.from(breakdownMap.values()).map(b => ({
-        spaceTypeId: b.id,
-        spaceTypeName: b.name,
-        total: b.total,
-        available: b.available,
-        quoted: b.quoted,
-        booked: b.booked
-      }));
+      const typeBreakdowns: SpaceTypeBreakdown[] = Array.from(breakdownMap.values()).map(b => {
+        const occPct = b.totalCapacity > 0 ? Math.round((b.filledCapacity / b.totalCapacity) * 100) : 0;
+        return {
+          spaceTypeId: b.id,
+          spaceTypeName: b.name,
+          total: b.total,
+          available: b.available,
+          quoted: b.quoted,
+          booked: b.booked,
+          totalCapacity: b.totalCapacity,
+          filledCapacity: b.filledCapacity,
+          emptyCapacity: b.emptyCapacity,
+          bookedCapacity: b.bookedCapacity,
+          quotedCapacity: b.quotedCapacity,
+          occupancyPercentage: occPct
+        };
+      });
       this.spaceTypeBreakdowns.set(typeBreakdowns);
 
       // Expiring Bookings List
