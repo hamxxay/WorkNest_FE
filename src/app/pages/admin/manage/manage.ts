@@ -198,8 +198,9 @@ export class Manage implements OnInit {
     if (this.isAdminMeetingRoom) return this.bookingDiscountAmount;
     const contractM = Math.max(1, Number(this.adminMonths || 12));
     const billingM = Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
+    const pct = Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0);
     if (this.bookingDiscountType === 'Percentage') {
-      return parseFloat(((this.bookingBillingAmount * Number(this.bookingDiscountPercentage || 0)) / 100).toFixed(2));
+      return parseFloat(((this.bookingBillingAmount * Math.min(100, Math.max(0, pct))) / 100).toFixed(2));
     }
     if (this.bookingDiscountAmount > this.bookingBillingAmount && contractM > billingM) {
       return parseFloat(((this.bookingDiscountAmount * billingM) / contractM).toFixed(2));
@@ -376,8 +377,9 @@ export class Manage implements OnInit {
     if (this.isQuotationMeetingRoom) return this.quotationDiscountAmount;
     const contractM = Math.max(1, Number(this.quotationMonths || 12));
     const billingM = Math.max(1, Number(this.quotationBillingPeriodMonths || 3));
+    const pct = Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0);
     if (this.quotationDiscountType === 'Percentage') {
-      return parseFloat(((this.quotationBillingAmount * Number(this.quotationDiscountPercentage || 0)) / 100).toFixed(2));
+      return parseFloat(((this.quotationBillingAmount * Math.min(100, Math.max(0, pct))) / 100).toFixed(2));
     }
     if (this.quotationDiscountAmount > this.quotationBillingAmount && contractM > billingM) {
       return parseFloat(((this.quotationDiscountAmount * billingM) / contractM).toFixed(2));
@@ -3897,6 +3899,13 @@ export class Manage implements OnInit {
       this.quotationSecurityDeposit = roomMonthlyRent;
     }
 
+    const discVal = Number(this.quotationDiscountValue || 0);
+    if (this.quotationDiscountType === 'Percentage') {
+      this.quotationDiscountPercentage = Math.min(100, Math.max(0, discVal));
+    } else {
+      this.quotationDiscountPercentage = 0;
+    }
+
     this.quotationTotal = this.quotationFirstInvoiceTotal;
   }
 
@@ -4540,7 +4549,7 @@ export class Manage implements OnInit {
     notes: ''
   };
   customInvoiceLines: Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> = [
-    { description: 'Workspace Rent / Custom Fee', quantity: 1, unitPrice: 50000, discountAmount: 0, taxRate: 0.016 }
+    { description: 'Workspace Rent / Custom Fee', quantity: 1, unitPrice: 0, discountAmount: 0, taxRate: 0.016 }
   ];
 
   // Initial Invoice Preview Modal State
@@ -4588,7 +4597,7 @@ export class Manage implements OnInit {
   buildCustomInvoiceLinesFromItem(item: any, isNextInvoice: boolean = false, selectedMonths?: number): Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> {
     if (!item) {
       const m = selectedMonths || this.customInvoiceSelectedMonths || 1;
-      const rate = this.customInvoiceMonthlyRate || 50000;
+      const rate = this.customInvoiceMonthlyRate || 0;
       return [{ description: `Workspace Rent / Custom Fee (${m} Month(s))`, quantity: 1, unitPrice: rate * m, discountAmount: 0, taxRate: 0.016 }];
     }
 
@@ -4609,7 +4618,7 @@ export class Manage implements OnInit {
           monthlyRate = cycleAmount / (item?.billingPeriodMonths || 3);
         }
       }
-      if (monthlyRate <= 0) monthlyRate = 175000;
+      if (monthlyRate < 0) monthlyRate = 0;
     }
 
     const calculatedRent = monthlyRate * cycleMonths;
@@ -4695,47 +4704,63 @@ export class Manage implements OnInit {
     if (!configuredMonths || configuredMonths <= 0) configuredMonths = 3;
     this.customInvoiceSelectedMonths = configuredMonths;
 
-    let monthlyRate = item?.monthlyRent || item?.MonthlyRent || item?.pricePerMonth || item?.monthlyRate || item?.rentPerMonth || item?.roomPrice || item?.seatPrice || 0;
+    const extractRateFromItem = (obj: any, months: number): number => {
+      if (!obj) return 0;
+      let rate = obj?.monthlyRent || obj?.MonthlyRent || obj?.pricePerMonth || obj?.monthlyRate || obj?.rentPerMonth || obj?.roomPrice || obj?.seatPrice || 0;
 
-    if (monthlyRate <= 0) {
-      const details = item?.lines || item?.Lines || item?.bookingDetails || item?.items || item?.details || [];
-      const rentLine = details.find((l: any) => {
-        const desc = (l.description || l.feeType || l.chargeTypeLabel || "").toLowerCase();
-        return desc.includes("rent") || desc.includes("room") || desc.includes("office") || desc.includes("workspace");
-      });
-      if (rentLine && (rentLine.unitPrice || rentLine.amount)) {
-        const lineAmt = rentLine.unitPrice || rentLine.amount || 0;
-        monthlyRate = lineAmt > 0 && configuredMonths > 0 ? (lineAmt / configuredMonths) : lineAmt;
+      const lines = obj?.lines || obj?.Lines || obj?.bookingDetails || obj?.items || obj?.details || [];
+      if (rate <= 0 && lines.length > 0) {
+        const rentLine = lines.find((l: any) => {
+          const desc = (l.description || l.feeType || l.chargeTypeLabel || "").toLowerCase();
+          return desc.includes("rent") || desc.includes("room") || desc.includes("office") || desc.includes("workspace");
+        });
+        if (rentLine && (rentLine.unitPrice || rentLine.amount)) {
+          const lineAmt = rentLine.unitPrice || rentLine.amount || 0;
+          rate = lineAmt > 0 && months > 0 ? (lineAmt / months) : lineAmt;
+        } else {
+          const totalLineAmt = lines.reduce((acc: number, l: any) => {
+            const desc = (l.description || l.feeType || "").toLowerCase();
+            if (desc.includes("deposit") || desc.includes("security") || desc.includes("tax")) return acc;
+            return acc + (l.unitPrice || l.amount || 0);
+          }, 0);
+          if (totalLineAmt > 0) rate = months > 0 ? (totalLineAmt / months) : totalLineAmt;
+        }
       }
-    }
 
-    if (monthlyRate <= 0) {
-      const cycleAmount = item?.billingRentAmount ?? item?.currentCycleAmount ?? item?.advanceRent ?? 0;
-      if (cycleAmount > 0 && configuredMonths > 0) {
-        monthlyRate = cycleAmount / configuredMonths;
+      if (rate <= 0) {
+        const cycleAmount = obj?.billingRentAmount ?? obj?.currentCycleAmount ?? obj?.advanceRent ?? 0;
+        if (cycleAmount > 0 && months > 0) {
+          rate = cycleAmount / months;
+        }
       }
-    }
 
-    if (monthlyRate <= 0) {
-      const totalContract = item?.totalContractAmount ?? item?.TotalContractAmount ?? item?.totalAmount ?? item?.subTotal ?? item?.subtotalAmount ?? 0;
-      const contractM = item?.durationMonths || item?.contractMonths || item?.months || 0;
-      if (totalContract > 0 && contractM > 0) {
-        monthlyRate = totalContract / contractM;
+      if (rate <= 0) {
+        const totalAmt = obj?.totalContractAmount ?? obj?.TotalContractAmount ?? obj?.subTotal ?? obj?.SubTotal ?? obj?.grandTotal ?? obj?.GrandTotal ?? obj?.totalAmount ?? 0;
+        const durMonths = obj?.durationMonths || obj?.contractMonths || obj?.months || 0;
+        if (totalAmt > 0 && durMonths > 0) {
+          rate = totalAmt / durMonths;
+        } else if (totalAmt > 0 && months > 0) {
+          rate = totalAmt / months;
+        } else if (totalAmt > 0) {
+          rate = totalAmt;
+        }
       }
-    }
 
-    if (monthlyRate <= 0) {
-      monthlyRate = 175000;
-    }
-    this.customInvoiceMonthlyRate = Math.round(monthlyRate * 100) / 100;
+      return Math.max(0, Math.round(rate * 100) / 100);
+    };
 
-    const bookingId = item ? (item.bookingId || item.BookingId || item.id || item.Id || 0) : 0;
+    let monthlyRate = extractRateFromItem(item, configuredMonths);
+    this.customInvoiceMonthlyRate = monthlyRate;
+
+    const isInvoiceItem = !!(item?.invoiceNumber || item?.InvoiceNumber || item?.invoiceTypeId || item?.InvoiceTypeId);
+    const invoiceId = isInvoiceItem ? (item?.id || item?.Id || 0) : 0;
+    const bookingId = item?.bookingId || item?.BookingId || (!isInvoiceItem ? (item?.id || item?.Id || 0) : 0);
     const targetUserId = item ? (item.userId || item.UserId || item.customerId || item.CustomerId || item.user?.id || item.User?.Id || 0) : 0;
     const issueDateStr = item?.issuedOn || item?.IssuedOn || item?.createdDate || item?.CreatedDate || item?.createdOn;
     const dueDateStr = item?.dueOn || item?.DueOn || item?.dueDate || item?.DueDate;
 
     this.customInvoiceFormData = {
-      bookingId: bookingId,
+      bookingId: bookingId || 0,
       userId: targetUserId,
       issuedOn: issueDateStr ? new Date(issueDateStr).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10),
       dueOn: dueDateStr ? new Date(dueDateStr).toISOString().substring(0, 10) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
@@ -4745,31 +4770,53 @@ export class Manage implements OnInit {
 
     this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(item, isNextInvoice, configuredMonths);
 
-    if (bookingId > 0) {
-      this.admin.getBookingBillingSummary(bookingId).subscribe({
-        next: (summaryRes: any) => {
-          const dbData = summaryRes?.data || summaryRes;
-          if (dbData) {
-            const dbMonthlyRent = dbData.monthlyRent || dbData.MonthlyRent || dbData.roomPrice || dbData.seatPrice || 0;
-            const dbBillingMonths = dbData.billingPeriodMonths || dbData.BillingPeriodMonths || dbData.advanceMonths || 0;
+    const updateModalData = (dataObj: any) => {
+      if (!dataObj) return;
+      const rate = extractRateFromItem(dataObj, this.customInvoiceSelectedMonths);
+      if (rate > 0) {
+        this.customInvoiceMonthlyRate = rate;
+      }
+      const dbBillingMonths = dataObj.billingPeriodMonths || dataObj.BillingPeriodMonths || dataObj.advanceMonths || 0;
+      if (dbBillingMonths > 0) {
+        this.customInvoiceSelectedMonths = dbBillingMonths;
+      }
+      const mergedItem = { ...this.customInvoiceCurrentItem, ...dataObj };
+      if (!mergedItem.spaceName && dataObj.SpaceName) mergedItem.spaceName = dataObj.SpaceName;
+      this.customInvoiceCurrentItem = mergedItem;
+      this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(
+        mergedItem,
+        isNextInvoice,
+        this.customInvoiceSelectedMonths
+      );
+    };
 
-            if (dbMonthlyRent > 0) {
-              this.customInvoiceMonthlyRate = Math.round(dbMonthlyRent * 100) / 100;
-            }
-            if (dbBillingMonths > 0) {
-              this.customInvoiceSelectedMonths = dbBillingMonths;
-            }
-
-            const mergedItem = { ...item, ...dbData };
-            this.customInvoiceCurrentItem = mergedItem;
-
-            this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(
-              mergedItem,
-              isNextInvoice,
-              this.customInvoiceSelectedMonths
-            );
+    if (invoiceId > 0) {
+      this.admin.getInvoiceDetails(invoiceId).subscribe({
+        next: (invRes: any) => {
+          const invData = invRes?.data || invRes;
+          updateModalData(invData);
+          const realBookingId = invData?.bookingId || invData?.BookingId || 0;
+          if (realBookingId > 0) {
+            this.customInvoiceFormData.bookingId = realBookingId;
+            this.admin.getBookingBillingSummary(realBookingId).subscribe({
+              next: (bRes: any) => updateModalData(bRes?.data || bRes),
+              error: () => {}
+            });
+          }
+        },
+        error: () => {
+          if (bookingId > 0) {
+            this.admin.getBookingBillingSummary(bookingId).subscribe({
+              next: (bRes: any) => updateModalData(bRes?.data || bRes),
+              error: () => {}
+            });
           }
         }
+      });
+    } else if (bookingId > 0) {
+      this.admin.getBookingBillingSummary(bookingId).subscribe({
+        next: (bRes: any) => updateModalData(bRes?.data || bRes),
+        error: () => {}
       });
     }
 
@@ -4801,7 +4848,7 @@ export class Manage implements OnInit {
         selectedMonths
       );
     } else {
-      const rate = this.customInvoiceMonthlyRate || 50000;
+      const rate = this.customInvoiceMonthlyRate || 0;
       if (this.customInvoiceLines && this.customInvoiceLines.length > 0) {
         const firstLine = this.customInvoiceLines[0];
         firstLine.quantity = 1;
