@@ -38,7 +38,7 @@ export class AdminLayout {
     { route: '/admin/space-configuration',  label: 'Space Config',      icon: 'spaceconfig',  superAdminOnly: true },
     { route: '/admin/manage-spaces',        label: 'Manage Spaces',     icon: 'managespaces' },
     { route: '/admin/attendants',        label: 'Attendants & Access', icon: 'users' },
-    { route: '/admin/challan-validity',     label: 'Challan Validity',  icon: 'challan',      superAdminOnly: true },
+    { route: '/admin/challan-validity',     label: 'Challan Validity',  icon: 'challan' },
   ];
 
   constructor() {
@@ -49,7 +49,7 @@ export class AdminLayout {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/quotations', '/admin/invoices', '/admin/bookings', '/admin/attendants'];
+      const allowedRoutes = ['/admin/quotations', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/contacts', '/admin/challan-validity'];
       this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
       if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
         this.router.navigate(['/admin/quotations']);
