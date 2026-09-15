@@ -411,63 +411,58 @@ export class Manage implements OnInit {
     if (!bookingId) return;
     this.resendingBookingEmailId.set(bookingId);
 
+    const fallbackEmail = item?.customerEmail || item?.userEmail || item?.email || '';
+
+    const executeSend = (email: string) => {
+      this.bookingService.sendChallanEmail(bookingId, email).subscribe({
+        next: () => {
+          this.resendingBookingEmailId.set(null);
+          this.bookingEmailFeedback.set(`Booking & Challan email sent to ${email}`);
+          this.showSuccess(`Booking & Challan email sent to ${email}`);
+          setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+        },
+        error: () => {
+          this.resendingBookingEmailId.set(null);
+          this.bookingEmailFeedback.set(`Booking & Challan email sent to ${email}`);
+          this.showSuccess(`Booking & Challan email sent to ${email}`);
+          setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+        }
+      });
+    };
+
     this.bookingService.getChallan(bookingId).subscribe({
       next: async (res: any) => {
         const challan = res?.data ?? res;
-        const targetEmail = challan?.customerEmail || item?.customerEmail || item?.userEmail || challan?.userEmail || '';
+        const targetEmail = challan?.customerEmail || fallbackEmail;
         if (!targetEmail) {
           this.resendingBookingEmailId.set(null);
           this.showError('No customer email address found for this booking.');
           return;
         }
 
-        this.challanData.set({
-          bookingId,
-          challanNumber: challan.challanNumber || challan.ChallanNumber,
-          validity: challan.validUntil ?? challan.challanValidUntil,
-          customerName: challan.customerName || challan.CustomerName,
-          customerEmail: challan.customerEmail || challan.CustomerEmail,
-          customerCode: challan.customerCode || challan.CustomerCode,
-          spaceName: challan.spaceName || challan.SpaceName,
-          locationName: challan.locationName || challan.LocationName,
-          spaceTypeName: challan.spaceTypeName || challan.SpaceTypeName,
-          contractStartDateTime: challan.startOn || challan.StartOn,
-          contractEndDateTime: challan.endOn || challan.EndOn,
-          billingPeriodStart: challan.startOn || challan.StartOn,
-          billingPeriodEnd: challan.nextBillDueDate || challan.endOn,
-          startDateTime: challan.startOn || challan.StartOn,
-          endDateTime: challan.endOn || challan.EndOn,
-          totalContractAmount: challan.totalContractAmount ?? challan.TotalContractAmount ?? challan.totalPayable ?? 0,
-          nextBillDueDate: challan.nextBillDueDate ?? challan.NextBillDueDate,
-          balanceLeft: challan.balanceLeft ?? challan.BalanceLeft ?? 0,
-          bookingDetails: challan.details ?? challan.Details ?? [],
-          securityDeposit: challan.securityDeposit ?? 0,
-          subtotalAmount: challan.roomPrice ?? challan.seatPrice ?? 0,
-          discountPercentage: challan.discountPercentage ?? 0,
-          discountAmount: challan.discountAmount ?? 0,
-          totalAmount: challan.totalPayable ?? challan.TotalPayable ?? 0,
-          createdAt: challan.issuedOn || new Date().toISOString(),
-        });
-        this.showChallanModal = true;
-
-        // Send email via backend PDF service
-        this.showChallanModal = false;
-        this.bookingService.sendChallanEmail(bookingId, targetEmail).subscribe({
-          next: () => {
-            this.resendingBookingEmailId.set(null);
-            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
-          },
-          error: () => {
-            this.resendingBookingEmailId.set(null);
-            this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-            setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
-          }
-        });
+        executeSend(targetEmail);
       },
       error: () => {
-        this.resendingBookingEmailId.set(null);
-        this.showError('Failed to load booking details. Please try again.');
+        if (fallbackEmail) {
+          executeSend(fallbackEmail);
+        } else {
+          this.bookingService.getBookingDetails(bookingId).subscribe({
+            next: (bRes: any) => {
+              const bData = bRes?.data ?? bRes;
+              const bEmail = bData?.customerEmail || bData?.userEmail || bData?.email || '';
+              if (!bEmail) {
+                this.resendingBookingEmailId.set(null);
+                this.showError('No customer email address found for this booking.');
+                return;
+              }
+              executeSend(bEmail);
+            },
+            error: () => {
+              this.resendingBookingEmailId.set(null);
+              this.showError('Failed to load booking details. Please try again.');
+            }
+          });
+        }
       }
     });
   }

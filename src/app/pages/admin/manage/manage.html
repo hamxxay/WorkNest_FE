@@ -259,8 +259,8 @@
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="downloadStatementPdf(item)"
-                title="Download 5-Page Statement &amp; Invoice PDF" style="background:#0f766e;color:#fff;border:none">
+              <button class="action-btn" (click)="downloadStatementPdf(item)" title="Download&amp; Invoice PDF"
+                style="background:#0f766e;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1224,7 +1224,8 @@
       </div>
       <div style="text-align:right">
         <div style="font-size:.68rem;opacity:.75;text-transform:uppercase;letter-spacing:0.5px">Challan Number</div>
-        <div style="font-size:1.05rem;font-weight:700;letter-spacing:1px;color:#38bdf8">{{ formatChallanDisplay(c) }}</div>
+        <div style="font-size:1.05rem;font-weight:700;letter-spacing:1px;color:#38bdf8">{{ formatChallanDisplay(c) }}
+        </div>
       </div>
     </div>
 
@@ -1526,7 +1527,8 @@
     <form (ngSubmit)="submitAdminQuotation(false)">
 
       <p class="form-section-label">Customer</p>
-      <div class="form-group-admin" data-field="customer" [class.has-error]="quotationFormErrorField === 'customer'" style="position:relative">
+      <div class="form-group-admin" data-field="customer" [class.has-error]="quotationFormErrorField === 'customer'"
+        style="position:relative">
         <label>Search Customer *</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="quotationCustomerSearch"
@@ -1577,7 +1579,8 @@
             }
           </select>
         </div>
-        <div class="form-group-admin" data-field="spaceType" [class.has-error]="quotationFormErrorField === 'spaceType'">
+        <div class="form-group-admin" data-field="spaceType"
+          [class.has-error]="quotationFormErrorField === 'spaceType'">
           <label>Space Type *</label>
           <select class="form-input-admin" [(ngModel)]="selectedQuotationSpaceTypeId" name="qSpaceTypeId" required
             (change)="onQuotationSpaceTypeChange()">
@@ -1680,7 +1683,8 @@
       </div>
       } @else {
       <div class="form-row-admin">
-        <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
+        <div class="form-group-admin" data-field="startDate"
+          [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Start Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart"
             [min]="today" required (change)="recalcQuotationAmount()" />
@@ -1694,7 +1698,8 @@
       }
       } @else {
       <div class="form-row-admin">
-        <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
+        <div class="form-group-admin" data-field="startDate"
+          [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" [min]="today"
             required (change)="onQuotationMonthPeriodChange()" />
@@ -1852,7 +1857,8 @@
 
       <p class="form-section-label">Customer</p>
 
-      <div class="form-group-admin" data-field="customer" [class.has-error]="bookingFormErrorField === 'customer'" style="position:relative">
+      <div class="form-group-admin" data-field="customer" [class.has-error]="bookingFormErrorField === 'customer'"
+        style="position:relative">
         <label>Search Customer *</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="customerSearch"
@@ -2557,7 +2563,8 @@
             Space &amp; Location Details
           </div>
           <div style="font-size:.82rem;line-height:1.8">
-            <div><span style="color:#64748b">Space: </span><strong>{{ getCellValue(inv, { key: 'spaceName', label: 'Space' }) }}</strong></div>
+            <div><span style="color:#64748b">Space: </span><strong>{{ getCellValue(inv, { key: 'spaceName', label:
+                'Space' }) }}</strong></div>
             @if (inv.locationName) {
             <div><span style="color:#64748b">Location: </span><strong>{{ inv.locationName }}</strong></div>
             }
@@ -2625,7 +2632,7 @@
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="7 10 12 15 17 10" />
           <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>Download 5-Page Packet</button>
+        </svg>Download</button>
       <button class="btn-admin btn-primary-admin" (click)="openRecordPaymentModal(inv)">Record Payment</button>
     </div>
   </div>
