@@ -5093,6 +5093,16 @@ export class Manage implements OnInit {
     const cap = Number(item.capacity ?? item.Capacity ?? item.spaceCapacity ?? item.SpaceCapacity ?? 1);
     const capacityVal = cap > 0 ? cap : 1;
 
+    // Explicit rule for Shared Spaces
+    const isShared = this.isSharedSpace(item) ||
+      name.includes('shared') || name.includes('coworking') || name.includes('desk') ||
+      spaceType.includes('shared') || spaceType.includes('coworking') || spaceType.includes('desk');
+
+    if (isShared && !name.includes('meeting') && !spaceType.includes('meeting')) {
+      const price = Number(pMonth || item?.seatPrice || item?.SeatPrice || item?.pricePerSeat || item?.PricePerSeat || (pDay > 0 ? pDay : (item?.price ? Number(item.price) : 30000)));
+      return { price, unit: 'Month', display: price > 0 ? `PKR ${price.toLocaleString('en-US')} / Month` : '-' };
+    }
+
     // Explicit rule for Private Rooms / Private Offices / Offices / Room spaces
     const isPrivate = this.isPrivateRoom(item) ||
       name.includes('private') || name.includes('office') || name.includes('room') ||
@@ -5480,7 +5490,7 @@ export class Manage implements OnInit {
   getSpaceType(item: any): string {
     if (!item) return 'MeetingRoom';
     if (item.spaceType) return item.spaceType;
-    const name = String(item.spaceTypeName || item.SpaceTypeName || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
+    const name = String(item.name || item.Name || item.title || item.Title || item.spaceTypeName || item.SpaceTypeName || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
     if (name.includes('meeting') || name.includes('conference')) return 'MeetingRoom';
     if (name.includes('shared') || name.includes('coworking') || name.includes('desk')) return 'SharedSpace';
     if (name.includes('private') || name.includes('office') || name.includes('room')) return 'PrivateRoom';
