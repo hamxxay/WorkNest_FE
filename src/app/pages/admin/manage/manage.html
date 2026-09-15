@@ -533,10 +533,9 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
-            placeholder="11 digits (e.g. 03160577702)" maxlength="11" (input)="onPhoneInput($event, field.key)"
-            style="flex:1" />
+            placeholder=" (e.g. 3001234567)" maxlength="11" (input)="onPhoneInput($event, field.key)" style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702).
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
           Country code will be joined automatically.</small>
         } @else if (field.type === 'price-with-unit') {
         <div class="price-split-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
@@ -2250,10 +2249,9 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.phoneNumber" name="qcPhone"
-            placeholder="11 digits (e.g. 03160577702)" maxlength="11" (input)="onQuickPhoneInput($event)"
-            style="flex:1" />
+            placeholder=" (e.g. 3001234567)" maxlength="11" (input)="onQuickPhoneInput($event)" style="flex:1" />
         </div>
-        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 11 digits (e.g. 03160577702).
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
           Country code will be joined automatically.</small>
       </div>
       <div class="form-group-admin">

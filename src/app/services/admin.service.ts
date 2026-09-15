@@ -183,10 +183,17 @@ export class AdminService {
   }
   
   /** Update booking status (e.g., Confirmed, Cancelled) */
-  updateBookingStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${id}/status`, { statusId }); }
+  updateBookingStatus(id: any, statusId: any): Observable<ApiResponse<any>> {
+    const numStatusId = typeof statusId === 'number' ? statusId : (Number(statusId) || statusId);
+    return this.http.patch<ApiResponse<any>>(`${this.api}/booking/${id}/status`, {
+      statusId: numStatusId,
+      status: statusId,
+      bookingStatus: statusId
+    });
+  }
 
   /** Update booking details */
-  updateBooking(id: number, data: Partial<Booking>): Observable<ApiResponse<any>> { return this.http.put<ApiResponse<any>>(`${this.api}/booking/${id}`, data); }
+  updateBooking(id: any, data: Partial<Booking>): Observable<ApiResponse<any>> { return this.http.put<ApiResponse<any>>(`${this.api}/booking/${id}`, data); }
 
   /** Reassign booking to different space */
   reassignBooking(bookingId: number, newSpaceId: number, newPricingId: number = 0): Observable<ApiResponse<any>> {

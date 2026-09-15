@@ -394,7 +394,7 @@ export class Booking implements OnInit {
       // Check overlap against existing active bookings
       const isBookedInDB = this.existingBookings.some((b: any) => {
         const status = String(b.bookingStatus || b.bookingStatusCode || b.status || '').toLowerCase();
-        if (status === 'cancelled' || status === 'rejected') return false;
+        if (status === 'cancelled' || status === 'rejected' || status === 'expired') return false;
 
         const bStartStr = b.startDateTime || b.startOn || b.startDate;
         const bEndStr   = b.endDateTime   || b.endOn   || b.endDate;
@@ -420,9 +420,16 @@ export class Booking implements OnInit {
           return false;
         }
 
-        // Fallback to space type matching only if no specific room/space is selected
+        // Fallback: only lock if duration is hourly (<= 16 hours) and space type matches meeting rooms
+        const durationHours = (bEnd - bStart) / (1000 * 60 * 60);
+        if (durationHours > 16) return false;
+
+        const bCat = String(b.spaceCategory || b.spaceTypeName || '').toLowerCase();
+        const isMeetingCat = bCat.includes('meeting') || bCat.includes('conference');
         const bSpaceTypeId = Number(b.spaceTypeId ?? 0);
-        if (targetSpaceTypeId > 0 && bSpaceTypeId === targetSpaceTypeId) return true;
+        if (targetSpaceTypeId > 0 && bSpaceTypeId === targetSpaceTypeId && (isMeetingCat || bCat === '')) {
+          return true;
+        }
 
         return false;
       });

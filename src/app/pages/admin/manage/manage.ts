@@ -2613,7 +2613,7 @@ export class Manage implements OnInit {
       return;
     }
     if (!phoneDigits || phoneDigits.length !== 10) {
-      const msg = 'Phone number must contain 11 digits (e.g. 03160577702).';
+      const msg = 'Phone number must contain 10 digits (e.g. 3001234567).';
       this.showError(msg);
       this.quickCustomerError = msg;
       return;
@@ -2650,6 +2650,13 @@ export class Manage implements OnInit {
 
     this.admin.createCustomer(payload).subscribe({
       next: (res: any) => {
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
+          this.quickCustomerSaving.set(false);
+          const msg = res.message || res.errorMessage || res.ErrorMessage || res.error || 'Failed to create customer.';
+          this.showError(msg);
+          this.quickCustomerError = msg;
+          return;
+        }
         this.quickCustomerSaving.set(false);
         this.showQuickCreateCustomer = false;
         const created = res?.data ?? res;
@@ -2833,8 +2840,17 @@ export class Manage implements OnInit {
         this.saving = false;
         return;
       }
+      if (!this.editItem && Array.isArray(this.items)) {
+        const isDuplicate = this.items.some(c => (c.email || c.customerEmail || '').toLowerCase() === em.toLowerCase());
+        if (isDuplicate) {
+          this.error = `A customer with email address '${em}' already exists.`;
+          this.showError(this.error);
+          this.saving = false;
+          return;
+        }
+      }
       if (!phoneDigits || phoneDigits.length !== 10) {
-        this.error = 'Phone number must contain 11 digits (e.g. 03160577702).';
+        this.error = 'Phone number must contain 10 digits (e.g. 3001234567).';
         this.showError(this.error);
         this.saving = false;
         return;
@@ -2918,6 +2934,12 @@ export class Manage implements OnInit {
 
     obs.subscribe({
       next: (res: any) => {
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
+          this.saving = false;
+          this.error = res.message || res.errorMessage || res.ErrorMessage || res.error || 'An error occurred while saving.';
+          this.showError(this.error);
+          return;
+        }
         this.saving = false;
         this.showModal = false;
         this.success = this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.');
@@ -2954,31 +2976,75 @@ export class Manage implements OnInit {
 
   changeStatus(item: any, status: string) {
     if (!status || !item) return;
-    const id = item.id ?? item.Id ?? item.bookingId ?? item.BookingId ?? item.bookingPublicId ?? item.idGuid;
-    if (!id) {
-      this.showError('Unable to update status: Missing booking ID.');
+
+    // Resolve real ID (prioritize bookingId / non-zero values over 0)
+    const rawId = (item.bookingId && item.bookingId !== 0) ? item.bookingId :
+      (item.BookingId && item.BookingId !== 0) ? item.BookingId :
+        (item.id && item.id !== 0 && item.id !== '0' && item.id !== '00000000-0000-0000-0000-000000000000') ? item.id :
+          (item.Id && item.Id !== 0 && item.Id !== '0') ? item.Id :
+            (item.bookingPublicId || item.idGuid || item.idGUID || item.publicId || item.id || item.Id);
+
+    if (!rawId || rawId === 0 || rawId === '0') {
+      this.showError('Unable to update status: Missing or invalid item ID.');
       return;
     }
-    const bookingStatusMap: Record<string, number> = { 'Confirmed': 1, 'Pending': 2, 'Cancelled': 3, 'Completed': 4, 'NoShow': 5, 'No Show': 5 };
-    const paymentStatusMap: Record<string, number> = { 'Pending': 1, 'Paid': 2, 'Failed': 3, 'Refunded': 4, 'Cancelled': 5 };
-    const contactStatusMap: Record<string, number> = { 'New': 1, 'InProgress': 2, 'Resolved': 3, 'Closed': 4 };
-    const membershipStatusMap: Record<string, number> = { 'Active': 1, 'Inactive': 2, 'Suspended': 3, 'Expired': 4 };
-    const allMaps = [bookingStatusMap, paymentStatusMap, contactStatusMap, membershipStatusMap];
-    const statusId = allMaps.reduce((found, map) => found ?? map[status], undefined as number | undefined) ?? 1;
+
+    const bookingStatusMap: Record<string, number> = {
+      'confirmed': 1, '1': 1,
+      'pending': 2, '2': 2,
+      'cancelled': 3, '3': 3,
+      'completed': 4, '4': 4,
+      'noshow': 5, 'no show': 5, '5': 5
+    };
+    const paymentStatusMap: Record<string, number> = {
+      'pending': 1, '1': 1,
+      'paid': 2, '2': 2,
+      'failed': 3, '3': 3,
+      'refunded': 4, '4': 4,
+      'cancelled': 5, '5': 5
+    };
+    const contactStatusMap: Record<string, number> = {
+      'new': 1, '1': 1,
+      'inprogress': 2, 'in progress': 2, '2': 2,
+      'resolved': 3, '3': 3,
+      'closed': 4, '4': 4
+    };
+    const membershipStatusMap: Record<string, number> = {
+      'active': 1, '1': 1,
+      'inactive': 2, '2': 2,
+      'suspended': 3, '3': 3,
+      'expired': 4, '4': 4
+    };
+
+    const targetMap = this.entity === 'bookings' ? bookingStatusMap :
+      this.entity === 'payments' ? paymentStatusMap :
+        this.entity === 'contacts' ? contactStatusMap :
+          this.entity === 'memberships' ? membershipStatusMap : bookingStatusMap;
+
+    const sStr = String(status).trim().toLowerCase();
+    const statusId = targetMap[sStr] ?? (isNaN(Number(status)) ? 1 : Number(status));
 
     if (this.config.statusFn) {
-      this.config.statusFn(id, statusId).subscribe({
-        next: () => {
+      this.config.statusFn(rawId, statusId).subscribe({
+        next: (res: any) => {
+          if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
+            const err = res.message || res.errorMessage || res.error || 'Server rejected status update';
+            this.showError('Failed to update status: ' + err);
+            return;
+          }
           if (item) {
             item.bookingStatusLabel = status;
             item.bookingStatus = status;
             item.status = status;
             item.Status = status;
           }
+          this.success = 'Status updated successfully.';
+          setTimeout(() => this.success = '', 3000);
           this.load();
         },
         error: (err: any) => {
-          this.showError('Failed to update status: ' + (err?.error?.message || err?.message || 'Server error'));
+          const msg = err?.error?.message ?? err?.error?.ErrorMessage ?? err?.message ?? 'Server error';
+          this.showError('Failed to update status: ' + msg);
         }
       });
     }
@@ -4795,7 +4861,7 @@ export class Manage implements OnInit {
             this.customInvoiceFormData.bookingId = realBookingId;
             this.admin.getBookingBillingSummary(realBookingId).subscribe({
               next: (bRes: any) => updateModalData(bRes?.data || bRes),
-              error: () => {}
+              error: () => { }
             });
           }
         },
@@ -4803,7 +4869,7 @@ export class Manage implements OnInit {
           if (bookingId > 0) {
             this.admin.getBookingBillingSummary(bookingId).subscribe({
               next: (bRes: any) => updateModalData(bRes?.data || bRes),
-              error: () => {}
+              error: () => { }
             });
           }
         }
@@ -4811,7 +4877,7 @@ export class Manage implements OnInit {
     } else if (bookingId > 0) {
       this.admin.getBookingBillingSummary(bookingId).subscribe({
         next: (bRes: any) => updateModalData(bRes?.data || bRes),
-        error: () => {}
+        error: () => { }
       });
     }
 

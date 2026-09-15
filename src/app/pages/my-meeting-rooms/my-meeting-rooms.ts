@@ -170,17 +170,32 @@ export class MyMeetingRooms implements OnInit {
   }
 
   private checkIfSlotBooked(dateStr: string, startStr: string, endStr: string): boolean {
+    if (!dateStr || !startStr || !endStr) return false;
+
     const startM = new Date(`${dateStr}T${startStr}:00`).getTime();
     const endM = new Date(`${dateStr}T${endStr}:00`).getTime();
-    
-    // We check all bookings loaded from history or check if database locked it
+    if (isNaN(startM) || isNaN(endM)) return false;
+
+    const selectedSpaceId = String(this.bookingForm.get('spaceId')?.value || '');
+    if (!selectedSpaceId) return false;
+
     return this.bookingHistory().some((b: any) => {
       const bStatus = (b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase();
-      if (bStatus === 'cancelled' || bStatus === 'rejected') return false;
+      if (bStatus === 'cancelled' || bStatus === 'rejected' || bStatus === 'expired') return false;
 
-      const bStart = new Date(b.startDateTime || b.startOn).getTime();
-      const bEnd = new Date(b.endDateTime || b.endOn).getTime();
+      const bSpaceId = String(b.spaceId ?? b.spaceIdGuid ?? b.spacePublicId ?? '');
+      if (bSpaceId && bSpaceId !== selectedSpaceId) return false;
+
+      const bStartStr = b.startDateTime || b.startOn;
+      const bEndStr = b.endDateTime || b.endOn;
+      if (!bStartStr || !bEndStr) return false;
+
+      const bStart = new Date(bStartStr).getTime();
+      const bEnd = new Date(bEndStr).getTime();
       if (isNaN(bStart) || isNaN(bEnd)) return false;
+
+      const durationHours = (bEnd - bStart) / (1000 * 60 * 60);
+      if (durationHours > 16 && (!bSpaceId || bSpaceId !== selectedSpaceId)) return false;
 
       return (bStart < endM && bEnd > startM);
     });
