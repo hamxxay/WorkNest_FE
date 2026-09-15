@@ -14,7 +14,7 @@ export const adminGuard: CanActivateFn = (route, state) => {
   const isAdmin = auth.hasRole('admin') || auth.hasRole('super_admin');
 
   if (isSalesExecutive && !isAdmin) {
-    const allowed = ['/admin/quotations', '/admin/invoices', '/admin/bookings', '/admin/attendants'];
+    const allowed = ['/admin/quotations', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/contacts', '/admin/challan-validity'];
     if (allowed.some(p => state.url.startsWith(p))) {
       return true;
     }
