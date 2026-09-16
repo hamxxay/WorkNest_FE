@@ -31,6 +31,7 @@ export interface UserInfo {
   roles: string[];
   displayName?: string;
   photoURL?: string;
+  locationId?: number | null;
 }
 
 @Injectable({
@@ -289,7 +290,8 @@ export class AuthService {
           ...fallbackUser!,
           email: data.email || fallbackUser?.email || email,
           userId: data.id || data.userId || fallbackUser?.userId || '',
-          roles: roles.length ? roles : (fallbackUser?.roles ?? [])
+          roles: roles.length ? roles : (fallbackUser?.roles ?? []),
+          locationId: data.locationId ?? fallbackUser?.locationId ?? null
         };
         this.user.set(updated);
         localStorage.setItem(this.userKey, JSON.stringify(updated));

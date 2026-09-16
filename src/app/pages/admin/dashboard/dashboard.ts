@@ -4,6 +4,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { QuotationService } from '../../../services/quotation.service';
+import { AuthService } from '../../../services/auth.service';
 import { Location } from '../../../models/admin.model';
 import { Chart, registerables } from 'chart.js';
 
@@ -96,6 +97,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   private admin = inject(AdminService);
   private quotationService = inject(QuotationService);
   private router = inject(Router);
+  protected auth = inject(AuthService);
 
   @ViewChild('capacityChartCanvas') capacityChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('locationChartCanvas') locationChartCanvas?: ElementRef<HTMLCanvasElement>;
@@ -104,6 +106,14 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   private locationChart?: Chart;
 
   protected readonly Math = Math;
+
+  get isSuperAdmin(): boolean {
+    return this.auth.hasRole('super_admin');
+  }
+
+  get userLocationId(): number | null {
+    return this.auth.user()?.locationId ?? null;
+  }
 
   loading = signal(true);
 
@@ -355,12 +365,36 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         return [];
       };
 
-      const rawSpaces = extract(spacesRes);
-      const rawBookings = extract(bookingsRes);
-      const rawQuotations = extract(quotationsRes);
+      let rawSpaces = extract(spacesRes);
+      let rawBookings = extract(bookingsRes);
+      let rawQuotations = extract(quotationsRes);
       const rawCustomers = extract(customersRes);
       const rawTypes = extract(typesRes);
-      const rawLocations: Location[] = extract(locationsRes);
+      let rawLocations: Location[] = extract(locationsRes);
+
+      const boundLocId = (!this.isSuperAdmin && this.userLocationId) ? this.userLocationId : null;
+      if (boundLocId) {
+        this.selectedLocation.set(String(boundLocId));
+        rawSpaces = rawSpaces.filter((s: any) => {
+          const loc = s.locationId ?? s.LocationId;
+          return loc != null && Number(loc) === boundLocId;
+        });
+        const spaceIds = new Set(rawSpaces.map((s: any) => s.id ?? s.spaceId ?? s.SpaceId));
+        rawBookings = rawBookings.filter((b: any) => {
+          const loc = b.locationId ?? b.LocationId;
+          if (loc != null && Number(loc) === boundLocId) return true;
+          const sId = b.spaceId ?? b.SpaceId;
+          return sId != null && spaceIds.has(sId);
+        });
+        rawQuotations = rawQuotations.filter((q: any) => {
+          const loc = q.locationId ?? q.LocationId;
+          if (loc != null && Number(loc) === boundLocId) return true;
+          const sId = q.spaceId ?? q.SpaceId;
+          return sId != null && spaceIds.has(sId);
+        });
+        const filteredLocs = rawLocations.filter((l: any) => Number(l.id) === boundLocId);
+        rawLocations = filteredLocs.length ? filteredLocs : rawLocations;
+      }
 
       this.locationsList.set(rawLocations);
 

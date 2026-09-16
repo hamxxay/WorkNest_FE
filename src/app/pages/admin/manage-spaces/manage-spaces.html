@@ -11,8 +11,10 @@
     <div class="ms-filter-row">
       <div class="ms-filter-group">
         <label>Location *</label>
-        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onFilterChange()">
-          <option value="">All Locations</option>
+        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onFilterChange()" [disabled]="!isSuperAdmin && !!userLocationId">
+          @if (isSuperAdmin || !userLocationId) {
+            <option value="">All Locations</option>
+          }
           @for (l of locationOptions; track l.v) {
             <option [value]="l.v.toString()">{{ l.l }}</option>
           }

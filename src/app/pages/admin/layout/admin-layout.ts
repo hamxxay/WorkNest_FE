@@ -10,6 +10,9 @@ import { ToastService } from '../../../services/toast.service';
   styleUrl: './admin-layout.css'
 })
 export class AdminLayout {
+  get boundLocationId(): number | null {
+    return this.auth.getUser()?.locationId ?? null;
+  }
   sidebarCollapsed = false;
   userRole = '';
 

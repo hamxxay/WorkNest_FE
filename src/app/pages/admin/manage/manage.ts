@@ -469,6 +469,9 @@ export class Manage implements OnInit {
 
   readonly today = new Date().toISOString().split('T')[0];
   isSuperAdmin = false;
+  get userLocationId(): number | null {
+    return this.auth.user()?.locationId ?? null;
+  }
   assignableRoles = ASSIGNABLE_ROLES;
   amountLabels: Record<string, string> = {};
 
@@ -545,7 +548,11 @@ export class Manage implements OnInit {
           this.loadSpaceDropdowns();
           this.loadSpaceConfig();
         }
-        if (this.entity === 'customers' || this.entity === 'users') this.loadCityOptions();
+        if (this.entity === 'customers' || this.entity === 'users') {
+          this.loadCityOptions();
+          if (this.entity === 'users') this.loadLocationOptions();
+        }
+        
         if (this.entity === 'locations') {
           this.loadCityOptions();
           this.loadBranchOptions();
@@ -685,7 +692,7 @@ export class Manage implements OnInit {
 
   openAddSpaceModal() {
     this.addSpaceTypeId = '';
-    this.addSpaceLocationId = '';
+    this.addSpaceLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
     this.addSpacePreviewCode = '';
     this.addSpaceError = '';
     this.generateError = '';
@@ -834,6 +841,30 @@ export class Manage implements OnInit {
     });
   }
 
+  loadLocationOptions() {
+    this.admin.getLocations(1, 1000, '').subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? res ?? [];
+        this.locationOptions = items.map((l: any) => ({
+          v: l.id != null ? Number(l.id) : (l.idGuid ?? l.idGUID),
+          l: l.name,
+          branchId: l.branchId,
+          branchName: l.branchName ?? l.branchCode
+        }));
+        if (this.entity === 'users') {
+          this.config = this.buildConfig(this.entity);
+        }
+      }
+    });
+  }
+
+  getBoundLocationName(locationId?: any): string {
+    const targetId = locationId ?? this.formData['locationId'] ?? this.auth.user()?.locationId;
+    if (!targetId) return 'Assigned Location';
+    const opt = this.locationOptions.find(l => String(l.v) === String(targetId));
+    return opt ? opt.l : `Location #${targetId}`;
+  }
+
   private loadCityOptions() {
     if (this.cityOptions.length) return;
     this.citiesLoading.set(true);
@@ -900,7 +931,7 @@ export class Manage implements OnInit {
     this.bookingFormData = {};
     this.bookingFormError = '';
     this.selectedSpaceTypeId = '';
-    this.selectedLocationId = '';
+    this.selectedLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
     this.selectedAdminCapacity = null;
     this.availableAdminCapacities = [];
     this.adminStartDate = '';
@@ -2541,12 +2572,35 @@ export class Manage implements OnInit {
   openCreate() {
     this.editItem = null; this.formData = {}; this.error = ''; this.showModal = true;
     this.selectedAmenityIds = [];
+    const boundLoc = this.auth.user()?.locationId;
+    if (!this.isSuperAdmin && boundLoc) {
+      this.formData.locationId = boundLoc;
+      if (this.entity === 'spaces') {
+        this.loadFloorsForLocation(boundLoc);
+      }
+    }
+    if (this.entity === 'users') {
+      this.formData.role = 'general';
+      if (!this.isSuperAdmin && boundLoc) {
+        this.formData.locationId = boundLoc;
+      }
+      if (!this.locationOptions.length) this.loadLocationOptions();
+      if (!this.cityOptions.length) this.loadCityOptions();
+    }
     if (this.entity === 'customers') {
       this.selectedCountryCode = '+92';
       this.formData.countryCode = '+92';
     }
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
+    if (this.entity === 'users') {
+      this.formData.role = 'general';
+      if (!this.isSuperAdmin && this.auth.user()?.locationId) {
+        this.formData.locationId = this.auth.user()?.locationId;
+      }
+      if (!this.locationOptions.length) this.loadLocationOptions();
+      if (!this.cityOptions.length) this.loadCityOptions();
+    }
     if (this.entity === 'quotations') {
       this.showModal = false;
       this.openAdminQuotationForm();
@@ -2683,6 +2737,12 @@ export class Manage implements OnInit {
     }
     this.editItem = { ...item, idGuid: item.bookingPublicId ?? item.idGuid ?? item.idGUID ?? item.id, id: item.bookingId ?? item.id };
     this.formData = { ...item };
+    if (this.entity === 'users') {
+      this.formData.role = this.normalizeRole(item.role ?? item.roleId ?? item.RoleId) || 'general';
+      this.formData.locationId = item.locationId != null ? Number(item.locationId) : null;
+      if (!this.locationOptions.length) this.loadLocationOptions();
+      if (!this.cityOptions.length) this.loadCityOptions();
+    }
     this.selectedAmenityIds = [];
     if (this.entity === 'customers') {
       if (!this.formData.addressLine1 && this.formData.address) {
@@ -2811,6 +2871,71 @@ export class Manage implements OnInit {
   save() {
     this.saving = true;
     this.error = '';
+
+    if (this.entity === 'users') {
+      const name = (this.formData.name || '').trim();
+      const email = (this.formData.email || '').trim();
+      const password = (this.formData.password || '').trim();
+      const role = this.normalizeRole(this.formData.role || 'general');
+      let locationId = this.formData.locationId != null && this.formData.locationId !== '' && this.formData.locationId !== 'null'
+        ? Number(this.formData.locationId)
+        : null;
+
+      if (!name) {
+        this.error = 'Full Name is required.';
+        this.showError(this.error);
+        this.saving = false;
+        return;
+      }
+      if (!email) {
+        this.error = 'Email address is required.';
+        this.showError(this.error);
+        this.saving = false;
+        return;
+      }
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        this.error = 'Please enter a valid email address (e.g. user@example.com).';
+        this.showError(this.error);
+        this.saving = false;
+        return;
+      }
+      if (!this.editItem && !password) {
+        this.error = 'Password is required for new users.';
+        this.showError(this.error);
+        this.saving = false;
+        return;
+      }
+
+      if (role === 'super_admin' || role === 'general') {
+        locationId = null;
+      } else if (role === 'admin' || role === 'sales_executive') {
+        if (!locationId || locationId <= 0) {
+          if (!this.isSuperAdmin && this.auth.user()?.locationId) {
+            locationId = this.auth.user()!.locationId!;
+          } else {
+            this.error = `Location is required for ${this.getRoleLabel(role)} role.`;
+            this.showError(this.error);
+            this.saving = false;
+            return;
+          }
+        }
+      }
+
+      this.formData = {
+        ...this.formData,
+        name: name,
+        email: email,
+        password: password || undefined,
+        role: role,
+        locationId: locationId,
+        cityId: this.formData.cityId ? Number(this.formData.cityId) : null,
+        phone: (this.formData.phone || '').trim() || null,
+        cnicOrPassport: (this.formData.cnicOrPassport || '').trim() || null,
+        address: (this.formData.address || '').trim() || null,
+        notes: (this.formData.notes || '').trim() || null,
+      };
+    }
 
     if (this.entity === 'customers') {
       const fn = (this.formData.firstName || '').trim();
@@ -3058,38 +3183,51 @@ export class Manage implements OnInit {
     obs.subscribe({ next: () => this.load() });
   }
 
+  normalizeRole(roleValue: any): string {
+    if (roleValue === null || roleValue === undefined) return 'general';
+    const str = String(roleValue).trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    if (str === '1' || str === 'superadmin' || str === 'super_admin') return 'super_admin';
+    if (str === '2' || str === 'admin' || str === 'administrator') return 'admin';
+    if (str === '14' || str === 'general' || str === 'general_user') return 'general';
+    if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'sales_executive';
+    return str || 'general';
+  }
+
   changeUserRole(item: any, role: string) {
     if (!role || !this.isSuperAdmin) return;
     const userId = item.id ?? item.publicId ?? item.idGuid ?? item.idGUID ?? item.userId;
     if (!userId) return;
-    this.admin.updateUserRole(userId, role).subscribe({
+    const normalizedRole = this.normalizeRole(role);
+    const locationId = (normalizedRole === 'super_admin' || normalizedRole === 'general')
+      ? null
+      : (item.locationId ? Number(item.locationId) : null);
+
+    if ((normalizedRole === 'admin' || normalizedRole === 'sales_executive') && !locationId) {
+      this.toast.show('Please edit user to assign a Location when setting Admin or Sales Executive role.', 'error');
+      return;
+    }
+
+    this.admin.updateUserRole(userId, normalizedRole, locationId).subscribe({
       next: () => {
-        this.success = `Role updated to "${this.getRoleLabel(role)}" successfully.`;
+        this.success = `Role updated to "${this.getRoleLabel(normalizedRole)}" successfully.`;
         setTimeout(() => this.success = '', 3000);
         this.load();
+      },
+      error: (err) => {
+        const msg = err?.error?.message || err?.message || 'Failed to update role.';
+        this.showError(msg);
       }
     });
   }
 
   getRoleLabel(roleValue: any): string {
-    if (!roleValue) return 'General User';
-    const str = String(roleValue).toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
-    if (str === '1' || str === 'superadmin' || str === 'super_admin') return 'Super Admin';
-    if (str === '2' || str === 'admin') return 'Admin';
-    if (str === '14' || str === 'general') return 'General User';
-    if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'Sales Executive';
-    const match = this.assignableRoles.find(r => r.v === str);
-    return match ? match.l : String(roleValue);
+    const r = this.normalizeRole(roleValue);
+    const match = this.assignableRoles.find(opt => opt.v === r);
+    return match ? match.l : String(roleValue || 'General User');
   }
 
   getRoleClass(roleValue: any): string {
-    if (!roleValue) return 'general';
-    const str = String(roleValue).toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
-    if (str === '1' || str === 'superadmin' || str === 'super_admin') return 'super_admin';
-    if (str === '2' || str === 'admin') return 'admin';
-    if (str === '14' || str === 'general') return 'general';
-    if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'sales_executive';
-    return str;
+    return this.normalizeRole(roleValue);
   }
 
   openBookingUser(item: any) { this.openUserModal(item.userEmail ?? item.userPublicId ?? item.userId); }
@@ -3307,6 +3445,16 @@ export class Manage implements OnInit {
   isAmenitySelected(id: number): boolean { return this.selectedAmenityIds.includes(id); }
 
   onFieldChange(key: string) {
+    if (key === 'role' && this.entity === 'users') {
+      const role = this.normalizeRole(this.formData['role']);
+      if (role === 'super_admin' || role === 'general') {
+        this.formData['locationId'] = null;
+      } else if (role === 'admin' || role === 'sales_executive') {
+        if (!this.isSuperAdmin && this.auth.user()?.locationId) {
+          this.formData['locationId'] = this.auth.user()?.locationId;
+        }
+      }
+    }
     if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar();
     if (key === 'locationId' && this.entity === 'spaces') this.loadFloorsForLocation(this.formData['locationId']);
   }
@@ -3397,21 +3545,25 @@ export class Manage implements OnInit {
           { key: 'name', label: 'Name' },
           { key: 'phone', label: 'Phone' },
           { key: 'role', label: 'Role', type: 'role' },
+          { key: 'locationName', label: 'Location' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
           // { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         fields: [
-          { key: 'name', label: 'Name', type: 'text' },
-          { key: 'email', label: 'Email', type: 'email' },
-          { key: 'password', label: 'Password', type: 'password' },
-          { key: 'code', label: 'Code', type: 'text' },
-          { key: 'address', label: 'Address', type: 'text' },
+          { key: 'name', label: 'Full Name', type: 'text', required: true },
+          { key: 'email', label: 'Email Address', type: 'email', required: true },
+          { key: 'password', label: 'Password', type: 'password', required: !this.editItem },
+          { key: 'role', label: 'Role', type: 'select', options: this.assignableRoles, required: true },
+          { key: 'locationId', label: 'Location', type: 'user-location-select' },
+          { key: 'phone', label: 'Phone Number', type: 'text' },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
           { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions },
-          { key: 'phone', label: 'Phone Number', type: 'text' },
+          { key: 'address', label: 'Address', type: 'text' },
+          { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
         getFn: (p, l, s) => this.admin.getUsers(p, l, s),
         createFn: (d) => this.admin.createUser(d),
+        updateFn: (id, d) => this.admin.updateUser(id, d),
         deleteFn: (id) => this.admin.deleteUser(id),
       };
 
@@ -3518,7 +3670,10 @@ export class Manage implements OnInit {
           { key: 'endDateTime', label: 'End Date & Time', type: 'datetime-local' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
-        getFn: (p, l, s) => this.admin.getBookings(1, 1000, s),
+        getFn: (p, l, s) => {
+          const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
+          return this.admin.getBookings(1, 1000, s, locId);
+        },
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
         statusOptions: ['Confirmed', 'Cancelled', 'Completed'],
@@ -3628,7 +3783,10 @@ export class Manage implements OnInit {
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
-        getFn: (p, l, s) => this.quotationSvc.getQuotations(p, l, s),
+        getFn: (p, l, s) => {
+          const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
+          return this.quotationSvc.getQuotations(p, l, s, locId);
+        },
       };
 
       case 'invoices': return {
@@ -3645,7 +3803,10 @@ export class Manage implements OnInit {
           { key: 'balanceDue', label: 'Balance Due', type: 'currency' },
           { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
         ],
-        getFn: (p, l, s) => this.admin.getInvoices(p, l, s),
+        getFn: (p, l, s) => {
+          const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
+          return this.admin.getInvoices(p, l, s, undefined, locId);
+        },
       };
 
       default: return { title: entity, columns: [], getFn: () => [] };
@@ -3691,7 +3852,7 @@ export class Manage implements OnInit {
     this.customerSearchQuery = '';
 
     this.customerSearchResults = [];
-    this.selectedQuotationLocationId = '';
+    this.selectedQuotationLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
     this.selectedQuotationSpaceTypeId = '';
     this.selectedQuotationCapacity = null;
     this.quotationSubtotal = 0;

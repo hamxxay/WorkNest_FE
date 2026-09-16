@@ -2,6 +2,7 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-manage-spaces',
@@ -11,6 +12,15 @@ import { AdminService } from '../../../services/admin.service';
 })
 export class ManageSpaces implements OnInit {
   private admin = inject(AdminService);
+  private auth = inject(AuthService);
+
+  get isSuperAdmin(): boolean {
+    return this.auth.hasRole('super_admin');
+  }
+
+  get userLocationId(): number | null {
+    return this.auth.user()?.locationId ?? null;
+  }
 
   // Filters
   filterLocationId = '';
@@ -46,9 +56,14 @@ export class ManageSpaces implements OnInit {
   ngOnInit() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.locationOptions = (res?.data ?? []).map((l: any) => ({
+        let list = (res?.data ?? []).map((l: any) => ({
           v: l.id, l: l.name, branchId: l.branchId
         }));
+        if (!this.isSuperAdmin && this.userLocationId) {
+          list = list.filter((l: any) => l.v === this.userLocationId);
+          this.filterLocationId = String(this.userLocationId);
+        }
+        this.locationOptions = list;
       }
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
@@ -62,6 +77,9 @@ export class ManageSpaces implements OnInit {
         }));
       }
     });
+    if (!this.isSuperAdmin && this.userLocationId) {
+      this.filterLocationId = String(this.userLocationId);
+    }
     this.loadAllSpaces();
     this.onFilterChange();
   }

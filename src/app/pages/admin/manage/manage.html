@@ -566,7 +566,7 @@
           Configure the base rate amount and select the billing frequency (Per Month, Per Day, or Per Hour).
         </small>
         } @else if (field.type === 'floor-select') {
-        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" [disabled]="!isSuperAdmin && field.key === 'locationId'">
           <option value="">Select Floor...</option>
           @for (opt of floorOptions; track opt.v) {
           <option [value]="opt.v">{{ opt.l }}</option>
@@ -599,6 +599,16 @@
         <input class="form-input-admin" value="N/A — only for Private Office" disabled
           style="background:#f1f5f9;color:#94a3b8" />
         }
+        } @else if (field.type === 'user-location-select') {
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" [disabled]="!isSuperAdmin && !!userLocationId">
+          <option [ngValue]="null">Select Location (Required for Admin/Sales)...</option>
+          @for (loc of locationOptions; track loc.v) {
+          <option [value]="loc.v">{{ loc.l }}</option>
+          }
+        </select>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">
+          Required for Admin and Sales Executive roles.
+        </small>
         } @else if (field.type === 'select') {
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
           (change)="onFieldChange(field.key)">
@@ -1125,8 +1135,7 @@
       </div>
       <div class="form-group-admin">
         <label>Location *</label>
-        <select class="form-input-admin" [(ngModel)]="addSpaceLocationId" name="addSpaceLocation" required
-          (change)="onAddSpaceSelectionChange()">
+        <select class="form-input-admin" [(ngModel)]="addSpaceLocationId" name="addSpaceLocation" required (change)="onAddSpaceSelectionChange()" [disabled]="!isSuperAdmin">
           <option value="">Select Location...</option>
           @for (loc of locationOptions; track loc.v) {
           <option [value]="loc.v">{{ loc.l }}</option>
@@ -1570,11 +1579,10 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId"
-            (change)="onQuotationLocationChange()">
+          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId" (change)="onQuotationLocationChange()" [disabled]="!isSuperAdmin">
             <option value="">All Locations</option>
             @for (loc of locationOptions; track loc.v) {
-            <option [value]="loc.v">{{ loc.l }}</option>
+            <option [ngValue]="loc.v">{{ loc.l }}</option>
             }
           </select>
         </div>
@@ -1946,8 +1954,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId"
-            (change)="onBookingLocationChange()">
+          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" (change)="onBookingLocationChange()" [disabled]="!isSuperAdmin">
             <option value="">All Locations</option>
             @for (loc of locationOptions; track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>

@@ -28,11 +28,12 @@ export class QuotationService {
   /**
    * Get paginated list of quotations (admin only)
    */
-  getQuotations(page: number, limit: number, search?: string): Observable<any> {
+  getQuotations(page: number, limit: number, search?: string, locationId?: number): Observable<any> {
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('limit', String(limit));
     if (search) params.set('search', search);
+    if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
     return this.http.get<any>(`${this.apiUrl}?${params.toString()}`);
   }
 

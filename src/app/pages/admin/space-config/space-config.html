@@ -23,8 +23,10 @@
       <div class="sc-filter-group">
         <label>Location</label>
         <select class="form-input-admin" [ngModel]="filterLocationId()"
-          (ngModelChange)="onLocationFilterChange($event)">
-          <option [ngValue]="null">All Locations</option>
+          (ngModelChange)="onLocationFilterChange($event)" [disabled]="!isSuperAdmin && !!userLocationId">
+          @if (isSuperAdmin || !userLocationId) {
+            <option [ngValue]="null">All Locations</option>
+          }
           @for (l of locationOptions; track l.v) {
           <option [value]="l.v">{{ l.l }}</option>
           }
@@ -123,7 +125,7 @@
         <div class="form-group-admin">
           <label>Location *</label>
           <select class="form-input-admin" [(ngModel)]="form.locationId" name="locationId" required
-            (change)="onLocationChange()">
+            (change)="onLocationChange()" [disabled]="!isSuperAdmin && !!userLocationId">
             <option value="">Select Location...</option>
             @for (l of locationOptions; track l.v) {
             <option [value]="l.v">{{ l.l }}</option>

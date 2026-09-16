@@ -61,8 +61,10 @@ export class AdminService {
   }
 
   /** Update a user's role (SuperAdmin only) */
-  updateUserRole(userId: string, role: string): Observable<ApiResponse<any>> {
-    return this.http.patch<ApiResponse<any>>(`${this.api}/user/${userId}/role`, { role });
+  updateUserRole(userId: string, role: string, locationId?: number | null): Observable<ApiResponse<any>> {
+    const payload: any = { role };
+    if (locationId !== undefined && locationId !== null) payload.locationId = locationId;
+    return this.http.patch<ApiResponse<any>>(`${this.api}/user/${userId}/role`, payload);
   }
 
   /** Create user (SuperAdmin only) */
@@ -173,11 +175,12 @@ export class AdminService {
   // ============= BOOKING MANAGEMENT =============
 
   /** Get paginated list of bookings */
-  getBookings(page?: number, limit?: number, search?: string): Observable<ApiResponse<Booking[]>> {
+  getBookings(page?: number, limit?: number, search?: string, locationId?: number): Observable<ApiResponse<Booking[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Booking[]>>(`${this.api}/booking${qs}`);
   }
@@ -279,12 +282,13 @@ export class AdminService {
   // ============= INVOICE MANAGEMENT =============
 
   /** Get paginated list of invoices with optional type filter (1: Regular, 3: Security Deposit) */
-  getInvoices(page?: number, limit?: number, search?: string, typeId?: number): Observable<ApiResponse<any[]>> {
+  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (typeId != null && typeId > 0) params.set('typeId', String(typeId));
+    if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice${qs}`);
   }

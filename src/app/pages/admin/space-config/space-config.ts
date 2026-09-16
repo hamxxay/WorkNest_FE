@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-space-config',
@@ -14,6 +15,15 @@ export class SpaceConfig implements OnInit {
   billingPeriods: any[] = [];
   private admin = inject(AdminService);
   private accountCoa = inject(AccountCoaService);
+  private auth = inject(AuthService);
+
+  get isSuperAdmin(): boolean {
+    return this.auth.hasRole('super_admin');
+  }
+
+  get userLocationId(): number | null {
+    return this.auth.user()?.locationId ?? null;
+  }
 
   configs = signal<any[]>([]);
   loading = signal(false);
@@ -58,6 +68,9 @@ export class SpaceConfig implements OnInit {
   });
 
   ngOnInit() {
+    if (!this.isSuperAdmin && this.userLocationId) {
+      this.filterLocationId.set(this.userLocationId);
+    }
     this.loadDropdowns();
     this.load();
   }
@@ -66,10 +79,15 @@ export class SpaceConfig implements OnInit {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? [];
-        this.locationOptions = items.map((l: any) => ({
+        let mapped = items.map((l: any) => ({
           v: l.id, l: l.name,
           branchId: l.branchId, companyId: l.companyId
         }));
+        if (!this.isSuperAdmin && this.userLocationId) {
+          mapped = mapped.filter((l: any) => l.v === this.userLocationId);
+          this.filterLocationId.set(this.userLocationId);
+        }
+        this.locationOptions = mapped;
       }
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
@@ -134,7 +152,15 @@ export class SpaceConfig implements OnInit {
 
   openCreate() {
     this.editItem = null;
-    this.form = { openingTime: '08:00', closingTime: '20:00', status: 1 };
+    this.form = {
+      openingTime: '08:00',
+      closingTime: '20:00',
+      status: 1,
+      locationId: (!this.isSuperAdmin && this.userLocationId) ? this.userLocationId : null
+    };
+    if (!this.isSuperAdmin && this.userLocationId) {
+      this.loadFloorsForLocation(this.userLocationId);
+    }
     this.floorOptions = [];
     this.selectedAmenityIds = [];
     this.error = '';
