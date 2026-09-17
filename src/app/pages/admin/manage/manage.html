@@ -1579,10 +1579,10 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId" (change)="onQuotationLocationChange()" [disabled]="!isSuperAdmin">
+          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId" (change)="onQuotationLocationChange()">
             <option value="">All Locations</option>
             @for (loc of locationOptions; track loc.v) {
-            <option [ngValue]="loc.v">{{ loc.l }}</option>
+            <option [value]="loc.v">{{ loc.l }}</option>
             }
           </select>
         </div>
@@ -1954,7 +1954,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" (change)="onBookingLocationChange()" [disabled]="!isSuperAdmin">
+          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" (change)="onBookingLocationChange()">
             <option value="">All Locations</option>
             @for (loc of locationOptions; track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>

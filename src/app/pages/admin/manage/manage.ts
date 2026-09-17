@@ -3883,7 +3883,14 @@ export class Manage implements OnInit {
 
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: l.idGuid ?? l.id, l: l.name }));
+        const items = res?.data ?? (Array.isArray(res) ? res : []);
+        this.locationOptions = items.map((l: any) => ({
+          v: String(l.id != null ? l.id : (l.idGuid ?? l.idGUID ?? l.Id ?? '')),
+          l: l.name || l.Name
+        }));
+        if (this.selectedQuotationLocationId) {
+          this.onQuotationLocationChange();
+        }
       }
     });
 
