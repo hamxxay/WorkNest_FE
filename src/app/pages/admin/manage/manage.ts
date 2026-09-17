@@ -931,7 +931,8 @@ export class Manage implements OnInit {
     this.bookingFormData = {};
     this.bookingFormError = '';
     this.selectedSpaceTypeId = '';
-    this.selectedLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
+    const userBookingLocId = this.auth.user()?.locationId;
+    this.selectedLocationId = userBookingLocId ? String(userBookingLocId) : '';
     this.selectedAdminCapacity = null;
     this.availableAdminCapacities = [];
     this.adminStartDate = '';
@@ -971,9 +972,26 @@ export class Manage implements OnInit {
     if (!this.locationOptions.length) {
       this.admin.getLocations(1, 1000, '').subscribe({
         next: (res: any) => {
-          this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: l.idGuid ?? l.id, l: l.name }));
+          this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: String(l.id != null ? l.id : (l.idGuid ?? l.id)), l: l.name }));
+          if (!bookingToEdit && !this.selectedLocationId && this.locationOptions.length > 0) {
+            const uLoc = this.auth.user()?.locationId;
+            const match = uLoc ? this.locationOptions.find(o => String(o.v) === String(uLoc)) : null;
+            this.selectedLocationId = match ? String(match.v) : String(this.locationOptions[0].v);
+          }
+          if (this.selectedLocationId) {
+            this.onBookingLocationChange();
+          }
         }
       });
+    } else {
+      if (!bookingToEdit && !this.selectedLocationId && this.locationOptions.length > 0) {
+        const uLoc = this.auth.user()?.locationId;
+        const match = uLoc ? this.locationOptions.find(o => String(o.v) === String(uLoc)) : null;
+        this.selectedLocationId = match ? String(match.v) : String(this.locationOptions[0].v);
+      }
+      if (this.selectedLocationId) {
+        this.onBookingLocationChange();
+      }
     }
 
     const onDataReady = () => {
@@ -3852,7 +3870,8 @@ export class Manage implements OnInit {
     this.customerSearchQuery = '';
 
     this.customerSearchResults = [];
-    this.selectedQuotationLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
+    const userQuotLocId = this.auth.user()?.locationId;
+    this.selectedQuotationLocationId = userQuotLocId ? String(userQuotLocId) : '';
     this.selectedQuotationSpaceTypeId = '';
     this.selectedQuotationCapacity = null;
     this.quotationSubtotal = 0;
@@ -3888,6 +3907,11 @@ export class Manage implements OnInit {
           v: String(l.id != null ? l.id : (l.idGuid ?? l.idGUID ?? l.Id ?? '')),
           l: l.name || l.Name
         }));
+        if (!this.selectedQuotationLocationId && this.locationOptions.length > 0) {
+          const uLoc = this.auth.user()?.locationId;
+          const match = uLoc ? this.locationOptions.find(o => String(o.v) === String(uLoc)) : null;
+          this.selectedQuotationLocationId = match ? String(match.v) : String(this.locationOptions[0].v);
+        }
         if (this.selectedQuotationLocationId) {
           this.onQuotationLocationChange();
         }
