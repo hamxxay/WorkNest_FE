@@ -413,6 +413,11 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/booking/create-admin`, data);
   }
 
+  // Get dynamic offering types and discount caps from DB
+  getOfferingTypes(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/quotation/offering-types`);
+  }
+
   // Challan Validity
   searchChallan(query: string): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/challan/search?q=${encodeURIComponent(query)}`);

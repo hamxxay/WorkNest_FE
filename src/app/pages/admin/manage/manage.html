@@ -1614,9 +1614,15 @@
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="quotationOfferingType" name="qOfferingType"
             (change)="onQuotationOfferingTypeChange()">
-            <option value="24/7">24/7 </option>
-            <option value="Shift">Shift Morning(6am-6pm)</option>
-            <option value="Shift">Shift Evening(6pm-6am)</option>
+            @if (offeringTypes.length === 0) {
+            <option value="24/7">24/7</option>
+            <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
+            <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
+            } @else {
+            @for (ot of offeringTypes; track ot.id) {
+            <option [value]="ot.description">{{ ot.description }}</option>
+            }
+            }
           </select>
         </div>
         <div class="form-group-admin" data-field="spaceType"
@@ -1769,12 +1775,32 @@
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
         </div>
-        <div class="form-group-admin" data-field="discount" [class.has-error]="quotationFormErrorField === 'discount'">
-          <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0–30)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+        <div class="form-group-admin" data-field="discount"
+          [class.has-error]="quotationFormErrorField === 'discount' || !!quotationDiscountError">
+          <label>Discount Value
+            @if (quotationDiscountType === 'Percentage') {
+            <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%)</small>
+            } @else {
+            <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ quotationMaxAllowedDiscountFixed |
+              number:'1.0-2' }})</small>
+            }
+          </label>
           <input class="form-input-admin" type="number" min="0"
-            [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="quotationDiscountValue"
-            name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
+            [max]="quotationDiscountType === 'Percentage' ? quotationDynamicDiscountCap : quotationMaxAllowedDiscountFixed"
+            step="1" [(ngModel)]="quotationDiscountValue" name="qDiscountValue" (input)="recalcQuotationAmount()"
+            placeholder="0" [style.border-color]="quotationDiscountError ? '#ef4444' : null" />
+          @if (quotationDiscountError) {
+          <div
+            style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ quotationDiscountError }}</span>
+          </div>
+          }
         </div>
       </div>
 
@@ -1862,7 +1888,7 @@
       <div class="modal-actions">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminQuotationForm()">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin"
-          [disabled]="quotationFormSaving() || !selectedCustomer">
+          [disabled]="quotationFormSaving() || !selectedCustomer || !!quotationDiscountError">
           {{ quotationFormSaving() ? 'Saving...' : 'Save and Quote' }}
         </button>
       </div>
@@ -1983,6 +2009,21 @@
             (change)="onBookingLocationChange()">
             @for (loc of locationOptions; track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group-admin">
+          <label>Offering Type *</label>
+          <select class="form-input-admin" [(ngModel)]="bookingOfferingType" name="bookingOfferingType"
+            (change)="onBookingOfferingTypeChange()">
+            @if (offeringTypes.length === 0) {
+            <option value="24/7">24/7</option>
+            <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
+            <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
+            } @else {
+            @for (ot of offeringTypes; track ot.id) {
+            <option [value]="ot.description">{{ ot.description }}</option>
+            }
             }
           </select>
         </div>
@@ -2118,17 +2159,37 @@
         <div class="form-group-admin">
           <label>Discount Type</label>
           <select class="form-input-admin" [(ngModel)]="bookingDiscountType" name="bookingDiscountType"
-            (change)="recalcAmount()">
+            (change)="onBookingDiscountTypeChange()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
         </div>
-        <div class="form-group-admin" data-field="discount" [class.has-error]="bookingFormErrorField === 'discount'">
-          <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small style="color:#94a3b8">(0-30)</small>
-            } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+        <div class="form-group-admin" data-field="discount"
+          [class.has-error]="bookingFormErrorField === 'discount' || !!bookingDiscountError">
+          <label>Discount Value
+            @if (bookingDiscountType === 'Percentage') {
+            <small style="color:#64748b;font-weight:500">(Max cap: {{ bookingDynamicDiscountCap }}%)</small>
+            } @else {
+            <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ bookingMaxAllowedDiscountFixed |
+              number:'1.0-2' }})</small>
+            }
+          </label>
           <input class="form-input-admin" type="number" min="0"
-            [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="bookingDiscountValue"
-            name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
+            [max]="bookingDiscountType === 'Percentage' ? bookingDynamicDiscountCap : bookingMaxAllowedDiscountFixed"
+            step="1" [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue" (input)="recalcAmount()"
+            placeholder="0" [style.border-color]="bookingDiscountError ? '#ef4444' : null" />
+          @if (bookingDiscountError) {
+          <div
+            style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ bookingDiscountError }}</span>
+          </div>
+          }
         </div>
       </div>
 
@@ -2220,7 +2281,8 @@
 
       <div class="modal-actions" style="display:flex;flex-wrap:wrap;gap:8px">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminBookingForm()">Cancel</button>
-        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="bookingFormSaving() || !selectedCustomer">
+        <button type="submit" class="btn-admin btn-primary-admin"
+          [disabled]="bookingFormSaving() || !selectedCustomer || !!bookingDiscountError">
           {{ bookingFormSaving() ? (editingBookingId ? 'Updating...' : 'Creating...') : (editingBookingId ? 'Update
           Booking' : 'Create Booking') }}
         </button>
@@ -3662,12 +3724,17 @@
           </select>
         </div>
         <div class="form-group-admin">
-          <label>Operating Hours / Offering</label>
+          <label>Operating Hours / Offering *</label>
           <select class="form-input-admin" [(ngModel)]="sendAgreementData.operatingHours" name="agOpHours">
-            <option value="24/7">24/7 Access</option>
-            <option value="Shift">Shift Access</option>
-            <option value="Shift Morning(6am-6pm)">Shift Morning (6am - 6pm)</option>
-            <option value="Shift Evening(6pm-6am)">Shift Evening (6pm - 6am)</option>
+            @if (offeringTypes.length === 0) {
+            <option value="24/7">24/7</option>
+            <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
+            <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
+            } @else {
+            @for (ot of offeringTypes; track ot.id) {
+            <option [value]="ot.description">{{ ot.description }}</option>
+            }
+            }
           </select>
         </div>
       </div>

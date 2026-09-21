@@ -1,4 +1,4 @@
-﻿import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
+import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -147,6 +147,9 @@ export class Manage implements OnInit {
   bookingDiscountType = 'Percentage';
   bookingDiscountPercentage = 0;
   bookingDiscountValue = 0;
+  bookingOfferingTypeId: number = 1;
+  bookingOfferingType = '24/7';
+  bookingDiscountError = '';
   bookingChallanMode: 'initial' | 'full' = 'initial';
   bookingSubtotal = 0;
   bookingDiscountAmount = 0;
@@ -156,6 +159,79 @@ export class Manage implements OnInit {
   bookingBillingPeriodMonths = 3;
   bookingSecurityDepositMonths = 2;
   readonly billingPeriodOptions = BILLING_PERIOD_OPTIONS;
+
+  get bookingDynamicDiscountCap(): number {
+    const ot = this.offeringTypes.find(o =>
+      (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
+      (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
+    );
+    if (ot && ot.discountCap != null && Number(ot.discountCap) >= 0) {
+      return Number(ot.discountCap);
+    }
+    const spaceId = this.bookingFormData?.spaceId;
+    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    return Number(space?.maxDiscountPercent || space?.MaxDiscountPercent || 10);
+  }
+
+  get bookingMaxAllowedDiscountFixed(): number {
+    const base = this.isAdminMeetingRoom ? this.bookingSubtotal : this.bookingMonthlyRent;
+    return parseFloat(((base * this.bookingDynamicDiscountCap) / 100).toFixed(2));
+  }
+
+  get bookingOfferingTypeName(): string {
+    const ot = this.offeringTypes.find(o =>
+      (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
+      (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
+    );
+    return ot?.description || this.bookingOfferingType || '24/7';
+  }
+
+  validateBookingDiscount(): void {
+    const val = Number(this.bookingDiscountValue || 0);
+    if (val < 0) {
+      this.bookingDiscountError = 'Discount cannot be negative.';
+      return;
+    }
+    if (val === 0) {
+      this.bookingDiscountError = '';
+      return;
+    }
+    const capPct = this.bookingDynamicDiscountCap;
+    const offName = this.bookingOfferingTypeName;
+
+    if (this.bookingDiscountType === 'Percentage') {
+      if (val > capPct) {
+        this.bookingDiscountError = `Discount (${val}%) exceeds maximum allowed discount cap of ${capPct}% for ${offName}.`;
+        return;
+      }
+    } else {
+      const maxFixed = this.bookingMaxAllowedDiscountFixed;
+      if (maxFixed > 0 && val > maxFixed) {
+        this.bookingDiscountError = `Discount (PKR ${val.toLocaleString()}) exceeds maximum allowed cap of PKR ${maxFixed.toLocaleString()} (${capPct}%) for ${offName}.`;
+        return;
+      }
+    }
+    this.bookingDiscountError = '';
+  }
+
+  onBookingOfferingTypeChange() {
+    const ot = this.offeringTypes.find(o =>
+      String(o.id) === String(this.bookingOfferingType) ||
+      o.description === this.bookingOfferingType
+    );
+    if (ot) {
+      this.bookingOfferingTypeId = ot.id;
+      this.bookingOfferingType = ot.description;
+    }
+    this.recalcAmount();
+  }
+
+  onBookingDiscountTypeChange() {
+    this.bookingDiscountValue = 0;
+    this.bookingDiscountPercentage = 0;
+    this.bookingDiscountError = '';
+    this.recalcAmount();
+  }
 
   getSpaceMonthlyRent(space: any, capacityOverride?: number | null): number {
     if (!space) return 0;
@@ -308,7 +384,6 @@ export class Manage implements OnInit {
   targetVersionNumber: number = 1;
   isCreatingNewVersion = false;
 
-
   selectedQuotationLocationId = '';
   selectedQuotationSpaceTypeId = '';
   selectedQuotationCapacity: number | string | null = null;
@@ -332,9 +407,102 @@ export class Manage implements OnInit {
   quotationFloorOptions: { v: any; l: string }[] = [];
   quotationBillingPeriodMonths = 3;
   quotationSecurityDepositMonths = 2;
+  offeringTypes: { id: number; description: string; discountCap: number }[] = [];
+  quotationOfferingTypeId: number = 1;
   quotationOfferingType = '24/7';
+  quotationDiscountError = '';
+
+  loadOfferingTypes() {
+    this.quotationSvc.getOfferingTypes().subscribe({
+      next: (res: any) => {
+        const list = res?.data ?? (Array.isArray(res) ? res : []);
+        if (Array.isArray(list) && list.length > 0) {
+          this.offeringTypes = list.map((item: any) => ({
+            id: Number(item.id ?? item.Id ?? 0),
+            description: String(item.description ?? item.Description ?? '').trim(),
+            discountCap: Number(item.discountCap ?? item.DiscountCap ?? 10)
+          }));
+        } else if (!this.offeringTypes.length) {
+          this.offeringTypes = [
+            { id: 1, description: '24/7', discountCap: 10 },
+            { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
+            { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
+          ];
+        }
+        if (this.sendAgreementData?.operatingHours) {
+          this.sendAgreementData.operatingHours = this.resolveOfferingTypeDescription(this.sendAgreementData.operatingHours);
+        }
+        if (this.quotationOfferingType) {
+          this.quotationOfferingType = this.resolveOfferingTypeDescription(this.quotationOfferingType, this.quotationOfferingTypeId);
+        }
+        if (this.bookingOfferingType) {
+          this.bookingOfferingType = this.resolveOfferingTypeDescription(this.bookingOfferingType, this.bookingOfferingTypeId);
+        }
+      },
+      error: () => {
+        if (!this.offeringTypes.length) {
+          this.offeringTypes = [
+            { id: 1, description: '24/7', discountCap: 10 },
+            { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
+            { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
+          ];
+        }
+      }
+    });
+  }
+
+  resolveOfferingTypeDescription(raw: any, rawId?: any): string {
+    const list = (this.offeringTypes && this.offeringTypes.length > 0) ? this.offeringTypes : [
+      { id: 1, description: '24/7', discountCap: 10 },
+      { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
+      { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
+    ];
+
+    if (rawId != null && Number(rawId) > 0) {
+      const match = list.find(o => Number(o.id) === Number(rawId));
+      if (match?.description) return match.description;
+    }
+
+    if (raw != null) {
+      const str = String(raw).trim();
+      if (!str) return '24/7';
+
+      const num = parseInt(str, 10);
+      if (!isNaN(num) && String(num) === str) {
+        const match = list.find(o => Number(o.id) === num);
+        if (match?.description) return match.description;
+        if (num === 1) return '24/7';
+        if (num === 2) return 'Shift Morning(6am-6pm)';
+        if (num === 3) return 'Shift Evening(6pm-6am)';
+      }
+
+      const matchExact = list.find(o => (o.description || '').trim().toLowerCase() === str.toLowerCase());
+      if (matchExact?.description) return matchExact.description;
+
+      const matchPartial = list.find(o =>
+        (o.description || '').toLowerCase().includes(str.toLowerCase()) ||
+        str.toLowerCase().includes((o.description || '').toLowerCase())
+      );
+      if (matchPartial?.description) return matchPartial.description;
+
+      const lower = str.toLowerCase();
+      if (lower.includes('morning') || lower.includes('6am')) return 'Shift Morning(6am-6pm)';
+      if (lower.includes('evening') || lower.includes('night') || lower.includes('6pm')) return 'Shift Evening(6pm-6am)';
+      if (lower.includes('24') || lower.includes('full')) return '24/7';
+    }
+
+    return '24/7';
+  }
 
   onQuotationOfferingTypeChange() {
+    const ot = this.offeringTypes.find(o =>
+      String(o.id) === String(this.quotationOfferingType) ||
+      o.description === this.quotationOfferingType
+    );
+    if (ot) {
+      this.quotationOfferingTypeId = ot.id;
+      this.quotationOfferingType = ot.description;
+    }
     this.recalcQuotationAmount();
   }
 
@@ -349,14 +517,67 @@ export class Manage implements OnInit {
     return Number(space?.maxDiscountPercent || space?.MaxDiscountPercent || 20);
   }
 
+  get quotationDynamicDiscountCap(): number {
+    const ot = this.offeringTypes.find(o =>
+      (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
+      (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
+    );
+    if (ot && ot.discountCap != null && Number(ot.discountCap) >= 0) {
+      return Number(ot.discountCap);
+    }
+    return Number(this.quotationMaxDiscountPercent || 10);
+  }
+
+  get quotationMaxAllowedDiscountFixed(): number {
+    const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationMonthlyRent;
+    return parseFloat(((base * this.quotationDynamicDiscountCap) / 100).toFixed(2));
+  }
+
   get maxAllowedDiscountValue(): number {
-    if (this.quotationDiscountType === 'Percentage') return this.quotationMaxDiscountPercent;
-    return parseFloat((this.quotationMonthlyBasePrice * (this.quotationMaxDiscountPercent / 100)).toFixed(2));
+    if (this.quotationDiscountType === 'Percentage') return this.quotationDynamicDiscountCap;
+    return this.quotationMaxAllowedDiscountFixed;
+  }
+
+  get quotationOfferingTypeName(): string {
+    const ot = this.offeringTypes.find(o =>
+      (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
+      (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
+    );
+    return ot?.description || this.quotationOfferingType || '24/7';
+  }
+
+  validateQuotationDiscount(): void {
+    const val = Number(this.quotationDiscountValue || 0);
+    if (val < 0) {
+      this.quotationDiscountError = 'Discount cannot be negative.';
+      return;
+    }
+    if (val === 0) {
+      this.quotationDiscountError = '';
+      return;
+    }
+    const capPct = this.quotationDynamicDiscountCap;
+    const offName = this.quotationOfferingTypeName;
+
+    if (this.quotationDiscountType === 'Percentage') {
+      if (val > capPct) {
+        this.quotationDiscountError = "Discount (" + val + "%) exceeds maximum allowed discount cap of " + capPct + "% for " + offName + ".";
+        return;
+      }
+    } else {
+      const maxFixed = this.quotationMaxAllowedDiscountFixed;
+      if (maxFixed > 0 && val > maxFixed) {
+        this.quotationDiscountError = "Discount (PKR " + val + ") exceeds maximum allowed cap of PKR " + maxFixed + " (" + capPct + "%) for " + offName + ".";
+        return;
+      }
+    }
+    this.quotationDiscountError = '';
   }
 
   onDiscountTypeChange() {
     this.quotationDiscountValue = 0;
     this.quotationDiscountPercentage = 0;
+    this.quotationDiscountError = '';
     this.recalcQuotationAmount();
   }
 
@@ -419,8 +640,6 @@ export class Manage implements OnInit {
     const subtotal = this.quotationBillingAmount + this.quotationTaxAmount + this.effectiveQuotationSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.quotationFirstInvoiceDiscount).toFixed(2));
   }
-
-
 
   // Meeting room slots for quotation
   quotationMeetingSlots: { label: string; start: string; end: string }[] = [];
@@ -557,6 +776,7 @@ export class Manage implements OnInit {
   }
 
   ngOnInit() {
+    this.loadOfferingTypes();
     this.amountFieldSvc.getLabelMap().subscribe(map => {
       this.amountLabels = map;
       this.route.data.subscribe(data => {
@@ -976,6 +1196,10 @@ export class Manage implements OnInit {
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
     this.bookingDiscountValue = 0;
+    this.bookingDiscountError = '';
+    this.bookingOfferingTypeId = 1;
+    this.bookingOfferingType = '24/7';
+    this.loadOfferingTypes();
     this.bookingSubtotal = 0;
     this.bookingDiscountAmount = 0;
     this.bookingFloorId = null;
@@ -1192,6 +1416,9 @@ export class Manage implements OnInit {
     if (secMonths != null) {
       this.securityDepositMonthsOverride = Number(secMonths);
     }
+    this.bookingOfferingType = booking.offeringType || booking.operatingHours || '24/7';
+    this.bookingOfferingTypeId = booking.offeringTypeId || 1;
+    this.loadOfferingTypes();
 
     this.onBookingSpaceSelected();
   }
@@ -1471,6 +1698,10 @@ export class Manage implements OnInit {
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
     this.bookingDiscountValue = 0;
+    this.bookingDiscountError = '';
+    this.bookingOfferingTypeId = 1;
+    this.bookingOfferingType = '24/7';
+    this.loadOfferingTypes();
     this.bookingSubtotal = 0;
     this.bookingDiscountAmount = 0;
     this.securityDepositMonthsOverride = null;
@@ -1855,6 +2086,7 @@ export class Manage implements OnInit {
     }
     const finalRent = Math.max(0, this.bookingSubtotal - this.bookingDiscountAmount);
     this.bookingFormData = { ...this.bookingFormData, totalAmount: parseFloat(finalRent.toFixed(2)) };
+    this.validateBookingDiscount();
   }
 
   submitAdminBooking() {
@@ -1925,28 +2157,12 @@ export class Manage implements OnInit {
       this.bookingFormSaving.set(false);
       return;
     }
-    if (this.bookingDiscountType === 'Percentage' && (this.bookingDiscountValue < 0 || this.bookingDiscountValue > 100)) {
-      const msg = 'Percentage discount must be between 0% and 100%.';
+    this.validateBookingDiscount();
+    if (this.bookingDiscountError) {
       this.bookingFormErrorField = 'discount';
-      this.bookingFormError = msg;
-      this.showError(msg);
+      this.bookingFormError = this.bookingDiscountError;
+      this.showError(this.bookingDiscountError);
       this.scrollToTopAndHighlight('discount');
-      this.bookingFormSaving.set(false);
-      return;
-    }
-    if (this.bookingDiscountType === 'Amount' && this.bookingDiscountValue < 0) {
-      const msg = 'Discount amount cannot be negative.';
-      this.bookingFormErrorField = 'discount';
-      this.bookingFormError = msg;
-      this.showError(msg);
-      this.scrollToTopAndHighlight('discount');
-      this.bookingFormSaving.set(false);
-      return;
-    }
-    if (this.bookingDiscountType === 'Amount' && this.bookingDiscountValue < 0) {
-      const msg = 'Discount amount cannot be negative.';
-      alert(msg);
-      this.bookingFormError = msg;
       this.bookingFormSaving.set(false);
       return;
     }
@@ -1996,6 +2212,8 @@ export class Manage implements OnInit {
         customerAddress: u.address || this.bookingFormData.address || null,
         customerCityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : (u.cityId ? Number(u.cityId) : null),
         customerNotes: this.bookingFormData.notes || null,
+        offeringType: this.bookingOfferingType,
+        offeringTypeId: this.bookingOfferingTypeId || 1,
         // Compatibility properties
         spaceIdGuid: spaceGuidStr,
         userIdGuid: u.idGUID ?? u.idGuid ?? String(u.id ?? ''),
@@ -3987,6 +4205,10 @@ export class Manage implements OnInit {
     this.quotationDiscountType = 'Percentage';
     this.quotationDiscountValue = 0;
     this.quotationDiscountPercentage = 0;
+    this.quotationDiscountError = '';
+    this.quotationOfferingTypeId = 1;
+    this.quotationOfferingType = '24/7';
+    this.loadOfferingTypes();
     this.quotationFloorId = null;
     this.quotationFloorOptions = [];
     this.quotationStartDate = this.today;
@@ -4305,18 +4527,11 @@ export class Manage implements OnInit {
       this.quotationFormSaving.set(false);
       return;
     }
-    if (this.quotationDiscountType === 'Percentage' && Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) > this.quotationMaxDiscountPercent) {
+    this.validateQuotationDiscount();
+    if (this.quotationDiscountError) {
       this.quotationFormErrorField = 'discount';
-      this.quotationFormError = "Discount percentage (" + this.quotationDiscountValue + "%) exceeds maximum allowed discount cap of " + this.quotationMaxDiscountPercent + "%.";
-      this.showError(this.quotationFormError);
-      this.scrollToTopAndHighlight('discount');
-      this.quotationFormSaving.set(false);
-      return;
-    }
-    if (this.quotationDiscountType === 'Fixed' && Number(this.quotationDiscountValue || 0) > this.maxAllowedDiscountValue) {
-      this.quotationFormErrorField = 'discount';
-      this.quotationFormError = "Fixed monthly discount (PKR " + this.quotationDiscountValue + ") exceeds maximum allowed cap of PKR " + this.maxAllowedDiscountValue + " per month.";
-      this.showError(this.quotationFormError);
+      this.quotationFormError = this.quotationDiscountError;
+      this.showError(this.quotationDiscountError);
       this.scrollToTopAndHighlight('discount');
       this.quotationFormSaving.set(false);
       return;
@@ -4347,6 +4562,8 @@ export class Manage implements OnInit {
       Status: 'Draft',
       CustomerId: Number(u.customerId || u.id || 0),
       SpaceId: Number(this.quotationFormData.spaceId),
+      OfferingTypeId: Number(this.quotationOfferingTypeId || 1),
+      OfferingType: this.quotationOfferingType || '24/7',
       StartDateTime: startDT,
       EndDateTime: endDT,
       ValidUntil: new Date(this.quotationValidUntil).toISOString().split('T')[0],
@@ -4365,7 +4582,7 @@ export class Manage implements OnInit {
       PerSeatBasePrice: Number(this.quotationPerSeatBasePrice || 0),
       Capacity: Number(this.quotationCapacity || 1),
       MonthlyBasePrice: Number(this.quotationMonthlyBasePrice || 0),
-      MaxDiscountPercent: Number(this.quotationMaxDiscountPercent || 20),
+      MaxDiscountPercent: Number(this.quotationDynamicDiscountCap || 10),
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
@@ -4506,7 +4723,12 @@ export class Manage implements OnInit {
     this.quotationSecurityDepositMonthsOverride = sourceVersion.securityDepositMonthsOverride ?? null;
     this.quotationDiscountType = sourceVersion.discountType || 'Percentage';
     this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
-    this.quotationDiscountPercentage = sourceVersion.discountPercentage || 0;
+    const srcOt = sourceVersion.offeringTypeDescription || sourceVersion.OfferingTypeDescription || sourceVersion.offeringType || sourceVersion.OfferingType || sourceVersion.operatingHours;
+    const srcOtId = sourceVersion.offeringTypeId || sourceVersion.OfferingTypeId;
+    this.quotationOfferingType = this.resolveOfferingTypeDescription(srcOt, srcOtId);
+    const matched = this.offeringTypes.find(o => o.description === this.quotationOfferingType);
+    this.quotationOfferingTypeId = matched?.id || Number(srcOtId || 1);
+    this.loadOfferingTypes();
 
     const declineNote = sourceVersion.customerNote || sourceVersion.note || sourceVersion.responseNote;
     if (declineNote) {
@@ -5946,6 +6168,7 @@ export class Manage implements OnInit {
   openSendAgreement(item?: any) {
     this.selectedAgreementItem = item || null;
     this.sendAgreementError = '';
+    this.loadOfferingTypes();
 
     const compName = item?.companyName || item?.company || item?.organizationName || item?.CompanyName || item?.OrganizationName || '';
     this.sendAgreementTab = compName ? 'Company' : 'Individual';
@@ -5988,7 +6211,9 @@ export class Manage implements OnInit {
       billingPeriod = item?.billingPeriod || item?.billingFrequency;
     }
 
-    const opHours = item?.operatingHours || item?.offeringType || item?.quotationOfferingType || item?.OperatingHours || item?.OfferingType || '24/7';
+    const rawOt = item?.offeringTypeDescription || item?.OfferingTypeDescription || item?.offeringType || item?.OfferingType || item?.offeringTypeName || item?.OfferingTypeName || item?.quotationOfferingType || item?.operatingHours || item?.OperatingHours;
+    const rawOtId = item?.offeringTypeId || item?.OfferingTypeId;
+    const opHours = this.resolveOfferingTypeDescription(rawOt, rawOtId);
 
     const baseMonthlyFee = item ? (this.getQuotationMonthlyRent(item) || Number(item.monthlyRent ?? item.MonthlyRent ?? item.monthlyFee ?? item.MonthlyFee ?? item.price ?? item.Price ?? 0)) : 0;
     const itemDiscPct = item ? this.getQuotationDiscountPercentage(item) : 0;
@@ -6135,8 +6360,10 @@ export class Manage implements OnInit {
               const d = new Date(q.endDateTime || q.endDate || q.EndDateTime || q.EndDate);
               if (!isNaN(d.getTime())) this.sendAgreementData.contractEndDate = d.toISOString().split('T')[0];
             }
-            if (q.operatingHours || q.offeringType || q.OperatingHours || q.OfferingType) {
-              this.sendAgreementData.operatingHours = q.operatingHours || q.offeringType || q.OperatingHours || q.OfferingType;
+            const qOpHours = q.offeringTypeDescription || q.OfferingTypeDescription || q.offeringType || q.OfferingType || q.offeringTypeName || q.OfferingTypeName || q.quotationOfferingType || q.operatingHours || q.OperatingHours;
+            const qOtId = q.offeringTypeId || q.OfferingTypeId;
+            if (qOpHours || qOtId) {
+              this.sendAgreementData.operatingHours = this.resolveOfferingTypeDescription(qOpHours, qOtId);
             }
 
             const qCustId = q.customerId || q.CustomerId || q.userId || q.UserId;
