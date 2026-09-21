@@ -20,12 +20,21 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" x2="12" y1="5" y2="19" />
-          <line x1="5" x2="19" y1="12" y2="12" />
+          <line x1="5" x2="19" y2="12" y2="12" />
         </svg>
         Create Custom Invoice
       </button>
       }
-
+      @if (entity === 'agreements') {
+      <button class="btn-admin btn-primary-admin" (click)="openSendAgreement()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" x2="12" y1="5" y2="19" />
+          <line x1="5" x2="19" y2="12" y2="12" />
+        </svg>
+        Send Agreement
+      </button>
+      }
       @if (entity === 'quotations') {
       <button class="btn-admin btn-primary-admin" (click)="openAdminQuotationForm()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -314,12 +323,43 @@
               </button>
               }
               @if (isQuotationAccepted(item)) {
-              <button class="action-btn approve" (click)="convertQuotationToBooking(item)"
-                title="Convert Quotation Version to Booking" style="background:#16a34a;color:#fff;border:none">
+              <button class="action-btn approve" (click)="convertQuotationToBooking(item)" title="Convert to Booking"
+                style="background:#16a34a;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
+                </svg>
+              </button>
+              <button class="action-btn" (click)="openSendAgreement(item)" title="Send Legal Agreement"
+                style="background:#0284c7;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+              </button>
+              }
+              }
+              @if (entity === 'agreements') {
+              <button class="action-btn" (click)="downloadAgreementPdf(item.id || item.agreementId)"
+                title="Download Agreement PDF" style="background:#0f766e;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+              @if ((item.status || item.Status || '').toLowerCase() === 'agreementsent' || (item.status || item.Status
+              || '').toLowerCase() === 'sent') {
+              <button class="action-btn approve" (click)="markAgreementSigned(item.id || item.agreementId)"
+                title="Mark Signed & Convert to Booking" style="background:#16a34a;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               </button>
               }
@@ -566,7 +606,8 @@
           Configure the base rate amount and select the billing frequency (Per Month, Per Day, or Per Hour).
         </small>
         } @else if (field.type === 'floor-select') {
-        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" [disabled]="!isSuperAdmin && field.key === 'locationId'">
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
+          [disabled]="!isSuperAdmin && field.key === 'locationId'">
           <option value="">Select Floor...</option>
           @for (opt of floorOptions; track opt.v) {
           <option [value]="opt.v">{{ opt.l }}</option>
@@ -600,7 +641,8 @@
           style="background:#f1f5f9;color:#94a3b8" />
         }
         } @else if (field.type === 'user-location-select') {
-        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" [disabled]="!isSuperAdmin && !!userLocationId">
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
+          [disabled]="!isSuperAdmin && !!userLocationId">
           <option [ngValue]="null">Select Location (Required for Admin/Sales)...</option>
           @for (loc of locationOptions; track loc.v) {
           <option [value]="loc.v">{{ loc.l }}</option>
@@ -1135,7 +1177,8 @@
       </div>
       <div class="form-group-admin">
         <label>Location *</label>
-        <select class="form-input-admin" [(ngModel)]="addSpaceLocationId" name="addSpaceLocation" required (change)="onAddSpaceSelectionChange()" [disabled]="!isSuperAdmin">
+        <select class="form-input-admin" [(ngModel)]="addSpaceLocationId" name="addSpaceLocation" required
+          (change)="onAddSpaceSelectionChange()" [disabled]="!isSuperAdmin">
           <option value="">Select Location...</option>
           @for (loc of locationOptions; track loc.v) {
           <option [value]="loc.v">{{ loc.l }}</option>
@@ -1289,13 +1332,6 @@
         </div>
         } @else {
         <div>
-          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Total Contract Rent
-          </div>
-          <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ getChallanTotalContract(c) |
-            number:'1.2-2' }}</div>
-          <div style="font-size:0.72rem;color:#64748b">{{ getChallanContractMonths(c) }} Month(s) Duration</div>
-        </div>
-        <div>
           <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
           <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getChallanMonthlyRent(c) | number:'1.2-2'
             }}</div>
@@ -1386,10 +1422,10 @@
           <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getChallanTaxAmount(c) > 0">
             <td style="padding:12px 14px">
               <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
-              <div style="font-size:0.78rem;color:#166534">16% PST on 10% support services portion</div>
+              <div style="font-size:0.78rem;color:#166534">16% PST on Support Charges (PKR 2,000/seat/mo)</div>
             </td>
             <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
-              16% on 10% Support Services
+              16% on Support Services
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
               + PKR {{ getChallanTaxAmount(c) | number:'1.2-2' }}
@@ -1410,18 +1446,6 @@
           </tr>
         </tbody>
         <tfoot>
-          <!-- Contract Total Overview Row (Only for monthly spaces) -->
-          @if (!isMeetingRoom(c)) {
-          <tr style="background:#f8fafc;font-size:0.85rem;border-top:2px solid #e2e8f0">
-            <td colspan="2" style="padding:10px 14px;font-weight:600;color:#64748b">
-              Total Contract Rent ({{ getChallanContractMonths(c) }} Months @ PKR {{ getChallanMonthlyRent(c) |
-              number:'1.2-2' }}/mo)
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#475569">
-              PKR {{ getChallanTotalContract(c) | number:'1.2-2' }}
-            </td>
-          </tr>
-          }
           <!-- Grand Total Payable Row -->
           <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
             <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
@@ -1579,10 +1603,20 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId" (change)="onQuotationLocationChange()">
+          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId"
+            (change)="onQuotationLocationChange()">
             @for (loc of locationOptions; track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
             }
+          </select>
+        </div>
+        <div class="form-group-admin">
+          <label>Offering Type *</label>
+          <select class="form-input-admin" [(ngModel)]="quotationOfferingType" name="qOfferingType"
+            (change)="onQuotationOfferingTypeChange()">
+            <option value="24/7">24/7 </option>
+            <option value="Shift">Shift Morning(6am-6pm)</option>
+            <option value="Shift">Shift Evening(6pm-6am)</option>
           </select>
         </div>
         <div class="form-group-admin" data-field="spaceType"
@@ -1737,7 +1771,7 @@
         </div>
         <div class="form-group-admin" data-field="discount" [class.has-error]="quotationFormErrorField === 'discount'">
           <label>Discount Value @if (quotationDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+              style="color:#94a3b8">(0–30)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
             [max]="quotationDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="quotationDiscountValue"
             name="qDiscountValue" (input)="recalcQuotationAmount()" placeholder="0" />
@@ -1782,14 +1816,6 @@
       @if (quotationSubtotal > 0) {
       <div class="history-section"
         style="margin-top:1rem;margin-bottom:1.25rem;background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
-        <h4 style="margin:0 0 10px 0;font-size:.9rem;color:#0f172a">Quotation Contract & Initial Payment Breakdown</h4>
-
-        <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
-          <span style="color:#64748b">TOTAL CONTRACT VALUE ({{ quotationMonths }} Month{{ quotationMonths > 1 ? 's' : ''
-            }}):</span>
-          <strong style="color:#0f172a">PKR {{ quotationSubtotal | number:'1.2-2' }}</strong>
-        </div>
-
         <div style="background:#eff6ff;padding:10px 12px;border-radius:6px;margin:8px 0;border:1px solid #bfdbfe">
           <div style="font-weight:600;color:#1e40af;font-size:0.85rem;margin-bottom:6px">INITIAL PAYMENT REQUIRED</div>
 
@@ -1805,8 +1831,15 @@
           </div>
           }
 
+          @if (quotationFirstInvoiceDiscount > 0) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#0284c7">Sales Tax / PST (16% on 10% Support Services):</span>
+            <span style="color:#ef4444">Discount:</span>
+            <strong style="color:#ef4444">- PKR {{ quotationFirstInvoiceDiscount | number:'1.2-2' }}</strong>
+          </div>
+          }
+
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
+            <span style="color:#0284c7">Sales Tax / PST (16% on Support Services):</span>
             <strong style="color:#0284c7">PKR {{ quotationTaxAmount | number:'1.2-2' }}</strong>
           </div>
 
@@ -1814,13 +1847,6 @@
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Security Deposit ({{ quotationSecurityDepositMonths }} Month(s)):</span>
             <strong style="color:#1e3a8a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.2-2' }}</strong>
-          </div>
-          }
-
-          @if (quotationFirstInvoiceDiscount > 0) {
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">PKR {{ quotationFirstInvoiceDiscount | number:'1.2-2' }}</strong>
           </div>
           }
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
@@ -1953,7 +1979,8 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" (change)="onBookingLocationChange()">
+          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId"
+            (change)="onBookingLocationChange()">
             @for (loc of locationOptions; track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
             }
@@ -2097,8 +2124,8 @@
           </select>
         </div>
         <div class="form-group-admin" data-field="discount" [class.has-error]="bookingFormErrorField === 'discount'">
-          <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small
-              style="color:#94a3b8">(0–100)</small> } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
+          <label>Discount Value @if (bookingDiscountType === 'Percentage') { <small style="color:#94a3b8">(0-30)</small>
+            } @else { <small style="color:#94a3b8">(PKR)</small> }</label>
           <input class="form-input-admin" type="number" min="0"
             [max]="bookingDiscountType === 'Percentage' ? 100 : null" step="1" [(ngModel)]="bookingDiscountValue"
             name="bookingDiscountValue" (input)="recalcAmount()" placeholder="0" />
@@ -2149,13 +2176,6 @@
           <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
         </div>
         }
-
-        <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
-          <span style="color:#64748b">TOTAL CONTRACT VALUE ({{ adminMonths }} Month{{ adminMonths > 1 ? 's' : ''
-            }}):</span>
-          <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
-        </div>
-
         <div style="background:#eff6ff;padding:10px 12px;border-radius:6px;margin:8px 0;border:1px solid #bfdbfe">
           <div style="font-weight:600;color:#1e40af;font-size:0.85rem;margin-bottom:6px">INITIAL PAYMENT REQUIRED</div>
 
@@ -2170,20 +2190,23 @@
             <strong style="color:#1e3a8a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
           </div>
           }
+
+          @if (bookingFirstInvoiceDiscount > 0) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#0284c7">Sales Tax / PST (16% on 10% Support Services):</span>
+            <span style="color:#ef4444">Discount:</span>
+            <strong style="color:#ef4444">- PKR {{ bookingFirstInvoiceDiscount | number:'1.2-2' }}</strong>
+          </div>
+          }
+
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
+            <span style="color:#0284c7">Sales Tax / PST (16% on Support Services):</span>
             <strong style="color:#0284c7">PKR {{ bookingTaxAmount | number:'1.2-2' }}</strong>
           </div>
+
           @if (isAdminPrivateRoom) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Security Deposit ({{ bookingSecurityDepositMonths }} Month(s)):</span>
             <strong style="color:#1e3a8a">PKR {{ effectiveSecurityDeposit | number:'1.2-2' }}</strong>
-          </div>
-          }
-          @if (bookingFirstInvoiceDiscount > 0) {
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">PKR {{ bookingFirstInvoiceDiscount | number:'1.2-2' }}</strong>
           </div>
           }
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
@@ -2697,6 +2720,10 @@
         </button>
         }
         @if (isQuotationAccepted(q)) {
+        <button class="btn-admin btn-primary-admin" (click)="openSendAgreement(q)"
+          style="background:#0284c7;color:#fff">
+          Send Agreement
+        </button>
         <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(q)"
           style="background:#16a34a;color:#fff">
           Convert to Booking
@@ -2758,6 +2785,10 @@
               </button>
               }
               @if (isQuotationAccepted(v)) {
+              <button class="btn-admin btn-primary-admin" (click)="openSendAgreement(v)"
+                style="font-size:0.75rem;padding:4px 10px;background:#0284c7;color:#fff;border:none">
+                Send Agreement
+              </button>
               <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking(v)"
                 style="font-size:0.75rem;padding:4px 10px;background:#16a34a;color:#fff;border:none">
                 Convert to Booking
@@ -2830,12 +2861,6 @@
           </div>
           } @else {
           <div>
-            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Total Contract</div>
-            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ getQuotationTotalContract(q) |
-              number:'1.2-2' }}</div>
-            <div style="font-size:0.72rem;color:#64748b">{{ getQuotationContractMonths(q) }} Month(s) Duration</div>
-          </div>
-          <div>
             <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
             <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getQuotationMonthlyRent(q) |
               number:'1.2-2' }}</div>
@@ -2896,7 +2921,8 @@
               <td style="padding:12px 14px">
                 <strong style="color:#0f172a">1st Advance Rent Period ({{ getQuotationBillingMonths(q) }}
                   Month(s))</strong>
-                <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
+                <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle (inclusive of support
+                  services)</div>
               </td>
               <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
                 {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
@@ -2906,12 +2932,46 @@
               </td>
             </tr>
 
-            <!-- Security Deposit (Only for Private Room / when > 0) -->
+            <!-- Special Discount if any -->
+            @if (getQuotationDiscountAmount(q) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+              <td style="padding:12px 14px;color:#16a34a">
+                <strong>Special Discount Applied ({{ getQuotationDiscountPercentage(q) }}%)</strong>
+                <div style="font-size:0.78rem;color:#16a34a">Discount applied to advance rent</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+                Rent Discount Offset
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
+                - PKR {{ getQuotationDiscountAmount(q) | number:'1.2-2' }}
+              </td>
+            </tr>
+            }
+
+            <!-- Provincial Sales Tax (PST - 16%) -->
+            @if (getQuotationTaxAmount(q) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+              <td style="padding:12px 14px">
+                <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+                <div style="font-size:0.78rem;color:#166534">16% PST on support services portion (PKR 2,000/seat/mo,
+                  itemized on Sales Tax Invoice)</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+                16% on PKR {{ getQuotationSupportCharges(q) | number:'1.2-2' }} Support Portion
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
+              </td>
+            </tr>
+            }
+
+            <!-- Security Deposit (Refundable) -->
             @if (isPrivateRoom(q) && getQuotationSecurityDeposit(q) > 0) {
             <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
               <td style="padding:12px 14px">
                 <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
-                <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination</div>
+                <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination (mirrors {{
+                  getQuotationDiscountPercentage(q) }}% discount)</div>
               </td>
               <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
                 {{ getQuotationSecurityMonths(q) }} Month(s) Equivalent
@@ -2922,46 +2982,8 @@
             </tr>
             }
             }
-
-            <!-- Provincial Sales Tax (PST) on Advance Rent -->
-            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getQuotationTaxAmount(q) > 0">
-              <td style="padding:12px 14px">
-                <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
-                <div style="font-size:0.78rem;color:#166534">16% PST on 10% support services portion</div>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
-                16% on 10% Support Services
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
-                + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
-              </td>
-            </tr>
-
-            <!-- Special Discount if any -->
-            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5" *ngIf="q.discountAmount > 0">
-              <td style="padding:12px 14px;color:#16a34a">
-                <strong>Special Discount Applied</strong>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
-                Discount Offset
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
-                - PKR {{ (q.discountAmount || 0) | number:'1.2-2' }}
-              </td>
-            </tr>
           </tbody>
           <tfoot>
-            @if (!isMeetingRoom(q)) {
-            <tr style="background:#f8fafc;font-size:0.85rem;border-top:2px solid #e2e8f0">
-              <td colspan="2" style="padding:10px 14px;font-weight:600;color:#64748b">
-                Total Contract Rent ({{ getQuotationContractMonths(q) }} Months @ PKR {{ getQuotationMonthlyRent(q) |
-                number:'1.2-2' }}/mo)
-              </td>
-              <td style="padding:10px 14px;text-align:right;font-weight:700;color:#475569">
-                PKR {{ getQuotationTotalContract(q) | number:'1.2-2' }}
-              </td>
-            </tr>
-            }
             <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
               <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
                 TOTAL INITIAL PAYABLE AMOUNT (1ST BILLING CYCLE)
@@ -3083,7 +3105,7 @@
         <tbody>
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:10px 14px">
-              <strong>Base Room Rent (Contract Total)</strong>
+              <strong>Base Room Rent</strong>
               <div style="font-size:0.75rem;color:#64748b">Before discount & tax</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
@@ -3104,7 +3126,7 @@
 
           <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
             <td style="padding:10px 14px">
-              <strong style="color:#15803d">Service Charge (10%) & Province Tax (16%)</strong>
+              <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
               <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines
                 & challan</div>
             </td>
@@ -3125,13 +3147,6 @@
           }
         </tbody>
         <tfoot>
-          <tr style="background:#f8fafc;font-size:0.95rem;border-top:1px solid #cbd5e1">
-            <td style="padding:10px 14px;font-weight:700;color:#475569">Total Booking Contract Value</td>
-            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              PKR {{ (getQuotationTotalContract(q) + getQuotationContractTaxAmount(q) + getQuotationSecurityDeposit(q) -
-              (q.discountAmount || q.DiscountAmount || 0)) | number:'1.2-2' }}
-            </td>
-          </tr>
           <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
             <td style="padding:12px 14px;font-weight:800;color:#1e40af">
               Initial Challan Amount Payable (1st Cycle Rent + Tax + Security Deposit)
@@ -3265,7 +3280,7 @@
 
           <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
             <td style="padding:10px 14px">
-              <strong style="color:#15803d">Service Charge (10%) & Province Tax (16%)</strong>
+              <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
               <div style="font-size:0.75rem;color:#166534">Effective-dated provincial tax snapshot</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
@@ -3492,6 +3507,200 @@
         {{ submittingCustomInvoice() ? 'Sending...' : 'Send Invoice' }}
       </button>
     </div>
+  </div>
+</div>
+}
+<!-- Send Agreement Modal -->
+@if (showSendAgreementModal) {
+<div class="modal-overlay" (click)="closeSendAgreementModal()">
+  <div class="modal-content" style="max-width:650px;width:100%" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closeSendAgreementModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Send Coworking Space Agreement</h2>
+    <p style="color:#64748b;font-size:0.85rem;margin-top:-6px;margin-bottom:16px">
+      Verify customer / company details and generate official Coworking Space Use Agreement (PDF) sent directly to
+      customer.
+    </p>
+
+    <!-- Quotation & Workspace Summary Card -->
+    @if (sendAgreementData.quotationNumber || sendAgreementData.spaceName) {
+    <div
+      style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:0.72rem;color:#64748b;font-weight:700;text-transform:uppercase">Quotation Reference</div>
+        <strong style="font-size:0.95rem;color:#0f172a">{{ sendAgreementData.quotationNumber || ('Quotation #' +
+          (selectedAgreementItem?.id || selectedAgreementItem?.quotationId)) }}</strong>
+        <div style="font-size:0.78rem;color:#475569" *ngIf="sendAgreementData.overrideEmail">To: {{
+          sendAgreementData.overrideEmail }}</div>
+      </div>
+      @if (sendAgreementData.spaceName) {
+      <div style="text-align:right">
+        <div style="font-size:0.72rem;color:#64748b;font-weight:700;text-transform:uppercase">Workspace Space</div>
+        <strong style="font-size:0.95rem;color:#2563eb">{{ sendAgreementData.spaceName }}</strong>
+        <div style="font-size:0.78rem;color:#64748b">
+          {{ sendAgreementData.spaceTypeName || 'Office' }}<span *ngIf="sendAgreementData.locationName"> • {{
+            sendAgreementData.locationName }}</span>
+        </div>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- Entity Type Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:10px">
+      <button type="button" class="btn-admin" [class.btn-primary-admin]="sendAgreementTab === 'Individual'"
+        [class.btn-outline-admin]="sendAgreementTab !== 'Individual'" (click)="sendAgreementTab = 'Individual'">
+        Individual
+      </button>
+      <button type="button" class="btn-admin" [class.btn-primary-admin]="sendAgreementTab === 'Company'"
+        [class.btn-outline-admin]="sendAgreementTab !== 'Company'" (click)="sendAgreementTab = 'Company'">
+        Company / Private Limited
+      </button>
+      <button type="button" class="btn-admin btn-outline-admin" disabled style="opacity:0.5;cursor:not-allowed"
+        title="AOP coming soon">
+        AOP / Partnership <span class="role-badge role-sales" style="font-size:0.65rem;margin-left:4px">Coming
+          Soon</span>
+      </button>
+    </div>
+
+    @if (sendAgreementError) {
+    <div class="alert-admin alert-error-admin">{{ sendAgreementError }}</div>
+    }
+
+    <form (ngSubmit)="submitSendAgreement()">
+      @if (sendAgreementTab === 'Individual') {
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Full Name *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerFullName" name="agCustName"
+            required />
+        </div>
+        <div class="form-group-admin">
+          <label>CNIC / Passport *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerCnic" name="agCustCnic"
+            required placeholder="XXXXX-XXXXXXX-X" />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Phone Number</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerPhone"
+            name="agCustPhone" />
+        </div>
+        <div class="form-group-admin">
+          <label>Residential Address</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerAddress"
+            name="agCustAddress" />
+        </div>
+      </div>
+      } @else {
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Company / Corporate Name *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.companyName" name="agCompName"
+            required />
+        </div>
+        <div class="form-group-admin">
+          <label>NTN (National Tax Number) *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.companyNtn" name="agCompNtn"
+            required placeholder="XXXXXXX-X" />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>SECP Registration No.</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.companySecpRegNo" name="agCompSecp"
+            placeholder="SECP Reg #" />
+        </div>
+        <div class="form-group-admin">
+          <label>Authorized Signatory Name</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerFullName" name="agAuthName"
+            placeholder="Director / CEO" />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Registered Office Address</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerAddress"
+            name="agCompAddress" />
+        </div>
+        <div class="form-group-admin">
+          <label>Contact Phone</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerPhone"
+            name="agCompPhone" />
+        </div>
+      </div>
+      }
+
+      <p class="form-section-label" style="margin-top:1rem">Agreement Terms & Commercials</p>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Contract Start Date *</label>
+          <input class="form-input-admin" type="date" [(ngModel)]="sendAgreementData.contractStartDate"
+            name="agStartDate" required />
+        </div>
+        <div class="form-group-admin">
+          <label>Contract End Date *</label>
+          <input class="form-input-admin" type="date" [(ngModel)]="sendAgreementData.contractEndDate" name="agEndDate"
+            required />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Billing Period *</label>
+          <select class="form-input-admin" [(ngModel)]="sendAgreementData.billingPeriod" name="agBillingPeriod">
+            <option value="Monthly">Monthly</option>
+            <option value="Bi-Monthly">Bi-Monthly</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Bi-Annual">Bi-Annual</option>
+            <option value="Annual">Annual</option>
+          </select>
+        </div>
+        <div class="form-group-admin">
+          <label>Operating Hours / Offering</label>
+          <select class="form-input-admin" [(ngModel)]="sendAgreementData.operatingHours" name="agOpHours">
+            <option value="24/7">24/7 Access</option>
+            <option value="Shift">Shift Access</option>
+            <option value="Shift Morning(6am-6pm)">Shift Morning (6am - 6pm)</option>
+            <option value="Shift Evening(6pm-6am)">Shift Evening (6pm - 6am)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Recurring Fee Amount (PKR) *</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="sendAgreementData.monthlyFee" name="agMonthlyFee"
+            required />
+          <small style="color:#64748b;font-size:0.75rem">Clause 4.1: Discounted rent for billing cycle</small>
+        </div>
+        <div class="form-group-admin">
+          <label>Refundable Security Deposit (PKR) *</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="sendAgreementData.securityDeposit"
+            name="agSecurityDeposit" required />
+          <small style="color:#64748b;font-size:0.75rem">Clause 4.4: Refundable deposit</small>
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Security Deposit Refund Days *</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="sendAgreementData.refundDays" name="agRefundDays"
+            required />
+          <small style="color:#64748b;font-size:0.75rem">Clause 4.6: Days to refund after termination</small>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:1.5rem">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeSendAgreementModal()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="sendAgreementSaving()">
+          {{ sendAgreementSaving() ? 'Generating & Sending...' : 'Send Agreement to Customer' }}
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 }

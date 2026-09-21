@@ -1,5 +1,5 @@
-import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+﻿import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
@@ -11,6 +11,8 @@ import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
+import { AgreementService } from '../../../services/agreement.service';
+import { of } from 'rxjs';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -36,7 +38,7 @@ interface EntityConfig {
 export class Manage implements OnInit {
   billingPeriods: any[] = [];
   entity = '';
-  config: EntityConfig = { title: '', columns: [], getFn: () => [] };
+  config: EntityConfig = { title: '', columns: [], getFn: () => of({ data: [], total: 0 }) };
 
   loading = signal(true);
   items = signal<any[]>([]);
@@ -169,7 +171,16 @@ export class Manage implements OnInit {
 
   get effectiveSecurityDeposit(): number {
     if (!this.isAdminPrivateRoom) return 0;
-    return parseFloat((this.bookingMonthlyRent * Number(this.bookingSecurityDepositMonths || 0)).toFixed(2));
+    const months = this.securityDepositMonthsOverride ?? Number(this.bookingSecurityDepositMonths || 0);
+    const baseDeposit = parseFloat((this.bookingMonthlyRent * months).toFixed(2));
+    if (baseDeposit <= 0) return 0;
+    const pct = this.bookingDiscountType === 'Percentage'
+      ? Math.min(100, Math.max(0, Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0)))
+      : (this.bookingSubtotal > 0 && this.bookingDiscountAmount > 0
+          ? Math.min(100, Math.max(0, (this.bookingDiscountAmount / this.bookingSubtotal) * 100))
+          : 0);
+    const discounted = baseDeposit * (1 - (pct / 100));
+    return parseFloat(Math.max(0, discounted).toFixed(2));
   }
 
   get bookingMonthlyRent(): number {
@@ -321,6 +332,11 @@ export class Manage implements OnInit {
   quotationFloorOptions: { v: any; l: string }[] = [];
   quotationBillingPeriodMonths = 3;
   quotationSecurityDepositMonths = 2;
+  quotationOfferingType = '24/7';
+
+  onQuotationOfferingTypeChange() {
+    this.recalcQuotationAmount();
+  }
 
   get quotationMonthlyBasePrice(): number {
     return parseFloat((Number(this.quotationPerSeatBasePrice || 0) * Math.max(1, Number(this.quotationCapacity || 1))).toFixed(2));
@@ -357,19 +373,31 @@ export class Manage implements OnInit {
   get effectiveQuotationSecurityDeposit(): number {
     if (!this.isQuotationPrivateRoom) return 0;
     const months = this.quotationSecurityDepositMonthsOverride ?? Number(this.quotationSecurityDepositMonths || 0);
-    return parseFloat((this.quotationMonthlyRent * months).toFixed(2));
+    const baseDeposit = parseFloat((this.quotationMonthlyRent * months).toFixed(2));
+    if (baseDeposit <= 0) return 0;
+    const pct = this.quotationDiscountType === 'Percentage'
+      ? Math.min(100, Math.max(0, Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0)))
+      : (this.quotationSubtotal > 0 && this.quotationDiscountAmount > 0
+          ? Math.min(100, Math.max(0, (this.quotationDiscountAmount / this.quotationSubtotal) * 100))
+          : 0);
+    const discounted = baseDeposit * (1 - (pct / 100));
+    return parseFloat(Math.max(0, discounted).toFixed(2));
   }
 
   get quotationDiscountAmount(): number {
     const val = Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0);
     if (this.quotationDiscountType === 'Amount') return parseFloat(Math.max(0, val).toFixed(2));
-    const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : (this.quotationBillingAmount + this.effectiveQuotationSecurityDeposit);
+    const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationBillingAmount;
     return parseFloat((base * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
   }
 
   get quotationTaxAmount(): number {
-    const baseRent = this.quotationBillingAmount;
-    const supportCharge = baseRent * 0.10;
+    if (this.isQuotationMeetingRoom) {
+      return parseFloat((this.quotationSubtotal * 0.16).toFixed(2));
+    }
+    const cap = Math.max(1, Number(this.selectedQuotationCapacity || 1));
+    const billingM = Math.max(1, Number(this.quotationBillingPeriodMonths || 3));
+    const supportCharge = 2000 * cap * billingM;
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
 
@@ -476,12 +504,14 @@ export class Manage implements OnInit {
   amountLabels: Record<string, string> = {};
 
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private admin = inject(AdminService);
   private auth = inject(AuthService);
   private accountCoa = inject(AccountCoaService);
   private amountFieldSvc = inject(AmountFieldService);
   private bookingService = inject(BookingService);
   private quotationSvc = inject(QuotationService);
+  private agreementSvc = inject(AgreementService);
   private toast = inject(ToastService);
 
   showError(msg: string, title: string = 'Error') {
@@ -1529,13 +1559,30 @@ export class Manage implements OnInit {
     });
   }
 
+  sanitizeCustomerFullName(rawName: string | null | undefined): string {
+    if (!rawName) return '';
+    const parts = rawName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      if (parts[parts.length - 1].toLowerCase() === parts[parts.length - 2].toLowerCase()) {
+        parts.pop();
+      }
+    }
+    return parts.join(' ');
+  }
+
   selectCustomer(user: any) {
     this.selectedCustomer = user;
-    const fullName = user.fullName
-      || [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
-      || user.name
-      || user.email
-      || '';
+    let rawFn = user.fullName || '';
+    if (!rawFn) {
+      const f = (user.firstName || '').trim();
+      const l = (user.lastName || '').trim();
+      if (f && l && f.toLowerCase().endsWith(l.toLowerCase())) {
+        rawFn = f;
+      } else {
+        rawFn = [f, l].filter(Boolean).join(' ').trim();
+      }
+    }
+    const fullName = this.sanitizeCustomerFullName(rawFn || user.name || user.email || '');
     this.customerSearchQuery = fullName;
     this.customerSearchResults = [];
     this.bookingFormData.customerName = fullName;
@@ -2348,6 +2395,42 @@ export class Manage implements OnInit {
 
   getCellValue(item: any, col: ColDef): any {
     if (!item) return '';
+
+    if (this.entity === 'agreements') {
+      if (col.key === 'quotationNumber') {
+        return item.quotationNumber || item.QuotationNumber || (item.quotationId ? `#Q-${item.quotationId}` : '-');
+      }
+      if (col.key === 'customerName') {
+        return item.customerFullName || item.customerName || item.CustomerName || item.fullName || item.companyName || item.CompanyName || '-';
+      }
+      if (col.key === 'customerEmail') {
+        return item.customerEmail || item.userEmail || item.email || item.CustomerEmail || item.overrideEmail || '-';
+      }
+      if (col.key === 'spaceName') {
+        return item.spaceName || item.SpaceName || item.spaceCode || '-';
+      }
+      if (col.key === 'entityType') {
+        return item.entityType || item.EntityType || 'Individual';
+      }
+      if (col.key === 'monthlyFee') {
+        return item.feeAmount ?? item.FeeAmount ?? item.monthlyFee ?? item.MonthlyFee ?? 0;
+      }
+      if (col.key === 'securityDeposit') {
+        return item.securityDeposit ?? item.SecurityDeposit ?? 0;
+      }
+      if (col.key === 'contractStartDate') {
+        return item.contractStartDate || item.ContractStartDate || item.startDate || item.StartDate || '';
+      }
+      if (col.key === 'contractEndDate') {
+        return item.contractEndDate || item.ContractEndDate || item.endDate || item.EndDate || '';
+      }
+      if (col.key === 'status') {
+        return item.status || item.Status || 'AgreementSent';
+      }
+      if (col.key === 'createdOn') {
+        return item.sentDate || item.SentDate || item.createdOn || item.CreatedOn || item.createdAt || item.CreatedAt || '';
+      }
+    }
 
     if (this.entity === 'quotations') {
       if (col.key === 'quotationNumber') {
@@ -3827,7 +3910,27 @@ export class Manage implements OnInit {
         },
       };
 
-      default: return { title: entity, columns: [], getFn: () => [] };
+      case 'agreements': return {
+        title: 'Agreements',
+        columns: [
+          { key: 'quotationNumber', label: 'Quotation #' },
+          { key: 'customerName', label: 'Customer / Signatory' },
+          { key: 'customerEmail', label: 'Email' },
+          { key: 'spaceName', label: 'Space' },
+          { key: 'entityType', label: 'Type' },
+          { key: 'monthlyFee', label: 'Monthly Fee (PKR)', type: 'currency' },
+          { key: 'securityDeposit', label: 'Security Deposit (PKR)', type: 'currency' },
+          { key: 'contractStartDate', label: 'Start Date', type: 'date' },
+          { key: 'contractEndDate', label: 'End Date', type: 'date' },
+          { key: 'status', label: 'Status', type: 'status' },
+          { key: 'createdOn', label: 'Sent Date', type: 'date' },
+        ],
+        getFn: (p, l, s) => {
+          return this.agreementSvc.getAgreements(p, l, s);
+        },
+      };
+
+      default: return { title: entity, columns: [], getFn: () => of({ data: [], total: 0 }) };
     }
   }
 
@@ -3879,6 +3982,8 @@ export class Manage implements OnInit {
     this.quotationSecurityDepositMonthsOverride = null;
     this.quotationTotal = 0;
     this.quotationMonths = 12;
+    this.quotationBillingPeriodMonths = 3;
+    this.quotationSecurityDepositMonths = 2;
     this.quotationDiscountType = 'Percentage';
     this.quotationDiscountValue = 0;
     this.quotationDiscountPercentage = 0;
@@ -4253,7 +4358,9 @@ export class Manage implements OnInit {
         ? this.effectiveQuotationSecurityDeposit
         : null,
       BillingPeriodMonths: this.quotationBillingPeriodMonths,
-      SecurityDepositMonths: this.quotationSecurityDepositMonths,
+      billingPeriodMonths: this.quotationBillingPeriodMonths,
+      SecurityDepositMonths: Number(this.quotationSecurityDepositMonths || 2),
+      securityDepositMonths: Number(this.quotationSecurityDepositMonths || 2),
       FloorId: this.quotationFloorId ?? null,
       PerSeatBasePrice: Number(this.quotationPerSeatBasePrice || 0),
       Capacity: Number(this.quotationCapacity || 1),
@@ -4564,7 +4671,13 @@ export class Manage implements OnInit {
   isQuotationAccepted(item: any): boolean {
     if (!item) return false;
     const st = (item.status || item.Status || '').toString().trim().toLowerCase();
-    return st === 'accepted' || st === 'active' || st === 'sent' || item.isAccepted === true || item.IsAccepted === true;
+    return st === 'accepted' || st === 'signed' || st === 'agreementsigned' || st === 'active' || st === 'sent' || st === 'agreementsent' || item.isAccepted === true || item.IsAccepted === true;
+  }
+
+  isQuotationSigned(item: any): boolean {
+    if (!item) return false;
+    const st = (item.status || item.Status || '').toString().trim().toLowerCase();
+    return st === 'signed' || st === 'agreementsigned';
   }
 
   convertQuotationToBooking(item: any) {
@@ -5414,8 +5527,25 @@ export class Manage implements OnInit {
   }
 
   getChallanSecurityMonths(c: any): number {
-    if (!c) return 1;
-    return Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 1);
+    if (!c) return 2;
+    const details = c.details || c.Details || c.items || c.Items || c.lineItems || c.LineItems || [];
+    const secLine = Array.isArray(details) ? details.find((d: any) => {
+      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
+      const desc = String(d.description || d.Description || '').toLowerCase();
+      return ft === 'securitydeposit' || desc.includes('security deposit');
+    }) : null;
+    if (secLine && Number(secLine.quantity || secLine.Quantity) > 0) {
+      return Number(secLine.quantity || secLine.Quantity);
+    }
+    if (secLine && (secLine.description || secLine.Description)) {
+      const match = String(secLine.description || secLine.Description).match(/(\d+)\s*Month/i);
+      if (match && match[1]) return Number(match[1]);
+    }
+    const secM = c.securityDepositMonths ?? c.SecurityDepositMonths ?? c.securityDepositMonthsOverride ?? c.SecurityDepositMonthsOverride;
+    if (secM != null && Number(secM) > 0) {
+      return Number(secM);
+    }
+    return this.isPrivateRoom(c) ? 2 : 0;
   }
 
   getChallanMonthlyRent(c: any): number {
@@ -5485,7 +5615,14 @@ export class Manage implements OnInit {
     }
     const secMonths = this.getChallanSecurityMonths(c);
     const monthlyRent = this.getChallanMonthlyRent(c);
-    return monthlyRent * secMonths;
+    const baseDeposit = monthlyRent * secMonths;
+    const discAmount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
+    const subtotal = Number(c.subtotalAmount ?? c.SubtotalAmount ?? 0);
+    const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? (subtotal > 0 && discAmount > 0 ? (discAmount / subtotal) * 100 : 0));
+    if (discPct > 0) {
+      return Math.max(0, parseFloat((baseDeposit * (1 - discPct / 100)).toFixed(2)));
+    }
+    return baseDeposit;
   }
 
   getChallanTaxAmount(c: any): number {
@@ -5525,8 +5662,25 @@ export class Manage implements OnInit {
   }
 
   getQuotationSecurityMonths(q: any): number {
-    if (!q) return 1;
-    return Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 1);
+    if (!q) return 2;
+    const details = q.details || q.Details || [];
+    const secLine = Array.isArray(details) ? details.find((d: any) => {
+      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
+      const desc = String(d.description || d.Description || '').toLowerCase();
+      return ft === 'securitydeposit' || desc.includes('security deposit');
+    }) : null;
+    if (secLine && Number(secLine.quantity || secLine.Quantity) > 0) {
+      return Number(secLine.quantity || secLine.Quantity);
+    }
+    if (secLine && (secLine.description || secLine.Description)) {
+      const match = String(secLine.description || secLine.Description).match(/(\d+)\s*Month/i);
+      if (match && match[1]) return Number(match[1]);
+    }
+    const secM = q.securityDepositMonths ?? q.SecurityDepositMonths ?? q.securityDepositMonthsOverride ?? q.SecurityDepositMonthsOverride;
+    if (secM != null && Number(secM) > 0) {
+      return Number(secM);
+    }
+    return this.isPrivateRoom(q) ? 2 : 0;
   }
 
   getQuotationMonthlyRent(q: any): number {
@@ -5575,10 +5729,6 @@ export class Manage implements OnInit {
     if (this.isMeetingRoom(q)) {
       return Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
     }
-    const dbCycle = q.firstCycleRent ?? q.FirstCycleRent ?? q.currentCycleAmount ?? q.CurrentCycleAmount;
-    if (dbCycle !== undefined && dbCycle !== null && Number(dbCycle) > 0 && Number(dbCycle) < Number(this.getQuotationTotalContract(q))) {
-      return Number(dbCycle);
-    }
     const bpm = this.getQuotationBillingMonths(q);
     const monthlyRent = this.getQuotationMonthlyRent(q);
     return monthlyRent * bpm;
@@ -5596,21 +5746,83 @@ export class Manage implements OnInit {
     }
     const secMonths = this.getQuotationSecurityMonths(q);
     const monthlyRent = this.getQuotationMonthlyRent(q);
-    return monthlyRent * secMonths;
+    const baseDeposit = monthlyRent * secMonths;
+    const discPct = this.getQuotationDiscountPercentage(q);
+    if (discPct > 0) {
+      return Math.max(0, parseFloat((baseDeposit * (1 - discPct / 100)).toFixed(2)));
+    }
+    return baseDeposit;
+  }
+
+  getQuotationSupportCharges(q: any): number {
+    if (!q || this.isMeetingRoom(q)) return 0;
+    if (q.supportChargeAmount !== undefined && q.supportChargeAmount !== null && Number(q.supportChargeAmount) > 0) {
+      return Number(q.supportChargeAmount);
+    }
+    if (q.SupportChargeAmount !== undefined && q.SupportChargeAmount !== null && Number(q.SupportChargeAmount) > 0) {
+      return Number(q.SupportChargeAmount);
+    }
+    let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
+    if (!capacity && q.spaceName) {
+      const match = String(q.spaceName).match(/\((\d+)\)/);
+      if (match && match[1]) capacity = Number(match[1]);
+    }
+    if (!capacity || capacity <= 0) capacity = 1;
+    const bpm = this.getQuotationBillingMonths(q);
+    const perSeatSupportRate = Number(q.perSeatSupportRate ?? q.PerSeatSupportRate ?? 2000);
+    return perSeatSupportRate * capacity * bpm;
   }
 
   getQuotationTaxAmount(q: any): number {
     if (!q) return 0;
-    const cycleRent = this.getQuotationFirstCycleRent(q);
-    const supportServices = cycleRent * 0.10;
-    return Math.round(supportServices * 0.16 * 100) / 100;
+    if (this.isMeetingRoom(q)) {
+      const base = Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
+      return Math.round(base * 0.16 * 100) / 100;
+    }
+    if (q.taxAmountOnAdvanceRent !== undefined && q.taxAmountOnAdvanceRent !== null && Number(q.taxAmountOnAdvanceRent) > 0) {
+      return Number(q.taxAmountOnAdvanceRent);
+    }
+    if (q.taxAmount !== undefined && q.taxAmount !== null && Number(q.taxAmount) > 0 && Number(q.taxAmount) < Number(this.getQuotationTotalContract(q))) {
+      return Number(q.taxAmount);
+    }
+    const supportServices = this.getQuotationSupportCharges(q);
+    const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
+    return Math.round(supportServices * (taxPct / 100) * 100) / 100;
   }
 
   getQuotationContractTaxAmount(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    const totalContract = this.getQuotationTotalContract(q);
-    const supportServices = totalContract * 0.10;
-    return Math.round(supportServices * 0.16 * 100) / 100;
+    if (q.taxAmountOnContract !== undefined && q.taxAmountOnContract !== null && Number(q.taxAmountOnContract) > 0) {
+      return Number(q.taxAmountOnContract);
+    }
+    let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
+    if (!capacity && q.spaceName) {
+      const match = String(q.spaceName).match(/\((\d+)\)/);
+      if (match && match[1]) capacity = Number(match[1]);
+    }
+    if (!capacity || capacity <= 0) capacity = 1;
+    const contractMonths = this.getQuotationContractMonths(q);
+    const perSeatSupportRate = Number(q.perSeatSupportRate ?? q.PerSeatSupportRate ?? 2000);
+    const totalSupport = perSeatSupportRate * capacity * contractMonths;
+    const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
+    return Math.round(totalSupport * (taxPct / 100) * 100) / 100;
+  }
+
+  getQuotationDiscountAmount(q: any): number {
+    if (!q) return 0;
+    return Number(q.discountAmount ?? q.DiscountAmount ?? 0);
+  }
+
+  getQuotationDiscountPercentage(q: any): number {
+    if (!q) return 0;
+    const pct = q.discountPercentage ?? q.DiscountPercentage;
+    if (pct != null && Number(pct) > 0) return Number(pct);
+    const disc = this.getQuotationDiscountAmount(q);
+    const subtotal = Number(q.subtotalAmount ?? q.SubtotalAmount ?? 0);
+    if (disc > 0 && subtotal > 0) {
+      return Math.round((disc / subtotal) * 100);
+    }
+    return 0;
   }
 
   getQuotationInitialPayable(q: any): number {
@@ -5618,8 +5830,9 @@ export class Manage implements OnInit {
     const cycleRent = this.getQuotationFirstCycleRent(q);
     const deposit = this.getQuotationSecurityDeposit(q);
     const tax = this.getQuotationTaxAmount(q);
-    const discount = Number(q.discountAmount ?? q.DiscountAmount ?? 0);
-    return Math.max(0, cycleRent + deposit + tax - discount);
+    const discPct = this.getQuotationDiscountPercentage(q);
+    const discount = discPct > 0 ? Math.round(cycleRent * (discPct / 100) * 100) / 100 : this.getQuotationDiscountAmount(q);
+    return Math.max(0, parseFloat(((cycleRent - discount) + deposit + tax).toFixed(2)));
   }
 
   getQuotationNetTotal(q: any): number {
@@ -5640,7 +5853,7 @@ export class Manage implements OnInit {
     this.selectedConversionQuotation.set(null);
   }
 
-  executeConversion(q: any) {
+    executeConversion(q: any) {
     if (!q || (!q.id && !q.Id)) return;
     const qId = q.id || q.Id;
     this.conversionSubmitting.set(true);
@@ -5651,13 +5864,8 @@ export class Manage implements OnInit {
         this.success = 'Quotation successfully converted to booking!';
         setTimeout(() => this.success = '', 4000);
 
-        // 1. Switch view to bookings page
-        this.entity = 'bookings';
-        this.load();
-
-        // 2. Open invoice preview in bookings page
         const bookingData = res?.data ?? res ?? {};
-        const bId = bookingData.bookingId || bookingData.BookingId || bookingData.id || bookingData.Id || q.bookingId || q.id;
+        const bId = bookingData.bookingId || bookingData.BookingId || bookingData.id || bookingData.Id;
         const bookingItem = {
           id: bId,
           bookingId: bId,
@@ -5668,9 +5876,20 @@ export class Manage implements OnInit {
           ...bookingData
         };
 
-        setTimeout(() => {
-          this.sendInitialInvoice(bookingItem);
-        }, 400);
+        // Navigate cleanly to Bookings page and reload bookings list
+        this.router.navigate(['/admin/bookings']).then(() => {
+          this.entity = 'bookings';
+          this.config = this.buildConfig('bookings');
+          this.page.set(1);
+          this.searchQuery = '';
+          this.load(() => {
+            if (bId) {
+              setTimeout(() => {
+                this.sendInitialInvoice(bookingItem);
+              }, 400);
+            }
+          });
+        });
       },
       error: (err: any) => {
         this.conversionSubmitting.set(false);
@@ -5702,6 +5921,357 @@ export class Manage implements OnInit {
     return this.getSpaceType(item) === 'PrivateRoom';
   }
 
+  showSendAgreementModal = false;
+  sendAgreementTab: 'Individual' | 'Company' = 'Individual';
+  sendAgreementError = '';
+  sendAgreementSaving = signal(false);
+  sendAgreementData: any = {
+    customerFullName: '',
+    customerCnic: '',
+    customerPhone: '',
+    customerAddress: '',
+    companyName: '',
+    companyNtn: '',
+    companySecpRegNo: '',
+    contractStartDate: '',
+    contractEndDate: '',
+    billingPeriod: 'Monthly',
+    operatingHours: '24/7',
+    monthlyFee: 0,
+    securityDeposit: 0,
+    refundDays: 30
+  };
+  selectedAgreementItem: any = null;
+
+  openSendAgreement(item?: any) {
+    this.selectedAgreementItem = item || null;
+    this.sendAgreementError = '';
+
+    const compName = item?.companyName || item?.company || item?.organizationName || item?.CompanyName || item?.OrganizationName || '';
+    this.sendAgreementTab = compName ? 'Company' : 'Individual';
+
+    const now = new Date();
+    const startStr = this.today;
+    const end = new Date(now);
+    end.setFullYear(end.getFullYear() + 1);
+    const endStr = end.toISOString().split('T')[0];
+
+    const rawCustName = item?.customerFullName || item?.customerName || item?.CustomerName || item?.fullName || item?.FullName || item?.userName || item?.UserName || item?.name || item?.Name || '';
+    const customerName = this.sanitizeCustomerFullName(rawCustName);
+    const customerEmail = item?.customerEmail || item?.CustomerEmail || item?.userEmail || item?.UserEmail || item?.email || item?.Email || item?.overrideEmail || '';
+    const customerPhone = item?.customerPhone || item?.CustomerPhone || item?.phoneNumber || item?.PhoneNumber || item?.phone || item?.Phone || item?.contactNo || '';
+    const customerAddress = item?.customerAddress || item?.CustomerAddress || item?.addressLine1 || item?.AddressLine1 || item?.address || item?.Address || '';
+    const customerCnic = item?.customerCnic || item?.CustomerCnic || item?.cnicOrPassport || item?.CnicOrPassport || item?.cnic || item?.Cnic || item?.cnicPassport || item?.CnicPassport || item?.nic || item?.Nic || item?.sntnNtnNic || '';
+    const companyNtn = item?.companyNtn || item?.CompanyNtn || item?.ntn || item?.Ntn || item?.ntnNo || '';
+    const companySecp = item?.companySecpRegNo || item?.CompanySecpRegNo || item?.secpRegNo || item?.SecpRegNo || item?.secpRegistrationNo || item?.SecpRegistrationNo || '';
+
+    let startVal = startStr;
+    let endVal = endStr;
+    const rawStart = item?.startDate || item?.startDateTime || item?.contractStartDate || item?.StartDate || item?.StartDateTime || item?.ContractStartDate;
+    if (rawStart) {
+      const d = new Date(rawStart);
+      if (!isNaN(d.getTime())) startVal = d.toISOString().split('T')[0];
+    }
+    const rawEnd = item?.endDate || item?.endDateTime || item?.contractEndDate || item?.EndDate || item?.EndDateTime || item?.ContractEndDate;
+    if (rawEnd) {
+      const d = new Date(rawEnd);
+      if (!isNaN(d.getTime())) endVal = d.toISOString().split('T')[0];
+    }
+
+    const bpm = Number(item?.billingPeriodMonths ?? item?.BillingPeriodMonths ?? (item?.billingPeriod === 'Bi-Monthly' ? 2 : (item?.billingPeriod === 'Quarterly' ? 3 : (item?.billingPeriod === 'Bi-Annual' ? 6 : (item?.billingPeriod === 'Annual' ? 12 : 1)))));
+    let billingPeriod = 'Monthly';
+    if (bpm === 2) billingPeriod = 'Bi-Monthly';
+    else if (bpm === 3) billingPeriod = 'Quarterly';
+    else if (bpm === 6) billingPeriod = 'Bi-Annual';
+    else if (bpm === 12) billingPeriod = 'Annual';
+    else if (item?.billingPeriod || item?.billingFrequency) {
+      billingPeriod = item?.billingPeriod || item?.billingFrequency;
+    }
+
+    const opHours = item?.operatingHours || item?.offeringType || item?.quotationOfferingType || item?.OperatingHours || item?.OfferingType || '24/7';
+
+    const baseMonthlyFee = item ? (this.getQuotationMonthlyRent(item) || Number(item.monthlyRent ?? item.MonthlyRent ?? item.monthlyFee ?? item.MonthlyFee ?? item.price ?? item.Price ?? 0)) : 0;
+    const itemDiscPct = item ? this.getQuotationDiscountPercentage(item) : 0;
+    const itemDiscAmt = item ? this.getQuotationDiscountAmount(item) : 0;
+    const itemContractM = item ? this.getQuotationContractMonths(item) : 12;
+    let discountedMonthlyFee = baseMonthlyFee;
+    if (itemDiscPct > 0) {
+      discountedMonthlyFee = baseMonthlyFee * (1 - itemDiscPct / 100);
+    } else if (itemDiscAmt > 0 && itemContractM > 0) {
+      discountedMonthlyFee = Math.max(0, baseMonthlyFee - (itemDiscAmt / itemContractM));
+    }
+    const monthlyFee = parseFloat((discountedMonthlyFee * bpm).toFixed(2));
+    const secDeposit = item ? (this.getQuotationSecurityDeposit(item) || Number(item.securityDeposit ?? item.SecurityDeposit ?? item.securityDepositOverride ?? item.SecurityDepositOverride ?? 0)) : 0;
+
+    this.sendAgreementData = {
+      quotationId: item?.quotationId || item?.id || item?.Id || null,
+      customerFullName: customerName,
+      customerCnic: customerCnic,
+      customerPhone: customerPhone,
+      customerAddress: customerAddress,
+      companyName: compName,
+      companyNtn: companyNtn,
+      companySecpRegNo: companySecp,
+      contractStartDate: startVal,
+      contractEndDate: endVal,
+      billingPeriod: billingPeriod,
+      operatingHours: opHours,
+      monthlyFee: monthlyFee,
+      securityDeposit: secDeposit,
+      refundDays: item?.refundDays || 30,
+      overrideEmail: customerEmail,
+      spaceName: item?.spaceName || item?.SpaceName || '',
+      spaceTypeName: item?.spaceTypeName || item?.SpaceTypeName || '',
+      locationName: item?.locationName || item?.LocationName || '',
+      quotationNumber: item?.quotationNumber || item?.QuotationNumber || ''
+    };
+
+    const applyCustomerData = (c: any) => {
+      if (!c) return;
+      const cnicVal = c.cnicOrPassport || c.CnicOrPassport || c.cnic || c.Cnic || c.customerCnic || c.CustomerCnic || c.cnicPassport || c.CnicPassport || c.nic || c.Nic || c.sntnNtnNic || '';
+      if (!this.sendAgreementData.customerCnic && cnicVal) {
+        this.sendAgreementData.customerCnic = cnicVal;
+      }
+      if (!this.sendAgreementData.customerFullName) {
+        let cName = c.fullName || '';
+        if (!cName) {
+          const cf = (c.firstName || '').trim();
+          const cl = (c.lastName || '').trim();
+          cName = (cf && cl && cf.toLowerCase().endsWith(cl.toLowerCase())) ? cf : [cf, cl].filter(Boolean).join(' ').trim();
+        }
+        this.sendAgreementData.customerFullName = this.sanitizeCustomerFullName(cName || c.name || c.Name || '');
+      }
+      if (!this.sendAgreementData.customerPhone && (c.phoneNumber || c.phone || c.PhoneNumber || c.Phone || c.contactNo)) {
+        this.sendAgreementData.customerPhone = c.phoneNumber || c.phone || c.PhoneNumber || c.Phone || c.contactNo;
+      }
+      if (!this.sendAgreementData.customerAddress && (c.addressLine1 || c.address || c.AddressLine1 || c.Address)) {
+        this.sendAgreementData.customerAddress = c.addressLine1 || c.address || c.AddressLine1 || c.Address;
+      }
+      if (!this.sendAgreementData.companyName && (c.company || c.companyName || c.organizationName || c.Company || c.CompanyName)) {
+        this.sendAgreementData.companyName = c.company || c.companyName || c.organizationName || c.Company || c.CompanyName;
+        this.sendAgreementTab = 'Company';
+      }
+      if (!this.sendAgreementData.companyNtn && (c.ntn || c.companyNtn || c.Ntn || c.CompanyNtn || c.ntnNo)) {
+        this.sendAgreementData.companyNtn = c.ntn || c.companyNtn || c.Ntn || c.CompanyNtn || c.ntnNo;
+      }
+      if (!this.sendAgreementData.companySecpRegNo && (c.secpRegistrationNo || c.secpRegNo || c.SecpRegistrationNo || c.SecpRegNo)) {
+        this.sendAgreementData.companySecpRegNo = c.secpRegistrationNo || c.secpRegNo || c.SecpRegistrationNo || c.SecpRegNo;
+      }
+      if (!this.sendAgreementData.overrideEmail && (c.email || c.userEmail || c.Email || c.UserEmail)) {
+        this.sendAgreementData.overrideEmail = c.email || c.userEmail || c.Email || c.UserEmail;
+      }
+    };
+
+    const custId = item?.customerId || item?.CustomerId || item?.userId || item?.UserId;
+    if (custId) {
+      this.admin.getCustomerById(custId).subscribe({
+        next: (cRes: any) => {
+          const c = cRes?.data ?? cRes;
+          applyCustomerData(c);
+        }
+      });
+    }
+
+    const qId = item?.quotationId || item?.id || item?.Id;
+    if (qId) {
+      this.quotationSvc.getQuotationById(qId).subscribe({
+        next: (qRes: any) => {
+          const q = qRes?.data ?? qRes;
+          if (q) {
+            const qCnic = q.customerCnic || q.CustomerCnic || q.cnicOrPassport || q.CnicOrPassport || q.cnic || q.Cnic || q.cnicPassport || q.nic || '';
+            if (!this.sendAgreementData.customerCnic && qCnic) {
+              this.sendAgreementData.customerCnic = qCnic;
+            }
+            if (!this.sendAgreementData.customerFullName && (q.customerName || q.customerFullName || q.CustomerName)) {
+              this.sendAgreementData.customerFullName = this.sanitizeCustomerFullName(q.customerName || q.customerFullName || q.CustomerName);
+            } else if (this.sendAgreementData.customerFullName) {
+              this.sendAgreementData.customerFullName = this.sanitizeCustomerFullName(this.sendAgreementData.customerFullName);
+            }
+            if (!this.sendAgreementData.overrideEmail && (q.customerEmail || q.userEmail || q.email || q.CustomerEmail)) {
+              this.sendAgreementData.overrideEmail = q.customerEmail || q.userEmail || q.email || q.CustomerEmail;
+            }
+            if (!this.sendAgreementData.customerPhone && (q.customerPhone || q.phone || q.phoneNumber || q.CustomerPhone)) {
+              this.sendAgreementData.customerPhone = q.customerPhone || q.phone || q.phoneNumber || q.CustomerPhone;
+            }
+            if (!this.sendAgreementData.customerAddress && (q.customerAddress || q.address || q.CustomerAddress)) {
+              this.sendAgreementData.customerAddress = q.customerAddress || q.address || q.CustomerAddress;
+            }
+            if (!this.sendAgreementData.companyName && (q.companyName || q.company || q.CompanyName)) {
+              this.sendAgreementData.companyName = q.companyName || q.company || q.CompanyName;
+              this.sendAgreementTab = 'Company';
+            }
+            if (!this.sendAgreementData.companyNtn && (q.companyNtn || q.ntn || q.CompanyNtn)) {
+              this.sendAgreementData.companyNtn = q.companyNtn || q.ntn || q.CompanyNtn;
+            }
+            if (!this.sendAgreementData.quotationNumber && (q.quotationNumber || q.QuotationNumber)) {
+              this.sendAgreementData.quotationNumber = q.quotationNumber || q.QuotationNumber;
+            }
+            if (!this.sendAgreementData.spaceName && (q.spaceName || q.spaceCode || q.SpaceName)) {
+              this.sendAgreementData.spaceName = q.spaceName || q.spaceCode || q.SpaceName;
+              this.sendAgreementData.spaceTypeName = q.spaceTypeName || q.SpaceTypeName || '';
+              this.sendAgreementData.locationName = q.locationName || q.LocationName || '';
+            }
+            const qBpm = Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 1);
+            this.sendAgreementData.billingPeriod = qBpm === 2 ? 'Bi-Monthly' : (qBpm === 3 ? 'Quarterly' : (qBpm === 6 ? 'Bi-Annual' : (qBpm === 12 ? 'Annual' : 'Monthly')));
+
+            const qBaseMonthly = this.getQuotationMonthlyRent(q) || Number(q.monthlyRent ?? q.MonthlyRent ?? 0);
+            const qDiscPct = this.getQuotationDiscountPercentage(q);
+            const qDiscAmt = this.getQuotationDiscountAmount(q);
+            const qContractM = this.getQuotationContractMonths(q) || 12;
+            let qDiscountedMonthly = qBaseMonthly;
+            if (qDiscPct > 0) {
+              qDiscountedMonthly = qBaseMonthly * (1 - qDiscPct / 100);
+            } else if (qDiscAmt > 0 && qContractM > 0) {
+              qDiscountedMonthly = Math.max(0, qBaseMonthly - (qDiscAmt / qContractM));
+            }
+            this.sendAgreementData.monthlyFee = parseFloat((qDiscountedMonthly * qBpm).toFixed(2));
+            this.sendAgreementData.securityDeposit = this.getQuotationSecurityDeposit(q) || Number(q.securityDeposit ?? q.SecurityDeposit ?? 0);
+
+            if (q.startDateTime || q.startDate || q.StartDateTime || q.StartDate) {
+              const d = new Date(q.startDateTime || q.startDate || q.StartDateTime || q.StartDate);
+              if (!isNaN(d.getTime())) this.sendAgreementData.contractStartDate = d.toISOString().split('T')[0];
+            }
+            if (q.endDateTime || q.endDate || q.EndDateTime || q.EndDate) {
+              const d = new Date(q.endDateTime || q.endDate || q.EndDateTime || q.EndDate);
+              if (!isNaN(d.getTime())) this.sendAgreementData.contractEndDate = d.toISOString().split('T')[0];
+            }
+            if (q.operatingHours || q.offeringType || q.OperatingHours || q.OfferingType) {
+              this.sendAgreementData.operatingHours = q.operatingHours || q.offeringType || q.OperatingHours || q.OfferingType;
+            }
+
+            const qCustId = q.customerId || q.CustomerId || q.userId || q.UserId;
+            if (qCustId && !this.sendAgreementData.customerCnic) {
+              this.admin.getCustomerById(qCustId).subscribe({
+                next: (qcRes: any) => {
+                  const qc = qcRes?.data ?? qcRes;
+                  applyCustomerData(qc);
+                }
+              });
+            }
+          }
+
+          const emailToSearch = this.sendAgreementData.overrideEmail || customerEmail;
+          if (!this.sendAgreementData.customerCnic && emailToSearch) {
+            this.admin.searchCustomers(emailToSearch).subscribe({
+              next: (sRes: any) => {
+                const list = sRes?.data ?? (Array.isArray(sRes) ? sRes : []);
+                const match = list.find((m: any) => String(m.email || m.userEmail || m.customerEmail || '').toLowerCase() === emailToSearch.toLowerCase()) || list[0];
+                if (match) {
+                  applyCustomerData(match);
+                }
+              }
+            });
+          }
+        }
+      });
+    } else {
+      const emailToSearch = this.sendAgreementData.overrideEmail || customerEmail;
+      if (!this.sendAgreementData.customerCnic && emailToSearch) {
+        this.admin.searchCustomers(emailToSearch).subscribe({
+          next: (sRes: any) => {
+            const list = sRes?.data ?? (Array.isArray(sRes) ? sRes : []);
+            const match = list.find((m: any) => String(m.email || m.userEmail || m.customerEmail || '').toLowerCase() === emailToSearch.toLowerCase()) || list[0];
+            if (match) {
+              applyCustomerData(match);
+            }
+          }
+        });
+      }
+    }
+
+    this.showSendAgreementModal = true;
+  }
+
+  closeSendAgreementModal() {
+    this.showSendAgreementModal = false;
+    this.selectedAgreementItem = null;
+  }
+
+  submitSendAgreement() {
+    this.sendAgreementSaving.set(true);
+    this.sendAgreementError = '';
+    const qId = Number(this.selectedAgreementItem?.quotationId || this.selectedAgreementItem?.id || this.sendAgreementData.quotationId || 0);
+    const payload: any = {
+      QuotationId: qId,
+      quotationId: qId,
+      EntityType: this.sendAgreementTab,
+      entityType: this.sendAgreementTab,
+      FullName: this.sendAgreementData.customerFullName,
+      fullName: this.sendAgreementData.customerFullName,
+      Cnic: this.sendAgreementData.customerCnic,
+      cnic: this.sendAgreementData.customerCnic,
+      PhoneNumber: this.sendAgreementData.customerPhone,
+      phoneNumber: this.sendAgreementData.customerPhone,
+      Address: this.sendAgreementData.customerAddress,
+      address: this.sendAgreementData.customerAddress,
+      CompanyName: this.sendAgreementData.companyName,
+      companyName: this.sendAgreementData.companyName,
+      Ntn: this.sendAgreementData.companyNtn,
+      ntn: this.sendAgreementData.companyNtn,
+      SecpRegistrationNo: this.sendAgreementData.companySecpRegNo,
+      secpRegistrationNo: this.sendAgreementData.companySecpRegNo,
+      RefundDays: Number(this.sendAgreementData.refundDays || 30),
+      refundDays: Number(this.sendAgreementData.refundDays || 30),
+      FeeAmount: Number(this.sendAgreementData.monthlyFee || 0),
+      feeAmount: Number(this.sendAgreementData.monthlyFee || 0),
+      SecurityDeposit: Number(this.sendAgreementData.securityDeposit || 0),
+      securityDeposit: Number(this.sendAgreementData.securityDeposit || 0),
+      ContractStartDate: this.sendAgreementData.contractStartDate ? new Date(this.sendAgreementData.contractStartDate).toISOString() : null,
+      contractStartDate: this.sendAgreementData.contractStartDate,
+      ContractEndDate: this.sendAgreementData.contractEndDate ? new Date(this.sendAgreementData.contractEndDate).toISOString() : null,
+      contractEndDate: this.sendAgreementData.contractEndDate,
+      OperatingHours: this.sendAgreementData.operatingHours || '24/7',
+      operatingHours: this.sendAgreementData.operatingHours || '24/7',
+      BillingFrequency: this.sendAgreementData.billingPeriod || 'Monthly',
+      billingFrequency: this.sendAgreementData.billingPeriod || 'Monthly',
+      OverrideEmail: this.sendAgreementData.overrideEmail || this.selectedAgreementItem?.customerEmail || this.selectedAgreementItem?.userEmail || null,
+      overrideEmail: this.sendAgreementData.overrideEmail || this.selectedAgreementItem?.customerEmail || this.selectedAgreementItem?.userEmail || null
+    };
+    const obs = this.agreementSvc ? this.agreementSvc.sendAgreement(payload) : this.admin.sendAgreement(payload);
+    obs.subscribe({
+      next: () => {
+        this.sendAgreementSaving.set(false);
+        this.showSendAgreementModal = false;
+        this.showSuccess('Agreement generated and sent to customer successfully!');
+        this.load();
+      },
+      error: (err: any) => {
+        this.sendAgreementSaving.set(false);
+        this.sendAgreementError = err?.error?.message || err?.message || 'Failed to send agreement.';
+        this.showError(this.sendAgreementError);
+      }
+    });
+  }
+
+  downloadAgreementPdf(agreementId: any) {
+    if (!agreementId) return;
+    const obs = this.agreementSvc ? this.agreementSvc.getAgreementPdf(Number(agreementId)) : this.admin.downloadAgreementPdf(agreementId);
+    obs.subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Agreement-${agreementId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => this.showError('Failed to download agreement PDF.')
+    });
+  }
+
+  markAgreementSigned(agreementId: any) {
+    if (!agreementId) return;
+    const obs = this.agreementSvc ? this.agreementSvc.markAgreementSigned(Number(agreementId)) : this.admin.markAgreementSigned(agreementId);
+    obs.subscribe({
+      next: () => {
+        this.showSuccess('Agreement marked as signed!');
+        this.load();
+      },
+      error: (err: any) => this.showError(err?.error?.message || 'Failed to mark agreement signed.')
+    });
+  }
+
 }
+
 
 

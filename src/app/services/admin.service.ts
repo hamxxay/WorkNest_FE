@@ -404,6 +404,9 @@ export class AdminService {
   deleteCustomer(id: string): Observable<ApiResponse<any>> {
     return this.http.delete<ApiResponse<any>>(`${this.api}/customer/${id}`);
   }
+  getCustomerById(id: string | number): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.api}/customer/${id}`);
+  }
 
   // Admin create booking with customer details
   createAdminBooking(data: any): Observable<ApiResponse<any>> {
@@ -502,5 +505,14 @@ export class AdminService {
   }
   getHikvisionExport(): Observable<any[]> {
     return this.http.get<any[]>(`${this.api}/access-status/export`);
+  }
+  sendAgreement(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/agreements/send`, data);
+  }
+  downloadAgreementPdf(id: any): Observable<Blob> {
+    return this.http.get(`${this.api}/agreements/${id}/pdf`, { responseType: 'blob' });
+  }
+  markAgreementSigned(id: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/agreements/${id}/mark-signed`, {});
   }
 }

@@ -1,0 +1,298 @@
+<div class="template-editor-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Lease Agreement Template Editor</h1>
+      <p class="page-subtitle">Manage versioned legal clauses (Pages 2+) for customer lease agreements</p>
+    </div>
+    <div class="header-actions">
+      @if (activeTemplate()) {
+      <span class="version-badge">
+        Active Version: <strong>v{{ activeTemplate()?.id }}</strong> Last Updated: {{ activeTemplate()?.createdAt |
+        date:'mediumDate' }}
+      </span>
+      }
+      <button class="btn-admin btn-secondary-admin" (click)="loadActiveTemplate()" [disabled]="loading()">
+        Reset / Reload
+      </button>
+      <button class="btn-admin btn-primary-admin" (click)="openPublishConfirm()" [disabled]="loading() || publishing()">
+        @if (publishing()) {
+        <span class="spinner-sm"></span> Publishing...
+        } @else {
+        Publish New Version
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="editor-card">
+    <!-- Toolbar -->
+    @if (editor) {
+    <div class="editor-toolbar">
+      <!-- History -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().undo().run()"
+          [disabled]="!editor.can().undo()" title="Undo (Ctrl+Z)">
+          <i class="bi bi-arrow-counterclockwise"></i> ↶
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().redo().run()"
+          [disabled]="!editor.can().redo()" title="Redo (Ctrl+Y)">
+          <i class="bi bi-arrow-clockwise"></i> ↷
+        </button>
+        <button type="button" class="toolbar-btn" (click)="clearFormatting()" title="Clear Formatting">
+          <span style="text-decoration: line-through; opacity: 0.7;">T</span>
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Typography / Headings -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setParagraph().run()"
+          [class.is-active]="editor.isActive('paragraph')" title="Normal Text (Paragraph)">
+          P
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleHeading({ level: 1 }).run()"
+          [class.is-active]="editor.isActive('heading', { level: 1 })" title="Heading 1">
+          H1
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleHeading({ level: 2 }).run()"
+          [class.is-active]="editor.isActive('heading', { level: 2 })" title="Heading 2">
+          H2
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleHeading({ level: 3 }).run()"
+          [class.is-active]="editor.isActive('heading', { level: 3 })" title="Heading 3">
+          H3
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleHeading({ level: 4 }).run()"
+          [class.is-active]="editor.isActive('heading', { level: 4 })" title="Heading 4">
+          H4
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Inline Formatting -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleBold().run()"
+          [class.is-active]="editor.isActive('bold')" title="Bold (Ctrl+B)">
+          <strong>B</strong>
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleItalic().run()"
+          [class.is-active]="editor.isActive('italic')" title="Italic (Ctrl+I)">
+          <em>I</em>
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleUnderline().run()"
+          [class.is-active]="editor.isActive('underline')" title="Underline (Ctrl+U)">
+          <u>U</u>
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleStrike().run()"
+          [class.is-active]="editor.isActive('strike')" title="Strikethrough">
+          <s>S</s>
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleSubscript().run()"
+          [class.is-active]="editor.isActive('subscript')" title="Subscript">
+          X<sub>2</sub>
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleSuperscript().run()"
+          [class.is-active]="editor.isActive('superscript')" title="Superscript">
+          X<sup>2</sup>
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleCode().run()"
+          [class.is-active]="editor.isActive('code')" title="Inline Code">
+          &lt;/&gt;
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Color and Highlight -->
+      <div class="toolbar-group color-group">
+        <label class="color-picker-btn" title="Text Color">
+          <span class="color-label">A</span>
+          <span class="color-indicator" [style.background-color]="currentColor"></span>
+          <input type="color" [value]="currentColor" (input)="onColorInput($event)" class="color-input-hidden" />
+        </label>
+        <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetColor()" title="Reset Text Color">
+          ✕
+        </button>
+
+        <label class="color-picker-btn highlight-picker" title="Highlight / Background Color">
+          <span class="highlight-label">🖊️</span>
+          <span class="color-indicator" [style.background-color]="currentHighlight"></span>
+          <input type="color" [value]="currentHighlight" (input)="onHighlightInput($event)"
+            class="color-input-hidden" />
+        </label>
+        <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetHighlight()" title="Remove Highlight">
+          ✕
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Text Alignment -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setTextAlign('left').run()"
+          [class.is-active]="editor.isActive({ textAlign: 'left' })" title="Align Left">
+          ⯇ Left
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setTextAlign('center').run()"
+          [class.is-active]="editor.isActive({ textAlign: 'center' })" title="Align Center">
+          ≡ Center
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setTextAlign('right').run()"
+          [class.is-active]="editor.isActive({ textAlign: 'right' })" title="Align Right">
+          Right ⯈
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setTextAlign('justify').run()"
+          [class.is-active]="editor.isActive({ textAlign: 'justify' })" title="Justify">
+          Justify
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Lists & Blocks -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleBulletList().run()"
+          [class.is-active]="editor.isActive('bulletList')" title="Bullet List">
+          • List
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleOrderedList().run()"
+          [class.is-active]="editor.isActive('orderedList')" title="Numbered List">
+          1. List
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleBlockquote().run()"
+          [class.is-active]="editor.isActive('blockquote')" title="Quote Block">
+          ❝ Quote
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleCodeBlock().run()"
+          [class.is-active]="editor.isActive('codeBlock')" title="Code Block">
+          Code Block
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setHorizontalRule().run()"
+          title="Horizontal Rule / Divider">
+          ― Line
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Links -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn" (click)="setLink()" [class.is-active]="editor.isActive('link')"
+          title="Insert/Edit Link">
+          🔗 Link
+        </button>
+        @if (editor.isActive('link')) {
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().unsetLink().run()"
+          title="Remove Link">
+          Unlink
+        </button>
+        }
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Tables -->
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn"
+          (click)="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
+          title="Insert 3x3 Table">
+          ⊞ Table
+        </button>
+
+        @if (editor.isActive('table')) {
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().addRowBefore().run()"
+          title="Add Row Above">
+          + Row ↑
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().addRowAfter().run()"
+          title="Add Row Below">
+          + Row ↓
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().deleteRow().run()" title="Delete Row">
+          - Row
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().addColumnBefore().run()"
+          title="Add Column Left">
+          + Col ←
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().addColumnAfter().run()"
+          title="Add Column Right">
+          + Col →
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().deleteColumn().run()"
+          title="Delete Column">
+          - Col
+        </button>
+        <button type="button" class="toolbar-btn" (click)="editor.chain().focus().mergeOrSplit().run()"
+          title="Merge / Split Cells">
+          Merge/Split
+        </button>
+        <button type="button" class="toolbar-btn btn-danger-soft" (click)="editor.chain().focus().deleteTable().run()"
+          title="Delete Table">
+          🗑 Table
+        </button>
+        }
+      </div>
+
+      <!-- Source Mode Toggle -->
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button type="button" class="toolbar-btn source-toggle-btn" (click)="toggleSourceMode()"
+          [class.is-active]="isSourceMode" title="Toggle HTML Source Code View">
+          &lt;/&gt; {{ isSourceMode ? 'Visual Editor' : 'HTML Source' }}
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- Content Area -->
+    <div class="editor-content-area" [class.loading-state]="loading()">
+      <!-- Visual WYSIWYG TipTap Editor -->
+      <div id="tiptap-editor-container" class="tiptap-prose" [style.display]="isSourceMode ? 'none' : 'block'"></div>
+
+      <!-- Raw HTML Source View & Editor -->
+      @if (isSourceMode) {
+      <div class="source-editor-container">
+        <div class="source-toolbar">
+          <div class="source-info">
+            <span class="source-badge">&lt;/&gt; HTML Source Mode</span>
+            <span class="source-hint">Directly edit raw HTML tags. Switch back to <strong>Visual Editor</strong> to preview formatting.</span>
+          </div>
+          <div class="source-actions">
+            <button type="button" class="btn-source-action" (click)="copySource()" title="Copy HTML source to clipboard">
+              📋 Copy HTML
+            </button>
+            <button type="button" class="btn-source-action btn-source-switch" (click)="toggleSourceMode()" title="Switch back to visual editor">
+              👁️ View Visual
+            </button>
+          </div>
+        </div>
+        <textarea class="source-textarea" [(ngModel)]="sourceHtml" spellcheck="false" placeholder="Enter HTML source here..."></textarea>
+      </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Publish Modal -->
+@if (showConfirmModal) {
+<div class="modal-overlay" (click)="closePublishConfirm()">
+  <div class="modal-content confirm-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Publish New Template Version?</h3>
+      <button class="modal-close" (click)="closePublishConfirm()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Publishing will create a <strong>new immutable active version</strong> of the lease agreement template.</p>
+      <p>All future generated lease agreements will automatically use this version, while past agreements will remain
+        permanently pinned to the version under which they were created.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closePublishConfirm()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="publishTemplate()">Confirm & Publish</button>
+    </div>
+  </div>
+</div>
+}

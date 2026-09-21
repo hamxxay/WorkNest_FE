@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+﻿import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
 
@@ -27,6 +27,8 @@ export const routes: Routes = [
       { path: 'pricing',     loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'pricing' } },
       { path: 'quotations',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'quotations' } },
       { path: 'payments',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'payments' } },
+      { path: 'agreements',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'agreements' } },
+      { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [adminGuard] },
       { path: 'invoices',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'invoices' } },
 
       { path: 'contacts',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'contacts' } },
@@ -43,3 +45,4 @@ export const routes: Routes = [
   { path: '**', redirectTo: '' }
 
 ];
+
