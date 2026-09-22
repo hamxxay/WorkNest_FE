@@ -293,6 +293,16 @@ export class AdminService {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice${qs}`);
   }
 
+  /** Get invoices for a specific customer */
+  getCustomerInvoices(customerId: number, page?: number, limit?: number, statusId?: number): Observable<ApiResponse<any[]>> {
+    const params = new URLSearchParams();
+    if (page != null) params.set('page', String(page));
+    if (limit != null) params.set('limit', String(limit));
+    if (statusId != null && statusId > 0) params.set('statusId', String(statusId));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/customer/${customerId}/invoices${qs}`);
+  }
+
   /** Get detailed invoice by ID with line items and prepaid periods */
   getStatementInvoicePdfBlob(invoiceId: number): Observable<Blob> {
     return this.http.get(`${this.api}/invoice/${invoiceId}/statement-pdf`, { responseType: 'blob' });

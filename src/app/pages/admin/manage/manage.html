@@ -5,6 +5,16 @@
       <p>Manage all {{ config.title.toLowerCase() }}</p>
     </div>
     <div class="header-actions">
+      @if (entity === 'quotations') {
+      <button class="btn-admin btn-primary-admin" (click)="openAdminQuotationForm()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" x2="12" y1="5" y2="19" />
+          <line x1="5" x2="19" y1="12" y2="12" />
+        </svg>
+        Create Quotation
+      </button>
+      }
       @if (entity === 'bookings') {
       <button class="btn-admin btn-primary-admin" (click)="openAdminBookingForm()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -30,22 +40,11 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" x2="12" y1="5" y2="19" />
-          <line x1="5" x2="19" y2="12" y2="12" />
+          <line x1="5" x2="19" y1="12" y2="12" />
         </svg>
         Send Agreement
       </button>
       }
-      @if (entity === 'quotations') {
-      <button class="btn-admin btn-primary-admin" (click)="openAdminQuotationForm()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" x2="12" y1="5" y2="19" />
-          <line x1="5" x2="19" y1="12" y2="12" />
-        </svg>
-        Create Quotation
-      </button>
-      }
-
       @if (entity === 'spaces') {
       @if (showDuplicatesOnly) {
       <button class="btn-admin btn-outline-admin" (click)="clearDuplicateFilter()">
@@ -344,8 +343,30 @@
               }
               }
               @if (entity === 'agreements') {
+              <input type="file" [id]="'upload-signed-' + (item.id || item.agreementId)" accept="application/pdf" style="display:none"
+                (change)="onSignedAgreementFileSelected(item.id || item.agreementId, $event)" />
+              
+              <button class="action-btn" (click)="triggerSignedUpload(item.id || item.agreementId)"
+                [disabled]="uploadingSignedAgreementId() === (item.id || item.agreementId)"
+                title="Upload Signed Agreement (PDF)" style="background:#4f46e5;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </button>
+
+              <button class="action-btn info" (click)="openAgreementDetailsModal(item)" title="View Agreement & Uploaded Copy">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+
               <button class="action-btn" (click)="downloadAgreementPdf(item.id || item.agreementId)"
-                title="Download Agreement PDF" style="background:#0f766e;color:#fff;border:none">
+                title="Download Generated Draft PDF" style="background:#0f766e;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -353,6 +374,20 @@
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
               </button>
+
+              @if (item.signedPdfUploadedAt || item.SignedPdfUploadedAt) {
+              <button class="action-btn" (click)="downloadSignedAgreementPdf(item.id || item.agreementId)"
+                title="Download Signed Copy (PDF)" style="background:#2563eb;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <path d="M12 18v-6" />
+                  <path d="m9 15 3 3 3-3" />
+                </svg>
+              </button>
+              }
+
               @if ((item.status || item.Status || '').toLowerCase() === 'agreementsent' || (item.status || item.Status
               || '').toLowerCase() === 'sent') {
               <button class="action-btn approve" (click)="markAgreementSigned(item.id || item.agreementId)"
@@ -1613,7 +1648,7 @@
         <div class="form-group-admin">
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="quotationOfferingType" name="qOfferingType"
-            (change)="onQuotationOfferingTypeChange()">
+            (change)="onQuotationOfferingTypeChange()" (ngModelChange)="validateQuotationDiscount()">
             @if (offeringTypes.length === 0) {
             <option value="24/7">24/7</option>
             <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
@@ -1770,7 +1805,7 @@
         <div class="form-group-admin">
           <label>Discount Type</label>
           <select class="form-input-admin" [(ngModel)]="quotationDiscountType" name="qDiscountType"
-            (change)="onDiscountTypeChange()">
+            (change)="onDiscountTypeChange()" (ngModelChange)="validateQuotationDiscount()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
@@ -1785,9 +1820,10 @@
               number:'1.0-2' }})</small>
             }
           </label>
-          <input class="form-input-admin" type="number" min="0"
+          <input class="form-input-admin" [class.is-invalid]="quotationDiscountError" type="number" min="0"
             [max]="quotationDiscountType === 'Percentage' ? quotationDynamicDiscountCap : quotationMaxAllowedDiscountFixed"
-            step="1" [(ngModel)]="quotationDiscountValue" name="qDiscountValue" (input)="recalcQuotationAmount()"
+            step="1" [(ngModel)]="quotationDiscountValue" name="qDiscountValue"
+            (ngModelChange)="validateQuotationDiscount()" (input)="recalcQuotationAmount(); validateQuotationDiscount()"
             placeholder="0" [style.border-color]="quotationDiscountError ? '#ef4444' : null" />
           @if (quotationDiscountError) {
           <div
@@ -2015,7 +2051,7 @@
         <div class="form-group-admin">
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="bookingOfferingType" name="bookingOfferingType"
-            (change)="onBookingOfferingTypeChange()">
+            (change)="onBookingOfferingTypeChange()" (ngModelChange)="validateBookingDiscount()">
             @if (offeringTypes.length === 0) {
             <option value="24/7">24/7</option>
             <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
@@ -2159,7 +2195,7 @@
         <div class="form-group-admin">
           <label>Discount Type</label>
           <select class="form-input-admin" [(ngModel)]="bookingDiscountType" name="bookingDiscountType"
-            (change)="onBookingDiscountTypeChange()">
+            (change)="onBookingDiscountTypeChange()" (ngModelChange)="validateBookingDiscount()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
@@ -2174,9 +2210,10 @@
               number:'1.0-2' }})</small>
             }
           </label>
-          <input class="form-input-admin" type="number" min="0"
+          <input class="form-input-admin" [class.is-invalid]="bookingDiscountError" type="number" min="0"
             [max]="bookingDiscountType === 'Percentage' ? bookingDynamicDiscountCap : bookingMaxAllowedDiscountFixed"
-            step="1" [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue" (input)="recalcAmount()"
+            step="1" [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue"
+            (ngModelChange)="validateBookingDiscount()" (input)="recalcAmount(); validateBookingDiscount()"
             placeholder="0" [style.border-color]="bookingDiscountError ? '#ef4444' : null" />
           @if (bookingDiscountError) {
           <div
@@ -3768,6 +3805,196 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+}
+<!-- Agreement Details & Signed Copy Modal -->
+@if (showAgreementDetailsModal && selectedAgreementDetails(); as agreement) {
+<div class="modal-overlay" (click)="showAgreementDetailsModal = false">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0;font-size:1.15rem;font-weight:700">Agreement Details #{{ agreement.id || agreement.agreementId }}</h3>
+        <span style="font-size:0.78rem;color:#94a3b8">{{ agreement.customerName || 'Signatory' }} — Quotation #{{ agreement.quotationNumber || agreement.quotationId }}</span>
+      </div>
+      <button (click)="showAgreementDetailsModal = false"
+        style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <div style="padding:24px;max-height:calc(85vh - 70px);overflow-y:auto">
+      <!-- Status & Info Card -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
+        <div>
+          <span style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Agreement Status</span>
+          <span class="status-badge" [class]="'status-' + (agreement.status || 'agreementsent').toLowerCase()" style="font-weight:700;font-size:0.85rem">
+            {{ agreement.status || 'AgreementSent' }}
+          </span>
+        </div>
+        <div style="text-align:right">
+          <span style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Entity Type</span>
+          <span style="font-weight:700;color:#0284c7;font-size:0.95rem">{{ agreement.entityType || 'Individual' }}</span>
+        </div>
+      </div>
+
+      <!-- Detail Grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Customer / Signatory</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ agreement.customerName || '—' }}</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ agreement.customerPhone || agreement.customerEmail || '' }}</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Company / Identity</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ agreement.companyName || agreement.customerCnic || '—' }}</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ agreement.ntn ? 'NTN: ' + agreement.ntn : (agreement.secpRegistrationNo ? 'SECP: ' + agreement.secpRegistrationNo : '') }}</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Monthly Fee</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#16a34a">{{ (agreement.feeAmount || agreement.monthlyFee || 0) | currency:'PKR ':'symbol':'1.0-0' }}</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Security Deposit</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ (agreement.securityDeposit || 0) | currency:'PKR ':'symbol':'1.0-0' }}</div>
+        </div>
+      </div>
+
+      <!-- Generated Draft PDF Section -->
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:14px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:0.85rem;font-weight:700;color:#0f172a">System Generated Lease Agreement</div>
+          <div style="font-size:0.78rem;color:#64748b">Sent on {{ (agreement.sentDate || agreement.createdOn) | date:'mediumDate' }}</div>
+        </div>
+        <button class="btn-admin" (click)="downloadAgreementPdf(agreement.id || agreement.agreementId)" style="background:#0f766e;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:600;cursor:pointer">
+          Download Generated PDF
+        </button>
+      </div>
+
+      <!-- Signed Agreement Section -->
+      <div style="background:#ffffff;border:1.5px dashed #94a3b8;border-radius:10px;padding:18px 20px;margin-bottom:10px">
+        <h4 style="margin:0 0 10px 0;font-size:0.95rem;font-weight:700;color:#0f172a">Signed Agreement Copy</h4>
+        
+        <!-- Conditional Download Link -->
+        <div style="margin-bottom:16px">
+          @if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
+            <div style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;padding:10px 14px;border-radius:6px">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <path d="M12 18v-6"></path>
+                <path d="m9 15 3 3 3-3"></path>
+              </svg>
+              <div>
+                <a [href]="getSignedAgreementDownloadUrl(agreement.id || agreement.agreementId)"
+                   (click)="$event.preventDefault(); downloadSignedAgreementPdf(agreement.id || agreement.agreementId)"
+                   target="_blank"
+                   style="color:#059669;font-weight:700;font-size:0.9rem;text-decoration:underline;cursor:pointer">
+                  Download Signed Agreement (PDF)
+                </a>
+                <span style="display:block;font-size:0.75rem;color:#047857;margin-top:2px">
+                  Uploaded on: {{ (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) | date:'medium' }}
+                </span>
+              </div>
+            </div>
+          } @else {
+            <div style="color:#64748b;font-size:0.88rem;font-style:italic;padding:8px 0">
+              No signed copy uploaded yet.
+            </div>
+          }
+        </div>
+
+        @if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
+          <div style="margin-bottom:12px;display:flex;justify-content:flex-end">
+            <button type="button" (click)="deleteSignedAgreementPdf(agreement.id || agreement.agreementId)"
+                    style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:5px 12px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              </svg>
+              Delete Uploaded Signed Copy
+            </button>
+          </div>
+        }
+
+        <!-- File Upload Input -->
+        <div style="background:#f8fafc;padding:12px 14px;border-radius:6px;border:1px solid #e2e8f0">
+          <label style="display:block;font-size:0.8rem;font-weight:600;color:#334155;margin-bottom:6px">
+            {{ (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) ? 'Replace Signed Copy (PDF):' : 'Upload Signed Copy (PDF):' }}
+          </label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="file"
+                   accept="application/pdf"
+                   [disabled]="uploadingSignedAgreementId() === (agreement.id || agreement.agreementId)"
+                   (change)="onSignedAgreementFileSelected(agreement.id || agreement.agreementId, $event)"
+                   style="font-size:0.82rem;color:#334155" />
+            @if (uploadingSignedAgreementId() === (agreement.id || agreement.agreementId)) {
+              <span style="font-size:0.8rem;color:#0284c7;font-weight:600;display:flex;align-items:center;gap:4px">
+                Uploading...
+              </span>
+            }
+          </div>
+          <span style="font-size:0.72rem;color:#94a3b8;display:block;margin-top:4px">Max file size: 10MB (.pdf only)</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+      <button class="btn-admin btn-outline-admin" (click)="showAgreementDetailsModal = false">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+}
+
+
+@if (showQuickUploadModal) {
+<div class="modal-backdrop">
+  <div class="modal-content" style="max-width:520px;border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)">
+    <div style="padding:16px 20px;background:#4f46e5;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <h3 style="margin:0;font-size:1.1rem;font-weight:700">Upload Signed Agreement Copy</h3>
+      </div>
+      <button type="button" (click)="showQuickUploadModal = false" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;background:#fff">
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:600;color:#334155;margin-bottom:6px">Select Agreement:</label>
+        <select [(ngModel)]="quickUploadAgreementId" style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;background:#fff;color:#1e293b">
+          @for (item of filtered; track (item.id || item.agreementId)) {
+            <option [value]="item.id || item.agreementId">
+              #{{ item.id || item.agreementId }} - {{ item.quotationNumber || 'No Quotation' }} - {{ item.customerName || item.CustomerName || 'Client' }} ({{ item.spaceName || 'Space' }})
+            </option>
+          }
+        </select>
+      </div>
+
+      <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px dashed #cbd5e1">
+        <label style="display:block;font-size:0.85rem;font-weight:600;color:#334155;margin-bottom:8px">Choose Signed PDF File (.pdf):</label>
+        <input type="file" accept="application/pdf"
+               [disabled]="uploadingSignedAgreementId() === quickUploadAgreementId"
+               (change)="onSignedAgreementFileSelected(quickUploadAgreementId, $event); showQuickUploadModal = false"
+               style="font-size:0.88rem;color:#334155;width:100%" />
+        <span style="font-size:0.75rem;color:#94a3b8;display:block;margin-top:6px">Max file size: 10MB (.pdf only)</span>
+      </div>
+    </div>
+
+    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+      <button class="btn-admin btn-outline-admin" (click)="showQuickUploadModal = false">
+        Cancel
+      </button>
+    </div>
   </div>
 </div>
 }

@@ -68,4 +68,26 @@ export class AgreementService {
   markAgreementSigned(agreementId: number, req?: MarkAgreementSignedRequest): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/${agreementId}/mark-signed`, req || {});
   }
+
+  uploadSignedAgreement(agreementId: number, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<any>(`${this.apiUrl}/${agreementId}/upload-signed`, formData);
+  }
+
+  getSignedAgreementPdf(agreementId: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${agreementId}/signed-pdf`, { responseType: 'blob' });
+  }
+
+  getSignedPdfDownloadUrl(agreementId: number): string {
+    return `${this.apiUrl}/${agreementId}/signed-pdf`;
+  }
+
+  deleteAgreement(agreementId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/${agreementId}`);
+  }
+
+  deleteSignedPdf(agreementId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/${agreementId}/signed-pdf`);
+  }
 }

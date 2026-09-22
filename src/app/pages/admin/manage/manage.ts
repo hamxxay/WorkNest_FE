@@ -224,6 +224,7 @@ export class Manage implements OnInit {
       this.bookingOfferingType = ot.description;
     }
     this.recalcAmount();
+    this.validateBookingDiscount();
   }
 
   onBookingDiscountTypeChange() {
@@ -231,6 +232,7 @@ export class Manage implements OnInit {
     this.bookingDiscountPercentage = 0;
     this.bookingDiscountError = '';
     this.recalcAmount();
+    this.validateBookingDiscount();
   }
 
   getSpaceMonthlyRent(space: any, capacityOverride?: number | null): number {
@@ -504,6 +506,7 @@ export class Manage implements OnInit {
       this.quotationOfferingType = ot.description;
     }
     this.recalcQuotationAmount();
+    this.validateQuotationDiscount();
   }
 
   get quotationMonthlyBasePrice(): number {
@@ -579,6 +582,7 @@ export class Manage implements OnInit {
     this.quotationDiscountPercentage = 0;
     this.quotationDiscountError = '';
     this.recalcQuotationAmount();
+    this.validateQuotationDiscount();
   }
 
   get quotationMonthlyRent(): number {
@@ -4136,16 +4140,18 @@ export class Manage implements OnInit {
           { key: 'customerEmail', label: 'Email' },
           { key: 'spaceName', label: 'Space' },
           { key: 'entityType', label: 'Type' },
-          { key: 'monthlyFee', label: 'Monthly Fee (PKR)', type: 'currency' },
+          { key: 'feeAmount', label: 'Monthly Fee (PKR)', type: 'currency' },
           { key: 'securityDeposit', label: 'Security Deposit (PKR)', type: 'currency' },
           { key: 'contractStartDate', label: 'Start Date', type: 'date' },
           { key: 'contractEndDate', label: 'End Date', type: 'date' },
+          { key: 'signedPdfUploadedAt', label: 'Signed Copy', type: 'date' },
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdOn', label: 'Sent Date', type: 'date' },
         ],
         getFn: (p, l, s) => {
           return this.agreementSvc.getAgreements(p, l, s);
         },
+        deleteFn: (id) => this.agreementSvc.deleteAgreement(id),
       };
 
       default: return { title: entity, columns: [], getFn: () => of({ data: [], total: 0 }) };
@@ -6498,7 +6504,128 @@ export class Manage implements OnInit {
     });
   }
 
+  showAgreementDetailsModal = false;
+  selectedAgreementDetails = signal<any>(null);
+  uploadingSignedAgreementId = signal<number | null>(null);
+
+  openAgreementDetailsModal(item: any) {
+    this.selectedAgreementDetails.set(item);
+    this.showAgreementDetailsModal = true;
+  }
+
+  onSignedAgreementFileSelected(agreementId: any, event: any) {
+    const input = event.target as HTMLInputElement;
+    if (!input || !input.files || input.files.length === 0) return;
+    const file = input.files[0];
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      this.showError('Only PDF files (.pdf) are allowed.');
+      input.value = '';
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      this.showError('File size exceeds the 10MB limit.');
+      input.value = '';
+      return;
+    }
+
+    const id = Number(agreementId);
+    this.uploadingSignedAgreementId.set(id);
+
+    this.agreementSvc.uploadSignedAgreement(id, file).subscribe({
+      next: (res: any) => {
+        this.uploadingSignedAgreementId.set(null);
+        this.showSuccess(res?.message || 'Signed agreement uploaded successfully!');
+        input.value = '';
+
+        const cur = this.selectedAgreementDetails();
+        if (cur && (cur.id === id || cur.agreementId === id)) {
+          this.selectedAgreementDetails.set({
+            ...cur,
+            signedPdfUploadedAt: res?.data?.signedPdfUploadedAt || new Date().toISOString(),
+            SignedPdfUploadedAt: res?.data?.signedPdfUploadedAt || new Date().toISOString()
+          });
+        }
+
+        this.load();
+      },
+      error: (err: any) => {
+        this.uploadingSignedAgreementId.set(null);
+        input.value = '';
+        const errMsg = err?.error?.message || err?.message || 'Failed to upload signed agreement.';
+        this.showError(errMsg);
+      }
+    });
+  }
+
+  downloadSignedAgreementPdf(agreementId: any) {
+    if (!agreementId) return;
+    const id = Number(agreementId);
+    this.agreementSvc.getSignedAgreementPdf(id).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `signed-lease-${id}.pdf`;
+        a.target = '_blank';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err: any) => {
+        const errMsg = err?.error?.message || 'Failed to download signed agreement PDF.';
+        this.showError(errMsg);
+      }
+    });
+  }
+
+  getSignedAgreementDownloadUrl(agreementId: any): string {
+    if (!agreementId) return '#';
+    return this.agreementSvc.getSignedPdfDownloadUrl(Number(agreementId));
+  }
+
+  triggerSignedUpload(agreementId: any) {
+    const el = document.getElementById('upload-signed-' + agreementId) as HTMLInputElement;
+    if (el) el.click();
+  }
+
+  deleteSignedAgreementPdf(agreementId: any) {
+    if (!agreementId) return;
+    if (!confirm('Are you sure you want to delete this uploaded signed copy?')) return;
+    const id = Number(agreementId);
+    this.agreementSvc.deleteSignedPdf(id).subscribe({
+      next: () => {
+        this.showSuccess('Signed agreement copy deleted successfully.');
+        const cur = this.selectedAgreementDetails();
+        if (cur && (cur.id === id || cur.agreementId === id)) {
+          this.selectedAgreementDetails.set({
+            ...cur,
+            signedPdfUploadedAt: null,
+            SignedPdfUploadedAt: null,
+            signedPdfPath: null,
+            SignedPdfPath: null
+          });
+        }
+        this.load();
+      },
+      error: (err: any) => {
+        const errMsg = err?.error?.message || err?.message || 'Failed to delete signed copy.';
+        this.showError(errMsg);
+      }
+    });
+  }
+
+  showQuickUploadModal = false;
+  quickUploadAgreementId: number | null = null;
+
+  openQuickUploadModal(item?: any) {
+    this.quickUploadAgreementId = item ? (item.id || item.agreementId) : (this.filtered.length > 0 ? (this.filtered[0].id || this.filtered[0].agreementId) : null);
+    this.showQuickUploadModal = true;
+  }
+
 }
+
+
 
 
 
