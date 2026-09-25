@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit, computed } from '@angular/core';
+﻿import { Component, signal, inject, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
@@ -177,8 +177,12 @@ export class SpaceConfig implements OnInit {
       openingTime:     cfg.openingTime,
       closingTime:     cfg.closingTime,
       securityDeposit: cfg.securityDeposit,
-      rentAccountId:   cfg.rentAccountId,
-      depositAccountId: cfg.depositAccountId,
+      accountReceivableId: cfg.accountReceivableId,
+      rentAccountId:       cfg.rentAccountId,
+      servicesIncomeId:    cfg.servicesIncomeId,
+      salesTaxId:          cfg.salesTaxId,
+      depositAccountId:    cfg.depositAccountId ?? cfg.securityReceivedId,
+      securityReceivedId:  cfg.securityReceivedId ?? cfg.depositAccountId,
       floorId:         cfg.floorId,
       pricePerHour:    cfg.pricePerHour,
       pricePerDay:     cfg.pricePerDay,
@@ -250,8 +254,12 @@ export class SpaceConfig implements OnInit {
       branchId:         this.form.branchId         ? +this.form.branchId         : null,
       companyId:        this.form.companyId        ? +this.form.companyId        : null,
       spaceTypeId:      this.form.spaceTypeId      ? +this.form.spaceTypeId      : null,
-      rentAccountId:    this.form.rentAccountId    ? +this.form.rentAccountId    : null,
-      depositAccountId: this.form.depositAccountId ? +this.form.depositAccountId : null,
+      accountReceivableId: this.form.accountReceivableId ? +this.form.accountReceivableId : null,
+      rentAccountId:       this.form.rentAccountId       ? +this.form.rentAccountId       : null,
+      servicesIncomeId:    this.form.servicesIncomeId    ? +this.form.servicesIncomeId    : null,
+      salesTaxId:          this.form.salesTaxId          ? +this.form.salesTaxId          : null,
+      depositAccountId:    this.form.depositAccountId    ? +this.form.depositAccountId    : null,
+      securityReceivedId:  this.form.depositAccountId    ? +this.form.depositAccountId    : (this.form.securityReceivedId ? +this.form.securityReceivedId : null),
       floorId:          this.form.floorId          ? +this.form.floorId          : null,
       amenities:        this.selectedAmenityIds.join(',') || null,
     };

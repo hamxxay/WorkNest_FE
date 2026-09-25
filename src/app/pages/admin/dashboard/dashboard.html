@@ -4,688 +4,1037 @@
     <div class="header-left">
       <div class="header-badge">Control Center</div>
       <h1>Operations Control Center</h1>
-      <p class="subtitle">Real-time space availability, active commercial bookings, quotations, and expirations.</p>
+      <p class="subtitle">Real-time space inventory, shift-aware bookings, quotations, and upcoming lease expirations.</p>
     </div>
     <div class="header-actions">
       <button class="btn btn-refresh" (click)="loadDashboardData()" [disabled]="loading()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading()"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          [class.spin]="loading()">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+        </svg>
         Refresh Operations
       </button>
     </div>
   </div>
 
   @if (loading()) {
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Loading space operations control center...</p>
-    </div>
+  <div class="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading space operations control center...</p>
+  </div>
   } @else {
-    <!-- SECTION 1: TOP KPI CARDS -->
-    <div class="kpi-grid">
-      <a class="kpi-card" routerLink="/admin/spaces">
-        <div class="kpi-icon icon-total">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-value">{{ kpiStats().totalSpaces }}</span>
-          <span class="kpi-label">Total Spaces</span>
-        </div>
-      </a>
-
-      <a class="kpi-card" routerLink="/admin/spaces" [queryParams]="{ status: 'Available' }">
-        <div class="kpi-icon icon-available">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-value text-available">{{ kpiStats().availableSpaces }}</span>
-          <span class="kpi-label">Available Spaces</span>
-        </div>
-      </a>
-
-      <a class="kpi-card" routerLink="/admin/quotations">
-        <div class="kpi-icon icon-quoted">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-value text-quoted">{{ kpiStats().quotedSpaces }}</span>
-          <span class="kpi-label">Active Quotations</span>
-        </div>
-      </a>
-
-      <a class="kpi-card" routerLink="/admin/bookings">
-        <div class="kpi-icon icon-booked">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-value text-booked">{{ kpiStats().bookedSpaces }}</span>
-          <span class="kpi-label">Booked Spaces</span>
-        </div>
-      </a>
-
-      <a class="kpi-card" href="#expiring-section">
-        <div class="kpi-icon icon-expiring">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-value text-expiring">{{ kpiStats().expiringSoonBookings }}</span>
-          <span class="kpi-label">Expiring Soon ({{ expiringThreshold() }}d)</span>
-        </div>
-      </a>
-
-      <a class="kpi-card" routerLink="/admin/customers">
-        <div class="kpi-icon icon-customers">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div class="kpi-info">
-          <span class="kpi-value">{{ kpiStats().activeCustomers }}</span>
-          <span class="kpi-label">Active Customers</span>
-        </div>
-      </a>
-    </div>
-
-    <!-- SECTION 2: SPACE TYPE CAPACITY & STATUS WIDGETS (Space Category Intelligence) -->
-    <div class="admin-card summary-card">
-      <div class="summary-header">
-        <div>
-          <div class="section-tag-pill" style="background: rgba(13, 148, 136, 0.12); color: #0d9488;">Space Category Intelligence</div>
-          <h3>Space Types Capacity & Occupancy Widgets</h3>
-          <p class="summary-sub">Capacity, filled seats, empty seats, booked spaces, and active quoted spaces per space type.</p>
-        </div>
-        <button class="all-types-btn" [class.active]="selectedSpaceType() === 'ALL'" (click)="selectedSpaceType.set('ALL'); onFilterChange()">
-          All Types ({{ kpiStats().totalSpaces }} Spaces)
+  <!-- ========================================================================= -->
+  <!-- ANNOUNCEMENTS & ALERTS DISPATCH CENTER                                    -->
+  <!-- ========================================================================= -->
+  <div class="admin-card announcements-card" style="margin-bottom:24px">
+    <div class="card-title-row">
+      <div>
+        <div class="header-badge" style="display:inline-block;margin-bottom:6px">Live Broadcast System</div>
+        <h3>Announcements & Urgent Alerts Center</h3>
+        <p class="summary-sub">Dispatch in-app push notifications and emails to all members, specific locations, spaces,
+          or custom recipient lists.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-sm btn-outline" (click)="loadAnnouncements()" [disabled]="announcementsLoading()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            [class.spin]="announcementsLoading()">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+          Refresh
+        </button>
+        <button class="btn btn-primary-gradient btn-sm" (click)="openCreateAnnouncementModal()"
+          style="display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 11 18-5-5 18-4-6-9-7Z" />
+            <path d="M14 13l-4 4" />
+          </svg>
+          + Create Announcement / Alert
         </button>
       </div>
+    </div>
 
-      @if (spaceTypeBreakdowns().length > 0) {
-        <div class="space-type-widgets-grid">
-          @for (t of spaceTypeBreakdowns(); track t.spaceTypeId) {
-            <div class="space-type-widget-card" [class.selected]="selectedSpaceType() === t.spaceTypeName" (click)="selectedSpaceType.set(t.spaceTypeName); onFilterChange()">
-              <!-- Card Header -->
-              <div class="widget-card-header">
-                <div class="widget-title-group">
-                  <span class="widget-type-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
-                  </span>
-                  <div>
-                    <h4 class="widget-type-name">{{ t.spaceTypeName }}</h4>
-                    <span class="widget-spaces-count">{{ t.total }} Space{{ t.total > 1 ? 's' : '' }}</span>
-                  </div>
-                </div>
-                <div class="widget-utilization-badge" [class.high-util]="t.occupancyPercentage >= 70">
-                  {{ t.occupancyPercentage }}% Occupied
-                </div>
-              </div>
-
-              <!-- Metric Badges Grid: Capacity, Filled, Empty, Booked, Quoted -->
-              <div class="widget-metrics-grid">
-                <div class="w-metric-item total-cap" title="Total Seat Capacity">
-                  <span class="w-metric-val">{{ t.totalCapacity }}</span>
-                  <span class="w-metric-lbl">Total Capacity</span>
-                </div>
-                <div class="w-metric-item filled-cap" title="Filled / Occupied Seats">
-                  <span class="w-metric-val text-filled">{{ t.filledCapacity }}</span>
-                  <span class="w-metric-lbl">Filled Seats</span>
-                </div>
-                <div class="w-metric-item empty-cap" title="Empty / Available Seats">
-                  <span class="w-metric-val text-available">{{ t.emptyCapacity }}</span>
-                  <span class="w-metric-lbl">Empty Seats</span>
-                </div>
-                <div class="w-metric-item booked-count" title="Booked Spaces">
-                  <span class="w-metric-val text-booked">{{ t.booked }}</span>
-                  <span class="w-metric-lbl">Booked</span>
-                </div>
-                <div class="w-metric-item quoted-count" title="Quoted Spaces">
-                  <span class="w-metric-val text-quoted">{{ t.quoted }}</span>
-                  <span class="w-metric-lbl">Quoted</span>
-                </div>
-              </div>
-
-              <!-- Progress Visual Bar -->
-              <div class="widget-progress-wrapper">
-                <div class="widget-progress-bar">
-                  <div class="w-bar-segment w-bar-filled" [style.width.%]="t.totalCapacity ? (t.filledCapacity / t.totalCapacity * 100) : 0" [title]="'Filled: ' + t.filledCapacity + ' seats'"></div>
-                  <div class="w-bar-segment w-bar-quoted" [style.width.%]="t.totalCapacity ? (t.quotedCapacity / t.totalCapacity * 100) : 0" [title]="'Quoted: ' + t.quotedCapacity + ' seats'"></div>
-                  <div class="w-bar-segment w-bar-empty" [style.width.%]="t.totalCapacity ? ((t.totalCapacity - t.filledCapacity - t.quotedCapacity) / t.totalCapacity * 100) : 0" [title]="'Empty: ' + t.emptyCapacity + ' seats'"></div>
-                </div>
-                <div class="widget-progress-legend">
-                  <span class="w-leg-item leg-filled">● Filled: {{ t.filledCapacity }}</span>
-                  <span class="w-leg-item leg-empty">● Empty: {{ t.emptyCapacity }}</span>
-                  <span class="w-leg-item leg-quoted">● Quoted: {{ t.quoted }}</span>
-                  <span class="w-leg-item leg-booked">● Booked: {{ t.booked }}</span>
-                </div>
-              </div>
-            </div>
-          }
-        </div>
+    <!-- Quick Metrics Summary -->
+    <div class="announcement-stats-strip">
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Total Broadcasts</span>
+        <span class="ann-stat-num">{{ announcementsTotalBroadcasts() }}</span>
+      </div>
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Delivered Messages</span>
+        <span class="ann-stat-num text-success">{{ announcementsTotalDelivered() }}</span>
+      </div>
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Mobile App Reads</span>
+        <span class="ann-stat-num" style="color:#60a5fa">{{ announcementsTotalRead() }}</span>
+      </div>
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Pending Queued</span>
+        <span class="ann-stat-num" style="color:#facc15">{{ announcementsTotalPending() }}</span>
+      </div>
+      @if (announcementsTotalFailed() > 0) {
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Failed Deliveries</span>
+        <span class="ann-stat-num" style="color:#f87171">{{ announcementsTotalFailed() }}</span>
+      </div>
       }
     </div>
 
-    <!-- SECTION 1B: PRIVATE SPACES CAPACITY & CHARTS CONTROL CENTER -->
-    <div class="admin-card capacity-overview-card">
-      <div class="card-title-row">
-        <div>
-          <div class="section-tag-pill">Private Spaces Capacity Analysis</div>
-          <h3>Private Spaces Total Capacity & Attendants Overview</h3>
-          <p class="summary-sub">Capacity view for private offices and dedicated suites, tracking total seats vs. assigned occupants and over-capacity attendants.</p>
-        </div>
-        <div class="capacity-stats-row">
-          <div class="c-stat-box">
-            <span class="c-stat-val">{{ totalPrivateCapacity() }}</span>
-            <span class="c-stat-lbl">Total Capacity Seats</span>
-          </div>
-          <div class="c-stat-box occupied">
-            <span class="c-stat-val">{{ occupiedPrivateCapacity() }}</span>
-            <span class="c-stat-lbl">Occupied Attendants</span>
-          </div>
-          <div class="c-stat-box">
-            <span class="c-stat-val">{{ occupiedPrivateSpacesCount() }} / {{ totalPrivateSpacesCount() }}</span>
-            <span class="c-stat-lbl">Occupied Spaces</span>
-          </div>
-          <div class="c-stat-box utilization">
-            <span class="c-stat-val">{{ privateOccupancyPercentage() }}%</span>
-            <span class="c-stat-lbl">Capacity Utilization</span>
-          </div>
-        </div>
-      </div>
+    <!-- Announcements Table -->
+    @if (announcementsLoading() && announcementsList().length === 0) {
+    <div class="loading-spinner" style="padding:40px 0">
+      <div class="spinner"></div>
+      <p>Loading announcements and delivery records...</p>
+    </div>
+    } @else if (announcementsList().length === 0) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 11 18-5-5 18-4-6-9-7Z" />
+        <path d="M14 13l-4 4" />
+      </svg>
+      <p>No announcements or alerts broadcasted yet. Click "+ Create Announcement / Alert" to dispatch your first
+        message.</p>
+    </div>
+    } @else {
+    <div class="table-container">
+      <table class="clean-table">
+        <thead>
+          <tr>
+            <th>Title & Message</th>
+            <th>Type</th>
+            <th>Target Scope</th>
+            <th>Status</th>
+            <th>Delivery Stats</th>
+            <th>Created / Scheduled</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ann of announcementsList(); track ann.id) {
+          <tr>
+            <td style="max-width:280px">
+              <strong class="space-title">{{ ann.title }}</strong>
+              <div class="ann-body-preview">{{ ann.body }}</div>
+            </td>
+            <td>
+              <span class="type-badge" [class.badge-alert]="ann.type === 'Alert'"
+                [class.badge-ann]="ann.type === 'Announcement'">
+                <span class="badge-dot"></span>
+                {{ ann.type }}
+              </span>
+            </td>
+            <td>
+              <div class="scope-tag">
+                <span class="scope-name">{{ ann.targetScope }}</span>
+                @if (ann.targetScope === 'Location' && ann.locationName) {
+                <span class="scope-sub">{{ ann.locationName }}</span>
+                }
+                @if (ann.targetScope === 'Space' && ann.spaceName) {
+                <span class="scope-sub">{{ ann.spaceName }}</span>
+                }
+              </div>
+            </td>
+            <td>
+              <span class="status-badge" [class]="'badge-' + (ann.status || 'draft').toLowerCase()">
+                <span class="badge-dot"></span>
+                {{ ann.status }}
+              </span>
+            </td>
+            <td>
+              <div class="delivery-mini-stats">
+                <span class="pill-stat pill-sent" title="Successfully Delivered">✓ {{ ann.sentCount }}</span>
+                <span class="pill-stat pill-read" title="Read in Mobile App">👁 {{ ann.readCount }}</span>
+                @if (ann.failedCount > 0) {
+                <span class="pill-stat pill-failed" title="Failed Deliveries">✕ {{ ann.failedCount }}</span>
+                }
+                @if (ann.pendingCount > 0) {
+                <span class="pill-stat pill-pending" title="Pending in Queue">⏳ {{ ann.pendingCount }}</span>
+                }
+              </div>
+            </td>
+            <td>
+              <div style="font-size:0.85rem">{{ ann.createdAt | date:'short' }}</div>
+              @if (ann.scheduledAt) {
+              <div style="font-size:0.75rem;color:#94a3b8">Sched: {{ ann.scheduledAt | date:'short' }}</div>
+              }
+            </td>
+            <td class="text-right">
+              <button class="btn-sm btn-quote" (click)="viewAnnouncementDetail(ann)">
+                Stats & Recipients
+              </button>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </div>
 
-      <!-- INTERACTIVE CHARTS & GRAPHS GRID -->
-      <div class="dashboard-charts-grid">
-        <div class="chart-panel">
-          <div class="chart-panel-header">
-            <h4>Private Space Seat Capacity vs Attendants</h4>
-            <span class="chart-subtitle">Max Capacity vs. Active Occupants</span>
-          </div>
-          <div class="chart-canvas-wrapper">
-            <canvas #capacityChartCanvas></canvas>
-          </div>
+  <!-- ========================================================================= -->
+  <!-- WIDGET 1: SPACE TYPES CAPACITY & OCCUPANCY (Space Category Intelligence) -->
+  <!-- ========================================================================= -->
+  <div class="admin-card summary-card">
+    <div class="summary-header">
+      <div>
+        <div class="section-tag-pill" style="background: rgba(13, 148, 136, 0.12); color: #0d9488;">
+          Space Category Intelligence
         </div>
-
-        <div class="chart-panel">
-          <div class="chart-panel-header">
-            <h4>Location Seat Distribution</h4>
-            <span class="chart-subtitle">Occupied Capacity across Locations</span>
-          </div>
-          <div class="chart-canvas-wrapper">
-            <canvas #locationChartCanvas></canvas>
-          </div>
-        </div>
+        <h3>Space Types Capacity & Occupancy</h3>
+        <p class="summary-sub">
+          Breakdown of inventory by space type. Click any tag (Booked, Vacant, Quoted, Expiring Soon) to expand detailed space records and shift status.
+        </p>
       </div>
+      <button class="all-types-btn" [class.active]="selectedSpaceType() === 'ALL'"
+        (click)="selectedSpaceType.set('ALL'); onFilterChange()">
+        All Types ({{ totalSpacesCount() }} Spaces)
+      </button>
     </div>
 
-    <!-- SECTION 1C: OVER-CAPACITY ATTENDANTS ALERT -->
-    @if (overCapacitySpacesList().length > 0) {
-      <div class="admin-card overcapacity-alert-card">
-        <div class="card-title-row alert-header">
-          <div class="alert-title-group">
-            <span class="overcap-icon-badge">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    @if (spaceTypeCards().length > 0) {
+    <div class="space-type-widgets-grid">
+      @for (t of spaceTypeCards(); track t.spaceTypeId) {
+      <div class="space-type-widget-card" [class.selected]="selectedSpaceType() === t.spaceTypeName"
+        (click)="selectCardSpaceType(t.spaceTypeName)">
+        <!-- Card Header -->
+        <div class="widget-card-header">
+          <div class="widget-title-group">
+            <span class="widget-type-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+              </svg>
             </span>
             <div>
-              <h3 class="text-danger-title">Spaces Exceeding Capacity Attendants ({{ overCapacitySpacesList().length }})</h3>
-              <p class="summary-sub">Active spaces where assigned attendants exceed max seat capacity limit.</p>
+              <h4 class="widget-type-name">{{ t.spaceTypeName }}</h4>
+              <span class="widget-spaces-count">{{ t.totalSpaces }} Space{{ t.totalSpaces === 1 ? '' : 's' }}</span>
             </div>
           </div>
-          <button class="btn btn-warning-sm" (click)="viewAttendantsManagement(overCapacitySpacesList()[0])">Manage Attendants →</button>
-        </div>
-
-        <div class="table-container">
-          <table class="clean-table">
-            <thead>
-              <tr>
-                <th>Space</th>
-                <th>Location</th>
-                <th>Space Type</th>
-                <th>Seat Capacity</th>
-                <th>Active Attendants</th>
-                <th>Excess Attendants</th>
-                <th>Customer / Company</th>
-                <th class="text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (oc of overCapacitySpacesList(); track oc.spaceId) {
-                <tr class="row-overcapacity">
-                  <td>
-                    <strong class="space-title text-danger-code">{{ oc.spaceCode }}</strong>
-                    <div class="space-subtitle" *ngIf="oc.spaceName && oc.spaceName !== oc.spaceCode">{{ oc.spaceName }}</div>
-                  </td>
-                  <td><span class="location-badge">{{ oc.locationName }}</span></td>
-                  <td><span class="type-tag">{{ oc.spaceTypeName }}</span></td>
-                  <td><span class="cap-val">{{ oc.capacity }} seats</span></td>
-                  <td><span class="attendants-val text-danger font-bold">{{ oc.attendantsCount }} assigned</span></td>
-                  <td>
-                    <span class="excess-badge">
-                      +{{ oc.excessAttendants }} Over-Cap
-                    </span>
-                  </td>
-                  <td>
-                    <div class="cust-block">
-                      <span class="cust-main">{{ oc.customerName || '—' }}</span>
-                      <span class="cust-sub" *ngIf="oc.companyName">{{ oc.companyName }}</span>
-                    </div>
-                  </td>
-                  <td class="text-right">
-                    <button class="btn-sm btn-booking" (click)="viewAttendantsManagement(oc)">Fix Attendants</button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-    }
-
-    <!-- SECTION 3: MAIN SPACES OPERATIONS TABLE -->
-    <div class="admin-card ops-table-card">
-      <div class="card-title-row">
-        <div>
-          <h3>Space Operations & Inventory</h3>
-          <p class="summary-sub">Showing {{ filteredSpaces().length }} space(s)</p>
-        </div>
-      </div>
-
-      <!-- Filters & Controls Bar -->
-      <div class="filters-panel">
-        <div class="filter-item">
-          <label>Filter Location</label>
-          <div class="search-input-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-            <select [(ngModel)]="selectedLocation" (ngModelChange)="onFilterChange()">
-              <option value="ALL">All Locations</option>
-              @for (loc of locationsList(); track loc.id) {
-                <option [value]="loc.name">{{ loc.name }}</option>
-              }
-            </select>
+          <div class="widget-total-badge">
+            Total: <strong>{{ t.totalSpaces }}</strong>
           </div>
         </div>
 
-        <div class="filter-item">
-          <label>Search Space</label>
-          <div class="search-input-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="text" placeholder="Search code/name..." [(ngModel)]="searchSpace" (ngModelChange)="onFilterChange()" />
+        <!-- Tag Stat Badges Grid -->
+        <div class="widget-tags-row">
+          <!-- Total (Display Only) -->
+          <div class="stat-tag tag-total" title="Total space count for this type">
+            <span class="tag-label">Total</span>
+            <span class="tag-val">{{ t.totalSpaces }}</span>
           </div>
-        </div>
 
-        <div class="filter-item">
-          <label>Search Customer</label>
-          <div class="search-input-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <input type="text" placeholder="Customer / company..." [(ngModel)]="searchCustomer" (ngModelChange)="onFilterChange()" />
-          </div>
-        </div>
+          <!-- Booked (Clickable Tag) -->
+          <button type="button" class="stat-tag tag-btn tag-booked"
+            [class.active]="activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'booked'"
+            (click)="toggleTagDropdown($event, t.spaceTypeId, 'booked')"
+            title="Click to view booked spaces and occupied/open shifts">
+            <span class="tag-label">Booked</span>
+            <span class="tag-val">{{ t.bookedCount }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'booked') ? '▲' : '▼' }}</span>
+          </button>
 
-        <div class="filter-item">
-          <label>Space Type</label>
-          <select [(ngModel)]="selectedSpaceType" (ngModelChange)="onFilterChange()">
-            <option value="ALL">All Space Types</option>
-            @for (typeOpt of spaceTypeOptions(); track typeOpt) {
-              <option [value]="typeOpt">{{ typeOpt }}</option>
-            }
-          </select>
-        </div>
+          <!-- Vacant (Clickable Tag) -->
+          <button type="button" class="stat-tag tag-btn tag-vacant"
+            [class.active]="activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'vacant'"
+            (click)="toggleTagDropdown($event, t.spaceTypeId, 'vacant')"
+            title="Click to view vacant spaces with no active bookings">
+            <span class="tag-label">Vacant</span>
+            <span class="tag-val">{{ t.vacantCount }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'vacant') ? '▲' : '▼' }}</span>
+          </button>
 
-        <div class="filter-item">
-          <label>Status</label>
-          <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()">
-            <option value="ALL">All Statuses</option>
-            <option value="Available">Available</option>
-            <option value="Quoted">Quoted</option>
-            <option value="Booked">Booked</option>
-            <option value="Expired">Expired</option>
-          </select>
-        </div>
+          <!-- Quoted (Clickable Tag) -->
+          <button type="button" class="stat-tag tag-btn tag-quoted"
+            [class.active]="activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'quoted'"
+            (click)="toggleTagDropdown($event, t.spaceTypeId, 'quoted')"
+            title="Click to view spaces with active quotations">
+            <span class="tag-label">Quoted</span>
+            <span class="tag-val">{{ t.quotedCount }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'quoted') ? '▲' : '▼' }}</span>
+          </button>
 
-        <div class="filter-item toggle-item">
-          <label>Private Only</label>
-          <button class="btn-filter-toggle" [class.active]="privateSpacesOnlyFilter()" (click)="privateSpacesOnlyFilter.set(!privateSpacesOnlyFilter()); onFilterChange()">
-            {{ privateSpacesOnlyFilter() ? '🔒 Private Spaces Only' : '🏢 All Spaces' }}
+          <!-- Expiring Soon (Clickable Tag) -->
+          <button type="button" class="stat-tag tag-btn tag-expiring"
+            [class.active]="activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'expiring'"
+            (click)="toggleTagDropdown($event, t.spaceTypeId, 'expiring')"
+            title="Click to view bookings expiring within {{ expiringThreshold() }} days">
+            <span class="tag-label">Expiring Soon</span>
+            <span class="tag-val">{{ t.expiringCount }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'expiring') ? '▲' : '▼' }}</span>
           </button>
         </div>
 
-        <div class="filter-item">
-          <label>Expiry Threshold</label>
-          <select [ngModel]="expiringThreshold()" (ngModelChange)="setThreshold($event)">
-            <option [ngValue]="7">7 Days</option>
-            <option [ngValue]="15">15 Days</option>
-            <option [ngValue]="30">30 Days</option>
-            <option [ngValue]="60">60 Days</option>
-            <option [ngValue]="90">90 Days</option>
+        <!-- REUSABLE EXPANDABLE DROPDOWN PANEL -->
+        @if (activeDropdown()?.spaceTypeId === t.spaceTypeId) {
+        <div class="tag-dropdown-tray" (click)="$event.stopPropagation()">
+          <div class="dropdown-header">
+            <div class="dropdown-title-wrap">
+              <span class="dropdown-tag-indicator" [class]="'ind-' + activeDropdown()?.tag">●</span>
+              <strong class="dropdown-title">
+                @switch (activeDropdown()?.tag) {
+                  @case ('booked') { Booked Spaces • {{ t.spaceTypeName }} ({{ t.bookedCount }}) }
+                  @case ('vacant') { Vacant Spaces (Zero Active Bookings) • {{ t.spaceTypeName }} ({{ t.vacantCount }}) }
+                  @case ('quoted') { Spaces With Active Quotations • {{ t.spaceTypeName }} ({{ t.quotedCount }}) }
+                  @case ('expiring') { Bookings Expiring Within {{ expiringThreshold() }} Days • {{ t.spaceTypeName }} ({{ t.expiringCount }}) }
+                }
+              </strong>
+            </div>
+
+            <div class="dropdown-header-actions">
+              @if (activeDropdown()?.tag === 'quoted') {
+              <a class="header-link-action" routerLink="/admin/quotations">Manage Quotations →</a>
+              }
+              @if (activeDropdown()?.tag === 'booked' || activeDropdown()?.tag === 'expiring') {
+              <a class="header-link-action" routerLink="/admin/bookings">Manage Bookings →</a>
+              }
+              <button class="btn-close-dropdown" (click)="closeDropdown($event)" title="Close details">✕</button>
+            </div>
+          </div>
+
+          <div class="dropdown-table-container">
+            <!-- 1. BOOKED SPACES TABLE -->
+            @if (activeDropdown()?.tag === 'booked') {
+              @if (t.bookedDetails.length === 0) {
+              <div class="dropdown-empty-msg">No booked spaces found for {{ t.spaceTypeName }}.</div>
+              } @else {
+              <table class="dropdown-table">
+                <thead>
+                  <tr>
+                    <th>Space</th>
+                    <th>Capacity</th>
+                    <th>Customer / Company</th>
+                    <th>Occupied Shift(s)</th>
+                    <th>Available Open Shift(s)</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of t.bookedDetails; track item.spaceId) {
+                  <tr>
+                    <td>
+                      <strong class="item-code">{{ item.spaceCode }}</strong>
+                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
+                    </td>
+                    <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
+                    <td>
+                      <div class="cust-info">
+                        <span class="cust-primary">{{ item.customerName }}</span>
+                        <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="shift-tags-list">
+                        @for (sh of item.occupiedShifts; track sh) {
+                        <span class="shift-tag shift-occupied">🔒 {{ sh }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <div class="shift-tags-list">
+                        @for (sh of item.openShifts; track sh) {
+                        <span class="shift-tag" [class.shift-open]="sh !== 'None (Fully Occupied)'" [class.shift-none]="sh === 'None (Fully Occupied)'">
+                          {{ sh === 'None (Fully Occupied)' ? '⛔ None (Fully Occupied)' : '⚡ Open: ' + sh }}
+                        </span>
+                        }
+                      </div>
+                    </td>
+                    <td class="text-right">
+                      <div class="btn-group">
+                        <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
+                        <button class="btn-xs btn-booking" *ngIf="item.bookingId" (click)="viewBookingDetails(item.bookingId, item.spaceCode)">Booking</button>
+                      </div>
+                    </td>
+                  </tr>
+                  }
+                </tbody>
+              </table>
+              }
+            }
+
+            <!-- 2. VACANT SPACES TABLE -->
+            @if (activeDropdown()?.tag === 'vacant') {
+              @if (t.vacantDetails.length === 0) {
+              <div class="dropdown-empty-msg">No vacant spaces available for {{ t.spaceTypeName }}.</div>
+              } @else {
+              <table class="dropdown-table">
+                <thead>
+                  <tr>
+                    <th>Space</th>
+                    <th>Capacity</th>
+                    <th>Location</th>
+                    <th>Next Scheduled Booking</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of t.vacantDetails; track item.spaceId) {
+                  <tr>
+                    <td>
+                      <strong class="item-code text-available">{{ item.spaceCode }}</strong>
+                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
+                    </td>
+                    <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
+                    <td><span class="loc-badge">{{ item.locationName || 'Main Location' }}</span></td>
+                    <td>
+                      @if (item.nextBookingDate) {
+                      <div class="next-booking-wrap">
+                        <span class="next-date">📅 {{ item.nextBookingDate | date:'dd-MMM-yyyy' }}</span>
+                        <span class="next-cust" *ngIf="item.nextBookingCustomer">({{ item.nextBookingCustomer }})</span>
+                      </div>
+                      } @else {
+                      <span class="text-dim">No upcoming bookings</span>
+                      }
+                    </td>
+                    <td class="text-right">
+                      <button class="btn-xs btn-space" (click)="viewSpaceDetails(item)">View Space</button>
+                    </td>
+                  </tr>
+                  }
+                </tbody>
+              </table>
+              }
+            }
+
+            <!-- 3. QUOTED SPACES TABLE -->
+            @if (activeDropdown()?.tag === 'quoted') {
+              @if (t.quotedDetails.length === 0) {
+              <div class="dropdown-empty-msg">No active quotations found for {{ t.spaceTypeName }}.</div>
+              } @else {
+              <table class="dropdown-table">
+                <thead>
+                  <tr>
+                    <th>Space</th>
+                    <th>Capacity</th>
+                    <th>Customer / Company</th>
+                    <th>Quotation # & Date</th>
+                    <th>Quotation Status</th>
+                    <th>Booking State</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of t.quotedDetails; track item.quotationNumber + item.spaceId) {
+                  <tr>
+                    <td>
+                      <strong class="item-code">{{ item.spaceCode }}</strong>
+                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
+                    </td>
+                    <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
+                    <td>
+                      <div class="cust-info">
+                        <span class="cust-primary">{{ item.customerName }}</span>
+                        <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="quote-info">
+                        <span class="quote-num-txt">{{ item.quotationNumber }}</span>
+                        <span class="quote-date-txt">{{ item.quotationDate | date:'dd-MMM-yyyy' }}</span>
+                        <span class="quote-amt-txt" *ngIf="item.quotationAmount">PKR {{ item.quotationAmount | number:'1.0-0' }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="status-badge badge-quoted"><span class="badge-dot"></span> {{ item.quotationStatus }}</span>
+                    </td>
+                    <td>
+                      @if (item.isAlsoBooked) {
+                      <span class="shift-tag shift-occupied">🔒 Currently Booked</span>
+                      } @else {
+                      <span class="shift-tag shift-open">⚡ Available for Conversion</span>
+                      }
+                    </td>
+                    <td class="text-right">
+                      <div class="btn-group">
+                        <button class="btn-xs btn-quote" (click)="viewQuotationDetails(item.quotationId, item.quotationNumber)">View Quote</button>
+                        <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
+                      </div>
+                    </td>
+                  </tr>
+                  }
+                </tbody>
+              </table>
+              }
+            }
+
+            <!-- 4. EXPIRING SOON SPACES TABLE -->
+            @if (activeDropdown()?.tag === 'expiring') {
+              @if (t.expiringDetails.length === 0) {
+              <div class="dropdown-empty-msg">No bookings expiring within {{ expiringThreshold() }} days for {{ t.spaceTypeName }}.</div>
+              } @else {
+              <table class="dropdown-table">
+                <thead>
+                  <tr>
+                    <th>Space</th>
+                    <th>Customer / Company</th>
+                    <th>End Date</th>
+                    <th>Time Remaining</th>
+                    <th>Booking Status</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of t.expiringDetails; track item.bookingId || item.spaceId) {
+                  <tr>
+                    <td>
+                      <strong class="item-code">{{ item.spaceCode }}</strong>
+                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
+                    </td>
+                    <td>
+                      <div class="cust-info">
+                        <span class="cust-primary">{{ item.customerName }}</span>
+                        <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
+                      </div>
+                    </td>
+                    <td>{{ item.bookingEnd | date:'dd-MMM-yyyy' }}</td>
+                    <td>
+                      <span class="time-badge time-expiring">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        {{ item.remainingTimeFormatted }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="status-badge badge-booked"><span class="badge-dot"></span> {{ item.bookingStatus }}</span>
+                    </td>
+                    <td class="text-right">
+                      <div class="btn-group">
+                        <button class="btn-xs btn-booking" *ngIf="item.bookingId" (click)="viewBookingDetails(item.bookingId, item.spaceCode)">Booking</button>
+                        <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
+                      </div>
+                    </td>
+                  </tr>
+                  }
+                </tbody>
+              </table>
+              }
+            }
+          </div>
+        </div>
+        }
+      </div>
+      }
+    </div>
+    }
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- WIDGET 2: SPACE OPERATIONS & INVENTORY TABLE                             -->
+  <!-- ========================================================================= -->
+  <div class="admin-card ops-table-card">
+    <div class="card-title-row">
+      <div>
+        <h3>Space Operations & Inventory</h3>
+        <p class="summary-sub">Showing {{ filteredSpaces().length }} space(s)</p>
+      </div>
+    </div>
+
+    <!-- Filters & Controls Bar -->
+    <div class="filters-panel">
+      <div class="filter-item">
+        <label>Filter Location</label>
+        <div class="search-input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <select [(ngModel)]="selectedLocation" (ngModelChange)="onFilterChange()">
+            <option value="ALL">All Locations</option>
+            @for (loc of locationsList(); track loc.id) {
+            <option [value]="loc.name">{{ loc.name }}</option>
+            }
           </select>
         </div>
       </div>
 
-      <!-- Spaces Table -->
-      @if (filteredSpaces().length === 0) {
-        <div class="empty-state">
-          <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M8 7h.01"/><path d="M16 7h.01"/></svg>
-          <p>No spaces match your selected filter criteria.</p>
-        </div>
-      } @else {
-        <div class="table-container">
-          <table class="clean-table">
-            <thead>
-              <tr>
-                <th (click)="toggleSort('spaceCode')" class="sortable">
-                  Space
-                  <span class="sort-icon" *ngIf="sortBy() === 'spaceCode'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th>Location</th>
-                <th>Type</th>
-                <th>Capacity / Occupants</th>
-                <th (click)="toggleSort('status')" class="sortable">
-                  Status
-                  <span class="sort-icon" *ngIf="sortBy() === 'status'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th (click)="toggleSort('customer')" class="sortable">
-                  Customer / Company
-                  <span class="sort-icon" *ngIf="sortBy() === 'customer'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th (click)="toggleSort('bookingStart')" class="sortable">
-                  Booking Period
-                  <span class="sort-icon" *ngIf="sortBy() === 'bookingStart'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th (click)="toggleSort('remainingTime')" class="sortable">
-                  Time Remaining
-                  <span class="sort-icon" *ngIf="sortBy() === 'remainingTime'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th>Quotation</th>
-                <th class="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (sp of paginatedSpaces(); track sp.spaceId) {
-                <tr [class.row-expiring]="sp.isExpiringSoon" [class.row-booked]="sp.status === 'Booked'" [class.row-quoted]="sp.status === 'Quoted'">
-                  <td class="col-space">
-                    <span class="space-title">{{ sp.spaceCode }}</span>
-                    <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName }}</span>
-                  </td>
-                  <td><span class="location-badge-sm">{{ sp.locationName }}</span></td>
-                  <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>
-                  <td class="col-cap">
-                    <span class="cap-pill" [class.cap-overcapacity]="sp.isOverCapacity">
-                      {{ sp.status === 'Booked' ? (sp.attendantsCount || 0) : 0 }} / {{ sp.capacity }}
-                    </span>
-                    <span *ngIf="sp.isOverCapacity" class="mini-overcap-badge" title="Over-capacity attendants!">OVER</span>
-                  </td>
-                  <td>
-                    <span class="status-badge" [class]="'badge-' + sp.status.toLowerCase()">
-                      <span class="badge-dot"></span>
-                      {{ sp.status }}
-                    </span>
-                  </td>
-                  <td class="col-customer">
-                    @if (sp.status === 'Booked' && sp.customerName) {
-                      <div class="cust-block">
-                        <span class="cust-main">{{ sp.customerName }}</span>
-                        <span class="cust-sub" *ngIf="sp.companyName">{{ sp.companyName }}</span>
-                      </div>
-                    } @else if (sp.status === 'Quoted' && sp.quotationCustomerName) {
-                      <div class="cust-block">
-                        <span class="cust-main">{{ sp.quotationCustomerName }}</span>
-                        <span class="cust-sub text-quoted">Quoted</span>
-                      </div>
-                    } @else {
-                      <span class="text-placeholder">—</span>
-                    }
-                  </td>
-                  <td class="col-dates">
-                    @if (sp.bookingStart && sp.bookingEnd) {
-                      <div class="date-flex">
-                        <span>{{ sp.bookingStart | date:'dd-MMM-yy' }}</span>
-                        <span class="date-arrow">→</span>
-                        <span>{{ sp.bookingEnd | date:'dd-MMM-yy' }}</span>
-                      </div>
-                    } @else {
-                      <span class="text-placeholder">—</span>
-                    }
-                  </td>
-                  <td class="col-time">
-                    @if (sp.status === 'Booked' && sp.remainingTimeFormatted) {
-                      <span class="time-badge" [class.time-expiring]="sp.isExpiringSoon" [class.time-expired]="sp.remainingTimeFormatted === 'Expired'">
-                        <svg *ngIf="sp.isExpiringSoon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-                        {{ sp.remainingTimeFormatted }}
-                      </span>
-                    } @else {
-                      <span class="text-placeholder">—</span>
-                    }
-                  </td>
-                  <td class="col-quote">
-                    @if (sp.quotationNumber) {
-                      <div class="quote-block" (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">
-                        <span class="quote-num">{{ sp.quotationNumber }}</span>
-                        <span class="quote-val" *ngIf="sp.quotationAmount">PKR {{ sp.quotationAmount | number:'1.0-0' }}</span>
-                        <span class="quote-exp-date" *ngIf="sp.quotationExpiryDate">Exp: {{ sp.quotationExpiryDate | date:'dd-MMM-yy' }}</span>
-                      </div>
-                    } @else {
-                      <span class="text-placeholder">—</span>
-                    }
-                  </td>
-                  <td class="col-actions text-right">
-                    <div class="btn-group">
-                      <button class="btn-sm btn-space" (click)="viewSpaceDetails(sp)">Space</button>
-                      @if (sp.status === 'Booked' && sp.bookingId) {
-                        <button class="btn-sm btn-booking" (click)="viewBookingDetails(sp.bookingId, sp.spaceCode)">Booking</button>
-                      }
-                      @if (sp.quotationNumber) {
-                        <button class="btn-sm btn-quote" (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">Quote</button>
-                      }
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination Bar -->
-        <div class="pagination-footer">
-          <div class="page-size">
-            <label>Show:</label>
-            <select [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)">
-              @for (opt of pageSizeOptions; track opt) {
-                <option [ngValue]="opt">{{ opt }} per page</option>
-              }
-            </select>
-          </div>
-
-          <div class="page-info">
-            Showing {{ (page() - 1) * pageSize() + 1 }} to {{ Math.min(page() * pageSize(), filteredSpaces().length) }} of {{ filteredSpaces().length }} spaces
-          </div>
-
-          <div class="page-actions">
-            <button class="btn-page" [disabled]="!canPrev()" (click)="prevPage()">← Previous</button>
-            <span class="page-indicator">Page {{ page() }} of {{ totalPages() }}</span>
-            <button class="btn-page" [disabled]="!canNext()" (click)="nextPage()">Next →</button>
-          </div>
-        </div>
-      }
-    </div>
-
-    <!-- SECTION 4: BOOKINGS EXPIRING SOON -->
-    <div class="admin-card expiring-card" id="expiring-section">
-      <div class="card-title-row">
-        <div>
-          <h3>Bookings Expiring Soon</h3>
-          <p class="summary-sub">Bookings requiring renewal or exit planning within the next {{ expiringThreshold() }} days</p>
-        </div>
-        <div class="pill-group">
-          <button class="pill-btn" [class.active]="expiringThreshold() === 7" (click)="setThreshold(7)">7 Days</button>
-          <button class="pill-btn" [class.active]="expiringThreshold() === 15" (click)="setThreshold(15)">15 Days</button>
-          <button class="pill-btn" [class.active]="expiringThreshold() === 30" (click)="setThreshold(30)">30 Days</button>
-          <button class="pill-btn" [class.active]="expiringThreshold() === 60" (click)="setThreshold(60)">60 Days</button>
+      <div class="filter-item">
+        <label>Search Space</label>
+        <div class="search-input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input type="text" placeholder="Search code/name..." [(ngModel)]="searchSpace"
+            (ngModelChange)="onFilterChange()" />
         </div>
       </div>
 
-      @if (expiringBookings().length === 0) {
-        <div class="empty-state">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-          <p>No active bookings expiring within {{ expiringThreshold() }} days.</p>
+      <div class="filter-item">
+        <label>Search Customer</label>
+        <div class="search-input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <input type="text" placeholder="Customer / company..." [(ngModel)]="searchCustomer"
+            (ngModelChange)="onFilterChange()" />
         </div>
-      } @else {
-        <div class="table-container">
-          <table class="clean-table">
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Space</th>
-                <th>Type</th>
-                <th>End Date</th>
-                <th>Time Remaining</th>
-                <th>Status</th>
-                <th class="text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (eb of expiringBookings(); track eb.bookingId) {
-                <tr>
-                  <td>
-                    <div class="cust-block">
-                      <span class="cust-main">{{ eb.customerName }}</span>
-                      <span class="cust-sub" *ngIf="eb.companyName">{{ eb.companyName }}</span>
-                    </div>
-                  </td>
-                  <td><strong class="space-title">{{ eb.spaceCode }}</strong></td>
-                  <td><span class="type-tag">{{ eb.spaceTypeName }}</span></td>
-                  <td>{{ eb.bookingEnd | date:'dd-MMM-yyyy' }}</td>
-                  <td>
-                    <span class="time-badge time-expiring">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                      {{ eb.remainingTimeFormatted }}
-                    </span>
-                  </td>
-                  <td><span class="status-badge badge-booked"><span class="badge-dot"></span> {{ eb.bookingStatus }}</span></td>
-                  <td class="text-right">
-                    <button class="btn-sm btn-booking" (click)="viewBookingDetails(eb.bookingId, eb.spaceCode)">View Booking</button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
-
-    <!-- SECTION 5: SPACES WITH ACTIVE QUOTATIONS -->
-    <div class="admin-card quotations-card">
-      <div class="card-title-row">
-        <div>
-          <h3>Spaces With Active Quotations</h3>
-          <p class="summary-sub">Pending/Active commercial quotations that have not been converted to bookings</p>
-        </div>
-        <a class="nav-link-sm" routerLink="/admin/quotations">Manage Quotations →</a>
       </div>
 
-      @if (activeQuotations().length === 0) {
-        <div class="empty-state">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <p>No active quotations found for available spaces.</p>
-        </div>
-      } @else {
-        <div class="table-container">
-          <table class="clean-table">
-            <thead>
-              <tr>
-                <th>Space</th>
-                <th>Customer</th>
-                <th>Quotation #</th>
-                <th>Date</th>
-                <th>Expiry</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th class="text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (aq of activeQuotations(); track aq.quotationId) {
-                <tr>
-                  <td>
-                    <strong class="space-title">{{ aq.spaceCode }}</strong>
-                    <div class="space-subtitle" *ngIf="aq.spaceName && aq.spaceName !== aq.spaceCode">{{ aq.spaceName }}</div>
-                  </td>
-                  <td><span class="cust-main">{{ aq.customerName }}</span></td>
-                  <td><span class="quote-num">{{ aq.quotationNumber }}</span></td>
-                  <td>{{ aq.quotationDate | date:'dd-MMM-yyyy' }}</td>
-                  <td>
-                    <span *ngIf="aq.quotationExpiryDate">{{ aq.quotationExpiryDate | date:'dd-MMM-yyyy' }}</span>
-                    <span *ngIf="!aq.quotationExpiryDate" class="text-placeholder">—</span>
-                  </td>
-                  <td><strong class="text-success">PKR {{ aq.quotationAmount | number:'1.0-0' }}</strong></td>
-                  <td><span class="status-badge badge-quoted"><span class="badge-dot"></span> {{ aq.quotationStatus }}</span></td>
-                  <td class="text-right">
-                    <button class="btn-sm btn-quote" (click)="viewQuotationDetails(aq.quotationId, aq.quotationNumber)">View Quotation</button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
-
-    <!-- SECTION 6: RECENT QUOTATION RESPONSES & ACTIVITY FEED -->
-    <div class="admin-card activity-card" style="margin-top:24px">
-      <div class="card-title-row">
-        <div>
-          <h3>Recent Customer Quotation Responses</h3>
-          <p class="summary-sub">Customer responses (Accept / Decline notes) and version history activity</p>
-        </div>
-        <a class="nav-link-sm" routerLink="/admin/quotations">View All Quotations →</a>
+      <div class="filter-item">
+        <label>Space Type</label>
+        <select [(ngModel)]="selectedSpaceType" (ngModelChange)="onFilterChange()">
+          <option value="ALL">All Space Types</option>
+          @for (typeOpt of spaceTypeOptions(); track typeOpt) {
+          <option [value]="typeOpt">{{ typeOpt }}</option>
+          }
+        </select>
       </div>
 
-      @if (quotationActivities().length === 0) {
-        <div class="empty-state">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <p>No recent customer quotation responses recorded.</p>
-        </div>
-      } @else {
-        <div class="table-container">
-          <table class="clean-table">
-            <thead>
-              <tr>
-                <th>Quotation</th>
-                <th>Version</th>
-                <th>Customer</th>
-                <th>Response</th>
-                <th>Customer Note / Feedback</th>
-                <th>Date</th>
-                <th class="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (act of quotationActivities(); track act.id || $index) {
-                <tr>
-                  <td><strong class="space-title">{{ act.quotationNumber }}</strong></td>
-                  <td><span class="type-tag">Version {{ act.versionNumber }}</span></td>
-                  <td><span class="cust-main">{{ act.customerName }}</span></td>
-                  <td>
-                    <span class="status-badge" [class]="'badge-' + (act.status || 'draft').toLowerCase()">
-                      <span class="badge-dot"></span>
-                      {{ act.status }}
-                    </span>
-                  </td>
-                  <td>
-                    <div style="font-size:0.85rem;font-style:italic;color:#334155;max-width:320px;word-break:break-word">
-                      {{ act.customerNote ? '"' + act.customerNote + '"' : '—' }}
-                    </div>
-                  </td>
-                  <td>{{ act.updatedDate | date:'short' }}</td>
-                  <td class="text-right">
-                    <div style="display:flex;gap:6px;justify-content:flex-end">
-                      <button class="btn-sm btn-quote" (click)="viewQuotationDetails(act.id, act.quotationNumber)">View</button>
-                      @if ((act.status || '').toLowerCase() === 'declined') {
-                        <button class="btn-sm" (click)="createNextVersionFromDashboard(act)" style="background:#7c3aed;color:#fff;border:none">New Version</button>
-                      }
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
+      <div class="filter-item">
+        <label>Status</label>
+        <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()">
+          <option value="ALL">All Statuses</option>
+          <option value="Available">Available</option>
+          <option value="Quoted">Quoted</option>
+          <option value="Booked">Booked</option>
+          <option value="Expired">Expired</option>
+        </select>
+      </div>
+
+      <div class="filter-item toggle-item">
+        <label>Private Only</label>
+        <button class="btn-filter-toggle" [class.active]="privateSpacesOnlyFilter()"
+          (click)="privateSpacesOnlyFilter.set(!privateSpacesOnlyFilter()); onFilterChange()">
+          {{ privateSpacesOnlyFilter() ? '🔒 Private Spaces Only' : '🏢 All Spaces' }}
+        </button>
+      </div>
+
+      <div class="filter-item">
+        <label>Expiry Threshold</label>
+        <select [ngModel]="expiringThreshold()" (ngModelChange)="setThreshold($event)">
+          <option [ngValue]="7">7 Days</option>
+          <option [ngValue]="15">15 Days</option>
+          <option [ngValue]="30">30 Days</option>
+          <option [ngValue]="60">60 Days</option>
+          <option [ngValue]="90">90 Days</option>
+        </select>
+      </div>
     </div>
+
+    <!-- Spaces Table -->
+    @if (filteredSpaces().length === 0) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M9 17v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+        <path d="M8 7h.01" />
+        <path d="M16 7h.01" />
+      </svg>
+      <p>No spaces match your selected filter criteria.</p>
+    </div>
+    } @else {
+    <div class="table-container">
+      <table class="clean-table">
+        <thead>
+          <tr>
+            <th (click)="toggleSort('spaceCode')" class="sortable">
+              Space
+              <span class="sort-icon" *ngIf="sortBy() === 'spaceCode'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+            </th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Capacity</th>
+            <th (click)="toggleSort('status')" class="sortable">
+              Status
+              <span class="sort-icon" *ngIf="sortBy() === 'status'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+            </th>
+            <th (click)="toggleSort('customer')" class="sortable">
+              Customer / Company
+              <span class="sort-icon" *ngIf="sortBy() === 'customer'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+            </th>
+            <th (click)="toggleSort('bookingStart')" class="sortable">
+              Booking Period
+              <span class="sort-icon" *ngIf="sortBy() === 'bookingStart'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+            </th>
+            <th (click)="toggleSort('remainingTime')" class="sortable">
+              Time Remaining
+              <span class="sort-icon" *ngIf="sortBy() === 'remainingTime'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+            </th>
+            <th>Quotation</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (sp of paginatedSpaces(); track sp.spaceId) {
+          <tr [class.row-expiring]="sp.isExpiringSoon" [class.row-booked]="sp.status === 'Booked'"
+            [class.row-quoted]="sp.status === 'Quoted'">
+            <td class="col-space">
+              <span class="space-title">{{ sp.spaceCode }}</span>
+              <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName }}</span>
+            </td>
+            <td><span class="location-badge-sm">{{ sp.locationName }}</span></td>
+            <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>
+            <td class="col-cap">
+              <span class="cap-pill">{{ sp.capacity }} seats</span>
+            </td>
+            <td>
+              <span class="status-badge" [class]="'badge-' + sp.status.toLowerCase()">
+                <span class="badge-dot"></span>
+                {{ sp.status }}
+              </span>
+            </td>
+            <td class="col-customer">
+              @if (sp.status === 'Booked' && sp.customerName) {
+              <div class="cust-block">
+                <span class="cust-main">{{ sp.customerName }}</span>
+                <span class="cust-sub" *ngIf="sp.companyName">{{ sp.companyName }}</span>
+              </div>
+              } @else if (sp.status === 'Quoted' && sp.quotationCustomerName) {
+              <div class="cust-block">
+                <span class="cust-main">{{ sp.quotationCustomerName }}</span>
+                <span class="cust-sub text-quoted">Quoted</span>
+              </div>
+              } @else {
+              <span class="text-placeholder">—</span>
+              }
+            </td>
+            <td class="col-dates">
+              @if (sp.bookingStart && sp.bookingEnd) {
+              <div class="date-flex">
+                <span>{{ sp.bookingStart | date:'dd-MMM-yy' }}</span>
+                <span class="date-arrow">→</span>
+                <span>{{ sp.bookingEnd | date:'dd-MMM-yy' }}</span>
+              </div>
+              } @else {
+              <span class="text-placeholder">—</span>
+              }
+            </td>
+            <td class="col-time">
+              @if (sp.status === 'Booked' && sp.remainingTimeFormatted) {
+              <span class="time-badge" [class.time-expiring]="sp.isExpiringSoon"
+                [class.time-expired]="sp.remainingTimeFormatted === 'Expired'">
+                <svg *ngIf="sp.isExpiringSoon" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" />
+                  <line x1="12" y1="16" x2="12.01" y1="16" />
+                </svg>
+                {{ sp.remainingTimeFormatted }}
+              </span>
+              } @else {
+              <span class="text-placeholder">—</span>
+              }
+            </td>
+            <td class="col-quote">
+              @if (sp.quotationNumber) {
+              <div class="quote-block" (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">
+                <span class="quote-num">{{ sp.quotationNumber }}</span>
+                <span class="quote-val" *ngIf="sp.quotationAmount">PKR {{ sp.quotationAmount | number:'1.0-0' }}</span>
+                <span class="quote-exp-date" *ngIf="sp.quotationExpiryDate">Exp: {{ sp.quotationExpiryDate | date:'dd-MMM-yy' }}</span>
+              </div>
+              } @else {
+              <span class="text-placeholder">—</span>
+              }
+            </td>
+            <td class="col-actions text-right">
+              <div class="btn-group">
+                <button class="btn-sm btn-space" (click)="viewSpaceDetails(sp)">Space</button>
+                @if (sp.status === 'Booked' && sp.bookingId) {
+                <button class="btn-sm btn-booking"
+                  (click)="viewBookingDetails(sp.bookingId, sp.spaceCode)">Booking</button>
+                }
+                @if (sp.quotationNumber) {
+                <button class="btn-sm btn-quote"
+                  (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">Quote</button>
+                }
+              </div>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Bar -->
+    <div class="pagination-footer">
+      <div class="page-size">
+        <label>Show:</label>
+        <select [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)">
+          @for (opt of pageSizeOptions; track opt) {
+          <option [ngValue]="opt">{{ opt }} per page</option>
+          }
+        </select>
+      </div>
+
+      <div class="page-info">
+        Showing {{ (page() - 1) * pageSize() + 1 }} to {{ Math.min(page() * pageSize(), filteredSpaces().length) }} of
+        {{ filteredSpaces().length }} spaces
+      </div>
+
+      <div class="page-actions">
+        <button class="btn-page" [disabled]="!canPrev()" (click)="prevPage()">← Previous</button>
+        <span class="page-indicator">Page {{ page() }} of {{ totalPages() }}</span>
+        <button class="btn-page" [disabled]="!canNext()" (click)="nextPage()">Next →</button>
+      </div>
+    </div>
+    }
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CREATE ANNOUNCEMENT / ALERT                                        -->
+  <!-- ========================================================================= -->
+  @if (showAnnouncementModal()) {
+  <div class="modal-overlay" (click)="closeCreateAnnouncementModal()">
+    <div class="modal-card announcement-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <div class="header-badge" style="margin-bottom:6px">New Dispatch</div>
+          <h2>Broadcast Announcement or Alert</h2>
+        </div>
+        <button class="btn-close" (click)="closeCreateAnnouncementModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        @if (announcementFormError()) {
+        <div class="alert alert-danger"
+          style="margin-bottom:16px;padding:10px 14px;border-radius:8px;background:#fee2e2;border:1px solid #fecaca;color:#991b1b">
+          {{ announcementFormError() }}
+        </div>
+        }
+        @if (announcementFormSuccess()) {
+        <div class="alert alert-success"
+          style="margin-bottom:16px;padding:10px 14px;border-radius:8px;background:#dcfce7;border:1px solid #bbf7d0;color:#166534">
+          {{ announcementFormSuccess() }}
+        </div>
+        }
+
+        <!-- Type Selector -->
+        <div class="form-group">
+          <label class="form-label">Message Type</label>
+          <div class="type-toggle-grid">
+            <button type="button" class="type-option-btn" [class.active]="announcementFormType() === 'Announcement'"
+              (click)="announcementFormType.set('Announcement')">
+              <span class="type-opt-icon">📢</span>
+              <div>
+                <strong>Announcement</strong>
+                <p>Community news, updates, promotions</p>
+              </div>
+            </button>
+            <button type="button" class="type-option-btn type-alert-btn"
+              [class.active]="announcementFormType() === 'Alert'" (click)="announcementFormType.set('Alert')">
+              <span class="type-opt-icon">🚨</span>
+              <div>
+                <strong>Critical Alert</strong>
+                <p>High priority, maintenance, urgent notices</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Target Scope Selector -->
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label">Target Audience Scope</label>
+          <div class="scope-toggle-tabs">
+            <button type="button" class="scope-tab" [class.active]="announcementTargetScope() === 'All'"
+              (click)="announcementTargetScope.set('All')">All Members</button>
+            <button type="button" class="scope-tab" [class.active]="announcementTargetScope() === 'Location'"
+              (click)="announcementTargetScope.set('Location')">By Location</button>
+            <button type="button" class="scope-tab" [class.active]="announcementTargetScope() === 'Space'"
+              (click)="announcementTargetScope.set('Space')">By Space</button>
+          </div>
+        </div>
+
+        <!-- Conditional Target Pickers -->
+        @if (announcementTargetScope() === 'Location') {
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">Select Location *</label>
+          <select class="form-control input-glass" [ngModel]="announcementLocationId()"
+            (ngModelChange)="announcementLocationId.set($event)">
+            <option [ngValue]="null">-- Select Location --</option>
+            @for (loc of locationsList(); track loc.id) {
+            <option [ngValue]="loc.id">{{ loc.name }}</option>
+            }
+          </select>
+          <span class="field-hint">Targets members and staff associated with this location.</span>
+        </div>
+        }
+
+        @if (announcementTargetScope() === 'Space') {
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">Select Space *</label>
+          <select class="form-control input-glass" [ngModel]="announcementSpaceId()"
+            (ngModelChange)="announcementSpaceId.set($event)">
+            <option [ngValue]="null">-- Select Space --</option>
+            @for (sp of allSpaces(); track sp.spaceId) {
+            <option [ngValue]="sp.spaceId">{{ sp.spaceCode }} — {{ sp.spaceName }} ({{ sp.spaceTypeName }})</option>
+            }
+          </select>
+          <span class="field-hint">Targets members with current or past bookings for this space.</span>
+        </div>
+        }
+
+        <!-- Delivery Channels Preview Banner -->
+        <div class="channel-info-banner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          <span>Automated Delivery: Will be dispatched via <strong>In-App Push Notification</strong> and
+            <strong>Email</strong> to all resolved recipients.</span>
+        </div>
+
+        <!-- Schedule Selector -->
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label">Delivery Schedule</label>
+          <div class="schedule-options">
+            <label class="radio-label">
+              <input type="radio" name="schedMode" [checked]="announcementScheduleMode() === 'now'"
+                (change)="announcementScheduleMode.set('now')" />
+              <span>Send Immediately (Queue Now)</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="schedMode" [checked]="announcementScheduleMode() === 'later'"
+                (change)="announcementScheduleMode.set('later')" />
+              <span>Schedule for Future Date/Time</span>
+            </label>
+          </div>
+
+          @if (announcementScheduleMode() === 'later') {
+          <div style="margin-top:10px">
+            <input type="datetime-local" class="form-control input-glass" [ngModel]="announcementScheduledDate()"
+              (ngModelChange)="announcementScheduledDate.set($event)" />
+          </div>
+          }
+        </div>
+
+        <!-- Title & Body -->
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label">Title / Headline *</label>
+          <input type="text" class="form-control input-glass" placeholder="e.g. Scheduled Maintenance Notice"
+            [ngModel]="announcementTitle()" (ngModelChange)="announcementTitle.set($event)" maxlength="200" />
+        </div>
+
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label">Message Body *</label>
+          <textarea class="form-control input-glass" rows="4"
+            placeholder="Write your announcement or alert details here..." [ngModel]="announcementBody()"
+            (ngModelChange)="announcementBody.set($event)"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeCreateAnnouncementModal()"
+          [disabled]="announcementCreating()">Cancel</button>
+        <button class="btn btn-primary-gradient" (click)="submitAnnouncement()" [disabled]="announcementCreating()">
+          @if (announcementCreating()) {
+          <span class="spinner-sm"></span> Dispatching...
+          } @else {
+          🚀 Dispatch Announcement
+          }
+        </button>
+      </div>
+    </div>
+  </div>
   }
 
+  <!-- ========================================================================= -->
+  <!-- MODAL: ANNOUNCEMENT DETAIL & RECIPIENTS BREAKDOWN                         -->
+  <!-- ========================================================================= -->
+  @if (showAnnouncementDetailModal() && selectedAnnouncement()) {
+  <div class="modal-overlay" (click)="closeAnnouncementDetailModal()">
+    <div class="modal-card announcement-detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span class="type-badge" [class.badge-alert]="selectedAnnouncement()?.type === 'Alert'"
+            [class.badge-ann]="selectedAnnouncement()?.type === 'Announcement'">
+            {{ selectedAnnouncement()?.type }}
+          </span>
+          <h2 style="margin-top:6px">{{ selectedAnnouncement()?.title }}</h2>
+          <p class="summary-sub" style="margin-bottom:0">Created on {{ selectedAnnouncement()?.createdAt | date:'medium'
+            }} • Target: {{ selectedAnnouncement()?.targetScope }}</p>
+        </div>
+        <button class="btn-close" (click)="closeAnnouncementDetailModal()">✕</button>
+      </div>
 
+      <div class="modal-body">
+        <!-- Message Preview -->
+        <div class="ann-preview-box">
+          <p style="white-space:pre-wrap;margin:0;color:#1e293b">{{ selectedAnnouncement()?.body }}</p>
+        </div>
 
+        <!-- Stats Bar -->
+        <div class="detail-stats-grid">
+          <div class="d-stat-box">
+            <span class="d-label">Total Recipients</span>
+            <span class="d-val">{{ selectedAnnouncement()?.totalRecipients || 0 }}</span>
+          </div>
+          <div class="d-stat-box">
+            <span class="d-label">Unique Members</span>
+            <span class="d-val">{{ selectedAnnouncement()?.totalUsers || 0 }}</span>
+          </div>
+          <div class="d-stat-box">
+            <span class="d-label">Sent</span>
+            <span class="d-val text-success">{{ selectedAnnouncement()?.sentCount || 0 }}</span>
+          </div>
+          <div class="d-stat-box">
+            <span class="d-label">Read (Mobile)</span>
+            <span class="d-val" style="color:#2563eb">{{ selectedAnnouncement()?.readCount || 0 }}</span>
+          </div>
+          <div class="d-stat-box">
+            <span class="d-label">Failed</span>
+            <span class="d-val" style="color:#dc2626">{{ selectedAnnouncement()?.failedCount || 0 }}</span>
+          </div>
+        </div>
+
+        <!-- Recipients Table -->
+        <h4 style="margin:20px 0 10px 0;font-size:0.95rem;font-weight:700;color:#1e293b">Delivery Breakdown per Recipient</h4>
+        <div class="table-container" style="max-height:280px;overflow-y:auto">
+          <table class="clean-table" style="font-size:0.85rem">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Channel</th>
+                <th>Status</th>
+                <th>Retries</th>
+                <th>Sent Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (rec of selectedAnnouncement()?.recipients || []; track rec.id) {
+              <tr>
+                <td>
+                  <strong style="color:#0f172a">{{ rec.userName || 'Member #' + rec.userId }}</strong>
+                  <div style="font-size:0.75rem;color:#64748b">{{ rec.userEmail }}</div>
+                </td>
+                <td>
+                  <span class="channel-pill" [class.chan-push]="rec.channel === 'Push'"
+                    [class.chan-email]="rec.channel === 'Email'">
+                    {{ rec.channel === 'Push' ? '📱 Push' : '✉️ Email' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-badge" [class]="'badge-' + (rec.status || 'pending').toLowerCase()">
+                    {{ rec.status }}
+                  </span>
+                </td>
+                <td>{{ rec.retryCount }}</td>
+                <td>{{ rec.sentAt ? (rec.sentAt | date:'short') : '—' }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeAnnouncementDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+  }
+  }
+</div>

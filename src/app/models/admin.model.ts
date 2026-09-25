@@ -56,6 +56,16 @@ export interface SpaceType {
   capacity?: number;
   hourlyAllowed?: boolean;
   isActive?: boolean;
+  accountReceivableId?: number | null;
+  rentAccountId?: number | null;
+  servicesIncomeId?: number | null;
+  salesTaxId?: number | null;
+  securityReceivedId?: number | null;
+  accountReceivableName?: string | null;
+  rentAccountName?: string | null;
+  servicesIncomeName?: string | null;
+  salesTaxName?: string | null;
+  securityReceivedName?: string | null;
 }
 
 /**
@@ -114,6 +124,9 @@ export interface Booking {
   securityDepositInvoiced?: number;
   securityDepositPaid?: number;
   securityDepositOutstanding?: number;
+  /** Shift Type: '24_7' | 'morning' | 'evening' */
+  shiftType?: '24_7' | 'morning' | 'evening' | string;
+  offeringType?: string;
   /** Start of the current active billing period */
   billingPeriodStart?: string;
   /** End of the current active billing period */
@@ -281,5 +294,58 @@ export interface GalleryImage {
   sortOrder?: number;
   isActive?: boolean;
   createdAt?: string;
+}
+
+/**
+ * Announcement entity - represents an admin-broadcasted announcement or critical alert.
+ */
+export interface AnnouncementItem {
+  id: string;
+  title: string;
+  body: string;
+  type: 'Announcement' | 'Alert';
+  targetScope: 'All' | 'Location' | 'Space' | 'CustomList';
+  locationId?: number | null;
+  locationName?: string | null;
+  spaceId?: number | null;
+  spaceName?: string | null;
+  scheduledAt?: string | null;
+  sentAt?: string | null;
+  status: 'Draft' | 'Queued' | 'Sending' | 'Sent' | 'Failed';
+  createdBy: number;
+  createdByName?: string | null;
+  createdAt: string;
+  totalRecipients: number;
+  totalUsers: number;
+  sentCount: number;
+  failedCount: number;
+  readCount: number;
+  pendingCount: number;
+  pushSentCount: number;
+  emailSentCount: number;
+  recipients?: AnnouncementRecipient[];
+}
+
+export interface AnnouncementRecipient {
+  id: number;
+  announcementId: string;
+  userId: number;
+  userName?: string | null;
+  userEmail?: string | null;
+  channel: 'Push' | 'Email';
+  status: 'Pending' | 'Sent' | 'Failed' | 'Read';
+  retryCount: number;
+  sentAt?: string | null;
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  body: string;
+  type: 'Announcement' | 'Alert';
+  targetScope: 'All' | 'Location' | 'Space' | 'CustomList';
+  locationId?: number | null;
+  spaceId?: number | null;
+  customUserIds?: number[];
+  scheduledAt?: string | null;
 }
 

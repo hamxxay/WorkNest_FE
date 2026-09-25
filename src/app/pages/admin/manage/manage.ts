@@ -412,6 +412,7 @@ export class Manage implements OnInit {
   offeringTypes: { id: number; description: string; discountCap: number }[] = [];
   quotationOfferingTypeId: number = 1;
   quotationOfferingType = '24/7';
+  quotationWithholdingTaxRate: number = 15;
   quotationDiscountError = '';
 
   loadOfferingTypes() {
@@ -3928,8 +3929,11 @@ export class Manage implements OnInit {
           { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'hourlyAllowed', label: 'Hourly Allowed', type: 'checkbox' },
           { key: 'isActive', label: 'Active', type: 'checkbox' },
-          { key: 'rentAccountId', label: 'Rent Account (applies to all spaces of this type)', type: 'select', options: this.accountOptions },
-          { key: 'depositAccountId', label: 'Security Deposit Account (Private Office only)', type: 'deposit-account-select' },
+          { key: 'accountReceivableId', label: 'Accounts Receivable (AccountsCOA)', type: 'select', options: this.accountOptions },
+          { key: 'rentAccountId', label: 'Rent Account (AccountsCOA)', type: 'select', options: this.accountOptions },
+          { key: 'servicesIncomeId', label: 'Services Income (AccountsCOA)', type: 'select', options: this.accountOptions },
+          { key: 'salesTaxId', label: 'Sales Tax (AccountsCOA)', type: 'select', options: this.accountOptions },
+          { key: 'securityReceivedId', label: 'Security Received / Deposit (AccountsCOA)', type: 'select', options: this.accountOptions },
         ],
         getFn: (p, l, s) => this.admin.getSpaceTypes(p, l, s),
         createFn: (d) => this.admin.createSpaceType(d),
@@ -4214,6 +4218,7 @@ export class Manage implements OnInit {
     this.quotationDiscountError = '';
     this.quotationOfferingTypeId = 1;
     this.quotationOfferingType = '24/7';
+    this.quotationWithholdingTaxRate = 15;
     this.loadOfferingTypes();
     this.quotationFloorId = null;
     this.quotationFloorOptions = [];
@@ -4589,6 +4594,7 @@ export class Manage implements OnInit {
       Capacity: Number(this.quotationCapacity || 1),
       MonthlyBasePrice: Number(this.quotationMonthlyBasePrice || 0),
       MaxDiscountPercent: Number(this.quotationDynamicDiscountCap || 10),
+      WithholdingTaxRate: Number(this.quotationWithholdingTaxRate ?? 15),
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;

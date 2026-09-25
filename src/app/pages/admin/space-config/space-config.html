@@ -1,4 +1,4 @@
-<div class="admin-page">
+﻿<div class="admin-page">
   <div class="page-header">
     <div>
       <h1>Space Configuration</h1>
@@ -207,8 +207,17 @@
         </div>
       </div>
 
-      <p class="form-section-label">Accounts</p>
+      <p class="form-section-label">Accounts (Chart of Accounts Mapping)</p>
       <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Accounts Receivable</label>
+          <select class="form-input-admin" [(ngModel)]="form.accountReceivableId" name="accountReceivableId">
+            <option [ngValue]="null">Select Account...</option>
+            @for (a of accountOptions; track a.v) {
+            <option [value]="a.v">{{ a.l }}</option>
+            }
+          </select>
+        </div>
         <div class="form-group-admin">
           <label>Rent Account</label>
           <select class="form-input-admin" [(ngModel)]="form.rentAccountId" name="rentAccountId">
@@ -218,8 +227,30 @@
             }
           </select>
         </div>
+      </div>
+      <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>Deposit Account @if (isPrivate) { <span class="sc-required">required</span> }</label>
+          <label>Services Income</label>
+          <select class="form-input-admin" [(ngModel)]="form.servicesIncomeId" name="servicesIncomeId">
+            <option [ngValue]="null">Select Account...</option>
+            @for (a of accountOptions; track a.v) {
+            <option [value]="a.v">{{ a.l }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group-admin">
+          <label>Sales Tax Account</label>
+          <select class="form-input-admin" [(ngModel)]="form.salesTaxId" name="salesTaxId">
+            <option [ngValue]="null">Select Account...</option>
+            @for (a of accountOptions; track a.v) {
+            <option [value]="a.v">{{ a.l }}</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Deposit Account (Security Received) @if (isPrivate) { <span class="sc-required">required</span> }</label>
           @if (isPrivate) {
           <select class="form-input-admin" [(ngModel)]="form.depositAccountId" name="depositAccountId">
             <option [ngValue]="null">Select Account...</option>
@@ -228,7 +259,7 @@
             }
           </select>
           } @else {
-          <input class="form-input-admin" value="N/A — Private only" disabled
+          <input class="form-input-admin" value="N/A â€” Private only" disabled
             style="background:#f1f5f9;color:#94a3b8" />
           }
         </div>

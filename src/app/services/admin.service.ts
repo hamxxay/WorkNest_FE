@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Admin Service
 // ============================================================
 // This service provides comprehensive API endpoints for admin operations.
@@ -17,7 +17,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage } from '../models/admin.model';
+import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
 @Injectable({ providedIn: 'root' })
@@ -529,5 +529,26 @@ export class AdminService {
   }
   markAgreementSigned(id: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/agreements/${id}/mark-signed`, {});
+  }
+
+  // ============= ANNOUNCEMENTS & ALERTS =============
+
+  /** Get paginated list of announcements with delivery stats */
+  getAnnouncements(page: number = 1, limit: number = 20, search?: string): Observable<ApiResponse<{ items: AnnouncementItem[]; total: number }>> {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    return this.http.get<ApiResponse<{ items: AnnouncementItem[]; total: number }>>(`${this.api}/admin/announcements?${params.toString()}`);
+  }
+
+  /** Get announcement detail by ID */
+  getAnnouncementById(id: string): Observable<ApiResponse<AnnouncementItem>> {
+    return this.http.get<ApiResponse<AnnouncementItem>>(`${this.api}/admin/announcements/${id}`);
+  }
+
+  /** Create and queue a new announcement/alert */
+  createAnnouncement(payload: CreateAnnouncementRequest): Observable<ApiResponse<AnnouncementItem>> {
+    return this.http.post<ApiResponse<AnnouncementItem>>(`${this.api}/admin/announcements`, payload);
   }
 }

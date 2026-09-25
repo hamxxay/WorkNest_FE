@@ -1,14 +1,13 @@
-import { Component, signal, OnInit, computed, inject, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { AuthService } from '../../../services/auth.service';
-import { Location } from '../../../models/admin.model';
-import { Chart, registerables } from 'chart.js';
+import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
 
-Chart.register(...registerables);
+export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
 
 export interface SpaceOperationItem {
   spaceId: number;
@@ -26,6 +25,7 @@ export interface SpaceOperationItem {
   bookingStart?: string | Date | null;
   bookingEnd?: string | Date | null;
   bookingStatus?: string | null;
+  shiftType?: '24_7' | 'morning' | 'evening' | string;
   quotationId?: number | null;
   quotationNumber?: string | null;
   quotationCustomerName?: string | null;
@@ -42,49 +42,77 @@ export interface SpaceOperationItem {
   isPrivateSpace?: boolean;
 }
 
-export interface SpaceTypeBreakdown {
-  spaceTypeId: number;
-  spaceTypeName: string;
-  total: number;
-  available: number;
-  quoted: number;
-  booked: number;
-  totalCapacity: number;
-  filledCapacity: number;
-  emptyCapacity: number;
-  bookedCapacity: number;
-  quotedCapacity: number;
-  occupancyPercentage: number;
-}
-
-export interface ExpiringBookingItem {
-  bookingId: number;
+export interface SpaceTypeBookedDetail {
   spaceId: number;
   spaceCode: string;
   spaceName: string;
-  spaceTypeName: string;
+  capacity: number;
+  locationName?: string;
   customerName: string;
   companyName?: string;
+  occupiedShifts: string[];
+  openShifts: string[];
+  bookingId?: number | null;
+  bookingStart?: string | Date | null;
+  bookingEnd?: string | Date | null;
+  bookingStatus?: string;
+}
+
+export interface SpaceTypeVacantDetail {
+  spaceId: number;
+  spaceCode: string;
+  spaceName: string;
+  capacity: number;
+  locationName?: string;
+  nextBookingDate?: string | Date | null;
+  nextBookingCustomer?: string | null;
+}
+
+export interface SpaceTypeQuotedDetail {
+  spaceId: number;
+  spaceCode: string;
+  spaceName: string;
+  capacity: number;
+  locationName?: string;
+  customerName: string;
+  companyName?: string;
+  quotationId?: number;
+  quotationNumber: string;
+  quotationStatus: string;
+  quotationDate: string | Date;
+  quotationExpiryDate?: string | Date | null;
+  quotationAmount?: number | null;
+  isAlsoBooked: boolean;
+}
+
+export interface SpaceTypeExpiringDetail {
+  spaceId: number;
+  spaceCode: string;
+  spaceName: string;
+  capacity: number;
+  locationName?: string;
+  customerName: string;
+  companyName?: string;
+  bookingId?: number;
   bookingStart: string | Date;
   bookingEnd: string | Date;
   daysRemaining: number;
-  bookingStatus: string;
   remainingTimeFormatted: string;
+  bookingStatus: string;
 }
 
-export interface ActiveQuotationItem {
-  quotationId: number;
-  quotationNumber: string;
-  spaceId: number;
-  spaceCode: string;
-  spaceName: string;
+export interface SpaceTypeCardData {
+  spaceTypeId: number;
   spaceTypeName: string;
-  customerName: string;
-  quotationDate: string | Date;
-  quotationExpiryDate?: string | Date;
-  quotationAmount: number;
-  quotationStatus: string;
-  bookingStatus: string;
+  totalSpaces: number;
+  bookedCount: number;
+  vacantCount: number;
+  quotedCount: number;
+  expiringCount: number;
+  bookedDetails: SpaceTypeBookedDetail[];
+  vacantDetails: SpaceTypeVacantDetail[];
+  quotedDetails: SpaceTypeQuotedDetail[];
+  expiringDetails: SpaceTypeExpiringDetail[];
 }
 
 @Component({
@@ -93,17 +121,11 @@ export interface ActiveQuotationItem {
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
-export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
+export class Dashboard implements OnInit {
   private admin = inject(AdminService);
   private quotationService = inject(QuotationService);
   private router = inject(Router);
   protected auth = inject(AuthService);
-
-  @ViewChild('capacityChartCanvas') capacityChartCanvas?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('locationChartCanvas') locationChartCanvas?: ElementRef<HTMLCanvasElement>;
-
-  private capacityChart?: Chart;
-  private locationChart?: Chart;
 
   protected readonly Math = Math;
 
@@ -117,18 +139,11 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
 
   loading = signal(true);
 
-  // Top KPI Summary Counts
-  kpiStats = signal({
-    totalSpaces: 0,
-    availableSpaces: 0,
-    quotedSpaces: 0,
-    bookedSpaces: 0,
-    expiringSoonBookings: 0,
-    activeCustomers: 0
-  });
+  // Redesigned Space Types Breakdown Cards with shift-aware details
+  spaceTypeCards = signal<SpaceTypeCardData[]>([]);
 
-  // Space Type Breakdown List
-  spaceTypeBreakdowns = signal<SpaceTypeBreakdown[]>([]);
+  // Active Dropdown state: { spaceTypeId, tag } or null
+  activeDropdown = signal<{ spaceTypeId: number; tag: TagFilterType } | null>(null);
 
   // Locations list signal
   locationsList = signal<Location[]>([]);
@@ -136,19 +151,10 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // Main Spaces Operational List
   allSpaces = signal<SpaceOperationItem[]>([]);
 
-  // Expiring Bookings List
-  expiringBookings = signal<ExpiringBookingItem[]>([]);
-
-  // Active Quotations List
-  activeQuotations = signal<ActiveQuotationItem[]>([]);
-
-  // Quotation Activity Feed (Customer Accept/Decline responses)
-  quotationActivities = signal<any[]>([]);
-
   // Space Types dropdown options
   spaceTypeOptions = signal<string[]>([]);
 
-  // Filter Signals
+  // Filter Signals for Inventory Table
   searchSpace = signal('');
   searchCustomer = signal('');
   selectedSpaceType = signal('ALL');
@@ -166,51 +172,39 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   pageSize = signal(10);
   pageSizeOptions = [10, 25, 50, 100];
 
-  // Private Spaces Computed Metrics
-  privateSpacesList = computed(() => {
-    return this.allSpaces().filter(s => s.isPrivateSpace);
-  });
+  totalSpacesCount = computed(() => this.allSpaces().length);
 
-  totalPrivateCapacity = computed(() => {
-    return this.privateSpacesList().reduce((acc, s) => acc + (s.capacity || 0), 0);
-  });
+  // ============= ANNOUNCEMENTS & ALERTS STATE SIGNALS =============
+  announcementsList = signal<AnnouncementItem[]>([]);
+  announcementsLoading = signal<boolean>(false);
+  announcementCreating = signal<boolean>(false);
+  selectedAnnouncement = signal<AnnouncementItem | null>(null);
+  showAnnouncementModal = signal<boolean>(false);
+  showAnnouncementDetailModal = signal<boolean>(false);
 
-  occupiedPrivateCapacity = computed(() => {
-    return this.privateSpacesList().reduce((acc, s) => {
-      if (s.status === 'Booked') {
-        return acc + (s.attendantsCount || 0);
-      }
-      return acc;
-    }, 0);
-  });
+  // Computed Announcement KPIs
+  announcementsTotalBroadcasts = computed(() => this.announcementsList().length);
+  announcementsTotalDelivered = computed(() => this.announcementsList().reduce((acc, a) => acc + (a.sentCount || 0) + (a.readCount || 0), 0));
+  announcementsTotalRead = computed(() => this.announcementsList().reduce((acc, a) => acc + (a.readCount || 0), 0));
+  announcementsTotalFailed = computed(() => this.announcementsList().reduce((acc, a) => acc + (a.failedCount || 0), 0));
+  announcementsTotalPending = computed(() => this.announcementsList().reduce((acc, a) => acc + (a.pendingCount || 0), 0));
 
-  totalPrivateSpacesCount = computed(() => this.privateSpacesList().length);
-
-  occupiedPrivateSpacesCount = computed(() => {
-    return this.privateSpacesList().filter(s => s.status === 'Booked').length;
-  });
-
-  privateOccupancyPercentage = computed(() => {
-    const total = this.totalPrivateCapacity();
-    if (!total) return 0;
-    return Math.round((this.occupiedPrivateCapacity() / total) * 100);
-  });
-
-  overCapacitySpacesList = computed(() => {
-    return this.allSpaces().filter(s => s.isOverCapacity);
-  });
+  // Form State Signals
+  announcementTitle = signal<string>('');
+  announcementBody = signal<string>('');
+  announcementFormType = signal<'Announcement' | 'Alert'>('Announcement');
+  announcementTargetScope = signal<'All' | 'Location' | 'Space' | 'CustomList'>('All');
+  announcementLocationId = signal<number | null>(null);
+  announcementSpaceId = signal<number | null>(null);
+  announcementCustomUsersText = signal<string>('');
+  announcementScheduleMode = signal<'now' | 'later'>('now');
+  announcementScheduledDate = signal<string>('');
+  announcementFormError = signal<string>('');
+  announcementFormSuccess = signal<string>('');
 
   ngOnInit() {
     this.loadDashboardData();
-  }
-
-  ngAfterViewInit() {
-    this.updateCharts();
-  }
-
-  ngOnDestroy() {
-    if (this.capacityChart) this.capacityChart.destroy();
-    if (this.locationChart) this.locationChart.destroy();
+    this.loadAnnouncements();
   }
 
   loadDashboardData() {
@@ -218,131 +212,15 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this.loadFallbackData();
   }
 
-  private processEndpointResponse(data: any) {
-    // Process KPI stats
-    const kpi = data.kpiStats || data.summary || (Array.isArray(data) ? data[0]?.[0] : null);
-    if (kpi) {
-      this.kpiStats.set({
-        totalSpaces: Number(kpi.totalSpaces ?? kpi.TotalSpaces ?? 0),
-        availableSpaces: Number(kpi.availableSpaces ?? kpi.AvailableSpaces ?? 0),
-        quotedSpaces: Number(kpi.quotedSpaces ?? kpi.QuotedSpaces ?? 0),
-        bookedSpaces: Number(kpi.bookedSpaces ?? kpi.BookedSpaces ?? 0),
-        expiringSoonBookings: Number(kpi.expiringSoonBookings ?? kpi.ExpiringSoonBookings ?? 0),
-        activeCustomers: Number(kpi.activeCustomers ?? kpi.ActiveCustomers ?? 0)
-      });
-    }
-
-    // Process Space Type breakdown
-    const breakdownsData = data.spaceTypeBreakdowns || data.spaceTypes || (Array.isArray(data) ? data[1] : []);
-    if (Array.isArray(breakdownsData)) {
-      const breakdowns: SpaceTypeBreakdown[] = breakdownsData.map((b: any) => {
-        const totCap = Number(b.totalCapacity || b.TotalCapacity || 0);
-        const fillCap = Number(b.filledCapacity || b.FilledCapacity || 0);
-        const empCap = Number(b.emptyCapacity || b.EmptyCapacity || Math.max(0, totCap - fillCap));
-        const bkdCap = Number(b.bookedCapacity || b.BookedCapacity || 0);
-        const qtdCap = Number(b.quotedCapacity || b.QuotedCapacity || 0);
-        const occPct = totCap > 0 ? Math.round((fillCap / totCap) * 100) : Number(b.occupancyPercentage || b.OccupancyPercentage || 0);
-
-        return {
-          spaceTypeId: Number(b.spaceTypeId || b.SpaceTypeId || 0),
-          spaceTypeName: String(b.spaceTypeName || b.SpaceTypeName || 'Other'),
-          total: Number(b.total || b.Total || 0),
-          available: Number(b.available || b.Available || 0),
-          quoted: Number(b.quoted || b.Quoted || 0),
-          booked: Number(b.booked || b.Booked || 0),
-          totalCapacity: totCap,
-          filledCapacity: fillCap,
-          emptyCapacity: empCap,
-          bookedCapacity: bkdCap,
-          quotedCapacity: qtdCap,
-          occupancyPercentage: occPct
-        };
-      });
-      this.spaceTypeBreakdowns.set(breakdowns);
-      this.spaceTypeOptions.set(breakdowns.map(b => b.spaceTypeName));
-    }
-
-    // Process All Spaces list
-    const rawSpaces = data.allSpaces || data.spaces || (Array.isArray(data) ? data[2] : []);
-    if (Array.isArray(rawSpaces)) {
-      const processedSpaces: SpaceOperationItem[] = rawSpaces.map((s: any) => {
-        const endDate = s.bookingEnd || s.BookingEnd || s.endOn || s.EndOn;
-        const timeInfo = this.formatTimeRemaining(endDate);
-        const statusVal = s.status || s.Status || 'Available';
-        const isExpiring = statusVal === 'Booked' && timeInfo.days > 0 && timeInfo.days <= this.expiringThreshold();
-
-        return {
-          spaceId: Number(s.spaceId || s.SpaceId || s.id || 0),
-          spaceCode: String(s.spaceCode || s.SpaceCode || s.code || ('Space-' + (s.id || ''))),
-          spaceName: String(s.spaceName || s.SpaceName || s.name || ''),
-          capacity: Number(s.capacity || s.Capacity || 0),
-          spaceTypeId: Number(s.spaceTypeId || s.SpaceTypeId || 0),
-          spaceTypeName: String(s.spaceTypeName || s.SpaceTypeName || s.spaceType || 'Other'),
-          status: statusVal,
-          bookingId: s.bookingId || s.BookingId || null,
-          customerName: s.customerName || s.CustomerName || s.bookingCustomerName || s.BookingCustomerName || null,
-          companyName: s.companyName || s.CompanyName || s.bookingCompanyName || s.BookingCompanyName || null,
-          bookingStart: s.bookingStart || s.BookingStart || s.startOn || s.StartOn || null,
-          bookingEnd: endDate || null,
-          bookingStatus: s.bookingStatus || s.BookingStatus || null,
-          quotationId: s.quotationId || s.QuotationId || null,
-          quotationNumber: s.quotationNumber || s.QuotationNumber || null,
-          quotationCustomerName: s.quotationCustomerName || s.QuotationCustomerName || null,
-          quotationDate: s.quotationDate || s.QuotationDate || null,
-          quotationExpiryDate: s.quotationExpiryDate || s.QuotationExpiryDate || null,
-          quotationAmount: s.quotationAmount != null ? Number(s.quotationAmount) : (s.QuotationAmount != null ? Number(s.QuotationAmount) : null),
-          quotationStatus: s.quotationStatus || s.QuotationStatus || null,
-          daysRemainingNum: timeInfo.days,
-          remainingTimeFormatted: timeInfo.text,
-          isExpiringSoon: isExpiring
-        };
-      });
-      this.allSpaces.set(processedSpaces);
-    }
-
-    // Process Expiring Bookings
-    const rawExpiring = data.expiringBookings || (Array.isArray(data) ? data[3] : []);
-    if (Array.isArray(rawExpiring)) {
-      const processedExpiring: ExpiringBookingItem[] = rawExpiring.map((b: any) => {
-        const endDate = b.bookingEnd || b.BookingEnd || b.endOn;
-        const timeInfo = this.formatTimeRemaining(endDate);
-        return {
-          bookingId: Number(b.bookingId || b.BookingId || b.id || 0),
-          spaceId: Number(b.spaceId || b.SpaceId || 0),
-          spaceCode: String(b.spaceCode || b.SpaceCode || b.spaceName || 'Space'),
-          spaceName: String(b.spaceName || b.SpaceName || ''),
-          spaceTypeName: String(b.spaceTypeName || b.SpaceTypeName || 'Office'),
-          customerName: String(b.customerName || b.CustomerName || b.userEmail || 'Customer'),
-          companyName: b.companyName || b.CompanyName,
-          bookingStart: b.bookingStart || b.BookingStart || b.startOn,
-          bookingEnd: endDate,
-          daysRemaining: timeInfo.days,
-          bookingStatus: String(b.bookingStatus || b.BookingStatus || 'Active'),
-          remainingTimeFormatted: timeInfo.text
-        };
-      });
-      this.expiringBookings.set(processedExpiring);
-    }
-
-    // Process Active Quotations
-    const rawQuotations = data.activeQuotations || (Array.isArray(data) ? data[4] : []);
-    if (Array.isArray(rawQuotations)) {
-      const processedQuotations: ActiveQuotationItem[] = rawQuotations.map((q: any) => ({
-        quotationId: Number(q.quotationId || q.QuotationId || q.id || 0),
-        quotationNumber: String(q.quotationNumber || q.QuotationNumber || '#Q-100'),
-        spaceId: Number(q.spaceId || q.SpaceId || 0),
-        spaceCode: String(q.spaceCode || q.SpaceCode || q.spaceName || 'Space'),
-        spaceName: String(q.spaceName || q.SpaceName || ''),
-        spaceTypeName: String(q.spaceTypeName || q.SpaceTypeName || 'Office'),
-        customerName: String(q.customerName || q.CustomerName || 'Customer'),
-        quotationDate: q.quotationDate || q.QuotationDate || q.createdDate,
-        quotationExpiryDate: q.quotationExpiryDate || q.QuotationExpiryDate || q.validUntil,
-        quotationAmount: Number(q.quotationAmount || q.QuotationAmount || q.totalAmount || 0),
-        quotationStatus: String(q.quotationStatus || q.QuotationStatus || q.status || 'Pending'),
-        bookingStatus: String(q.bookingStatus || q.BookingStatus || 'Not Booked')
-      }));
-      this.activeQuotations.set(processedQuotations);
-    }
+  /**
+   * Helper to normalize ShiftType strings from backend
+   */
+  normalizeShift(rawShift?: string | null): '24_7' | 'morning' | 'evening' {
+    if (!rawShift) return '24_7';
+    const s = String(rawShift).toLowerCase().trim();
+    if (s.includes('morning') || s.includes('6am') || s === '2') return 'morning';
+    if (s.includes('evening') || s.includes('night') || s.includes('6pm') || s === '3') return 'evening';
+    return '24_7';
   }
 
   private loadFallbackData() {
@@ -411,33 +289,43 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       const now = new Date();
       const thresholdDays = this.expiringThreshold();
 
-      // Active bookings map per spaceId (latest active booking)
-      const spaceBookingMap = new Map<number, any>();
-      const activeBookingsList: any[] = [];
+      // Group active bookings per spaceId
+      const spaceActiveBookingsMap = new Map<number, any[]>();
+      // Group future bookings per spaceId (for next scheduled booking)
+      const spaceFutureBookingsMap = new Map<number, any[]>();
 
       rawBookings.forEach((b: any) => {
         const isDeleted = b.isDeleted || b.IsDeleted || false;
         const statusId = b.bookingStatusId ?? b.BookingStatusId ?? b.statusId ?? b.StatusId;
         const statusStr = String(b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase();
-        
         const isCancelledOrDone = statusStr.includes('cancel') || statusStr.includes('reject') || statusStr.includes('complete');
+        
+        const startDateStr = b.startOn || b.StartOn || b.startDateTime || b.StartDateTime;
+        const startDate = startDateStr ? new Date(startDateStr) : null;
         const endDateStr = b.endOn || b.EndOn || b.endDateTime || b.EndDateTime;
         const endDate = endDateStr ? new Date(endDateStr) : null;
-        
-        const isActiveBooking = !isDeleted && (!statusId || statusId === 1 || statusId === 2) && !isCancelledOrDone && endDate && endDate >= now;
 
-        if (isActiveBooking && b.spaceId) {
-          activeBookingsList.push(b);
-          const existing = spaceBookingMap.get(b.spaceId);
-          if (!existing || new Date(existing.endOn || existing.EndOn || existing.endDateTime || 0) < endDate) {
-            spaceBookingMap.set(b.spaceId, b);
+        const sId = b.spaceId || b.SpaceId;
+        if (!sId || isDeleted || isCancelledOrDone) return;
+
+        const isActiveBooking = (!statusId || statusId === 1 || statusId === 2) && endDate && endDate >= now && (!startDate || startDate <= now);
+        const isFutureBooking = (!statusId || statusId === 1 || statusId === 2) && startDate && startDate > now;
+
+        if (isActiveBooking) {
+          if (!spaceActiveBookingsMap.has(sId)) {
+            spaceActiveBookingsMap.set(sId, []);
           }
+          spaceActiveBookingsMap.get(sId)!.push(b);
+        } else if (isFutureBooking) {
+          if (!spaceFutureBookingsMap.has(sId)) {
+            spaceFutureBookingsMap.set(sId, []);
+          }
+          spaceFutureBookingsMap.get(sId)!.push(b);
         }
       });
 
       // Active quotations map per spaceId (latest active quotation)
       const spaceQuotationMap = new Map<number, any>();
-      const activeQuotationsList: ActiveQuotationItem[] = [];
 
       rawQuotations.forEach((q: any) => {
         const statusStr = String(q.status || q.Status || '').toLowerCase();
@@ -449,40 +337,6 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         const isActiveQuotation = isActiveFlag && !isConvertedOrDead && (!validUntil || validUntil >= now);
 
         if (isActiveQuotation && q.spaceId) {
-          const spaceObj = rawSpaces.find((s: any) => (s.id || s.Id) === q.spaceId);
-          const custObj = rawCustomers.find((c: any) =>
-            (c.id || c.Id) === q.customerId ||
-            (c.userId || c.UserId) === q.customerId ||
-            (c.email || c.Email || '').toLowerCase() === (q.customerEmail || q.userEmail || '').toLowerCase()
-          );
-
-          const qFullName = custObj
-            ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
-            : null;
-
-          const qCompName = custObj
-            ? (custObj.companyName || custObj.CompanyName || custObj.company || custObj.Company || custObj.customerCompany || custObj.companyTitle)
-            : null;
-
-          const qItem: ActiveQuotationItem = {
-            quotationId: q.id || q.Id,
-            quotationNumber: q.quotationNumber || q.QuotationNumber || `#Q-${q.id}`,
-            spaceId: q.spaceId || q.SpaceId,
-            spaceCode: spaceObj?.code || spaceObj?.Code || `Space-${q.spaceId}`,
-            spaceName: spaceObj?.name || spaceObj?.Name || `Space ${q.spaceId}`,
-            spaceTypeName: typeMap.get(spaceObj?.spaceTypeIdInt || spaceObj?.SpaceTypeIdInt || spaceObj?.spaceTypeId) || 'Office',
-            customerName: qFullName || q.customerName || 'Customer',
-            quotationDate: q.quotationDate || q.QuotationDate || q.createdDate,
-            quotationExpiryDate: validUntilStr,
-            quotationAmount: Number(q.totalAmount || q.TotalAmount || 0),
-            quotationStatus: q.status || q.Status || 'Pending',
-            bookingStatus: spaceBookingMap.has(q.spaceId) ? 'Booked' : 'Not Booked'
-          };
-
-          if (!spaceBookingMap.has(q.spaceId)) {
-            activeQuotationsList.push(qItem);
-          }
-
           const existingQ = spaceQuotationMap.get(q.spaceId);
           if (!existingQ || new Date(existingQ.createdDate || 0) < new Date(q.createdDate || 0)) {
             spaceQuotationMap.set(q.spaceId, q);
@@ -490,7 +344,30 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         }
       });
 
-      // Construct SpaceOperationItem for each active space
+      // Customer helper
+      const resolveCustomer = (customerId: any, customerEmail: string | null, userId: any, fallbackName: string | null) => {
+        const custEmailLower = (customerEmail || '').toLowerCase();
+        const custObj = rawCustomers.find((c: any) =>
+          (c.id || c.Id) === customerId ||
+          (c.userId || c.UserId) === userId ||
+          (custEmailLower && (c.email || c.Email || '').toLowerCase() === custEmailLower)
+        );
+
+        const fullName = custObj
+          ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
+          : null;
+
+        const compName = custObj
+          ? (custObj.companyName || custObj.CompanyName || custObj.company || custObj.Company || custObj.customerCompany || custObj.companyTitle)
+          : null;
+
+        return {
+          name: fullName || fallbackName || 'Customer',
+          company: compName || null
+        };
+      };
+
+      // Construct SpaceOperationItem for each space (for Inventory Table)
       const processedSpaces: SpaceOperationItem[] = rawSpaces.map((s: any, idx: number) => {
         const sId = s.id || s.Id;
         const sCode = s.code || s.Code || `Space-${sId}`;
@@ -499,7 +376,6 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         const typeId = s.spaceTypeIdInt || s.SpaceTypeIdInt || s.spaceTypeId || s.SpaceTypeId || 0;
         const typeName = typeMap.get(typeId) || s.spaceTypeName || s.SpaceTypeName || 'Other';
 
-        // Extract Location Name
         let locId = s.locationId || s.LocationId || null;
         let locName = s.locationName || s.LocationName || s.branchName || s.BranchName;
         if (!locName && locId && rawLocations.length > 0) {
@@ -511,7 +387,8 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           locName = defaultLocs[idx % defaultLocs.length];
         }
 
-        const activeBooking = spaceBookingMap.get(sId);
+        const activeBookings = spaceActiveBookingsMap.get(sId) || [];
+        const primaryBooking = activeBookings[0] || null;
         const activeQuotation = spaceQuotationMap.get(sId);
 
         let spaceStatus: 'Booked' | 'Quoted' | 'Available' | 'Expired' = 'Available';
@@ -521,6 +398,8 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         let bCompName: string | null = null;
         let bStatusStr: string | null = null;
         let bId: number | null = null;
+        let bShift: string | undefined = undefined;
+        let rawAttendantsCount = 0;
 
         let qId: number | null = null;
         let qNum: string | null = null;
@@ -530,46 +409,24 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         let qAmt: number | null = null;
         let qStatusStr: string | null = null;
 
-        let rawAttendantsCount = 0;
-
-        if (activeBooking) {
+        if (primaryBooking) {
           spaceStatus = 'Booked';
-          bId = activeBooking.id || activeBooking.Id;
-          bStart = activeBooking.startOn || activeBooking.StartOn || activeBooking.startDateTime;
-          bEnd = activeBooking.endOn || activeBooking.EndOn || activeBooking.endDateTime;
-          bStatusStr = activeBooking.bookingStatusLabel || activeBooking.bookingStatus || activeBooking.status || 'Confirmed';
+          bId = primaryBooking.id || primaryBooking.Id;
+          bStart = primaryBooking.startOn || primaryBooking.StartOn || primaryBooking.startDateTime;
+          bEnd = primaryBooking.endOn || primaryBooking.EndOn || primaryBooking.endDateTime;
+          bStatusStr = primaryBooking.bookingStatusLabel || primaryBooking.bookingStatus || primaryBooking.status || 'Confirmed';
+          bShift = primaryBooking.shiftType || primaryBooking.ShiftType || primaryBooking.offeringType || '24_7';
 
-          // Match Customer Object from DB
-          const bUserEmail = (activeBooking.userEmail || activeBooking.customerEmail || '').toLowerCase();
-          const custObj = rawCustomers.find((c: any) =>
-            (c.id || c.Id) === activeBooking.customerId ||
-            (c.userId || c.UserId) === activeBooking.userId ||
-            (c.code || c.Code) === activeBooking.customerCode ||
-            (bUserEmail && (c.email || c.Email || '').toLowerCase() === bUserEmail)
+          const resolvedCust = resolveCustomer(
+            primaryBooking.customerId,
+            primaryBooking.userEmail || primaryBooking.customerEmail,
+            primaryBooking.userId,
+            primaryBooking.customerName
           );
+          bCustName = resolvedCust.name;
+          bCompName = resolvedCust.company;
 
-          // Priority 1: Full Name from Customer record in DB
-          const custFullName = custObj
-            ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
-            : null;
-
-          bCustName = custFullName || activeBooking.customerName || activeBooking.userEmail || (activeBooking.userId ? `User #${activeBooking.userId}` : 'Customer');
-
-          // Priority 1: Customer's actual company name from DB
-          const custCompName = custObj
-            ? (custObj.companyName || custObj.CompanyName || custObj.company || custObj.Company || custObj.customerCompany || custObj.companyTitle)
-            : null;
-
-          // Avoid using venue/branch name if it was accidentally saved into activeBooking.companyName
-          let finalBookingCompany = activeBooking.customerCompany || activeBooking.companyName || null;
-          if (finalBookingCompany && (finalBookingCompany.includes('WorkNest') || finalBookingCompany.includes('I-8') || finalBookingCompany.includes('Center') || finalBookingCompany.includes('Plaza'))) {
-            finalBookingCompany = null;
-          }
-
-          bCompName = custCompName || finalBookingCompany || null;
-
-          // Attendant capacity parsing
-          rawAttendantsCount = activeBooking.attendantsCount ?? activeBooking.occupantsCount ?? activeBooking.assignedAttendantsCount ?? (activeBooking.attendants ? activeBooking.attendants.length : 0);
+          rawAttendantsCount = primaryBooking.attendantsCount ?? primaryBooking.occupantsCount ?? (primaryBooking.attendants ? primaryBooking.attendants.length : 0);
         } else if (activeQuotation) {
           spaceStatus = 'Quoted';
           qId = activeQuotation.id || activeQuotation.Id;
@@ -579,23 +436,20 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           qAmt = Number(activeQuotation.totalAmount || activeQuotation.TotalAmount || 0);
           qStatusStr = activeQuotation.status || activeQuotation.Status || 'Pending';
 
-          const custObj = rawCustomers.find((c: any) =>
-            (c.id || c.Id) === activeQuotation.customerId ||
-            (c.email || c.Email || '').toLowerCase() === (activeQuotation.customerEmail || activeQuotation.userEmail || '').toLowerCase()
+          const resolvedCust = resolveCustomer(
+            activeQuotation.customerId,
+            activeQuotation.customerEmail || activeQuotation.userEmail,
+            null,
+            activeQuotation.customerName
           );
-          const qFullName = custObj
-            ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
-            : null;
-          qCustName = qFullName || activeQuotation.customerName || 'Customer';
+          qCustName = resolvedCust.name;
         }
 
         const timeInfo = this.formatTimeRemaining(bEnd);
         const isExpiring = spaceStatus === 'Booked' && timeInfo.days > 0 && timeInfo.days <= thresholdDays;
 
-        // Is Private Space logic
         const lowerType = typeName.toLowerCase();
         const isPrivate = lowerType.includes('private') || lowerType.includes('office') || lowerType.includes('suite') || lowerType.includes('room') || sCap > 1;
-
         const isOverCap = spaceStatus === 'Booked' && rawAttendantsCount > sCap;
         const excessAtt = isOverCap ? (rawAttendantsCount - sCap) : 0;
 
@@ -615,6 +469,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           bookingStart: bStart,
           bookingEnd: bEnd,
           bookingStatus: bStatusStr,
+          shiftType: bShift,
           quotationId: qId,
           quotationNumber: qNum,
           quotationCustomerName: qCustName,
@@ -634,147 +489,223 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
 
       this.allSpaces.set(processedSpaces);
 
-      // Compute KPI counts
-      const totalSpacesCount = processedSpaces.length;
-      const bookedCount = processedSpaces.filter(s => s.status === 'Booked').length;
-      const quotedCount = processedSpaces.filter(s => s.status === 'Quoted').length;
-      const availableCount = processedSpaces.filter(s => s.status === 'Available').length;
-      const expiringCount = processedSpaces.filter(s => s.isExpiringSoon).length;
-      const activeCustCount = rawCustomers.length > 0 ? rawCustomers.length : activeBookingsList.length;
+      // =========================================================================
+      // BUILD REDESIGNED SPACE TYPE CAPACITY & OCCUPANCY CARDS
+      // =========================================================================
+      const cardsMap = new Map<number, SpaceTypeCardData>();
 
-      this.kpiStats.set({
-        totalSpaces: totalSpacesCount,
-        availableSpaces: availableCount,
-        quotedSpaces: quotedCount,
-        bookedSpaces: bookedCount,
-        expiringSoonBookings: expiringCount,
-        activeCustomers: activeCustCount
-      });
-
-      // Compute Space Type Breakdown
-      const breakdownMap = new Map<string, {
-        id: number;
-        name: string;
-        total: number;
-        available: number;
-        quoted: number;
-        booked: number;
-        totalCapacity: number;
-        filledCapacity: number;
-        emptyCapacity: number;
-        bookedCapacity: number;
-        quotedCapacity: number;
-      }>();
-
-      processedSpaces.forEach(s => {
-        const typeName = s.spaceTypeName || 'Other';
-        if (!breakdownMap.has(typeName)) {
-          breakdownMap.set(typeName, {
-            id: s.spaceTypeId,
-            name: typeName,
-            total: 0,
-            available: 0,
-            quoted: 0,
-            booked: 0,
-            totalCapacity: 0,
-            filledCapacity: 0,
-            emptyCapacity: 0,
-            bookedCapacity: 0,
-            quotedCapacity: 0
+      // Initialize entry for all known space types from database
+      rawTypes.forEach((t: any) => {
+        const id = Number(t.id || t.Id);
+        const name = String(t.name || t.Name || t.description || 'Other');
+        if (id && !cardsMap.has(id)) {
+          cardsMap.set(id, {
+            spaceTypeId: id,
+            spaceTypeName: name,
+            totalSpaces: 0,
+            bookedCount: 0,
+            vacantCount: 0,
+            quotedCount: 0,
+            expiringCount: 0,
+            bookedDetails: [],
+            vacantDetails: [],
+            quotedDetails: [],
+            expiringDetails: []
           });
         }
-        const b = breakdownMap.get(typeName)!;
-        const cap = s.capacity || 0;
-        b.total++;
-        b.totalCapacity += cap;
+      });
 
-        if (s.status === 'Available') {
-          b.available++;
-          b.emptyCapacity += cap;
-        } else if (s.status === 'Quoted') {
-          b.quoted++;
-          b.quotedCapacity += cap;
-          b.emptyCapacity += cap;
-        } else if (s.status === 'Booked') {
-          b.booked++;
-          b.bookedCapacity += cap;
-          const occupiedSeats = (s.attendantsCount && s.attendantsCount > 0) ? s.attendantsCount : cap;
-          b.filledCapacity += occupiedSeats;
-          if (cap > occupiedSeats) {
-            b.emptyCapacity += (cap - occupiedSeats);
+      // Aggregate each space into its space type card
+      processedSpaces.forEach(sp => {
+        let card = cardsMap.get(sp.spaceTypeId);
+        if (!card) {
+          card = {
+            spaceTypeId: sp.spaceTypeId,
+            spaceTypeName: sp.spaceTypeName,
+            totalSpaces: 0,
+            bookedCount: 0,
+            vacantCount: 0,
+            quotedCount: 0,
+            expiringCount: 0,
+            bookedDetails: [],
+            vacantDetails: [],
+            quotedDetails: [],
+            expiringDetails: []
+          };
+          cardsMap.set(sp.spaceTypeId, card);
+        }
+
+        card.totalSpaces++;
+
+        const activeBookings = spaceActiveBookingsMap.get(sp.spaceId) || [];
+        const isBooked = activeBookings.length > 0;
+
+        // 1. BOOKED SPACES
+        if (isBooked) {
+          card.bookedCount++;
+
+          const has24_7 = activeBookings.some(b => this.normalizeShift(b.shiftType || b.ShiftType || b.offeringType) === '24_7');
+          const hasMorning = activeBookings.some(b => this.normalizeShift(b.shiftType || b.ShiftType || b.offeringType) === 'morning');
+          const hasEvening = activeBookings.some(b => this.normalizeShift(b.shiftType || b.ShiftType || b.offeringType) === 'evening');
+
+          const occupiedShifts: string[] = [];
+          const openShifts: string[] = [];
+
+          if (has24_7) {
+            occupiedShifts.push('24/7 (Full Day)');
+            openShifts.push('None (Fully Occupied)');
+          } else {
+            if (hasMorning) occupiedShifts.push('Morning (6am-6pm)');
+            else openShifts.push('Morning (6am-6pm)');
+
+            if (hasEvening) occupiedShifts.push('Evening (6pm-6am)');
+            else openShifts.push('Evening (6pm-6am)');
+
+            if (openShifts.length === 0) {
+              openShifts.push('None (Fully Occupied)');
+            }
           }
+
+          const primaryB = activeBookings[0];
+          const resolvedCust = resolveCustomer(
+            primaryB.customerId,
+            primaryB.userEmail || primaryB.customerEmail,
+            primaryB.userId,
+            primaryB.customerName
+          );
+
+          card.bookedDetails.push({
+            spaceId: sp.spaceId,
+            spaceCode: sp.spaceCode,
+            spaceName: sp.spaceName,
+            capacity: sp.capacity,
+            locationName: sp.locationName || undefined,
+            customerName: resolvedCust.name,
+            companyName: resolvedCust.company || undefined,
+            occupiedShifts,
+            openShifts,
+            bookingId: primaryB.id || primaryB.Id,
+            bookingStart: primaryB.startOn || primaryB.StartOn || primaryB.startDateTime,
+            bookingEnd: primaryB.endOn || primaryB.EndOn || primaryB.endDateTime,
+            bookingStatus: primaryB.bookingStatusLabel || primaryB.bookingStatus || 'Confirmed'
+          });
+
+          // Check if any active booking on this space is Expiring Soon
+          activeBookings.forEach(b => {
+            const endDate = b.endOn || b.EndOn || b.endDateTime;
+            const timeInfo = this.formatTimeRemaining(endDate);
+            if (timeInfo.days > 0 && timeInfo.days <= thresholdDays) {
+              card.expiringCount++;
+              card.expiringDetails.push({
+                spaceId: sp.spaceId,
+                spaceCode: sp.spaceCode,
+                spaceName: sp.spaceName,
+                capacity: sp.capacity,
+                locationName: sp.locationName || undefined,
+                customerName: resolvedCust.name,
+                companyName: resolvedCust.company || undefined,
+                bookingId: b.id || b.Id,
+                bookingStart: b.startOn || b.StartOn || b.startDateTime,
+                bookingEnd: endDate,
+                daysRemaining: timeInfo.days,
+                remainingTimeFormatted: timeInfo.text,
+                bookingStatus: b.bookingStatusLabel || b.bookingStatus || 'Confirmed'
+              });
+            }
+          });
+        } else {
+          // 2. VACANT SPACES (zero active bookings on any shift)
+          card.vacantCount++;
+
+          const futureBookings = spaceFutureBookingsMap.get(sp.spaceId) || [];
+          let nextDate: any = null;
+          let nextCust: string | null = null;
+
+          if (futureBookings.length > 0) {
+            futureBookings.sort((a, b) => new Date(a.startOn || a.startDateTime || 0).getTime() - new Date(b.startOn || b.startDateTime || 0).getTime());
+            const fb = futureBookings[0];
+            nextDate = fb.startOn || fb.StartOn || fb.startDateTime;
+            const resolvedCust = resolveCustomer(fb.customerId, fb.userEmail || fb.customerEmail, fb.userId, fb.customerName);
+            nextCust = resolvedCust.name;
+          }
+
+          card.vacantDetails.push({
+            spaceId: sp.spaceId,
+            spaceCode: sp.spaceCode,
+            spaceName: sp.spaceName,
+            capacity: sp.capacity,
+            locationName: sp.locationName || undefined,
+            nextBookingDate: nextDate,
+            nextBookingCustomer: nextCust
+          });
         }
-      });
 
-      const typeBreakdowns: SpaceTypeBreakdown[] = Array.from(breakdownMap.values()).map(b => {
-        const occPct = b.totalCapacity > 0 ? Math.round((b.filledCapacity / b.totalCapacity) * 100) : 0;
-        return {
-          spaceTypeId: b.id,
-          spaceTypeName: b.name,
-          total: b.total,
-          available: b.available,
-          quoted: b.quoted,
-          booked: b.booked,
-          totalCapacity: b.totalCapacity,
-          filledCapacity: b.filledCapacity,
-          emptyCapacity: b.emptyCapacity,
-          bookedCapacity: b.bookedCapacity,
-          quotedCapacity: b.quotedCapacity,
-          occupancyPercentage: occPct
-        };
-      });
-      this.spaceTypeBreakdowns.set(typeBreakdowns);
+        // 3. QUOTED SPACES (Active unconverted quotation - can coexist with Booked status)
+        const qObj = spaceQuotationMap.get(sp.spaceId);
+        if (qObj) {
+          card.quotedCount++;
+          const resolvedCust = resolveCustomer(
+            qObj.customerId,
+            qObj.customerEmail || qObj.userEmail,
+            null,
+            qObj.customerName
+          );
 
-      // Expiring Bookings List
-      const expiringList: ExpiringBookingItem[] = processedSpaces
-        .filter(s => s.status === 'Booked' && s.isExpiringSoon && s.bookingEnd)
-        .map(s => ({
-          bookingId: s.bookingId || 0,
-          spaceId: s.spaceId,
-          spaceCode: s.spaceCode,
-          spaceName: s.spaceName,
-          spaceTypeName: s.spaceTypeName,
-          customerName: s.customerName || 'Customer',
-          companyName: s.companyName || undefined,
-          bookingStart: s.bookingStart!,
-          bookingEnd: s.bookingEnd!,
-          daysRemaining: s.daysRemainingNum || 0,
-          bookingStatus: s.bookingStatus || 'Confirmed',
-          remainingTimeFormatted: s.remainingTimeFormatted || ''
-        }))
-        .sort((a, b) => a.daysRemaining - b.daysRemaining);
-
-      // Extract customer response activity items
-      const activities: any[] = [];
-      rawQuotations.forEach((q: any) => {
-        const st = (q.status || q.Status || '').toString();
-        const note = q.customerNote || q.responseNote || q.note || q.Remarks || '';
-        if (st === 'Accepted' || st === 'Declined' || note) {
-          const custObj = rawCustomers.find((c: any) => (c.id || c.Id) === q.customerId);
-          activities.push({
-            id: q.id || q.quotationId,
-            quotationNumber: q.quotationNumber || `#Q-${q.id}`,
-            versionNumber: q.versionNumber || q.version || 1,
-            customerName: custObj ? `${custObj.firstName || ''} ${custObj.lastName || ''}`.trim() : (q.customerName || 'Customer'),
-            status: st,
-            customerNote: note,
-            updatedDate: q.updatedDate || q.createdDate || new Date().toISOString()
+          card.quotedDetails.push({
+            spaceId: sp.spaceId,
+            spaceCode: sp.spaceCode,
+            spaceName: sp.spaceName,
+            capacity: sp.capacity,
+            locationName: sp.locationName || undefined,
+            customerName: resolvedCust.name,
+            companyName: resolvedCust.company || undefined,
+            quotationId: qObj.id || qObj.Id,
+            quotationNumber: qObj.quotationNumber || qObj.QuotationNumber || `#Q-${qObj.id}`,
+            quotationStatus: qObj.status || qObj.Status || 'Pending',
+            quotationDate: qObj.quotationDate || qObj.QuotationDate || qObj.createdDate,
+            quotationExpiryDate: qObj.validUntil || qObj.ValidUntil,
+            quotationAmount: Number(qObj.totalAmount || qObj.TotalAmount || 0),
+            isAlsoBooked: isBooked
           });
         }
       });
-      activities.sort((a, b) => new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime());
-      this.quotationActivities.set(activities);
 
-      this.expiringBookings.set(expiringList);
-      this.activeQuotations.set(activeQuotationsList);
+      // Filter out types with 0 total spaces if not active, or keep cards sorted
+      const cardList = Array.from(cardsMap.values())
+        .filter(c => c.totalSpaces > 0 || c.spaceTypeName !== 'Other')
+        .sort((a, b) => b.totalSpaces - a.totalSpaces);
 
+      this.spaceTypeCards.set(cardList);
       this.loading.set(false);
-      this.updateCharts();
     });
   }
 
-  createNextVersionFromDashboard(activity: any) {
-    this.router.navigate(['/admin/quotations'], { queryParams: { search: activity.quotationNumber || String(activity.id) } });
+  // =========================================================================
+  // CARD & DROPDOWN INTERACTION HANDLERS
+  // =========================================================================
+
+  toggleTagDropdown(event: Event, spaceTypeId: number, tag: TagFilterType) {
+    event.stopPropagation(); // Prevents triggering card-level filter
+    const cur = this.activeDropdown();
+    if (cur && cur.spaceTypeId === spaceTypeId && cur.tag === tag) {
+      this.activeDropdown.set(null);
+    } else {
+      this.activeDropdown.set({ spaceTypeId, tag });
+    }
+  }
+
+  closeDropdown(event?: Event) {
+    if (event) event.stopPropagation();
+    this.activeDropdown.set(null);
+  }
+
+  selectCardSpaceType(spaceTypeName: string) {
+    if (this.selectedSpaceType() === spaceTypeName) {
+      this.selectedSpaceType.set('ALL');
+    } else {
+      this.selectedSpaceType.set(spaceTypeName);
+    }
+    this.onFilterChange();
   }
 
   // Dynamic Time Remaining Formatter
@@ -803,7 +734,9 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // Filtered Spaces Computed Signal
+  // =========================================================================
+  // FILTERED SPACES COMPUTED SIGNAL (FOR INVENTORY TABLE)
+  // =========================================================================
   filteredSpaces = computed(() => {
     let list = [...this.allSpaces()];
     const sSpace = this.searchSpace().toLowerCase().trim();
@@ -918,13 +851,13 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // Filter & Page Handlers
   onFilterChange() {
     this.page.set(1);
-    this.updateCharts();
   }
 
   setThreshold(days: number) {
     this.expiringThreshold.set(days);
     this.onFilterChange();
     this.loadDashboardData();
+    this.loadAnnouncements();
   }
 
   toggleSort(field: 'urgency' | 'spaceCode' | 'customer' | 'bookingStart' | 'bookingEnd' | 'remainingTime' | 'status') {
@@ -950,175 +883,9 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this.page.set(1);
   }
 
-  // Chart Rendering Methods
-  updateCharts() {
-    setTimeout(() => {
-      this.renderCapacityChart();
-      this.renderLocationChart();
-    }, 120);
-  }
-
-  private renderCapacityChart() {
-    if (!this.capacityChartCanvas?.nativeElement) return;
-
-    if (this.capacityChart) {
-      this.capacityChart.destroy();
-    }
-
-    const privateSpaces = this.privateSpacesList();
-    if (privateSpaces.length === 0) return;
-
-    // Group capacity & attendants by Space Type (Private Spaces)
-    const typeGroupMap = new Map<string, { capacity: number; occupants: number; overCapacity: number }>();
-    
-    privateSpaces.forEach(s => {
-      const typeName = s.spaceTypeName || 'Private Office';
-      if (!typeGroupMap.has(typeName)) {
-        typeGroupMap.set(typeName, { capacity: 0, occupants: 0, overCapacity: 0 });
-      }
-      const item = typeGroupMap.get(typeName)!;
-      item.capacity += (s.capacity || 0);
-      if (s.status === 'Booked') {
-        item.occupants += (s.attendantsCount || 0);
-        if (s.isOverCapacity) {
-          item.overCapacity += (s.excessAttendants || 0);
-        }
-      }
-    });
-
-    const labels = Array.from(typeGroupMap.keys());
-    const capacityData = labels.map(l => typeGroupMap.get(l)!.capacity);
-    const occupantsData = labels.map(l => typeGroupMap.get(l)!.occupants);
-    const overCapData = labels.map(l => typeGroupMap.get(l)!.overCapacity);
-
-    const ctx = this.capacityChartCanvas.nativeElement.getContext('2d');
-    if (!ctx) return;
-
-    this.capacityChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'Total Seat Capacity',
-            data: capacityData,
-            backgroundColor: 'rgba(99, 102, 241, 0.8)',
-            borderColor: '#4f46e5',
-            borderWidth: 1.5,
-            borderRadius: 6
-          },
-          {
-            label: 'Occupied Attendants',
-            data: occupantsData,
-            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-            borderColor: '#059669',
-            borderWidth: 1.5,
-            borderRadius: 6
-          },
-          {
-            label: 'Over-Capacity Excess',
-            data: overCapData,
-            backgroundColor: 'rgba(239, 68, 68, 0.85)',
-            borderColor: '#dc2626',
-            borderWidth: 1.5,
-            borderRadius: 6
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: { font: { family: 'Inter, system-ui, sans-serif', size: 12 }, usePointStyle: true, boxWidth: 8 }
-          },
-          tooltip: {
-            padding: 12,
-            backgroundColor: '#0f172a',
-            titleFont: { size: 13, weight: 'bold' },
-            bodyFont: { size: 12 }
-          }
-        },
-        scales: {
-          x: { grid: { display: false } },
-          y: { beginAtZero: true, grid: { color: 'rgba(226, 232, 240, 0.6)' }, ticks: { stepSize: 1 } }
-        }
-      }
-    });
-  }
-
-  private renderLocationChart() {
-    if (!this.locationChartCanvas?.nativeElement) return;
-
-    if (this.locationChart) {
-      this.locationChart.destroy();
-    }
-
-    const spaces = this.allSpaces();
-    if (spaces.length === 0) return;
-
-    const locMap = new Map<string, { capacity: number; occupied: number }>();
-    spaces.forEach(s => {
-      const loc = s.locationName || 'Main Location';
-      if (!locMap.has(loc)) {
-        locMap.set(loc, { capacity: 0, occupied: 0 });
-      }
-      const cur = locMap.get(loc)!;
-      cur.capacity += (s.capacity || 0);
-      if (s.status === 'Booked') {
-        cur.occupied += (s.attendantsCount || 0);
-      }
-    });
-
-    const labels = Array.from(locMap.keys());
-    const occupiedData = labels.map(l => locMap.get(l)!.occupied);
-    const vacantData = labels.map(l => Math.max(0, locMap.get(l)!.capacity - locMap.get(l)!.occupied));
-
-    const ctx = this.locationChartCanvas.nativeElement.getContext('2d');
-    if (!ctx) return;
-
-    this.locationChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'Occupied Capacity',
-            data: occupiedData,
-            backgroundColor: [
-              '#6366f1',
-              '#10b981',
-              '#f59e0b',
-              '#8b5cf6',
-              '#ec4899'
-            ],
-            borderWidth: 2,
-            borderColor: '#ffffff'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: { font: { family: 'Inter, system-ui, sans-serif', size: 11 }, usePointStyle: true, boxWidth: 10 }
-          },
-          tooltip: {
-            padding: 12,
-            backgroundColor: '#0f172a'
-          }
-        },
-        cutout: '68%'
-      }
-    });
-  }
-
-  // Navigation Links to Details Pages
-  viewSpaceDetails(space: SpaceOperationItem) {
-    this.router.navigate(['/admin/spaces'], { queryParams: { search: space.spaceCode } });
+  // Navigation Links
+  viewSpaceDetails(space: { spaceCode?: string; spaceId?: number }) {
+    this.router.navigate(['/admin/spaces'], { queryParams: { search: space.spaceCode || String(space.spaceId) } });
   }
 
   viewBookingDetails(bookingId?: number | null, spaceCode?: string) {
@@ -1141,10 +908,131 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  viewAttendantsManagement(space: SpaceOperationItem) {
-    this.router.navigate(['/admin/attendants']);
+  // ============= ANNOUNCEMENTS & ALERTS METHODS =============
+
+  loadAnnouncements() {
+    this.announcementsLoading.set(true);
+    this.admin.getAnnouncements(1, 50).subscribe({
+      next: (res: any) => {
+        this.announcementsLoading.set(false);
+        const list = res.data?.items || (Array.isArray(res.data) ? res.data : []);
+        this.announcementsList.set(list);
+      },
+      error: () => {
+        this.announcementsLoading.set(false);
+      }
+    });
+  }
+
+  openCreateAnnouncementModal() {
+    this.announcementTitle.set('');
+    this.announcementBody.set('');
+    this.announcementFormType.set('Announcement');
+    this.announcementTargetScope.set('All');
+    this.announcementLocationId.set(null);
+    this.announcementSpaceId.set(null);
+    this.announcementCustomUsersText.set('');
+    this.announcementScheduleMode.set('now');
+    this.announcementScheduledDate.set('');
+    this.announcementFormError.set('');
+    this.announcementFormSuccess.set('');
+    this.showAnnouncementModal.set(true);
+  }
+
+  closeCreateAnnouncementModal() {
+    this.showAnnouncementModal.set(false);
+  }
+
+  submitAnnouncement() {
+    const title = this.announcementTitle().trim();
+    const body = this.announcementBody().trim();
+    const type = this.announcementFormType();
+    const scope = this.announcementTargetScope();
+
+    if (!title) {
+      this.announcementFormError.set('Please enter an announcement title.');
+      return;
+    }
+    if (!body) {
+      this.announcementFormError.set('Please enter a message body.');
+      return;
+    }
+
+    let customIds: number[] | undefined;
+    if (scope === 'CustomList') {
+      const parts = this.announcementCustomUsersText()
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p.length > 0 && !isNaN(Number(p)))
+        .map(p => Number(p));
+      if (parts.length === 0) {
+        this.announcementFormError.set('Please enter at least one valid numeric User ID.');
+        return;
+      }
+      customIds = parts;
+    }
+
+    if (scope === 'Location' && !this.announcementLocationId()) {
+      this.announcementFormError.set('Please select a target Location.');
+      return;
+    }
+
+    if (scope === 'Space' && !this.announcementSpaceId()) {
+      this.announcementFormError.set('Please select a target Space.');
+      return;
+    }
+
+    let scheduledAt: string | null = null;
+    if (this.announcementScheduleMode() === 'later' && this.announcementScheduledDate()) {
+      scheduledAt = new Date(this.announcementScheduledDate()).toISOString();
+    }
+
+    const payload: CreateAnnouncementRequest = {
+      title,
+      body,
+      type,
+      targetScope: scope,
+      locationId: scope === 'Location' ? this.announcementLocationId() : null,
+      spaceId: scope === 'Space' ? this.announcementSpaceId() : null,
+      customUserIds: customIds,
+      scheduledAt
+    };
+
+    this.announcementCreating.set(true);
+    this.announcementFormError.set('');
+    this.announcementFormSuccess.set('');
+
+    this.admin.createAnnouncement(payload).subscribe({
+      next: () => {
+        this.announcementCreating.set(false);
+        this.announcementFormSuccess.set('Announcement broadcasted and recipients queued successfully!');
+        setTimeout(() => {
+          this.closeCreateAnnouncementModal();
+          this.loadAnnouncements();
+        }, 1200);
+      },
+      error: (err) => {
+        this.announcementCreating.set(false);
+        this.announcementFormError.set(err.error?.message || 'Failed to dispatch announcement.');
+      }
+    });
+  }
+
+  viewAnnouncementDetail(item: AnnouncementItem) {
+    this.selectedAnnouncement.set(item);
+    this.showAnnouncementDetailModal.set(true);
+    // Fetch full detail with recipient rows
+    this.admin.getAnnouncementById(item.id).subscribe({
+      next: (res) => {
+        if (res.data) {
+          this.selectedAnnouncement.set(res.data);
+        }
+      }
+    });
+  }
+
+  closeAnnouncementDetailModal() {
+    this.showAnnouncementDetailModal.set(false);
+    this.selectedAnnouncement.set(null);
   }
 }
-
-
-

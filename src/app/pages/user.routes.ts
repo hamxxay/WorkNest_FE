@@ -4,11 +4,11 @@ import { userGuard } from '../guards/user.guard';
 
 export const USER_ROUTES: Routes = [
 
-  {
-    path: 'booking',
-    loadComponent: () => import('./booking/booking').then(m => m.Booking),
-    canActivate: [authGuard, userGuard]
-  },
+  // {
+  //   path: 'booking',
+  //   loadComponent: () => import('./booking/booking').then(m => m.Booking),
+  //   canActivate: [authGuard, userGuard]
+  // },
 
   {
     path: 'checkout',
