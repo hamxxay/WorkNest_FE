@@ -1,4 +1,4 @@
-﻿import { Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
 
@@ -36,6 +36,8 @@ export const routes: Routes = [
       { path: 'space-configuration', loadComponent: () => import('./pages/admin/space-config/space-config').then(m => m.SpaceConfig), canActivate: [superAdminGuard] },
       { path: 'manage-spaces',       loadComponent: () => import('./pages/admin/manage-spaces/manage-spaces').then(m => m.ManageSpaces), canActivate: [adminGuard] },
       { path: 'attendants', loadComponent: () => import('./pages/admin/attendant-management/attendant-management').then(m => m.AttendantManagement), canActivate: [adminGuard] },
+      { path: 'biometric-users', loadComponent: () => import('./pages/admin/biometric-users/biometric-users').then(m => m.BiometricUsers), canActivate: [adminGuard] },
+      { path: 'machine-users', redirectTo: 'biometric-users' },
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
     ]
   },
@@ -45,4 +47,3 @@ export const routes: Routes = [
   { path: '**', redirectTo: '' }
 
 ];
-

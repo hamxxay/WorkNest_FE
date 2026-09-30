@@ -1,0 +1,604 @@
+<div class="bio-page">
+  <!-- Page Header -->
+  <div class="bio-header">
+    <div class="bio-header-text">
+      <div class="bio-title-row">
+        <h1>Biometric Machine Users</h1>
+        <span class="bio-live-badge">
+          <span class="bio-pulse-dot"></span> Live Biometric Roster
+        </span>
+      </div>
+      <p class="bio-subtitle">
+        Members and access credentials across all biometric machines & access control units.
+      </p>
+    </div>
+
+    <div class="bio-header-actions">
+      @if (nextEmployeeNo()) {
+      <div class="bio-next-emp-pill" title="Next recommended employee number for registration"
+        (click)="copyToClipboard(nextEmployeeNo()!.toString(), 'Next Employee Number')">
+        <span class="label">Next Emp #:</span>
+        <span class="value">{{ nextEmployeeNo() }}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </svg>
+      </div>
+      }
+
+      <button class="bio-btn-refresh" (click)="loadData(true)" [disabled]="loading() || refreshing()"
+        title="Refresh roster from devices">
+        <svg [class.spin]="refreshing()" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19" />
+        </svg>
+        <span>{{ refreshing() ? 'Syncing...' : 'Sync Roster' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Metric Cards -->
+  <div class="bio-kpi-grid">
+    <div class="bio-kpi-card">
+      <div class="bio-kpi-icon total">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      </div>
+      <div class="bio-kpi-content">
+        <div class="bio-kpi-label">Total Members</div>
+        <div class="bio-kpi-value">{{ totalMembersCount() }}</div>
+      </div>
+    </div>
+
+    <div class="bio-kpi-card">
+      <div class="bio-kpi-icon devices">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <circle cx="12" cy="12" r="3" />
+          <line x1="12" x2="12.01" y1="3" y2="3" />
+          <line x1="12" x2="12.01" y1="21" y2="21" />
+        </svg>
+      </div>
+      <div class="bio-kpi-content">
+        <div class="bio-kpi-label">Machines Online</div>
+        <div class="bio-kpi-value">{{ onlineDevicesCount() }} <span class="bio-kpi-sub">/ {{ totalDevicesCount()
+            }}</span></div>
+      </div>
+    </div>
+
+    <div class="bio-kpi-card">
+      <div class="bio-kpi-icon admin">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      </div>
+      <div class="bio-kpi-content">
+        <div class="bio-kpi-label">Device Admins</div>
+        <div class="bio-kpi-value">{{ adminMembersCount() }}</div>
+      </div>
+    </div>
+
+    <div class="bio-kpi-card">
+      <div class="bio-kpi-icon warning">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <div class="bio-kpi-content">
+        <div class="bio-kpi-label">Expired / Blocked</div>
+        <div class="bio-kpi-value">{{ expiredMembersCount() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Banner -->
+  @if (errorMessage()) {
+  <div class="bio-alert bio-alert-error">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+    <span>{{ errorMessage() }}</span>
+    <button class="bio-retry-btn" (click)="loadData()">Retry</button>
+  </div>
+  }
+
+  <!-- Main Card: Filters & Table -->
+  <div class="bio-card">
+    <!-- Toolbar -->
+    <div class="bio-toolbar">
+      <!-- Search Input -->
+      <div class="bio-search-box">
+        <svg class="bio-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input type="search" placeholder="Search name, employee #, CNIC, room..." [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event); onSearchChange()" class="bio-input-search" />
+        @if (searchQuery()) {
+        <button class="bio-search-clear" (click)="searchQuery.set(''); onSearchChange()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+        }
+      </div>
+
+      <!-- Filters Group -->
+      <div class="bio-filters-group">
+        <!-- Machine filter -->
+        <select class="bio-select" [ngModel]="selectedMachineId()"
+          (ngModelChange)="selectedMachineId.set($event); onFilterChange()">
+          <option value="all">All Machines ({{ totalDevicesCount() }})</option>
+          @for (d of devices(); track d.id) {
+          <option [value]="d.id.toString()">
+            {{ d.name }} {{ (d.online === 1 || d.online === true) ? '●' : '○' }}
+          </option>
+          }
+        </select>
+
+        <!-- Status filter -->
+        <select class="bio-select" [ngModel]="selectedStatus()"
+          (ngModelChange)="selectedStatus.set($event); onFilterChange()">
+          <option value="all">All Statuses</option>
+          <option value="active">Active Only</option>
+          <option value="admin">Admins Only</option>
+          <option value="expired">Expired / Blocked</option>
+        </select>
+
+        <!-- Room filter -->
+        @if (distinctRooms().length > 0) {
+        <select class="bio-select" [ngModel]="selectedRoom()"
+          (ngModelChange)="selectedRoom.set($event); onFilterChange()">
+          <option value="all">All Rooms</option>
+          @for (r of distinctRooms(); track r) {
+          <option [value]="r">Room {{ r }}</option>
+          }
+        </select>
+        }
+      </div>
+
+      <!-- Count Summary -->
+      <div class="bio-count-summary">
+        Showing <strong>{{ filteredMembers().length }}</strong> of {{ totalMembersCount() }} members
+      </div>
+    </div>
+
+    <!-- Data Table Container -->
+    <div class="bio-table-wrapper">
+      @if (loading()) {
+      <div class="bio-loading-state">
+        <div class="bio-spinner"></div>
+        <div class="bio-loading-text">Loading biometric machines & user snapshots...</div>
+      </div>
+      } @else if (filteredMembers().length === 0) {
+      <div class="bio-empty-state">
+        <div class="bio-empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m15 9-6 6" />
+            <path d="m9 9 6 6" />
+          </svg>
+        </div>
+        <h3>No users found</h3>
+        <p>No biometric members match your search or selected filters.</p>
+        <button class="bio-btn-reset"
+          (click)="searchQuery.set(''); selectedMachineId.set('all'); selectedStatus.set('all'); selectedRoom.set('all'); onFilterChange()">
+          Clear Filters
+        </button>
+      </div>
+      } @else {
+      <table class="bio-table">
+        <thead>
+          <tr>
+            <th style="width: 100px;">Emp #</th>
+            <th>Member Name</th>
+            <th style="width: 160px;">CNIC</th>
+            <th style="width: 150px;">Room</th>
+            <th style="width: 100px;">Role</th>
+            <th style="width: 170px;">Machines</th>
+            <th style="width: 150px;">Valid Until</th>
+            <th style="width: 180px;">Credentials</th>
+            <th style="width: 70px; text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of paginatedMembers(); track m.key) {
+          <tr class="bio-row" (click)="openUserDetails(m)">
+            <!-- Emp # -->
+            <td>
+              <span class="bio-mono-pill"
+                (click)="$event.stopPropagation(); copyToClipboard(m.employeeNo, 'Employee No')">
+                {{ m.employeeNo }}
+              </span>
+            </td>
+
+            <!-- Member Name -->
+            <td>
+              <div class="bio-user-cell">
+                <div class="bio-avatar" [class.admin-avatar]="m.isAdmin">
+                  {{ getInitials(m.name) }}
+                </div>
+                <div class="bio-user-info">
+                  <span class="bio-name">{{ m.name }}</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- CNIC -->
+            <td>
+              @if (m.cnic) {
+              <span class="bio-cnic mono" (click)="$event.stopPropagation(); copyToClipboard(m.cnic, 'CNIC')">
+                {{ m.cnic }}
+              </span>
+              } @else {
+              <span class="bio-dash">—</span>
+              }
+            </td>
+
+            <!-- Room -->
+            <td>
+              @if (m.rooms.length === 0) {
+              <span class="bio-dash">—</span>
+              } @else if (m.rooms.length <= 2) { <div class="bio-badge-row">
+                @for (r of m.rooms; track r) {
+                <span class="bio-badge room">Room {{ r }}</span>
+                }
+    </div>
+    } @else {
+    <div class="bio-badge-row">
+      <span class="bio-badge room">Room {{ m.rooms[0] }}</span>
+      <span class="bio-badge room-more" [title]="getRoomsTooltip(m.rooms)">
+        +{{ m.rooms.length - 1 }} more
+      </span>
+    </div>
+    }
+    </td>
+
+    <!-- Role -->
+    <td>
+      @if (m.isAdmin) {
+      <span class="bio-badge badge-admin">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        Admin
+      </span>
+      } @else {
+      <span class="bio-badge badge-user">User</span>
+      }
+    </td>
+
+    <!-- Machines -->
+    <td>
+      @if (totalDevicesCount() > 1 && m.devices.length >= totalDevicesCount()) {
+      <span class="bio-badge badge-all-machines" [title]="getDeviceTooltip(m.devices)">
+        All Machines ({{ m.devices.length }})
+      </span>
+      } @else {
+      <span class="bio-badge badge-machines" [title]="getDeviceTooltip(m.devices)">
+        {{ m.devices.length }} machine{{ m.devices.length === 1 ? '' : 's' }}
+      </span>
+      }
+    </td>
+
+    <!-- Valid Until -->
+    <td>
+      @if (m.isBlocked) {
+      <span class="bio-badge badge-blocked">Blocked</span>
+      } @else if (m.isExpired) {
+      <span class="bio-badge badge-expired">Expired</span>
+      } @else if (m.validUntil) {
+      <span class="bio-valid-date">{{ m.validUntil }}</span>
+      } @else {
+      <span class="bio-dash">—</span>
+      }
+    </td>
+
+    <!-- Credentials -->
+    <td>
+      <div class="bio-creds-row">
+        @if (m.numOfCard > 0) {
+        <span class="bio-cred-item" title="{{ m.numOfCard }} Card(s) Enrolled">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <rect width="20" height="14" x="2" y="5" rx="2" />
+            <line x1="2" x2="22" y1="10" y2="10" />
+          </svg>
+          {{ m.numOfCard }} card
+        </span>
+        }
+        @if (m.numOfFP > 0) {
+        <span class="bio-cred-item" title="{{ m.numOfFP }} Fingerprint(s) Enrolled">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+            <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+            <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+            <path d="M2 12a10 10 0 0 1 18-6" />
+            <path d="M2 16h.01" />
+            <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+            <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+            <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+            <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+          </svg>
+          {{ m.numOfFP }} fp
+        </span>
+        }
+        @if (m.numOfFace > 0) {
+        <span class="bio-cred-item" title="{{ m.numOfFace }} Face(s) Enrolled">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="9" x2="9.01" y1="9" y2="9" />
+            <line x1="15" x2="15.01" y1="9" y2="9" />
+            <path d="M8 15s1.5 2 4 2 4-2 4-2" />
+          </svg>
+          {{ m.numOfFace }} face
+        </span>
+        }
+        @if (m.numOfCard === 0 && m.numOfFP === 0 && m.numOfFace === 0) {
+        <span class="bio-dash">None</span>
+        }
+      </div>
+    </td>
+
+    <!-- Action Button -->
+    <td style="text-align: right;">
+      <button class="bio-btn-icon" (click)="$event.stopPropagation(); openUserDetails(m)"
+        title="View Member Access Details">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+          <circle cx="5" cy="12" r="1" />
+        </svg>
+      </button>
+    </td>
+    </tr>
+    }
+    </tbody>
+    </table>
+    }
+  </div>
+
+  <!-- Table Pagination -->
+  @if (!loading() && filteredMembers().length > 0) {
+  <div class="bio-pagination">
+    <div class="bio-page-size-selector">
+      <span>Rows per page:</span>
+      <select [value]="pageSize()" (change)="onPageSizeChange($event)" class="bio-page-select">
+        @for (sz of pageSizeOptions; track sz) {
+        <option [value]="sz">{{ sz }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="bio-page-nav">
+      <span class="bio-page-indicator">
+        Page {{ currentPage() }} of {{ totalPages() }}
+      </span>
+
+      <div class="bio-page-buttons">
+        <button class="bio-page-btn" [disabled]="currentPage() <= 1" (click)="setPage(1)" title="First page">
+          «
+        </button>
+        <button class="bio-page-btn" [disabled]="currentPage() <= 1" (click)="setPage(currentPage() - 1)"
+          title="Previous page">
+          ‹
+        </button>
+        <button class="bio-page-btn" [disabled]="currentPage() >= totalPages()" (click)="setPage(currentPage() + 1)"
+          title="Next page">
+          ›
+        </button>
+        <button class="bio-page-btn" [disabled]="currentPage() >= totalPages()" (click)="setPage(totalPages())"
+          title="Last page">
+          »
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+</div>
+</div>
+
+<!-- Member Details Modal -->
+@if (showDetailsModal() && selectedUserModal()) {
+<div class="bio-modal-backdrop" (click)="closeUserDetails()">
+  <div class="bio-modal-card" (click)="$event.stopPropagation()">
+    <!-- Modal Header -->
+    <div class="bio-modal-header">
+      <div class="bio-modal-title-box">
+        <div class="bio-avatar large" [class.admin-avatar]="selectedUserModal()!.isAdmin">
+          {{ getInitials(selectedUserModal()!.name) }}
+        </div>
+        <div>
+          <div class="bio-modal-title">{{ selectedUserModal()!.name }}</div>
+          <div class="bio-modal-sub">
+            Emp #<span class="mono">{{ selectedUserModal()!.employeeNo }}</span>
+            @if (selectedUserModal()!.isAdmin) {
+            <span class="bio-badge badge-admin mini">Admin</span>
+            }
+          </div>
+        </div>
+      </div>
+      <button class="bio-modal-close" (click)="closeUserDetails()" title="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="bio-modal-body">
+      <!-- Overview Grid -->
+      <div class="bio-detail-grid">
+        <div class="bio-detail-item">
+          <span class="label">Employee Number</span>
+          <span class="value mono copyable" (click)="copyToClipboard(selectedUserModal()!.employeeNo, 'Emp #')">
+            {{ selectedUserModal()!.employeeNo }}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+          </span>
+        </div>
+
+        <div class="bio-detail-item">
+          <span class="label">CNIC / ID</span>
+          <span class="value mono copyable" (click)="copyToClipboard(selectedUserModal()!.cnic, 'CNIC')">
+            {{ selectedUserModal()!.cnic || '—' }}
+            @if (selectedUserModal()!.cnic) {
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+            }
+          </span>
+        </div>
+
+        <div class="bio-detail-item">
+          <span class="label">Access Role</span>
+          <span class="value">
+            {{ selectedUserModal()!.isAdmin ? 'Administrator (Local UI Access)' : 'Standard Member' }}
+          </span>
+        </div>
+
+        <div class="bio-detail-item">
+          <span class="label">Validity Expiration</span>
+          <span class="value">
+            @if (selectedUserModal()!.isBlocked) {
+            <span class="bio-badge badge-blocked">Blocked</span>
+            } @else if (selectedUserModal()!.isExpired) {
+            <span class="bio-badge badge-expired">Expired ({{ selectedUserModal()!.validUntil }})</span>
+            } @else {
+            {{ selectedUserModal()!.validUntil || 'Unlimited / Indefinite' }}
+            }
+          </span>
+        </div>
+      </div>
+
+      <!-- Enrolled Credentials Section -->
+      <div class="bio-modal-section">
+        <div class="bio-section-heading">Enrolled Biometric Credentials</div>
+        <div class="bio-cred-grid">
+          <div class="bio-cred-card">
+            <div class="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <rect width="20" height="14" x="2" y="5" rx="2" />
+                <line x1="2" x2="22" y1="10" y2="10" />
+              </svg>
+            </div>
+            <div class="data">
+              <span class="num">{{ selectedUserModal()!.numOfCard }}</span>
+              <span class="desc">RFID / NFC Card(s)</span>
+            </div>
+          </div>
+
+          <div class="bio-cred-card">
+            <div class="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+                <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+                <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+                <path d="M2 12a10 10 0 0 1 18-6" />
+                <path d="M2 16h.01" />
+                <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+                <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+                <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+                <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+              </svg>
+            </div>
+            <div class="data">
+              <span class="num">{{ selectedUserModal()!.numOfFP }}</span>
+              <span class="desc">Fingerprint(s)</span>
+            </div>
+          </div>
+
+          <div class="bio-cred-card">
+            <div class="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="9" x2="9.01" y1="9" y2="9" />
+                <line x1="15" x2="15.01" y1="9" y2="9" />
+                <path d="M8 15s1.5 2 4 2 4-2 4-2" />
+              </svg>
+            </div>
+            <div class="data">
+              <span class="num">{{ selectedUserModal()!.numOfFace }}</span>
+              <span class="desc">Face Profile(s)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Registered Devices List -->
+      <div class="bio-modal-section">
+        <div class="bio-section-heading">
+          <span>Synchronized Machines & Doors</span>
+          <span class="count-badge">{{ selectedUserModal()!.devices.length }} Devices</span>
+        </div>
+
+        <div class="bio-device-list">
+          @for (d of selectedUserModal()!.devices; track d.id) {
+          <div class="bio-device-item">
+            <div class="bio-dev-left">
+              <span class="bio-status-dot" [class.online]="d.online === 1 || d.online === true"></span>
+              <div>
+                <div class="bio-dev-name">{{ d.name }}</div>
+                <div class="bio-dev-meta">
+                  @if (d.code) {
+                  <span>Code: {{ d.code }}</span>
+                  }
+                  @if (d.grp) {
+                  <span>Group: {{ d.grp }}</span>
+                  }
+                  @if (d.location) {
+                  <span>Location: {{ d.location }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+            <div class="bio-dev-right">
+              <span class="bio-badge" [class.badge-active]="d.online === 1 || d.online === true">
+                {{ (d.online === 1 || d.online === true) ? 'Online' : 'Offline' }}
+              </span>
+            </div>
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="bio-modal-footer">
+      <button class="bio-btn-secondary" (click)="closeUserDetails()">Close</button>
+    </div>
+  </div>
+</div>
+}
