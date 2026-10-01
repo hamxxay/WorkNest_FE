@@ -354,6 +354,7 @@ export class Manage implements OnInit {
 
   // - Quick Create Customer (from booking form) -
   showQuickCreateCustomer = false;
+  showDiscardQuickCustomerConfirm = false;
   quickCustomerForm: any = {
     firstName: '',
     lastName: '',
@@ -2950,8 +2951,58 @@ export class Manage implements OnInit {
     input.value = clean;
   }
 
+  isQuickCustomerFormDirty(): boolean {
+    if (!this.quickCustomerForm) return false;
+    const { firstName, lastName, company, email, phoneNumber, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
+    return Boolean(
+      (firstName && firstName.trim()) ||
+      (lastName && lastName.trim()) ||
+      (company && company.trim()) ||
+      (email && email.trim()) ||
+      (phoneNumber && phoneNumber.trim()) ||
+      (addressLine1 && addressLine1.trim()) ||
+      (addressLine2 && addressLine2.trim()) ||
+      cityId
+    );
+  }
+
+  requestCloseQuickCreateCustomer() {
+    if (this.isQuickCustomerFormDirty()) {
+      this.showDiscardQuickCustomerConfirm = true;
+    } else {
+      this.forceCloseQuickCreateCustomer();
+    }
+  }
+
+  confirmDiscardQuickCustomer() {
+    this.showDiscardQuickCustomerConfirm = false;
+    this.forceCloseQuickCreateCustomer();
+  }
+
+  cancelDiscardQuickCustomer() {
+    this.showDiscardQuickCustomerConfirm = false;
+  }
+
+  forceCloseQuickCreateCustomer() {
+    this.showQuickCreateCustomer = false;
+    this.showDiscardQuickCustomerConfirm = false;
+    this.quickCustomerError = '';
+    this.quickCustomerForm = {
+      firstName: '',
+      lastName: '',
+      company: '',
+      email: '',
+      countryCode: '+92',
+      phoneNumber: '',
+      addressLine1: '',
+      addressLine2: '',
+      cityId: ''
+    };
+  }
+
   openCreateCustomerFromBooking() {
     this.loadCityOptions();
+    this.showDiscardQuickCustomerConfirm = false;
     this.quickCustomerForm = {
       firstName: '',
       lastName: '',

@@ -2335,9 +2335,9 @@
 }
 
 @if (showQuickCreateCustomer) {
-<div class="modal-overlay" (click)="showQuickCreateCustomer = false">
+<div class="modal-overlay" (click)="requestCloseQuickCreateCustomer()">
   <div class="modal-content" style="max-width:480px" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="showQuickCreateCustomer = false">
+    <button class="modal-close" (click)="requestCloseQuickCreateCustomer()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -2407,7 +2407,7 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-admin btn-outline-admin"
-          (click)="showQuickCreateCustomer = false">Cancel</button>
+          (click)="requestCloseQuickCreateCustomer()">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin" [disabled]="quickCustomerSaving()">
           {{ quickCustomerSaving() ? 'Saving...' : 'Save and Quote' }}
         </button>
@@ -2417,6 +2417,32 @@
 </div>
 }
 
+
+@if (showDiscardQuickCustomerConfirm) {
+<div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscardQuickCustomer()">
+  <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;" (click)="$event.stopPropagation()">
+    <div style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">Discard Customer Information?</h3>
+    <p style="margin:0 0 20px 0; font-size:0.875rem; color:#64748b; line-height:1.5;">
+      You have unsaved changes in the customer form. Closing now will discard all entered details.
+    </p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button type="button" class="btn-admin btn-outline-admin" style="flex:1" (click)="cancelDiscardQuickCustomer()">
+        Keep Editing
+      </button>
+      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;" (click)="confirmDiscardQuickCustomer()">
+        Discard
+      </button>
+    </div>
+  </div>
+</div>
+}
 
 <!-- Booking Details Modal -->
 @if (showBookingDetailsModal && selectedBookingDetails(); as booking) {
