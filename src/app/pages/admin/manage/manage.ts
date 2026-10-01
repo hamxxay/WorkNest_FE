@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
+﻿import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -354,7 +354,11 @@ export class Manage implements OnInit {
 
   // - Quick Create Customer (from booking form) -
   showQuickCreateCustomer = false;
-  showDiscardQuickCustomerConfirm = false;
+  // - Global Discard Confirmation Modal -
+  showDiscardConfirm = false;
+  discardConfirmTitle = 'Discard Unsaved Changes?';
+  discardConfirmMessage = 'You have unsaved changes in this form. Closing now will discard all entered details.';
+  pendingDiscardAction: (() => void) | null = null;
   quickCustomerForm: any = {
     firstName: '',
     lastName: '',
@@ -605,7 +609,8 @@ export class Manage implements OnInit {
 
   get effectiveQuotationSecurityDeposit(): number {
     if (!this.isQuotationPrivateRoom) return 0;
-    const months = this.quotationSecurityDepositMonthsOverride ?? Number(this.quotationSecurityDepositMonths || 0);
+    const months = this.quotationSecurityDepositMonthsOverride ?? Number(this.quotationSecurityDepositMonths ?? 0);
+    if (months <= 0) return 0;
     const baseDeposit = parseFloat((this.quotationMonthlyRent * months).toFixed(2));
     if (baseDeposit <= 0) return 0;
     const pct = this.quotationDiscountType === 'Percentage'
@@ -916,8 +921,10 @@ export class Manage implements OnInit {
   }
 
   cancelEditConfig() {
-    this.editingConfig = null;
-    this.showConfigModal = false;
+    this.requestDiscardableClose(this.isConfigFormDirty(), () => {
+      this.editingConfig = null;
+      this.showConfigModal = false;
+    });
   }
 
   saveConfig() {
@@ -961,7 +968,13 @@ export class Manage implements OnInit {
     this.showAddSpaceModal = true;
   }
 
-  closeAddSpaceModal() { this.showAddSpaceModal = false; }
+  closeAddSpaceModal() {
+    this.requestDiscardableClose(this.isAddSpaceFormDirty(), () => {
+      this.showAddSpaceModal = false;
+      this.addSpaceTypeId = '';
+      this.addSpacePreviewCode = '';
+    });
+  }
 
   onAddSpaceSelectionChange() {
     this.addSpacePreviewCode = '';
@@ -1699,19 +1712,24 @@ export class Manage implements OnInit {
   }
 
   closeAdminBookingForm() {
-    this.showBookingForm = false;
-    this.bookingDiscountType = 'Percentage';
-    this.bookingDiscountPercentage = 0;
-    this.bookingDiscountValue = 0;
-    this.bookingDiscountError = '';
-    this.bookingOfferingTypeId = 1;
-    this.bookingOfferingType = '24/7';
-    this.loadOfferingTypes();
-    this.bookingSubtotal = 0;
-    this.bookingDiscountAmount = 0;
-    this.securityDepositMonthsOverride = null;
-    this.bookingFloorId = null;
-    this.bookingFloorOptions = [];
+    this.requestDiscardableClose(this.isBookingFormDirty(), () => {
+      this.showBookingForm = false;
+      this.bookingDiscountType = 'Percentage';
+      this.bookingDiscountPercentage = 0;
+      this.bookingDiscountValue = 0;
+      this.bookingDiscountError = '';
+      this.bookingOfferingTypeId = 1;
+      this.bookingOfferingType = '24/7';
+      this.loadOfferingTypes();
+      this.bookingSubtotal = 0;
+      this.bookingDiscountAmount = 0;
+      this.securityDepositMonthsOverride = null;
+      this.bookingFloorId = null;
+      this.bookingFloorOptions = [];
+      this.selectedCustomer = null;
+      this.customerSearchQuery = '';
+      this.bookingFormData = {};
+    });
   }
 
   printReceipt() { window.print(); }
@@ -2951,6 +2969,31 @@ export class Manage implements OnInit {
     input.value = clean;
   }
 
+  requestDiscardableClose(isDirty: boolean, closeAction: () => void, title?: string, message?: string) {
+    if (isDirty) {
+      this.discardConfirmTitle = title || 'Discard Unsaved Changes?';
+      this.discardConfirmMessage = message || 'You have unsaved changes in this form. Closing now will discard all entered details.';
+      this.pendingDiscardAction = closeAction;
+      this.showDiscardConfirm = true;
+    } else {
+      closeAction();
+    }
+  }
+
+  confirmDiscard() {
+    this.showDiscardConfirm = false;
+    if (this.pendingDiscardAction) {
+      const action = this.pendingDiscardAction;
+      this.pendingDiscardAction = null;
+      action();
+    }
+  }
+
+  cancelDiscard() {
+    this.showDiscardConfirm = false;
+    this.pendingDiscardAction = null;
+  }
+
   isQuickCustomerFormDirty(): boolean {
     if (!this.quickCustomerForm) return false;
     const { firstName, lastName, company, email, phoneNumber, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
@@ -2967,25 +3010,16 @@ export class Manage implements OnInit {
   }
 
   requestCloseQuickCreateCustomer() {
-    if (this.isQuickCustomerFormDirty()) {
-      this.showDiscardQuickCustomerConfirm = true;
-    } else {
-      this.forceCloseQuickCreateCustomer();
-    }
-  }
-
-  confirmDiscardQuickCustomer() {
-    this.showDiscardQuickCustomerConfirm = false;
-    this.forceCloseQuickCreateCustomer();
-  }
-
-  cancelDiscardQuickCustomer() {
-    this.showDiscardQuickCustomerConfirm = false;
+    this.requestDiscardableClose(
+      this.isQuickCustomerFormDirty(),
+      () => this.forceCloseQuickCreateCustomer(),
+      'Discard Customer Information?',
+      'You have unsaved changes in the customer form. Closing now will discard all entered details.'
+    );
   }
 
   forceCloseQuickCreateCustomer() {
     this.showQuickCreateCustomer = false;
-    this.showDiscardQuickCustomerConfirm = false;
     this.quickCustomerError = '';
     this.quickCustomerForm = {
       firstName: '',
@@ -3000,9 +3034,90 @@ export class Manage implements OnInit {
     };
   }
 
+  isEntityFormDirty(): boolean {
+    if (!this.formData) return false;
+    if (this.editItem) {
+      return Object.keys(this.formData).some(k => {
+        const val = this.formData[k];
+        const orig = (this.editItem as any)[k];
+        if (val === orig) return false;
+        if ((val === '' || val === null || val === undefined) && (orig === '' || orig === null || orig === undefined)) return false;
+        return String(val) !== String(orig);
+      });
+    }
+    return Object.values(this.formData).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== false);
+  }
+
+  isConfigFormDirty(): boolean {
+    if (!this.configFormData) return false;
+    if (this.editingConfig) {
+      return Object.keys(this.configFormData).some(k => {
+        const val = this.configFormData[k];
+        const orig = (this.editingConfig as any)[k];
+        if (val === orig) return false;
+        if ((val === '' || val === null || val === undefined) && (orig === '' || orig === null || orig === undefined)) return false;
+        return String(val) !== String(orig);
+      });
+    }
+    return Object.values(this.configFormData).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== false);
+  }
+
+  isAddSpaceFormDirty(): boolean {
+    return Boolean(
+      (this.addSpaceTypeId && this.addSpaceTypeId.trim()) ||
+      (this.addSpacePreviewCode && this.addSpacePreviewCode.trim())
+    );
+  }
+
+  isReassignFormDirty(): boolean {
+    return Boolean(
+      this.selectedNewSpace ||
+      this.reassignBooking
+    );
+  }
+
+  isQuotationFormDirty(): boolean {
+    return Boolean(
+      this.selectedCustomer ||
+      (this.customerSearchQuery && this.customerSearchQuery.trim()) ||
+      this.selectedQuotationSpaceTypeId ||
+      this.quotationFormData?.spaceId ||
+      this.quotationDiscountValue ||
+      (this.quotationRemarks && this.quotationRemarks.trim())
+    );
+  }
+
+  isBookingFormDirty(): boolean {
+    return Boolean(
+      this.selectedCustomer ||
+      (this.customerSearchQuery && this.customerSearchQuery.trim()) ||
+      this.selectedSpaceTypeId ||
+      this.bookingFormData?.spaceId ||
+      this.bookingDiscountValue ||
+      (this.bookingFormData?.notes && String(this.bookingFormData.notes).trim())
+    );
+  }
+
+  isCustomInvoiceFormDirty(): boolean {
+    return Boolean(
+      (this.customInvoiceFormData?.notes && this.customInvoiceFormData.notes.trim()) ||
+      (this.customInvoiceLines && this.customInvoiceLines.some((l: any) => (l.description && l.description.trim()) || (l.unitPrice && l.unitPrice > 0)))
+    );
+  }
+
+  isSendAgreementFormDirty(): boolean {
+    return Boolean(
+      (this.sendAgreementData?.authorizedRepresentativeName && this.sendAgreementData.authorizedRepresentativeName.trim()) ||
+      (this.sendAgreementData?.cnic && this.sendAgreementData.cnic.trim()) ||
+      (this.sendAgreementData?.companyName && this.sendAgreementData.companyName.trim()) ||
+      (this.sendAgreementData?.securityDeposit && this.sendAgreementData.securityDeposit > 0) ||
+      (this.sendAgreementData?.specialConditions && this.sendAgreementData.specialConditions.trim())
+    );
+  }
+
   openCreateCustomerFromBooking() {
     this.loadCityOptions();
-    this.showDiscardQuickCustomerConfirm = false;
+    this.showDiscardConfirm = false;
     this.quickCustomerForm = {
       firstName: '',
       lastName: '',
@@ -3247,7 +3362,14 @@ export class Manage implements OnInit {
     } catch { return val; }
   }
 
-  closeModal() { this.showModal = false; }
+  closeModal() {
+    this.requestDiscardableClose(this.isEntityFormDirty(), () => {
+      this.showModal = false;
+      this.formData = {};
+      this.editItem = null;
+      this.error = '';
+    });
+  }
 
   save() {
     this.saving = true;
@@ -3702,9 +3824,12 @@ export class Manage implements OnInit {
   }
 
   closeReassignModal() {
-    this.showReassignModal = false;
-    this.reassignBooking = null;
-    this.availableSpacesForReassign.set([]);
+    this.requestDiscardableClose(this.isReassignFormDirty(), () => {
+      this.showReassignModal = false;
+      this.reassignBooking = null;
+      this.availableSpacesForReassign.set([]);
+      this.selectedNewSpace = '';
+    });
   }
 
   private loadAvailableSpacesForReassign() {
@@ -4330,8 +4455,15 @@ export class Manage implements OnInit {
   }
 
   closeAdminQuotationForm() {
-    this.showQuotationForm = false;
-    this.quotationFormData = {};
+    this.requestDiscardableClose(this.isQuotationFormDirty(), () => {
+      this.showQuotationForm = false;
+      this.quotationFormData = {};
+      this.selectedCustomer = null;
+      this.customerSearchQuery = '';
+      this.selectedQuotationSpaceTypeId = '';
+      this.quotationDiscountValue = 0;
+      this.quotationRemarks = '';
+    });
   }
 
   onQuotationLocationChange() {
@@ -4546,7 +4678,7 @@ export class Manage implements OnInit {
     } else {
       const roomMonthlyRent = this.quotationMonthlyBasePrice;
       this.quotationSubtotal = parseFloat((roomMonthlyRent * Number(this.quotationMonths || 1)).toFixed(2));
-      this.quotationSecurityDeposit = roomMonthlyRent;
+      this.quotationSecurityDeposit = this.effectiveQuotationSecurityDeposit;
     }
 
     const discVal = Number(this.quotationDiscountValue || 0);
@@ -4641,13 +4773,11 @@ export class Manage implements OnInit {
       DiscountPercentage: this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || 0) : 0,
       DiscountType: this.quotationDiscountType,
       DiscountValue: Number(this.quotationDiscountValue || 0),
-      SecurityDepositOverride: this.quotationSecurityDepositMonthsOverride != null
-        ? this.effectiveQuotationSecurityDeposit
-        : null,
-      BillingPeriodMonths: this.quotationBillingPeriodMonths,
-      billingPeriodMonths: this.quotationBillingPeriodMonths,
-      SecurityDepositMonths: Number(this.quotationSecurityDepositMonths || 2),
-      securityDepositMonths: Number(this.quotationSecurityDepositMonths || 2),
+      SecurityDepositOverride: this.effectiveQuotationSecurityDeposit,
+      BillingPeriodMonths: Number(this.quotationBillingPeriodMonths || 3),
+      billingPeriodMonths: Number(this.quotationBillingPeriodMonths || 3),
+      SecurityDepositMonths: Number(this.quotationSecurityDepositMonths ?? 0),
+      securityDepositMonths: Number(this.quotationSecurityDepositMonths ?? 0),
       FloorId: this.quotationFloorId ?? null,
       PerSeatBasePrice: Number(this.quotationPerSeatBasePrice || 0),
       Capacity: Number(this.quotationCapacity || 1),
@@ -5498,6 +5628,26 @@ export class Manage implements OnInit {
     this.showCreateCustomInvoiceModal = true;
   }
 
+  closeCreateCustomInvoiceModal() {
+    this.requestDiscardableClose(this.isCustomInvoiceFormDirty(), () => {
+      this.showCreateCustomInvoiceModal = false;
+      this.customInvoiceFormData = {
+        bookingId: 0,
+        userId: 0,
+        issuedOn: new Date().toISOString().substring(0, 10),
+        dueOn: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+        currencyCode: 'PKR',
+        notes: ''
+      };
+      this.customInvoiceLines = [];
+    });
+  }
+
+  closeQuickUploadModal() {
+    this.showQuickUploadModal = false;
+    this.quickUploadAgreementId = null;
+  }
+
   onCustomInvoiceMonthsChange() {
     const selectedMonths = Number(this.customInvoiceSelectedMonths) || 1;
     if (this.customInvoiceCurrentItem) {
@@ -5820,14 +5970,14 @@ export class Manage implements OnInit {
   }
 
   getChallanSecurityMonths(c: any): number {
-    if (!c) return 2;
+    if (!c) return 0;
     const details = c.details || c.Details || c.items || c.Items || c.lineItems || c.LineItems || [];
     const secLine = Array.isArray(details) ? details.find((d: any) => {
       const ft = String(d.feeType || d.FeeType || '').toLowerCase();
       const desc = String(d.description || d.Description || '').toLowerCase();
       return ft === 'securitydeposit' || desc.includes('security deposit');
     }) : null;
-    if (secLine && Number(secLine.quantity || secLine.Quantity) > 0) {
+    if (secLine && Number(secLine.quantity || secLine.Quantity) !== undefined && !isNaN(Number(secLine.quantity || secLine.Quantity))) {
       return Number(secLine.quantity || secLine.Quantity);
     }
     if (secLine && (secLine.description || secLine.Description)) {
@@ -5835,7 +5985,7 @@ export class Manage implements OnInit {
       if (match && match[1]) return Number(match[1]);
     }
     const secM = c.securityDepositMonths ?? c.SecurityDepositMonths ?? c.securityDepositMonthsOverride ?? c.SecurityDepositMonthsOverride;
-    if (secM != null && Number(secM) > 0) {
+    if (secM !== undefined && secM !== null) {
       return Number(secM);
     }
     return this.isPrivateRoom(c) ? 2 : 0;
@@ -5899,14 +6049,15 @@ export class Manage implements OnInit {
   getChallanSecurityDeposit(c: any): number {
     if (!c || !this.isPrivateRoom(c)) return 0;
     const secOverride = c.securityDepositOverride ?? c.SecurityDepositOverride;
-    if (secOverride !== undefined && secOverride !== null && Number(secOverride) > 0) {
+    if (secOverride !== undefined && secOverride !== null) {
       return Number(secOverride);
     }
     const dbDeposit = c.securityDeposit ?? c.SecurityDeposit;
-    if (dbDeposit !== undefined && dbDeposit !== null && Number(dbDeposit) > 0) {
+    if (dbDeposit !== undefined && dbDeposit !== null) {
       return Number(dbDeposit);
     }
     const secMonths = this.getChallanSecurityMonths(c);
+    if (secMonths === 0) return 0;
     const monthlyRent = this.getChallanMonthlyRent(c);
     const baseDeposit = monthlyRent * secMonths;
     const discAmount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
@@ -5955,14 +6106,14 @@ export class Manage implements OnInit {
   }
 
   getQuotationSecurityMonths(q: any): number {
-    if (!q) return 2;
+    if (!q) return 0;
     const details = q.details || q.Details || [];
     const secLine = Array.isArray(details) ? details.find((d: any) => {
       const ft = String(d.feeType || d.FeeType || '').toLowerCase();
       const desc = String(d.description || d.Description || '').toLowerCase();
       return ft === 'securitydeposit' || desc.includes('security deposit');
     }) : null;
-    if (secLine && Number(secLine.quantity || secLine.Quantity) > 0) {
+    if (secLine && Number(secLine.quantity || secLine.Quantity) !== undefined && !isNaN(Number(secLine.quantity || secLine.Quantity))) {
       return Number(secLine.quantity || secLine.Quantity);
     }
     if (secLine && (secLine.description || secLine.Description)) {
@@ -5970,7 +6121,7 @@ export class Manage implements OnInit {
       if (match && match[1]) return Number(match[1]);
     }
     const secM = q.securityDepositMonths ?? q.SecurityDepositMonths ?? q.securityDepositMonthsOverride ?? q.SecurityDepositMonthsOverride;
-    if (secM != null && Number(secM) > 0) {
+    if (secM !== undefined && secM !== null) {
       return Number(secM);
     }
     return this.isPrivateRoom(q) ? 2 : 0;
@@ -6030,10 +6181,15 @@ export class Manage implements OnInit {
   getQuotationSecurityDeposit(q: any): number {
     if (!q || !this.isPrivateRoom(q)) return 0;
     const secOverride = q.securityDepositOverride ?? q.SecurityDepositOverride;
-    if (secOverride !== undefined && secOverride !== null && Number(secOverride) > 0) {
+    if (secOverride !== undefined && secOverride !== null) {
       return Number(secOverride);
     }
+    const dbDeposit = q.securityDeposit ?? q.SecurityDeposit;
+    if (dbDeposit !== undefined && dbDeposit !== null) {
+      return Number(dbDeposit);
+    }
     const secMonths = this.getQuotationSecurityMonths(q);
+    if (secMonths === 0) return 0;
     const monthlyRent = this.getQuotationMonthlyRent(q);
     const baseDeposit = monthlyRent * secMonths;
     const discType = q.discountType ?? q.DiscountType;
@@ -6045,10 +6201,6 @@ export class Manage implements OnInit {
     const discPct = this.getQuotationDiscountPercentage(q);
     if (discPct > 0) {
       return Math.max(0, parseFloat((baseDeposit * (1 - discPct / 100)).toFixed(2)));
-    }
-    const dbDeposit = q.securityDeposit ?? q.SecurityDeposit;
-    if (dbDeposit !== undefined && dbDeposit !== null && Number(dbDeposit) > 0) {
-      return Number(dbDeposit);
     }
     return baseDeposit;
   }
@@ -6508,8 +6660,10 @@ export class Manage implements OnInit {
   }
 
   closeSendAgreementModal() {
-    this.showSendAgreementModal = false;
-    this.selectedAgreementItem = null;
+    this.requestDiscardableClose(this.isSendAgreementFormDirty(), () => {
+      this.showSendAgreementModal = false;
+      this.selectedAgreementItem = null;
+    });
   }
 
   submitSendAgreement() {

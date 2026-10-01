@@ -1572,8 +1572,8 @@
 }
 
 @if (showQuotationForm) {
-<div class="modal-overlay" style="align-items:flex-start;padding:0">
-  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0">
+<div class="modal-overlay" style="align-items:flex-start;padding:0" (click)="closeAdminQuotationForm()">
+  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeAdminQuotationForm()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1939,8 +1939,8 @@
 }
 
 @if (showBookingForm) {
-<div class="modal-overlay" style="align-items:flex-start;padding:0">
-  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0">
+<div class="modal-overlay" style="align-items:flex-start;padding:0" (click)="closeAdminBookingForm()">
+  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeAdminBookingForm()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2418,8 +2418,8 @@
 }
 
 
-@if (showDiscardQuickCustomerConfirm) {
-<div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscardQuickCustomer()">
+@if (showDiscardConfirm) {
+<div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscard()">
   <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;" (click)="$event.stopPropagation()">
     <div style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2428,15 +2428,15 @@
         <line x1="12" y1="17" x2="12.01" y2="17"/>
       </svg>
     </div>
-    <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">Discard Customer Information?</h3>
+    <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">{{ discardConfirmTitle }}</h3>
     <p style="margin:0 0 20px 0; font-size:0.875rem; color:#64748b; line-height:1.5;">
-      You have unsaved changes in the customer form. Closing now will discard all entered details.
+      {{ discardConfirmMessage }}
     </p>
     <div style="display:flex; gap:10px; justify-content:center;">
-      <button type="button" class="btn-admin btn-outline-admin" style="flex:1" (click)="cancelDiscardQuickCustomer()">
+      <button type="button" class="btn-admin btn-outline-admin" style="flex:1" (click)="cancelDiscard()">
         Keep Editing
       </button>
-      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;" (click)="confirmDiscardQuickCustomer()">
+      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;" (click)="confirmDiscard()">
         Discard
       </button>
     </div>
@@ -3482,9 +3482,9 @@
 
 <!-- Create Custom Invoice Modal -->
 @if (showCreateCustomInvoiceModal) {
-<div class="modal-overlay" (click)="showCreateCustomInvoiceModal = false">
+<div class="modal-overlay" (click)="closeCreateCustomInvoiceModal()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:760px">
-    <button class="modal-close" (click)="showCreateCustomInvoiceModal = false">
+    <button class="modal-close" (click)="closeCreateCustomInvoiceModal()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -3621,7 +3621,7 @@
     </div>
 
     <div class="modal-actions">
-      <button type="button" (click)="showCreateCustomInvoiceModal = false"
+      <button type="button" (click)="closeCreateCustomInvoiceModal()"
         class="btn-admin btn-outline-admin">Cancel</button>
       <button type="button" (click)="submitCustomInvoice(false)" [disabled]="submittingCustomInvoice()"
         class="btn-admin btn-outline-admin" style="background:#f8fafc">
@@ -3985,8 +3985,8 @@
 
 
 @if (showQuickUploadModal) {
-<div class="modal-backdrop">
-  <div class="modal-content" style="max-width:520px;border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)">
+<div class="modal-backdrop" (click)="closeQuickUploadModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)">
     <div style="padding:16px 20px;background:#4f46e5;color:#fff;display:flex;justify-content:space-between;align-items:center">
       <div style="display:flex;align-items:center;gap:8px">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3996,7 +3996,7 @@
         </svg>
         <h3 style="margin:0;font-size:1.1rem;font-weight:700">Upload Signed Agreement Copy</h3>
       </div>
-      <button type="button" (click)="showQuickUploadModal = false" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
+      <button type="button" (click)="closeQuickUploadModal()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;background:#fff">
@@ -4022,7 +4022,7 @@
     </div>
 
     <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
-      <button class="btn-admin btn-outline-admin" (click)="showQuickUploadModal = false">
+      <button class="btn-admin btn-outline-admin" (click)="closeQuickUploadModal()">
         Cancel
       </button>
     </div>

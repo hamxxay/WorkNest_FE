@@ -939,8 +939,42 @@ export class Dashboard implements OnInit {
     this.showAnnouncementModal.set(true);
   }
 
+  showDiscardAnnouncementConfirm = signal(false);
+
+  isAnnouncementFormDirty(): boolean {
+    return Boolean(
+      this.announcementTitle().trim() ||
+      this.announcementBody().trim() ||
+      this.announcementCustomUsersText().trim() ||
+      this.announcementLocationId() ||
+      this.announcementScheduledDate()
+    );
+  }
+
   closeCreateAnnouncementModal() {
+    if (this.isAnnouncementFormDirty()) {
+      this.showDiscardAnnouncementConfirm.set(true);
+    } else {
+      this.forceCloseCreateAnnouncementModal();
+    }
+  }
+
+  confirmDiscardAnnouncement() {
+    this.showDiscardAnnouncementConfirm.set(false);
+    this.forceCloseCreateAnnouncementModal();
+  }
+
+  cancelDiscardAnnouncement() {
+    this.showDiscardAnnouncementConfirm.set(false);
+  }
+
+  forceCloseCreateAnnouncementModal() {
     this.showAnnouncementModal.set(false);
+    this.announcementTitle.set('');
+    this.announcementBody.set('');
+    this.announcementCustomUsersText.set('');
+    this.announcementLocationId.set(null);
+    this.announcementFormError.set('');
   }
 
   submitAnnouncement() {

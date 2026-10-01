@@ -1,4 +1,4 @@
-﻿import { Component, signal, inject, OnInit, computed } from '@angular/core';
+import { Component, signal, inject, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
@@ -298,5 +298,53 @@ export class SpaceConfig implements OnInit {
     });
   }
 
-  closeModal() { this.showModal = false; }
+  // Discard Confirmation Modal
+  showDiscardConfirm = false;
+
+  isFormDirty(): boolean {
+    if (!this.form) return false;
+    if (this.editItem) {
+      return Object.keys(this.form).some(k => {
+        const val = this.form[k];
+        const orig = (this.editItem as any)[k];
+        if (val === orig) return false;
+        if ((val === '' || val === null || val === undefined) && (orig === '' || orig === null || orig === undefined)) return false;
+        return String(val) !== String(orig);
+      });
+    }
+    return Boolean(
+      (this.form.spaceCategory && this.form.spaceCategory.trim()) ||
+      this.form.totalSpaces ||
+      (this.form.codePrefix && this.form.codePrefix.trim()) ||
+      this.form.pricePerHour ||
+      this.form.pricePerDay ||
+      this.form.pricePerMonth ||
+      (this.selectedAmenityIds && this.selectedAmenityIds.length > 0)
+    );
+  }
+
+  closeModal() {
+    if (this.isFormDirty()) {
+      this.showDiscardConfirm = true;
+    } else {
+      this.forceCloseModal();
+    }
+  }
+
+  confirmDiscard() {
+    this.showDiscardConfirm = false;
+    this.forceCloseModal();
+  }
+
+  cancelDiscard() {
+    this.showDiscardConfirm = false;
+  }
+
+  forceCloseModal() {
+    this.showModal = false;
+    this.form = {};
+    this.editItem = null;
+    this.error = '';
+    this.selectedAmenityIds = [];
+  }
 }
