@@ -1226,13 +1226,7 @@ export class Manage implements OnInit {
         next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
       });
     }
-    if (!this.cityOptions.length) {
-      this.admin.getCities().subscribe({
-        next: (res: any) => {
-          this.cityOptions = (res?.data ?? []).map((c: any) => ({ v: c.id, l: c.name }));
-        }
-      });
-    }
+    this.loadCityOptions();
     if (!this.locationOptions.length) {
       this.admin.getLocations(1, 1000, '').subscribe({
         next: (res: any) => {
@@ -2956,6 +2950,7 @@ export class Manage implements OnInit {
   }
 
   openCreateCustomerFromBooking() {
+    this.loadCityOptions();
     this.quickCustomerForm = {
       firstName: '',
       lastName: '',
@@ -4247,6 +4242,8 @@ export class Manage implements OnInit {
         next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
       });
     }
+
+    this.loadCityOptions();
 
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
