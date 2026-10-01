@@ -1,4 +1,4 @@
-<div class="admin-page">
+﻿<div class="admin-page">
   <div class="page-header">
     <div>
       <h1>{{ config.title }}</h1>
@@ -2896,7 +2896,7 @@
                   number:'1.0-0' }}</span>
               </div>
               <div style="font-size:0.78rem;color:#64748b;margin-top:2px">
-                Contract: {{ v.contractPeriodMonths || v.months || 12 }} Mos • Created: {{ (v.createdAt ||
+                Contract: {{ getQuotationContractMonths(v) }} Mos • Created: {{ (v.createdAt ||
                 v.createdDate) | date:'mediumDate' }}
               </div>
               @if (v.customerNote || v.note) {
@@ -3210,8 +3210,7 @@
             {{ (q.startDateTime || q.StartDateTime || q.startDate || q.StartDate || q.startOn) | date:'MMM d, y' }} – {{
             (q.endDateTime || q.EndDateTime || q.endDate || q.EndDate || q.endOn) | date:'MMM d, y' }}
           </div>
-          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ q.contractPeriodMonths ||
-            q.ContractPeriodMonths || q.months || 12 }} Month(s)</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Duration: {{ getQuotationContractMonths(q) }} Month(s)</div>
         </div>
 
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">

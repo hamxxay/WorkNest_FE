@@ -5960,8 +5960,42 @@ export class Manage implements OnInit {
 
 
   getChallanContractMonths(c: any): number {
-    if (!c) return 12;
-    return Number(c.contractPeriodMonths ?? c.ContractPeriodMonths ?? c.numberOfMonths ?? c.NumberOfMonths ?? c.months ?? c.Months ?? 12);
+    if (!c) return 1;
+    if (c.contractPeriodMonths != null && Number(c.contractPeriodMonths) > 0) return Number(c.contractPeriodMonths);
+    if (c.ContractPeriodMonths != null && Number(c.ContractPeriodMonths) > 0) return Number(c.ContractPeriodMonths);
+    if (c.contract?.numberOfMonths != null && Number(c.contract.numberOfMonths) > 0) return Number(c.contract.numberOfMonths);
+    if (c.Contract?.NumberOfMonths != null && Number(c.Contract.NumberOfMonths) > 0) return Number(c.Contract.NumberOfMonths);
+    if (c.numberOfMonths != null && Number(c.numberOfMonths) > 0) return Number(c.numberOfMonths);
+    if (c.NumberOfMonths != null && Number(c.NumberOfMonths) > 0) return Number(c.NumberOfMonths);
+    if (c.durationMonths != null && Number(c.durationMonths) > 0) return Number(c.durationMonths);
+    if (c.DurationMonths != null && Number(c.DurationMonths) > 0) return Number(c.DurationMonths);
+    if (c.months != null && Number(c.months) > 0) return Number(c.months);
+    if (c.Months != null && Number(c.Months) > 0) return Number(c.Months);
+
+    const start = c.startDateTime || c.StartDateTime || c.startOn || c.StartOn || c.contractStartDate || c.ContractStartDate || c.contract?.contractStartDate;
+    const end = c.endDateTime || c.EndDateTime || c.endOn || c.EndOn || c.contractEndDate || c.ContractEndDate || c.contract?.contractEndDate;
+    if (start && end) {
+      const s = new Date(start);
+      const e = new Date(end);
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+        const diffMonths = ((e.getFullYear() - s.getFullYear()) * 12) + (e.getMonth() - s.getMonth());
+        if (diffMonths > 0) return diffMonths;
+        const diffDays = Math.ceil((e.getTime() - s.getTime()) / 86400000);
+        const calculated = Math.max(1, Math.round(diffDays / 30));
+        if (calculated > 0) return calculated;
+      }
+    }
+
+    const details = c.details || c.Details || c.items || c.Items || c.lineItems || c.LineItems || [];
+    const rentLine = Array.isArray(details) ? details.find((d: any) => {
+      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
+      return ft === 'roomrent' || ft === 'rent';
+    }) : null;
+    if (rentLine && Number(rentLine.quantity || rentLine.Quantity) > 0) {
+      return Number(rentLine.quantity || rentLine.Quantity);
+    }
+
+    return Number(c.billingPeriodMonths ?? c.BillingPeriodMonths ?? 1);
   }
 
   getChallanBillingMonths(c: any): number {
@@ -6096,8 +6130,42 @@ export class Manage implements OnInit {
   }
 
   getQuotationContractMonths(q: any): number {
-    if (!q) return 12;
-    return Number(q.contractPeriodMonths ?? q.ContractPeriodMonths ?? q.numberOfMonths ?? q.NumberOfMonths ?? q.months ?? q.Months ?? 12);
+    if (!q) return 1;
+    if (q.contractPeriodMonths != null && Number(q.contractPeriodMonths) > 0) return Number(q.contractPeriodMonths);
+    if (q.ContractPeriodMonths != null && Number(q.ContractPeriodMonths) > 0) return Number(q.ContractPeriodMonths);
+    if (q.contract?.numberOfMonths != null && Number(q.contract.numberOfMonths) > 0) return Number(q.contract.numberOfMonths);
+    if (q.Contract?.NumberOfMonths != null && Number(q.Contract.NumberOfMonths) > 0) return Number(q.Contract.NumberOfMonths);
+    if (q.numberOfMonths != null && Number(q.numberOfMonths) > 0) return Number(q.numberOfMonths);
+    if (q.NumberOfMonths != null && Number(q.NumberOfMonths) > 0) return Number(q.NumberOfMonths);
+    if (q.durationMonths != null && Number(q.durationMonths) > 0) return Number(q.durationMonths);
+    if (q.DurationMonths != null && Number(q.DurationMonths) > 0) return Number(q.DurationMonths);
+    if (q.months != null && Number(q.months) > 0) return Number(q.months);
+    if (q.Months != null && Number(q.Months) > 0) return Number(q.Months);
+
+    const start = q.startDateTime || q.StartDateTime || q.startOn || q.StartOn || q.contractStartDate || q.ContractStartDate || q.contract?.contractStartDate;
+    const end = q.endDateTime || q.EndDateTime || q.endOn || q.EndOn || q.contractEndDate || q.ContractEndDate || q.contract?.contractEndDate;
+    if (start && end) {
+      const s = new Date(start);
+      const e = new Date(end);
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+        const diffMonths = ((e.getFullYear() - s.getFullYear()) * 12) + (e.getMonth() - s.getMonth());
+        if (diffMonths > 0) return diffMonths;
+        const diffDays = Math.ceil((e.getTime() - s.getTime()) / 86400000);
+        const calculated = Math.max(1, Math.round(diffDays / 30));
+        if (calculated > 0) return calculated;
+      }
+    }
+
+    const details = q.details || q.Details || [];
+    const rentLine = Array.isArray(details) ? details.find((d: any) => {
+      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
+      return ft === 'roomrent' || ft === 'rent';
+    }) : null;
+    if (rentLine && Number(rentLine.quantity || rentLine.Quantity) > 0) {
+      return Number(rentLine.quantity || rentLine.Quantity);
+    }
+
+    return Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 1);
   }
 
   getQuotationBillingMonths(q: any): number {
@@ -6158,10 +6226,6 @@ export class Manage implements OnInit {
     if (!q) return 0;
     if (this.isMeetingRoom(q)) {
       return Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
-    }
-    const dbTotal = q.totalContractAmount ?? q.TotalContractAmount ?? q.subtotalAmount ?? q.SubtotalAmount;
-    if (dbTotal !== undefined && dbTotal !== null && Number(dbTotal) > 0 && Number(dbTotal) !== Number(q.totalAmount)) {
-      return Number(dbTotal);
     }
     const months = this.getQuotationContractMonths(q);
     const monthlyRent = this.getQuotationMonthlyRent(q);
