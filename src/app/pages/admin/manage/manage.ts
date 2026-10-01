@@ -6080,12 +6080,12 @@ export class Manage implements OnInit {
     const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
     const monthlyRent = this.getQuotationMonthlyRent(q);
     if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0 && monthlyRent > 0) {
-      return Math.round((discVal / monthlyRent) * 100);
+      return parseFloat(((discVal / monthlyRent) * 100).toFixed(2));
     }
     const disc = this.getQuotationDiscountAmount(q);
     const cycleRent = this.getQuotationFirstCycleRent(q);
     if (disc > 0 && cycleRent > 0) {
-      return Math.round((disc / cycleRent) * 100);
+      return parseFloat(((disc / cycleRent) * 100).toFixed(2));
     }
     return 0;
   }
@@ -6382,14 +6382,16 @@ export class Manage implements OnInit {
             this.sendAgreementData.billingPeriod = qBpm === 2 ? 'Bi-Monthly' : (qBpm === 3 ? 'Quarterly' : (qBpm === 6 ? 'Bi-Annual' : (qBpm === 12 ? 'Annual' : 'Monthly')));
 
             const qBaseMonthly = this.getQuotationMonthlyRent(q) || Number(q.monthlyRent ?? q.MonthlyRent ?? 0);
-            const qDiscPct = this.getQuotationDiscountPercentage(q);
-            const qDiscAmt = this.getQuotationDiscountAmount(q);
-            const qContractM = this.getQuotationContractMonths(q) || 12;
+            const discType = q.discountType ?? q.DiscountType;
+            const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
             let qDiscountedMonthly = qBaseMonthly;
-            if (qDiscPct > 0) {
-              qDiscountedMonthly = qBaseMonthly * (1 - qDiscPct / 100);
-            } else if (qDiscAmt > 0 && qContractM > 0) {
-              qDiscountedMonthly = Math.max(0, qBaseMonthly - (qDiscAmt / qContractM));
+            if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0) {
+              qDiscountedMonthly = Math.max(0, qBaseMonthly - discVal);
+            } else {
+              const qDiscPct = Number(q.discountPercentage ?? q.DiscountPercentage ?? 0);
+              if (qDiscPct > 0) {
+                qDiscountedMonthly = Math.max(0, qBaseMonthly * (1 - qDiscPct / 100));
+              }
             }
             this.sendAgreementData.monthlyFee = parseFloat((qDiscountedMonthly * qBpm).toFixed(2));
             this.sendAgreementData.securityDeposit = this.getQuotationSecurityDeposit(q) || Number(q.securityDeposit ?? q.SecurityDeposit ?? 0);
