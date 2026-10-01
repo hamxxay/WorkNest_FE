@@ -235,6 +235,11 @@ export class Manage implements OnInit {
     this.validateBookingDiscount();
   }
 
+  onBookingDiscountChange() {
+    this.recalcAmount();
+    this.validateBookingDiscount();
+  }
+
   getSpaceMonthlyRent(space: any, capacityOverride?: number | null): number {
     if (!space) return 0;
     const price = Number(space.price ?? space.Price ?? space.pricePerMonth ?? space.PricePerMonth ?? space.seatPrice ?? space.SeatPrice ?? 0);
@@ -253,7 +258,7 @@ export class Manage implements OnInit {
     const baseDeposit = parseFloat((this.bookingMonthlyRent * months).toFixed(2));
     if (baseDeposit <= 0) return 0;
     const pct = this.bookingDiscountType === 'Percentage'
-      ? Math.min(100, Math.max(0, Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0)))
+      ? Math.min(100, Math.max(0, Number(this.bookingDiscountValue || 0)))
       : (this.bookingSubtotal > 0 && this.bookingDiscountAmount > 0
           ? Math.min(100, Math.max(0, (this.bookingDiscountAmount / this.bookingSubtotal) * 100))
           : 0);
@@ -287,7 +292,7 @@ export class Manage implements OnInit {
     if (this.isAdminMeetingRoom) return this.bookingDiscountAmount;
     const contractM = Math.max(1, Number(this.adminMonths || 12));
     const billingM = Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
-    const pct = Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0);
+    const pct = Number(this.bookingDiscountValue || 0);
     if (this.bookingDiscountType === 'Percentage') {
       return parseFloat(((this.bookingBillingAmount * Math.min(100, Math.max(0, pct))) / 100).toFixed(2));
     }
@@ -586,6 +591,11 @@ export class Manage implements OnInit {
     this.validateQuotationDiscount();
   }
 
+  onQuotationDiscountChange() {
+    this.recalcQuotationAmount();
+    this.validateQuotationDiscount();
+  }
+
   get quotationMonthlyRent(): number {
     if (this.isQuotationMeetingRoom) return this.quotationSubtotal;
     return this.quotationMonthlyBasePrice;
@@ -602,7 +612,7 @@ export class Manage implements OnInit {
     const baseDeposit = parseFloat((this.quotationMonthlyRent * months).toFixed(2));
     if (baseDeposit <= 0) return 0;
     const pct = this.quotationDiscountType === 'Percentage'
-      ? Math.min(100, Math.max(0, Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0)))
+      ? Math.min(100, Math.max(0, Number(this.quotationDiscountValue || 0)))
       : (this.quotationSubtotal > 0 && this.quotationDiscountAmount > 0
           ? Math.min(100, Math.max(0, (this.quotationDiscountAmount / this.quotationSubtotal) * 100))
           : 0);
@@ -611,7 +621,7 @@ export class Manage implements OnInit {
   }
 
   get quotationDiscountAmount(): number {
-    const val = Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0);
+    const val = Number(this.quotationDiscountValue || 0);
     if (this.quotationDiscountType === 'Amount') return parseFloat(Math.max(0, val).toFixed(2));
     const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationBillingAmount;
     return parseFloat((base * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
@@ -631,7 +641,7 @@ export class Manage implements OnInit {
     if (this.isQuotationMeetingRoom) return this.quotationDiscountAmount;
     const contractM = Math.max(1, Number(this.quotationMonths || 12));
     const billingM = Math.max(1, Number(this.quotationBillingPeriodMonths || 3));
-    const pct = Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0);
+    const pct = Number(this.quotationDiscountValue || 0);
     if (this.quotationDiscountType === 'Percentage') {
       return parseFloat(((this.quotationBillingAmount * Math.min(100, Math.max(0, pct))) / 100).toFixed(2));
     }
@@ -2080,7 +2090,7 @@ export class Manage implements OnInit {
       }
     }
 
-    const discVal = Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0);
+    const discVal = Number(this.bookingDiscountValue || 0);
     if (this.bookingDiscountType === 'Percentage') {
       const pct = Math.min(100, Math.max(0, discVal));
       this.bookingDiscountAmount = parseFloat(((this.bookingSubtotal * pct) / 100).toFixed(2));
@@ -2227,8 +2237,8 @@ export class Manage implements OnInit {
         totalAmount: this.bookingFormData.totalAmount,
         subtotalAmount: this.bookingSubtotal,
         discountType: this.bookingDiscountType,
-        discountPercentage: this.bookingDiscountType === 'Percentage' ? Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0) : 0,
-        discountValue: Number(this.bookingDiscountValue || this.bookingDiscountPercentage || 0),
+        discountPercentage: this.bookingDiscountType === 'Percentage' ? Number(this.bookingDiscountValue || 0) : 0,
+        discountValue: Number(this.bookingDiscountValue || 0),
         discountAmount: this.bookingDiscountAmount,
         securityDeposit: this.effectiveSecurityDeposit,
         billingPeriodMonths: this.bookingBillingPeriodMonths,
@@ -4579,9 +4589,9 @@ export class Manage implements OnInit {
       EndDateTime: endDT,
       ValidUntil: new Date(this.quotationValidUntil).toISOString().split('T')[0],
       SubtotalAmount: this.quotationSubtotal,
-      DiscountPercentage: this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0) : 0,
+      DiscountPercentage: this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || 0) : 0,
       DiscountType: this.quotationDiscountType,
-      DiscountValue: Number(this.quotationDiscountValue || this.quotationDiscountPercentage || 0),
+      DiscountValue: Number(this.quotationDiscountValue || 0),
       SecurityDepositOverride: this.quotationSecurityDepositMonthsOverride != null
         ? this.effectiveQuotationSecurityDeposit
         : null,

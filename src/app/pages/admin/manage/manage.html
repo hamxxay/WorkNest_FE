@@ -1805,7 +1805,7 @@
         <div class="form-group-admin">
           <label>Discount Type</label>
           <select class="form-input-admin" [(ngModel)]="quotationDiscountType" name="qDiscountType"
-            (change)="onDiscountTypeChange()" (ngModelChange)="validateQuotationDiscount()">
+            (ngModelChange)="onDiscountTypeChange()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
@@ -1823,7 +1823,7 @@
           <input class="form-input-admin" [class.is-invalid]="quotationDiscountError" type="number" min="0"
             [max]="quotationDiscountType === 'Percentage' ? quotationDynamicDiscountCap : quotationMaxAllowedDiscountFixed"
             step="1" [(ngModel)]="quotationDiscountValue" name="qDiscountValue"
-            (ngModelChange)="validateQuotationDiscount()" (input)="recalcQuotationAmount(); validateQuotationDiscount()"
+            (ngModelChange)="onQuotationDiscountChange()"
             placeholder="0" [style.border-color]="quotationDiscountError ? '#ef4444' : null" />
           @if (quotationDiscountError) {
           <div
@@ -2200,7 +2200,7 @@
         <div class="form-group-admin">
           <label>Discount Type</label>
           <select class="form-input-admin" [(ngModel)]="bookingDiscountType" name="bookingDiscountType"
-            (change)="onBookingDiscountTypeChange()" (ngModelChange)="validateBookingDiscount()">
+            (ngModelChange)="onBookingDiscountTypeChange()">
             <option value="Percentage">Percentage (%)</option>
             <option value="Amount">Fixed Amount (PKR)</option>
           </select>
@@ -2218,7 +2218,7 @@
           <input class="form-input-admin" [class.is-invalid]="bookingDiscountError" type="number" min="0"
             [max]="bookingDiscountType === 'Percentage' ? bookingDynamicDiscountCap : bookingMaxAllowedDiscountFixed"
             step="1" [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue"
-            (ngModelChange)="validateBookingDiscount()" (input)="recalcAmount(); validateBookingDiscount()"
+            (ngModelChange)="onBookingDiscountChange()"
             placeholder="0" [style.border-color]="bookingDiscountError ? '#ef4444' : null" />
           @if (bookingDiscountError) {
           <div
