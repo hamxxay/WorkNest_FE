@@ -2673,7 +2673,8 @@ export class Manage implements OnInit {
         return item.spaceName || item.space?.name || item.SpaceName || '-';
       }
       if (col.key === 'totalAmount') {
-        return item.totalAmount ?? item.TotalAmount ?? item.finalTotal ?? item.quotationTotal ?? 0;
+        const payable = this.getQuotationInitialPayable(item);
+        return payable > 0 ? payable : (item.totalPayable ?? item.totalAmount ?? item.TotalAmount ?? 0);
       }
       if (col.key === 'validUntil') {
         return item.validUntil || item.ValidUntil || '';
