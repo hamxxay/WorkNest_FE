@@ -259,9 +259,9 @@ export class Manage implements OnInit {
     if (baseDeposit <= 0) return 0;
     const pct = this.bookingDiscountType === 'Percentage'
       ? Math.min(100, Math.max(0, Number(this.bookingDiscountValue || 0)))
-      : (this.bookingSubtotal > 0 && this.bookingDiscountAmount > 0
-          ? Math.min(100, Math.max(0, (this.bookingDiscountAmount / this.bookingSubtotal) * 100))
-          : 0);
+      : (this.bookingMonthlyRent > 0 && Number(this.bookingDiscountValue || 0) > 0
+        ? Math.min(100, Math.max(0, (Number(this.bookingDiscountValue || 0) / this.bookingMonthlyRent) * 100))
+        : 0);
     const discounted = baseDeposit * (1 - (pct / 100));
     return parseFloat(Math.max(0, discounted).toFixed(2));
   }
@@ -290,16 +290,12 @@ export class Manage implements OnInit {
 
   get bookingFirstInvoiceDiscount(): number {
     if (this.isAdminMeetingRoom) return this.bookingDiscountAmount;
-    const contractM = Math.max(1, Number(this.adminMonths || 12));
     const billingM = Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
-    const pct = Number(this.bookingDiscountValue || 0);
+    const val = Number(this.bookingDiscountValue || 0);
     if (this.bookingDiscountType === 'Percentage') {
-      return parseFloat(((this.bookingBillingAmount * Math.min(100, Math.max(0, pct))) / 100).toFixed(2));
+      return parseFloat(((this.bookingBillingAmount * Math.min(100, Math.max(0, val))) / 100).toFixed(2));
     }
-    if (this.bookingDiscountAmount > this.bookingBillingAmount && contractM > billingM) {
-      return parseFloat(((this.bookingDiscountAmount * billingM) / contractM).toFixed(2));
-    }
-    return this.bookingDiscountAmount;
+    return parseFloat(Math.min(this.bookingBillingAmount, Math.max(0, val * billingM)).toFixed(2));
   }
 
   get bookingFirstInvoiceTotal(): number {
@@ -613,18 +609,21 @@ export class Manage implements OnInit {
     if (baseDeposit <= 0) return 0;
     const pct = this.quotationDiscountType === 'Percentage'
       ? Math.min(100, Math.max(0, Number(this.quotationDiscountValue || 0)))
-      : (this.quotationSubtotal > 0 && this.quotationDiscountAmount > 0
-          ? Math.min(100, Math.max(0, (this.quotationDiscountAmount / this.quotationSubtotal) * 100))
-          : 0);
+      : (this.quotationMonthlyRent > 0 && Number(this.quotationDiscountValue || 0) > 0
+        ? Math.min(100, Math.max(0, (Number(this.quotationDiscountValue || 0) / this.quotationMonthlyRent) * 100))
+        : 0);
     const discounted = baseDeposit * (1 - (pct / 100));
     return parseFloat(Math.max(0, discounted).toFixed(2));
   }
 
   get quotationDiscountAmount(): number {
     const val = Number(this.quotationDiscountValue || 0);
-    if (this.quotationDiscountType === 'Amount') return parseFloat(Math.max(0, val).toFixed(2));
-    const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationBillingAmount;
-    return parseFloat((base * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
+    if (this.quotationDiscountType === 'Amount') {
+      if (this.isQuotationMeetingRoom) return parseFloat(Math.min(this.quotationSubtotal, Math.max(0, val)).toFixed(2));
+      const months = Number(this.quotationMonths || 1);
+      return parseFloat(Math.min(this.quotationSubtotal, Math.max(0, val * months)).toFixed(2));
+    }
+    return parseFloat((this.quotationSubtotal * Math.min(100, Math.max(0, val)) / 100).toFixed(2));
   }
 
   get quotationTaxAmount(): number {
@@ -639,16 +638,12 @@ export class Manage implements OnInit {
 
   get quotationFirstInvoiceDiscount(): number {
     if (this.isQuotationMeetingRoom) return this.quotationDiscountAmount;
-    const contractM = Math.max(1, Number(this.quotationMonths || 12));
     const billingM = Math.max(1, Number(this.quotationBillingPeriodMonths || 3));
-    const pct = Number(this.quotationDiscountValue || 0);
+    const val = Number(this.quotationDiscountValue || 0);
     if (this.quotationDiscountType === 'Percentage') {
-      return parseFloat(((this.quotationBillingAmount * Math.min(100, Math.max(0, pct))) / 100).toFixed(2));
+      return parseFloat(((this.quotationBillingAmount * Math.min(100, Math.max(0, val))) / 100).toFixed(2));
     }
-    if (this.quotationDiscountAmount > this.quotationBillingAmount && contractM > billingM) {
-      return parseFloat(((this.quotationDiscountAmount * billingM) / contractM).toFixed(2));
-    }
-    return this.quotationDiscountAmount;
+    return parseFloat(Math.min(this.quotationBillingAmount, Math.max(0, val * billingM)).toFixed(2));
   }
 
   get quotationFirstInvoiceTotal(): number {
@@ -817,7 +812,7 @@ export class Manage implements OnInit {
           this.loadCityOptions();
           if (this.entity === 'users') this.loadLocationOptions();
         }
-        
+
         if (this.entity === 'locations') {
           this.loadCityOptions();
           this.loadBranchOptions();
@@ -2096,7 +2091,12 @@ export class Manage implements OnInit {
       this.bookingDiscountAmount = parseFloat(((this.bookingSubtotal * pct) / 100).toFixed(2));
       this.bookingDiscountPercentage = pct;
     } else {
-      this.bookingDiscountAmount = parseFloat(Math.max(0, discVal).toFixed(2));
+      if (this.isAdminMeetingRoom) {
+        this.bookingDiscountAmount = parseFloat(Math.min(this.bookingSubtotal, Math.max(0, discVal)).toFixed(2));
+      } else {
+        const months = Number(this.adminMonths || 1);
+        this.bookingDiscountAmount = parseFloat(Math.min(this.bookingSubtotal, Math.max(0, discVal * months)).toFixed(2));
+      }
       this.bookingDiscountPercentage = 0;
     }
     const finalRent = Math.max(0, this.bookingSubtotal - this.bookingDiscountAmount);
@@ -5984,16 +5984,22 @@ export class Manage implements OnInit {
     if (secOverride !== undefined && secOverride !== null && Number(secOverride) > 0) {
       return Number(secOverride);
     }
-    const dbDeposit = q.securityDeposit ?? q.SecurityDeposit;
-    if (dbDeposit !== undefined && dbDeposit !== null && Number(dbDeposit) > 0) {
-      return Number(dbDeposit);
-    }
     const secMonths = this.getQuotationSecurityMonths(q);
     const monthlyRent = this.getQuotationMonthlyRent(q);
     const baseDeposit = monthlyRent * secMonths;
+    const discType = q.discountType ?? q.DiscountType;
+    const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
+    if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0 && monthlyRent > 0) {
+      const pct = Math.min(100, Math.max(0, (discVal / monthlyRent) * 100));
+      return Math.max(0, parseFloat((baseDeposit * (1 - pct / 100)).toFixed(2)));
+    }
     const discPct = this.getQuotationDiscountPercentage(q);
     if (discPct > 0) {
       return Math.max(0, parseFloat((baseDeposit * (1 - discPct / 100)).toFixed(2)));
+    }
+    const dbDeposit = q.securityDeposit ?? q.SecurityDeposit;
+    if (dbDeposit !== undefined && dbDeposit !== null && Number(dbDeposit) > 0) {
+      return Number(dbDeposit);
     }
     return baseDeposit;
   }
@@ -6054,6 +6060,18 @@ export class Manage implements OnInit {
 
   getQuotationDiscountAmount(q: any): number {
     if (!q) return 0;
+    const discType = q.discountType ?? q.DiscountType;
+    const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
+    const bpm = this.getQuotationBillingMonths(q);
+    if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0) {
+      if (this.isMeetingRoom(q)) return discVal;
+      return discVal * bpm;
+    }
+    const pct = q.discountPercentage ?? q.DiscountPercentage;
+    if (pct != null && Number(pct) > 0) {
+      const cycleRent = this.getQuotationFirstCycleRent(q);
+      return Math.round(cycleRent * (Number(pct) / 100) * 100) / 100;
+    }
     return Number(q.discountAmount ?? q.DiscountAmount ?? 0);
   }
 
@@ -6061,10 +6079,16 @@ export class Manage implements OnInit {
     if (!q) return 0;
     const pct = q.discountPercentage ?? q.DiscountPercentage;
     if (pct != null && Number(pct) > 0) return Number(pct);
+    const discType = q.discountType ?? q.DiscountType;
+    const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
+    const monthlyRent = this.getQuotationMonthlyRent(q);
+    if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0 && monthlyRent > 0) {
+      return Math.round((discVal / monthlyRent) * 100);
+    }
     const disc = this.getQuotationDiscountAmount(q);
-    const subtotal = Number(q.subtotalAmount ?? q.SubtotalAmount ?? 0);
-    if (disc > 0 && subtotal > 0) {
-      return Math.round((disc / subtotal) * 100);
+    const cycleRent = this.getQuotationFirstCycleRent(q);
+    if (disc > 0 && cycleRent > 0) {
+      return Math.round((disc / cycleRent) * 100);
     }
     return 0;
   }
@@ -6074,8 +6098,7 @@ export class Manage implements OnInit {
     const cycleRent = this.getQuotationFirstCycleRent(q);
     const deposit = this.getQuotationSecurityDeposit(q);
     const tax = this.getQuotationTaxAmount(q);
-    const discPct = this.getQuotationDiscountPercentage(q);
-    const discount = discPct > 0 ? Math.round(cycleRent * (discPct / 100) * 100) / 100 : this.getQuotationDiscountAmount(q);
+    const discount = this.getQuotationDiscountAmount(q);
     return Math.max(0, parseFloat(((cycleRent - discount) + deposit + tax).toFixed(2)));
   }
 
@@ -6097,7 +6120,7 @@ export class Manage implements OnInit {
     this.selectedConversionQuotation.set(null);
   }
 
-    executeConversion(q: any) {
+  executeConversion(q: any) {
     if (!q || (!q.id && !q.Id)) return;
     const qId = q.id || q.Id;
     this.conversionSubmitting.set(true);
