@@ -6393,7 +6393,9 @@ export class Manage implements OnInit {
                 qDiscountedMonthly = Math.max(0, qBaseMonthly * (1 - qDiscPct / 100));
               }
             }
-            this.sendAgreementData.monthlyFee = parseFloat((qDiscountedMonthly * qBpm).toFixed(2));
+            const qTaxAmount = this.getQuotationTaxAmount(q) || 0;
+            const qCycleNetRent = parseFloat((qDiscountedMonthly * qBpm).toFixed(2));
+            this.sendAgreementData.monthlyFee = parseFloat((qCycleNetRent + qTaxAmount).toFixed(2));
             this.sendAgreementData.securityDeposit = this.getQuotationSecurityDeposit(q) || Number(q.securityDeposit ?? q.SecurityDeposit ?? 0);
 
             if (q.startDateTime || q.startDate || q.StartDateTime || q.StartDate) {
