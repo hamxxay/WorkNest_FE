@@ -1,4 +1,4 @@
-﻿import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
+import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -360,6 +360,7 @@ export class Manage implements OnInit {
   discardConfirmMessage = 'You have unsaved changes in this form. Closing now will discard all entered details.';
   pendingDiscardAction: (() => void) | null = null;
   quickCustomerForm: any = {
+    customerType: 'Individual',
     firstName: '',
     lastName: '',
     company: '',
@@ -2678,6 +2679,15 @@ export class Manage implements OnInit {
       }
     }
 
+    if (this.entity === 'customers') {
+      if (col.key === 'customerType') {
+        return item.customerType || (item.company && item.company.trim() && item.company.toLowerCase() !== 'individual' ? 'Company' : 'Individual');
+      }
+      if (col.key === 'company') {
+        return (item.company && item.company.trim() && item.company.toLowerCase() !== 'individual') ? item.company : '-';
+      }
+    }
+
     if (this.entity === 'quotations') {
       if (col.key === 'quotationNumber') {
         return item.quotationNumber || item.QuotationNumber || item.code || item.id || '-';
@@ -2938,6 +2948,8 @@ export class Manage implements OnInit {
     if (this.entity === 'customers') {
       this.selectedCountryCode = '+92';
       this.formData.countryCode = '+92';
+      this.formData.customerType = 'Individual';
+      this.formData.company = '';
     }
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
@@ -2996,8 +3008,9 @@ export class Manage implements OnInit {
 
   isQuickCustomerFormDirty(): boolean {
     if (!this.quickCustomerForm) return false;
-    const { firstName, lastName, company, email, phoneNumber, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
+    const { customerType, firstName, lastName, company, email, phoneNumber, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
     return Boolean(
+      (customerType && customerType !== 'Individual') ||
       (firstName && firstName.trim()) ||
       (lastName && lastName.trim()) ||
       (company && company.trim()) ||
@@ -3022,6 +3035,7 @@ export class Manage implements OnInit {
     this.showQuickCreateCustomer = false;
     this.quickCustomerError = '';
     this.quickCustomerForm = {
+      customerType: 'Individual',
       firstName: '',
       lastName: '',
       company: '',
@@ -3119,6 +3133,7 @@ export class Manage implements OnInit {
     this.loadCityOptions();
     this.showDiscardConfirm = false;
     this.quickCustomerForm = {
+      customerType: 'Individual',
       firstName: '',
       lastName: '',
       company: '',
@@ -3134,7 +3149,9 @@ export class Manage implements OnInit {
   }
 
   submitQuickCreateCustomer() {
-    const { firstName, lastName, company, email, phoneNumber, countryCode, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
+    const { customerType, firstName, lastName, company, email, phoneNumber, countryCode, addressLine1, addressLine2, cityId } = this.quickCustomerForm;
+    const custType = customerType === 'Company' ? 'Company' : 'Individual';
+    const compName = custType === 'Company' ? (company || '').trim() : null;
     const fn = (firstName || '').trim();
     const em = (email || '').trim();
     let phoneDigits = (phoneNumber || '').replace(/\D/g, '');
@@ -3143,6 +3160,12 @@ export class Manage implements OnInit {
     }
     const addr1 = (addressLine1 || '').trim();
 
+    if (custType === 'Company' && !compName) {
+      const msg = 'Company / Business Name is required.';
+      this.showError(msg);
+      this.quickCustomerError = msg;
+      return;
+    }
     if (!fn) {
       const msg = 'First Name is required.';
       this.showError(msg);
@@ -3184,9 +3207,10 @@ export class Manage implements OnInit {
 
     const payload = {
       ...this.quickCustomerForm,
+      customerType: custType,
+      company: compName,
       firstName: fn,
       lastName: (this.quickCustomerForm.lastName || '').trim(),
-      company: (company || '').trim() || null,
       email: em,
       countryCode: code,
       phoneNumber: fullPhone,
@@ -3241,6 +3265,9 @@ export class Manage implements OnInit {
     }
     this.selectedAmenityIds = [];
     if (this.entity === 'customers') {
+      this.formData.customerType = (item.customerType === 'Company' || (item.company && item.company.trim() && item.company.toLowerCase() !== 'individual'))
+        ? 'Company'
+        : 'Individual';
       if (!this.formData.addressLine1 && this.formData.address) {
         const parts = this.formData.address.split(',');
         this.formData.addressLine1 = parts[0]?.trim() || '';
@@ -3441,6 +3468,8 @@ export class Manage implements OnInit {
     }
 
     if (this.entity === 'customers') {
+      const custType = this.formData.customerType === 'Company' ? 'Company' : 'Individual';
+      const compName = custType === 'Company' ? (this.formData.company || '').trim() : null;
       const fn = (this.formData.firstName || '').trim();
       const em = (this.formData.email || '').trim();
       let phoneDigits = (this.formData.phoneNumber || '').replace(/\D/g, '');
@@ -3449,6 +3478,12 @@ export class Manage implements OnInit {
       }
       const addr1 = (this.formData.addressLine1 || '').trim();
 
+      if (custType === 'Company' && !compName) {
+        this.error = 'Company / Business Name is required when Customer Type is Company.';
+        this.showError(this.error);
+        this.saving = false;
+        return;
+      }
       if (!fn) {
         this.error = 'First Name is required.';
         this.showError(this.error);
@@ -3496,6 +3531,8 @@ export class Manage implements OnInit {
 
       this.formData = {
         ...this.formData,
+        customerType: custType,
+        company: compName,
         firstName: fn,
         lastName: (this.formData.lastName || '').trim(),
         email: em,
@@ -4018,6 +4055,7 @@ export class Manage implements OnInit {
         title: 'Customers',
         columns: [
           { key: 'code', label: 'Code' },
+          { key: 'customerType', label: 'Type' },
           { key: 'fullName', label: 'Name' },
           { key: 'company', label: 'Company' },
           { key: 'email', label: 'Email' },
@@ -4029,7 +4067,7 @@ export class Manage implements OnInit {
         fields: [
           { key: 'firstName', label: 'First Name', type: 'text', required: true },
           { key: 'lastName', label: 'Last Name', type: 'text' },
-          { key: 'company', label: 'Company Name', type: 'text' },
+          { key: 'company', label: 'Company / Business Name', type: 'text', required: true },
           { key: 'email', label: 'Email', type: 'email', required: true },
           { key: 'phoneNumber', label: 'Phone Number', type: 'phone-split', required: true },
           { key: 'addressLine1', label: 'Address Line 1', type: 'text', required: true },

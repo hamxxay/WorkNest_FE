@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+﻿import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
@@ -26,6 +26,7 @@ export class AdminLayout {
   menuItems = [
     { route: '/admin',                label: 'Dashboard',         icon: 'dashboard'       },
     { route: '/admin/customers',      label: 'Customers',         icon: 'customers'       },
+    { route: '/admin/kyc',            label: 'KYC Portal',        icon: 'kyc'             },
     { route: '/admin/users',          label: 'Users',             icon: 'users'           },
     { route: '/admin/locations',      label: 'Locations',         icon: 'location'        },
     { route: '/admin/spacetypes',     label: 'Space Types',       icon: 'spacetype'       },
@@ -54,7 +55,7 @@ export class AdminLayout {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
+      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
       this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
       if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
         this.router.navigate(['/admin/quotations']);

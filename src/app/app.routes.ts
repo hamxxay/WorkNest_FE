@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+﻿import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
 
@@ -19,6 +19,8 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadComponent: () => import('./pages/admin/dashboard/dashboard').then(m => m.Dashboard) },
       { path: 'customers',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'customers' } },
+      { path: 'kyc',         loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
+      { path: 'kyc/:id',     loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
       { path: 'users',       loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'users' } },
       { path: 'locations',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'locations' } },
       { path: 'spacetypes',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spacetypes' } },

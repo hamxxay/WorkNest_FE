@@ -1,0 +1,496 @@
+﻿<!-- KYC Module Main View -->
+<div class="kyc-container">
+
+  <!-- ================= LIST MODE ================= -->
+  @if (!currentCustomerId()) {
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Customer KYC Portal</h1>
+        <p class="page-subtitle">Manage customer identity documents, CDD compliance, and status verifications.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header list-toolbar">
+        <div class="search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" [(ngModel)]="searchQuery" (input)="onSearchChange()" placeholder="Search customer name, code, company, email..." />
+        </div>
+        <div class="count-badge">
+          Total Customers: <strong>{{ totalCount() }}</strong>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Customer Code</th>
+              <th>Customer & Company</th>
+              <th>Category</th>
+              <th>Document Completeness</th>
+              <th>KYC Status</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (loadingList()) {
+              <tr>
+                <td colspan="6" class="state-cell">
+                  <div class="spinner"></div> Loading customer directory...
+                </td>
+              </tr>
+            } @else if (customers().length === 0) {
+              <tr>
+                <td colspan="6" class="state-cell">
+                  No customer records found matching the criteria.
+                </td>
+              </tr>
+            } @else {
+              @for (c of customers(); track c.id) {
+                <tr>
+                  <td>
+                    <span class="code-badge">{{ c.code }}</span>
+                  </td>
+                  <td>
+                    <div class="cust-name">{{ c.fullName }}</div>
+                    @if (c.company && c.company.toLowerCase() !== 'individual') {
+                      <div class="cust-company">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+                        {{ c.company }}
+                      </div>
+                    }
+                    <div class="cust-email">{{ c.email }}</div>
+                  </td>
+                  <td>
+                    <span class="badge" [class.badge-info]="c.category === 'Business'" [class.badge-secondary]="c.category !== 'Business'">
+                      {{ c.category }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="progress-wrapper">
+                      <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" [style.width.%]="c.completenessPercentage" [class.fill-success]="c.completenessPercentage === 100"></div>
+                      </div>
+                      <span class="progress-label">{{ c.completenessPercentage }}%</span>
+                    </div>
+                    <div class="stats-subtext">
+                      {{ c.totalActiveDocs }} Docs ({{ c.verifiedDocsCount }} Verified, {{ c.pendingDocsCount }} Pending)
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge" [class]="c.overallBadgeClass">
+                      {{ c.overallStatus }}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-primary btn-sm" (click)="openCustomer(c.id)">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                      Open KYC
+                    </button>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      @if (totalPages() > 1) {
+        <div class="card-footer pagination-bar">
+          <span>Page {{ page() }} of {{ totalPages() }}</span>
+          <div class="page-controls">
+            <button class="btn btn-outline btn-sm" [disabled]="page() === 1" (click)="goToPage(page() - 1)">Previous</button>
+            <button class="btn btn-outline btn-sm" [disabled]="page() === totalPages()" (click)="goToPage(page() + 1)">Next</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ================= DETAIL / PORTAL MODE ================= -->
+  @if (currentCustomerId()) {
+    @if (loadingDetail()) {
+      <div class="loading-detail-container">
+        <div class="spinner"></div> Loading customer KYC portal...
+      </div>
+    } @else if (portalData(); as data) {
+      <div class="page-header detail-header">
+        <div>
+          <button class="btn btn-outline btn-sm" (click)="backToList()" style="margin-bottom: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to Directory
+          </button>
+          <h1 class="page-title">
+            KYC Portal: {{ data.fullName }}
+            <span class="code-pill">{{ data.customerCode }}</span>
+          </h1>
+          <p class="page-subtitle">Verify identity records, directors/beneficial owners, and regulatory compliance.</p>
+        </div>
+        <div>
+          <span class="badge badge-lg" [class]="data.overallBadgeClass">
+            {{ data.overallStatus }}
+          </span>
+        </div>
+      </div>
+
+      @if (data.isCategoryUnrecognized) {
+        <div class="alert-warning">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div>
+            <strong>Notice on Entity Category:</strong>
+            {{ data.warningMessage || 'Customer type unrecognized. Displaying general document types.' }}
+          </div>
+        </div>
+      }
+
+      <!-- Customer Profile Summary (Read Only) -->
+      <div class="card profile-card">
+        <div class="card-header">
+          <h3 class="card-title">Customer Profile Information</h3>
+          <span class="badge" [class.badge-info]="data.category === 'Business'" [class.badge-secondary]="data.category !== 'Business'">
+            {{ data.category }} Entity
+          </span>
+        </div>
+        <div class="profile-grid">
+          <div><label>Full Name</label><span>{{ data.fullName }}</span></div>
+          <div><label>Customer Code</label><span class="highlight">{{ data.customerCode }}</span></div>
+          <div><label>Company</label><span>{{ data.company || 'N/A' }}</span></div>
+          <div><label>Email Address</label><span>{{ data.email }}</span></div>
+          <div><label>Phone Number</label><span>{{ data.phoneNumber || 'N/A' }}</span></div>
+          <div><label>CNIC / Passport (Profile)</label><span>{{ data.cnicOrPassport || 'N/A' }}</span></div>
+          <div><label>City</label><span>{{ data.cityName || 'N/A' }}</span></div>
+          <div><label>Registered Address</label><span>{{ data.address || 'N/A' }}</span></div>
+        </div>
+      </div>
+
+      <!-- Checklist & Upload Form Side-by-Side -->
+      <div class="split-grid">
+        <!-- Checklist Panel -->
+        <div class="card checklist-card">
+          <div class="card-header">
+            <h3 class="card-title">KYC Compliance Checklist</h3>
+            <span class="badge" [class.badge-success]="data.completenessPercentage === 100" [class.badge-primary]="data.completenessPercentage < 100">
+              {{ data.completenessPercentage }}% Complete
+            </span>
+          </div>
+          <div class="checklist-body">
+            @for (grp of data.checklistGroups; track grp.title) {
+              <div class="checklist-group" [class.satisfied]="grp.isSatisfied" [class.missing]="!grp.isSatisfied && grp.isRequired">
+                <div class="checklist-group-header">
+                  <div class="checklist-title">
+                    @if (grp.isSatisfied) {
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    } @else if (grp.isRequired) {
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    } @else {
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+                    }
+                    <span>{{ grp.title }}</span>
+                  </div>
+                  <span class="badge" [class.badge-success]="grp.isSatisfied" [class.badge-danger]="!grp.isSatisfied && grp.isRequired" [class.badge-secondary]="!grp.isSatisfied && !grp.isRequired">
+                    {{ grp.statusSummary }}
+                  </span>
+                </div>
+                <div class="checklist-items">
+                  @for (item of grp.items; track item.name) {
+                    <span class="checklist-item-chip" [class.uploaded]="item.isUploaded">
+                      <span class="chip-dot"></span>
+                      {{ item.name }}
+                      @if (item.isUploaded && item.statusLabel) {
+                        <span class="badge badge-xs" [class]="item.statusBadgeClass">{{ item.statusLabel }}</span>
+                      }
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Upload Form Card -->
+        <div class="card upload-card">
+          <div class="card-header">
+            <h3 class="card-title">Upload / Replace Document</h3>
+            <span class="subtext">Max 5 MB (PDF, JPG, PNG)</span>
+          </div>
+          <form class="upload-form" (submit)="handleUpload($event)">
+            <!-- Document Type Dropdown -->
+            <div class="form-group">
+              <label>Document Type <span class="req">*</span></label>
+              <select [(ngModel)]="selectedDocTypeId" name="docType" (change)="onDocTypeSelected()" required>
+                <option [ngValue]="null">-- Select Document Type --</option>
+                @for (dt of data.availableDocumentTypes; track dt.id) {
+                  <option [value]="dt.id">{{ dt.displayLabel }}</option>
+                }
+              </select>
+            </div>
+
+            <!-- Person Selector (For AllowMultiple) -->
+            @if (selectedDocType?.allowMultiple) {
+              <div class="form-group">
+                <label>Person / Director <span class="req">*</span></label>
+                <select [(ngModel)]="selectedSlotNo" name="slotNo" (change)="onPersonSlotChanged()" required>
+                  @for (slot of data.existingPersonSlots; track slot.slotNo) {
+                    <option [value]="slot.slotNo">{{ slot.displayName }}</option>
+                  }
+                  <option value="new">+ Add New Person</option>
+                </select>
+              </div>
+            }
+
+            <!-- Holder Name (Conditional) -->
+            @if (selectedDocType?.requiresHolderName || selectedDocType?.allowMultiple) {
+              <div class="form-group">
+                <label>Holder Name (Director / Owner / Signatory) <span class="req">*</span></label>
+                <input type="text" [(ngModel)]="holderName" name="holderName" placeholder="e.g. Jane Doe" [readonly]="selectedDocType?.allowMultiple && selectedSlotNo !== 'new'" required />
+              </div>
+            }
+
+            <!-- Expiry Date (Conditional) -->
+            @if (selectedDocType?.requiresExpiry) {
+              <div class="form-group">
+                <label>Document Expiry Date <span class="req">*</span></label>
+                <input type="date" [(ngModel)]="expiryDate" name="expiryDate" required />
+              </div>
+            }
+
+            <!-- File Input -->
+            <div class="form-group">
+              <label>Select Document File <span class="req">*</span></label>
+              <input type="file" (change)="onFileSelected($event)" accept=".pdf,.jpg,.jpeg,.png" required />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" [disabled]="uploading() || !selectedDocType || !selectedFile">
+              @if (uploading()) {
+                <div class="spinner"></div> Uploading Document...
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                Upload Document
+              }
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Uploaded Documents Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Active Uploaded Documents</h3>
+          <span class="count-badge">{{ data.uploadedDocuments.length }} Active Documents</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Document Type</th>
+                <th>Holder / Person</th>
+                <th>File Name & Version</th>
+                <th>Expiry Date</th>
+                <th>Verification Status</th>
+                <th>Uploaded By / On</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (data.uploadedDocuments.length === 0) {
+                <tr>
+                  <td colspan="7" class="state-cell">
+                    No active KYC documents uploaded for this customer yet.
+                  </td>
+                </tr>
+              } @else {
+                @for (doc of data.uploadedDocuments; track doc.id) {
+                  <tr>
+                    <td>
+                      <div class="doc-title">{{ doc.documentTypeName }}</div>
+                      <span class="code-pill">{{ doc.documentTypeCode }}</span>
+                    </td>
+                    <td>
+                      @if (doc.holderName) {
+                        <div class="holder-name">{{ doc.holderName }}</div>
+                        @if (doc.allowMultiple) {
+                          <span class="badge badge-secondary badge-xs">Person #{{ doc.slotNo }}</span>
+                        }
+                      } @else {
+                        <span class="muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      <div class="file-name">{{ doc.originalFileName }}</div>
+                      <div class="file-meta">v{{ doc.versionNo }} | SHA: {{ doc.fileHash.slice(0, 10) }}...</div>
+                    </td>
+                    <td>
+                      @if (doc.expiryDate) {
+                        <span class="expiry-date">{{ doc.expiryDate | date:'dd MMM yyyy' }}</span>
+                      } @else {
+                        <span class="muted">N/A</span>
+                      }
+                    </td>
+                    <td>
+                      <span class="badge" [class.badge-success]="doc.status === 1" [class.badge-danger]="doc.status === 2" [class.badge-warning]="doc.status === 0">
+                        @if (doc.status === 1) { Verified }
+                        @else if (doc.status === 2) { Rejected }
+                        @else { Pending }
+                      </span>
+                      @if (doc.remarks) {
+                        <div class="remarks-text">Remarks: {{ doc.remarks }}</div>
+                      }
+                    </td>
+                    <td>
+                      <div class="uploader-name">{{ doc.uploadedByName || ('User #' + doc.uploadedBy) }}</div>
+                      <div class="upload-date">{{ doc.uploadedOn | date:'dd MMM yyyy HH:mm' }}</div>
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                      <div class="action-btn-group">
+                        <a [href]="getDownloadUrl(doc.id, false)" class="btn btn-outline btn-sm" title="Download Document">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        </a>
+                        <a [href]="getDownloadUrl(doc.id, true)" target="_blank" class="btn btn-outline btn-sm" title="View Document in Tab">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </a>
+                        <button class="btn btn-outline btn-sm" (click)="openHistoryModal(doc)" title="Version History">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+                        </button>
+                        <button class="btn btn-primary btn-sm" (click)="triggerReplace(doc.documentTypeId, doc.slotNo, doc.holderName)" title="Replace Document">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                          Replace
+                        </button>
+
+                        <!-- Admin & SuperAdmin Verification Controls -->
+                        @if (canVerify()) {
+                          @if (doc.status !== 1) {
+                            <button class="btn btn-success btn-sm" (click)="verifyDoc(doc.id)" title="Verify Document">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            </button>
+                          }
+                          @if (doc.status !== 2) {
+                            <button class="btn btn-danger btn-sm" (click)="openRejectModal(doc.id)" title="Reject Document">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          }
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+
+  <!-- ================= VERSION HISTORY MODAL ================= -->
+  @if (showHistoryModal()) {
+    <div class="modal-backdrop" (click)="closeHistoryModal()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 class="modal-title">Document Version History</h3>
+          <button class="btn-close" (click)="closeHistoryModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          @if (historyLoading()) {
+            <div class="state-cell"><div class="spinner"></div> Loading history...</div>
+          } @else if (historyDocs().length === 0) {
+            <div class="state-cell">No prior versions found for this document.</div>
+          } @else {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Status</th>
+                  <th>Original File</th>
+                  <th>Uploaded</th>
+                  <th>Replaced</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of historyDocs(); track h.id) {
+                  <tr [class.active-row]="h.isActive">
+                    <td>
+                      <span class="code-pill">v{{ h.versionNo }}</span>
+                      @if (h.isActive) {
+                        <span class="badge badge-success badge-xs">Active</span>
+                      } @else {
+                        <span class="badge badge-secondary badge-xs">Archived</span>
+                      }
+                    </td>
+                    <td>
+                      <span class="badge" [class.badge-success]="h.status === 1" [class.badge-danger]="h.status === 2" [class.badge-warning]="h.status === 0">
+                        @if (h.status === 1) { Verified }
+                        @else if (h.status === 2) { Rejected }
+                        @else { Pending }
+                      </span>
+                      @if (h.remarks) {
+                        <div class="remarks-text">{{ h.remarks }}</div>
+                      }
+                    </td>
+                    <td>
+                      <div class="file-name">{{ h.originalFileName }}</div>
+                      <div class="file-meta">SHA: {{ h.fileHash.slice(0, 10) }}...</div>
+                    </td>
+                    <td>
+                      <div class="uploader-name">{{ h.uploadedByName || ('User #' + h.uploadedBy) }}</div>
+                      <div class="upload-date">{{ h.uploadedOn | date:'dd MMM yyyy HH:mm' }}</div>
+                    </td>
+                    <td>
+                      @if (h.replacedOn) {
+                        <div class="upload-date">{{ h.replacedOn | date:'dd MMM yyyy HH:mm' }}</div>
+                      } @else {
+                        <span class="muted">—</span>
+                      }
+                    </td>
+                    <td style="text-align: right;">
+                      <a [href]="getDownloadUrl(h.id, false)" class="btn btn-outline btn-sm" title="Download version file">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                      </a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" (click)="closeHistoryModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ================= REJECT MODAL ================= -->
+  @if (showRejectModal()) {
+    <div class="modal-backdrop" (click)="closeRejectModal()">
+      <div class="modal-dialog modal-sm" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 class="modal-title">Reject KYC Document</h3>
+          <button class="btn-close" (click)="closeRejectModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
+            Please provide mandatory rejection remarks explaining why this document does not meet compliance standards.
+          </p>
+          <div class="form-group">
+            <label>Rejection Remarks <span class="req">*</span></label>
+            <textarea [(ngModel)]="rejectRemarks" rows="4" placeholder="e.g. Document image is blurry, name mismatch, or document expired..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" (click)="closeRejectModal()" [disabled]="rejecting()">Cancel</button>
+          <button class="btn btn-danger" (click)="submitRejection()" [disabled]="rejecting() || !rejectRemarks.trim()">
+            @if (rejecting()) {
+              <div class="spinner"></div> Rejecting...
+            } @else {
+              Confirm Rejection
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>

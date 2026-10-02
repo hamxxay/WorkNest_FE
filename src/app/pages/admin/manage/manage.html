@@ -1,4 +1,4 @@
-﻿<div class="admin-page">
+<div class="admin-page">
   <div class="page-header">
     <div>
       <h1>{{ config.title }}</h1>
@@ -558,6 +558,19 @@
     <h2>{{ editItem ? 'Edit' : 'Create' }} {{ config.title }}</h2>
     @if (error) { <div class="alert-admin alert-error-admin">{{ error }}</div> }
     <form (ngSubmit)="save()">
+      @if (entity === 'customers') {
+      <div class="form-group-admin full-width">
+        <label class="form-label">Customer Type <span style="color:#ef4444;font-weight:bold;margin-left:2px">*</span></label>
+        <div class="type-selector-pills">
+          <button type="button" class="pill-btn" [class.active]="formData.customerType === 'Individual' || !formData.customerType" (click)="formData.customerType = 'Individual'; formData.company = ''">
+            👤 Individual
+          </button>
+          <button type="button" class="pill-btn" [class.active]="formData.customerType === 'Company'" (click)="formData.customerType = 'Company'">
+            🏢 Company / Business
+          </button>
+        </div>
+      </div>
+      }
       @if (entity === 'bookings') {
       <div class="booking-calendar-block">
         <div class="booking-calendar-head">
@@ -590,6 +603,7 @@
       </div>
       }
       @for (field of config.fields; track field.key) {
+      @if (entity !== 'customers' || field.key !== 'company' || formData.customerType === 'Company') {
       <div class="form-group-admin">
         <label>
           {{ field.label }}
@@ -715,6 +729,7 @@
         <input class="form-input-admin" [type]="field.type" [(ngModel)]="formData[field.key]" [name]="field.key" />
         }
       </div>
+      }
       }
       <div class="modal-actions">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeModal()">Cancel</button>
@@ -2349,6 +2364,17 @@
     <div class="alert-admin alert-error-admin">{{ quickCustomerError }}</div>
     }
     <form (ngSubmit)="submitQuickCreateCustomer()">
+      <div class="form-group-admin full-width">
+        <label class="form-label">Customer Type <span style="color:#ef4444;font-weight:bold;margin-left:2px">*</span></label>
+        <div class="type-selector-pills">
+          <button type="button" class="pill-btn" [class.active]="quickCustomerForm.customerType === 'Individual' || !quickCustomerForm.customerType" (click)="quickCustomerForm.customerType = 'Individual'; quickCustomerForm.company = ''">
+            👤 Individual
+          </button>
+          <button type="button" class="pill-btn" [class.active]="quickCustomerForm.customerType === 'Company'" (click)="quickCustomerForm.customerType = 'Company'">
+            🏢 Company / Business
+          </button>
+        </div>
+      </div>
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>First Name <span style="color:#ef4444;font-weight:bold">*</span></label>
@@ -2361,11 +2387,17 @@
             placeholder="Last name" />
         </div>
       </div>
+      @if (quickCustomerForm.customerType === 'Company') {
       <div class="form-group-admin">
-        <label>Company / Organization Name <small style="color:#94a3b8">(Optional)</small></label>
+        <label>Company / Business Name <span style="color:#ef4444;font-weight:bold">*</span></label>
         <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.company" name="qcCompany"
-          placeholder="Company or Organization Name" />
+          required placeholder="e.g. Acme Technologies Pvt Ltd" />
       </div>
+      }
+
+
+
+
       <div class="form-group-admin">
         <label>Email <span style="color:#ef4444;font-weight:bold">*</span></label>
         <input class="form-input-admin" type="email" [(ngModel)]="quickCustomerForm.email" name="qcEmail" required
