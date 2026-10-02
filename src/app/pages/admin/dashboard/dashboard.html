@@ -1,10 +1,11 @@
-<div class="admin-page ops-dashboard">
+﻿<div class="admin-page ops-dashboard">
   <!-- Page Header -->
   <div class="page-header">
     <div class="header-left">
       <div class="header-badge">Control Center</div>
       <h1>Operations Control Center</h1>
-      <p class="subtitle">Real-time space inventory, shift-aware bookings, quotations, and upcoming lease expirations.</p>
+      <p class="subtitle">Real-time space inventory, shift-aware bookings, quotations, and upcoming lease expirations.
+      </p>
     </div>
     <div class="header-actions">
       <button class="btn btn-refresh" (click)="loadDashboardData()" [disabled]="loading()">
@@ -187,7 +188,8 @@
         </div>
         <h3>Space Types Capacity & Occupancy</h3>
         <p class="summary-sub">
-          Breakdown of inventory by space type. Click any tag (Booked, Vacant, Quoted, Expiring Soon) to expand detailed space records and shift status.
+          Breakdown of inventory by space type. Click any tag (Booked, Vacant, Quoted, Expiring Soon) to expand detailed
+          space records and shift status.
         </p>
       </div>
       <button class="all-types-btn" [class.active]="selectedSpaceType() === 'ALL'"
@@ -235,7 +237,8 @@
             title="Click to view booked spaces and occupied/open shifts">
             <span class="tag-label">Booked</span>
             <span class="tag-val">{{ t.bookedCount }}</span>
-            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'booked') ? '▲' : '▼' }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag ===
+              'booked') ? '▲' : '▼' }}</span>
           </button>
 
           <!-- Vacant (Clickable Tag) -->
@@ -245,7 +248,8 @@
             title="Click to view vacant spaces with no active bookings">
             <span class="tag-label">Vacant</span>
             <span class="tag-val">{{ t.vacantCount }}</span>
-            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'vacant') ? '▲' : '▼' }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag ===
+              'vacant') ? '▲' : '▼' }}</span>
           </button>
 
           <!-- Quoted (Clickable Tag) -->
@@ -255,7 +259,8 @@
             title="Click to view spaces with active quotations">
             <span class="tag-label">Quoted</span>
             <span class="tag-val">{{ t.quotedCount }}</span>
-            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'quoted') ? '▲' : '▼' }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag ===
+              'quoted') ? '▲' : '▼' }}</span>
           </button>
 
           <!-- Expiring Soon (Clickable Tag) -->
@@ -265,7 +270,8 @@
             title="Click to view bookings expiring within {{ expiringThreshold() }} days">
             <span class="tag-label">Expiring Soon</span>
             <span class="tag-val">{{ t.expiringCount }}</span>
-            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag === 'expiring') ? '▲' : '▼' }}</span>
+            <span class="tag-chevron">{{ (activeDropdown()?.spaceTypeId === t.spaceTypeId && activeDropdown()?.tag ===
+              'expiring') ? '▲' : '▼' }}</span>
           </button>
         </div>
 
@@ -277,10 +283,11 @@
               <span class="dropdown-tag-indicator" [class]="'ind-' + activeDropdown()?.tag">●</span>
               <strong class="dropdown-title">
                 @switch (activeDropdown()?.tag) {
-                  @case ('booked') { Booked Spaces • {{ t.spaceTypeName }} ({{ t.bookedCount }}) }
-                  @case ('vacant') { Vacant Spaces (Zero Active Bookings) • {{ t.spaceTypeName }} ({{ t.vacantCount }}) }
-                  @case ('quoted') { Spaces With Active Quotations • {{ t.spaceTypeName }} ({{ t.quotedCount }}) }
-                  @case ('expiring') { Bookings Expiring Within {{ expiringThreshold() }} Days • {{ t.spaceTypeName }} ({{ t.expiringCount }}) }
+                @case ('booked') { Booked Spaces • {{ t.spaceTypeName }} ({{ t.bookedCount }}) }
+                @case ('vacant') { Vacant Spaces (Zero Active Bookings) • {{ t.spaceTypeName }} ({{ t.vacantCount }}) }
+                @case ('quoted') { Spaces With Active Quotations • {{ t.spaceTypeName }} ({{ t.quotedCount }}) }
+                @case ('expiring') { Bookings Expiring Within {{ expiringThreshold() }} Days • {{ t.spaceTypeName }} ({{
+                t.expiringCount }}) }
                 }
               </strong>
             </div>
@@ -299,222 +306,234 @@
           <div class="dropdown-table-container">
             <!-- 1. BOOKED SPACES TABLE -->
             @if (activeDropdown()?.tag === 'booked') {
-              @if (t.bookedDetails.length === 0) {
-              <div class="dropdown-empty-msg">No booked spaces found for {{ t.spaceTypeName }}.</div>
-              } @else {
-              <table class="dropdown-table">
-                <thead>
-                  <tr>
-                    <th>Space</th>
-                    <th>Capacity</th>
-                    <th>Customer / Company</th>
-                    <th>Occupied Shift(s)</th>
-                    <th>Available Open Shift(s)</th>
-                    <th class="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of t.bookedDetails; track item.spaceId) {
-                  <tr>
-                    <td>
-                      <strong class="item-code">{{ item.spaceCode }}</strong>
-                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
-                    </td>
-                    <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
-                    <td>
-                      <div class="cust-info">
-                        <span class="cust-primary">{{ item.customerName }}</span>
-                        <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div class="shift-tags-list">
-                        @for (sh of item.occupiedShifts; track sh) {
-                        <span class="shift-tag shift-occupied">🔒 {{ sh }}</span>
-                        }
-                      </div>
-                    </td>
-                    <td>
-                      <div class="shift-tags-list">
-                        @for (sh of item.openShifts; track sh) {
-                        <span class="shift-tag" [class.shift-open]="sh !== 'None (Fully Occupied)'" [class.shift-none]="sh === 'None (Fully Occupied)'">
-                          {{ sh === 'None (Fully Occupied)' ? '⛔ None (Fully Occupied)' : '⚡ Open: ' + sh }}
-                        </span>
-                        }
-                      </div>
-                    </td>
-                    <td class="text-right">
-                      <div class="btn-group">
-                        <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
-                        <button class="btn-xs btn-booking" *ngIf="item.bookingId" (click)="viewBookingDetails(item.bookingId, item.spaceCode)">Booking</button>
-                      </div>
-                    </td>
-                  </tr>
-                  }
-                </tbody>
-              </table>
-              }
+            @if (t.bookedDetails.length === 0) {
+            <div class="dropdown-empty-msg">No booked spaces found for {{ t.spaceTypeName }}.</div>
+            } @else {
+            <table class="dropdown-table">
+              <thead>
+                <tr>
+                  <th>Space</th>
+                  <th>Capacity</th>
+                  <th>Customer / Company</th>
+                  <th>Occupied Shift(s)</th>
+                  <th>Available Open Shift(s)</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of t.bookedDetails; track item.spaceId) {
+                <tr>
+                  <td>
+                    <strong class="item-code">{{ item.spaceCode }}</strong>
+                    <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName
+                      }}</div>
+                  </td>
+                  <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
+                  <td>
+                    <div class="cust-info">
+                      <span class="cust-primary">{{ item.customerName }}</span>
+                      <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="shift-tags-list">
+                      @for (sh of item.occupiedShifts; track sh) {
+                      <span class="shift-tag shift-occupied">🔒 {{ sh }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <div class="shift-tags-list">
+                      @for (sh of item.openShifts; track sh) {
+                      <span class="shift-tag" [class.shift-open]="sh !== 'None (Fully Occupied)'"
+                        [class.shift-none]="sh === 'None (Fully Occupied)'">
+                        {{ sh === 'None (Fully Occupied)' ? '⛔ None (Fully Occupied)' : '⚡ Open: ' + sh }}
+                      </span>
+                      }
+                    </div>
+                  </td>
+                  <td class="text-right">
+                    <div class="btn-group">
+                      <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
+                      <button class="btn-xs btn-booking" *ngIf="item.bookingId"
+                        (click)="viewBookingDetails(item.bookingId, item.spaceCode)">Booking</button>
+                    </div>
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+            }
             }
 
             <!-- 2. VACANT SPACES TABLE -->
             @if (activeDropdown()?.tag === 'vacant') {
-              @if (t.vacantDetails.length === 0) {
-              <div class="dropdown-empty-msg">No vacant spaces available for {{ t.spaceTypeName }}.</div>
-              } @else {
-              <table class="dropdown-table">
-                <thead>
-                  <tr>
-                    <th>Space</th>
-                    <th>Capacity</th>
-                    <th>Location</th>
-                    <th>Next Scheduled Booking</th>
-                    <th class="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of t.vacantDetails; track item.spaceId) {
-                  <tr>
-                    <td>
-                      <strong class="item-code text-available">{{ item.spaceCode }}</strong>
-                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
-                    </td>
-                    <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
-                    <td><span class="loc-badge">{{ item.locationName || 'Main Location' }}</span></td>
-                    <td>
-                      @if (item.nextBookingDate) {
-                      <div class="next-booking-wrap">
-                        <span class="next-date">📅 {{ item.nextBookingDate | date:'dd-MMM-yyyy' }}</span>
-                        <span class="next-cust" *ngIf="item.nextBookingCustomer">({{ item.nextBookingCustomer }})</span>
-                      </div>
-                      } @else {
-                      <span class="text-dim">No upcoming bookings</span>
-                      }
-                    </td>
-                    <td class="text-right">
-                      <button class="btn-xs btn-space" (click)="viewSpaceDetails(item)">View Space</button>
-                    </td>
-                  </tr>
-                  }
-                </tbody>
-              </table>
-              }
+            @if (t.vacantDetails.length === 0) {
+            <div class="dropdown-empty-msg">No vacant spaces available for {{ t.spaceTypeName }}.</div>
+            } @else {
+            <table class="dropdown-table">
+              <thead>
+                <tr>
+                  <th>Space</th>
+                  <th>Capacity</th>
+                  <th>Location</th>
+                  <th>Next Scheduled Booking</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of t.vacantDetails; track item.spaceId) {
+                <tr>
+                  <td>
+                    <strong class="item-code text-available">{{ item.spaceCode }}</strong>
+                    <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName
+                      }}</div>
+                  </td>
+                  <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
+                  <td><span class="loc-badge">{{ item.locationName || 'Main Location' }}</span></td>
+                  <td>
+                    @if (item.nextBookingDate) {
+                    <div class="next-booking-wrap">
+                      <span class="next-date">📅 {{ item.nextBookingDate | date:'dd-MMM-yyyy' }}</span>
+                      <span class="next-cust" *ngIf="item.nextBookingCustomer">({{ item.nextBookingCustomer }})</span>
+                    </div>
+                    } @else {
+                    <span class="text-dim">No upcoming bookings</span>
+                    }
+                  </td>
+                  <td class="text-right">
+                    <button class="btn-xs btn-space" (click)="viewSpaceDetails(item)">View Space</button>
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+            }
             }
 
             <!-- 3. QUOTED SPACES TABLE -->
             @if (activeDropdown()?.tag === 'quoted') {
-              @if (t.quotedDetails.length === 0) {
-              <div class="dropdown-empty-msg">No active quotations found for {{ t.spaceTypeName }}.</div>
-              } @else {
-              <table class="dropdown-table">
-                <thead>
-                  <tr>
-                    <th>Space</th>
-                    <th>Capacity</th>
-                    <th>Customer / Company</th>
-                    <th>Quotation # & Date</th>
-                    <th>Quotation Status</th>
-                    <th>Booking State</th>
-                    <th class="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of t.quotedDetails; track item.quotationNumber + item.spaceId) {
-                  <tr>
-                    <td>
-                      <strong class="item-code">{{ item.spaceCode }}</strong>
-                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
-                    </td>
-                    <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
-                    <td>
-                      <div class="cust-info">
-                        <span class="cust-primary">{{ item.customerName }}</span>
-                        <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div class="quote-info">
-                        <span class="quote-num-txt">{{ item.quotationNumber }}</span>
-                        <span class="quote-date-txt">{{ item.quotationDate | date:'dd-MMM-yyyy' }}</span>
-                        <span class="quote-amt-txt" *ngIf="item.quotationAmount">PKR {{ item.quotationAmount | number:'1.0-0' }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="status-badge badge-quoted"><span class="badge-dot"></span> {{ item.quotationStatus }}</span>
-                    </td>
-                    <td>
-                      @if (item.isAlsoBooked) {
-                      <span class="shift-tag shift-occupied">🔒 Currently Booked</span>
-                      } @else {
-                      <span class="shift-tag shift-open">⚡ Available for Conversion</span>
-                      }
-                    </td>
-                    <td class="text-right">
-                      <div class="btn-group">
-                        <button class="btn-xs btn-quote" (click)="viewQuotationDetails(item.quotationId, item.quotationNumber)">View Quote</button>
-                        <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
-                      </div>
-                    </td>
-                  </tr>
-                  }
-                </tbody>
-              </table>
-              }
+            @if (t.quotedDetails.length === 0) {
+            <div class="dropdown-empty-msg">No active quotations found for {{ t.spaceTypeName }}.</div>
+            } @else {
+            <table class="dropdown-table">
+              <thead>
+                <tr>
+                  <th>Space</th>
+                  <th>Capacity</th>
+                  <th>Customer / Company</th>
+                  <th>Quotation # & Date</th>
+                  <th>Quotation Status</th>
+                  <th>Booking State</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of t.quotedDetails; track item.quotationNumber + item.spaceId) {
+                <tr>
+                  <td>
+                    <strong class="item-code">{{ item.spaceCode }}</strong>
+                    <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName
+                      }}</div>
+                  </td>
+                  <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
+                  <td>
+                    <div class="cust-info">
+                      <span class="cust-primary">{{ item.customerName }}</span>
+                      <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="quote-info">
+                      <span class="quote-num-txt">{{ item.quotationNumber }}</span>
+                      <span class="quote-date-txt">{{ item.quotationDate | date:'dd-MMM-yyyy' }}</span>
+                      <span class="quote-amt-txt" *ngIf="item.quotationAmount">PKR {{ item.quotationAmount |
+                        number:'1.0-0' }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="status-badge badge-quoted"><span class="badge-dot"></span> {{ item.quotationStatus
+                      }}</span>
+                  </td>
+                  <td>
+                    @if (item.isAlsoBooked) {
+                    <span class="shift-tag shift-occupied">🔒 Currently Booked</span>
+                    } @else {
+                    <span class="shift-tag shift-open">⚡ Available for Conversion</span>
+                    }
+                  </td>
+                  <td class="text-right">
+                    <div class="btn-group">
+                      <button class="btn-xs btn-quote"
+                        (click)="viewQuotationDetails(item.quotationId, item.quotationNumber)">View Quote</button>
+                      <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
+                    </div>
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+            }
             }
 
             <!-- 4. EXPIRING SOON SPACES TABLE -->
             @if (activeDropdown()?.tag === 'expiring') {
-              @if (t.expiringDetails.length === 0) {
-              <div class="dropdown-empty-msg">No bookings expiring within {{ expiringThreshold() }} days for {{ t.spaceTypeName }}.</div>
-              } @else {
-              <table class="dropdown-table">
-                <thead>
-                  <tr>
-                    <th>Space</th>
-                    <th>Customer / Company</th>
-                    <th>End Date</th>
-                    <th>Time Remaining</th>
-                    <th>Booking Status</th>
-                    <th class="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of t.expiringDetails; track item.bookingId || item.spaceId) {
-                  <tr>
-                    <td>
-                      <strong class="item-code">{{ item.spaceCode }}</strong>
-                      <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName }}</div>
-                    </td>
-                    <td>
-                      <div class="cust-info">
-                        <span class="cust-primary">{{ item.customerName }}</span>
-                        <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
-                      </div>
-                    </td>
-                    <td>{{ item.bookingEnd | date:'dd-MMM-yyyy' }}</td>
-                    <td>
-                      <span class="time-badge time-expiring">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        {{ item.remainingTimeFormatted }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="status-badge badge-booked"><span class="badge-dot"></span> {{ item.bookingStatus }}</span>
-                    </td>
-                    <td class="text-right">
-                      <div class="btn-group">
-                        <button class="btn-xs btn-booking" *ngIf="item.bookingId" (click)="viewBookingDetails(item.bookingId, item.spaceCode)">Booking</button>
-                        <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
-                      </div>
-                    </td>
-                  </tr>
-                  }
-                </tbody>
-              </table>
-              }
+            @if (t.expiringDetails.length === 0) {
+            <div class="dropdown-empty-msg">No bookings expiring within {{ expiringThreshold() }} days for {{
+              t.spaceTypeName }}.</div>
+            } @else {
+            <table class="dropdown-table">
+              <thead>
+                <tr>
+                  <th>Space</th>
+                  <th>Customer / Company</th>
+                  <th>End Date</th>
+                  <th>Time Remaining</th>
+                  <th>Booking Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of t.expiringDetails; track item.bookingId || item.spaceId) {
+                <tr>
+                  <td>
+                    <strong class="item-code">{{ item.spaceCode }}</strong>
+                    <div class="item-sub" *ngIf="item.spaceName && item.spaceName !== item.spaceCode">{{ item.spaceName
+                      }}</div>
+                  </td>
+                  <td>
+                    <div class="cust-info">
+                      <span class="cust-primary">{{ item.customerName }}</span>
+                      <span class="cust-secondary" *ngIf="item.companyName">{{ item.companyName }}</span>
+                    </div>
+                  </td>
+                  <td>{{ item.bookingEnd | date:'dd-MMM-yyyy' }}</td>
+                  <td>
+                    <span class="time-badge time-expiring">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {{ item.remainingTimeFormatted }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="status-badge badge-booked"><span class="badge-dot"></span> {{ item.bookingStatus
+                      }}</span>
+                  </td>
+                  <td class="text-right">
+                    <div class="btn-group">
+                      <button class="btn-xs btn-booking" *ngIf="item.bookingId"
+                        (click)="viewBookingDetails(item.bookingId, item.spaceCode)">Booking</button>
+                      <button class="btn-xs btn-outline" (click)="viewSpaceDetails(item)">Space</button>
+                    </div>
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+            }
             }
           </div>
         </div>
@@ -660,7 +679,8 @@
             </th>
             <th (click)="toggleSort('remainingTime')" class="sortable">
               Time Remaining
-              <span class="sort-icon" *ngIf="sortBy() === 'remainingTime'">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+              <span class="sort-icon" *ngIf="sortBy() === 'remainingTime'">{{ sortOrder() === 'asc' ? '↑' : '↓'
+                }}</span>
             </th>
             <th>Quotation</th>
             <th class="text-right">Actions</th>
@@ -672,7 +692,8 @@
             [class.row-quoted]="sp.status === 'Quoted'">
             <td class="col-space">
               <span class="space-title">{{ sp.spaceCode }}</span>
-              <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName }}</span>
+              <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName
+                }}</span>
             </td>
             <td><span class="location-badge-sm">{{ sp.locationName }}</span></td>
             <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>
@@ -733,7 +754,8 @@
               <div class="quote-block" (click)="viewQuotationDetails(sp.quotationId, sp.quotationNumber)">
                 <span class="quote-num">{{ sp.quotationNumber }}</span>
                 <span class="quote-val" *ngIf="sp.quotationAmount">PKR {{ sp.quotationAmount | number:'1.0-0' }}</span>
-                <span class="quote-exp-date" *ngIf="sp.quotationExpiryDate">Exp: {{ sp.quotationExpiryDate | date:'dd-MMM-yy' }}</span>
+                <span class="quote-exp-date" *ngIf="sp.quotationExpiryDate">Exp: {{ sp.quotationExpiryDate |
+                  date:'dd-MMM-yy' }}</span>
               </div>
               } @else {
               <span class="text-placeholder">—</span>
@@ -943,12 +965,15 @@
 
   @if (showDiscardAnnouncementConfirm()) {
   <div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscardAnnouncement()">
-    <div class="modal-card" style="max-width:400px; text-align:center; padding: 24px;" (click)="$event.stopPropagation()">
-      <div style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
+    <div class="modal-card" style="max-width:400px; text-align:center; padding: 24px;"
+      (click)="$event.stopPropagation()">
+      <div
+        style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       </div>
       <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">Discard Announcement Draft?</h3>
@@ -959,7 +984,8 @@
         <button type="button" class="btn btn-outline" style="flex:1" (click)="cancelDiscardAnnouncement()">
           Keep Editing
         </button>
-        <button type="button" class="btn" style="flex:1; background:#ef4444; color:#fff; border:none;" (click)="confirmDiscardAnnouncement()">
+        <button type="button" class="btn" style="flex:1; background:#ef4444; color:#fff; border:none;"
+          (click)="confirmDiscardAnnouncement()">
           Discard
         </button>
       </div>
@@ -1017,7 +1043,8 @@
         </div>
 
         <!-- Recipients Table -->
-        <h4 style="margin:20px 0 10px 0;font-size:0.95rem;font-weight:700;color:#1e293b">Delivery Breakdown per Recipient</h4>
+        <h4 style="margin:20px 0 10px 0;font-size:0.95rem;font-weight:700;color:#1e293b">Delivery Breakdown per
+          Recipient</h4>
         <div class="table-container" style="max-height:280px;overflow-y:auto">
           <table class="clean-table" style="font-size:0.85rem">
             <thead>
@@ -1063,4 +1090,40 @@
   </div>
   }
   }
+</div>
+<!-- ========================================================================= -->
+<!-- FINANCIAL REPORTS & ANALYTICS SECTION                                     -->
+<!-- ========================================================================= -->
+<div class="admin-card" style="margin-bottom:24px">
+  <div class="card-title-row">
+    <div>
+      <div class="header-badge" style="display:inline-block;margin-bottom:6px">Financial Intelligence</div>
+      <h3>Reports & Analytics</h3>
+      <p class="summary-sub">Generate audit-ready statements and track security deposit lifecycle across customers.</p>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;margin-top:16px;">
+    <div
+      style="border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#f8fafc;display:flex;gap:14px;align-items:flex-start;">
+      <div
+        style="background:#e0e7ff;color:#4338ca;padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+      </div>
+      <div style="flex:1;">
+        <h4 style="margin:0 0 4px;font-size:15px;color:#0f172a;">Security Deposit Report</h4>
+        <p style="margin:0 0 14px;font-size:13px;color:#64748b;">Customer-wise balances, total received, refunds,
+          forfeitures, and Excel export.</p>
+        <a routerLink="/admin/reports/security-deposits" class="btn btn-sm btn-primary-gradient"
+          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:13px;text-decoration:none;">
+          Generate Report &rarr;
+        </a>
+      </div>
+    </div>
+  </div>
 </div>

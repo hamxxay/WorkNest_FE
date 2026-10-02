@@ -1,0 +1,229 @@
+﻿<div class="admin-page reports-page">
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-badge">Financial Reports</div>
+      <h1>Customer Security Deposit Report</h1>
+      <p class="subtitle">Track held, released, and forfeited security deposits per customer with transaction details.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="exportToExcel()" [disabled]="exporting() || summaries().length === 0">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+        {{ exporting() ? 'Exporting...' : 'Export to Excel' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="admin-card filter-card">
+    <div class="filter-grid">
+      <div class="form-group">
+        <label>Customer</label>
+        <select class="form-control" [(ngModel)]="selectedCustomerId">
+          <option [ngValue]="null">-- All Customers --</option>
+          @for (c of customers(); track c.id) {
+            <option [ngValue]="c.id">{{ c.displayText }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>From Date (Held Date)</label>
+        <input type="date" class="form-control" [(ngModel)]="fromDate" />
+      </div>
+
+      <div class="form-group">
+        <label>To Date (Held Date)</label>
+        <input type="date" class="form-control" [(ngModel)]="toDate" />
+      </div>
+
+      <div class="form-group btn-col">
+        <button class="btn btn-primary" (click)="generateReport()" [disabled]="loading()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" x2="21" y1="21" y2="16.65"/>
+          </svg>
+          Generate Report
+        </button>
+      </div>
+    </div>
+
+    @if (dateError) {
+      <div class="error-banner">{{ dateError }}</div>
+    }
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <span class="metric-label">Total Deposits Count</span>
+      <span class="metric-value">{{ totalCount }}</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Total Received</span>
+      <span class="metric-value text-primary">{{ totalReceived | currency:'PKR ':'symbol':'1.0-2' }}</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Total Released</span>
+      <span class="metric-value text-success">{{ totalReleased | currency:'PKR ':'symbol':'1.0-2' }}</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Total Forfeited</span>
+      <span class="metric-value text-danger">{{ totalForfeited | currency:'PKR ':'symbol':'1.0-2' }}</span>
+    </div>
+    <div class="metric-card highlight">
+      <span class="metric-label">Current Balance Held</span>
+      <span class="metric-value text-warning">{{ totalBalanceHeld | currency:'PKR ':'symbol':'1.0-2' }}</span>
+    </div>
+  </div>
+
+  <div class="admin-card table-card">
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading security deposit records...</p>
+      </div>
+    } @else if (summaries().length === 0) {
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+        </svg>
+        <h4>No Deposit Records Found</h4>
+        <p>No security deposits match the selected customer and date range filters.</p>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Customer Code</th>
+              <th>Customer Name</th>
+              <th>Company</th>
+              <th class="text-right">Count</th>
+              <th class="text-right">Total Received</th>
+              <th class="text-right">Total Released</th>
+              <th class="text-right">Total Forfeited</th>
+              <th class="text-right">Balance Held</th>
+              <th>Last Held Date</th>
+              <th class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of summaries(); track row.customerId) {
+              <tr>
+                <td><span class="code-badge">{{ row.customerCode }}</span></td>
+                <td class="font-medium">{{ row.customerName }}</td>
+                <td>{{ row.company || '-' }}</td>
+                <td class="text-right">{{ row.depositCount }}</td>
+                <td class="text-right">{{ row.totalReceived | currency:'PKR ':'symbol':'1.0-2' }}</td>
+                <td class="text-right text-success">{{ row.totalReleased | currency:'PKR ':'symbol':'1.0-2' }}</td>
+                <td class="text-right text-danger">{{ row.totalForfeited | currency:'PKR ':'symbol':'1.0-2' }}</td>
+                <td class="text-right font-bold text-warning">{{ row.balanceHeld | currency:'PKR ':'symbol':'1.0-2' }}</td>
+                <td>{{ row.lastHeldOn ? (row.lastHeldOn | date:'yyyy-MM-dd') : '-' }}</td>
+                <td class="text-center">
+                  <button class="btn btn-xs btn-outline" (click)="viewDetails(row)">
+                    View
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="3"><strong>TOTALS</strong></td>
+              <td class="text-right"><strong>{{ totalCount }}</strong></td>
+              <td class="text-right"><strong>{{ totalReceived | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
+              <td class="text-right text-success"><strong>{{ totalReleased | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
+              <td class="text-right text-danger"><strong>{{ totalForfeited | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
+              <td class="text-right text-warning"><strong>{{ totalBalanceHeld | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Customer Detail Modal -->
+@if (showDetailModal()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Deposit History: {{ selectedCustomerName }}</h3>
+          <p class="subtitle">Individual deposit line items and lifecycle statuses</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn btn-sm btn-outline" (click)="exportCustomerDetailExcel()" [disabled]="exportingDetail() || customerDetails().length === 0" style="display:inline-flex;align-items:center;gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+            {{ exportingDetail() ? 'Exporting...' : 'Export History (Excel)' }}
+          </button>
+          <button class="close-btn" (click)="closeModal()">&times;</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        @if (detailLoading()) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Fetching deposit details...</p>
+          </div>
+        } @else if (customerDetails().length === 0) {
+          <div class="empty-state">
+            <p>No deposit records found for this customer under current date filters.</p>
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Deposit ID</th>
+                  <th>Booking ID</th>
+                  <th>Invoice Ref No</th>
+                  <th class="text-right">Amount</th>
+                  <th>State</th>
+                  <th>Held Date</th>
+                  <th>Released Date</th>
+                  <th>Forfeited Date</th>
+                  <th>Forfeit Reason</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (d of customerDetails(); track d.id) {
+                  <tr>
+                    <td>#{{ d.id }}</td>
+                    <td>#{{ d.bookingId }}</td>
+                    <td>{{ d.refNo || '-' }}</td>
+                    <td class="text-right font-medium">{{ d.amount | currency:'PKR ':'symbol':'1.0-2' }}</td>
+                    <td>
+                      <span class="status-badge" [ngClass]="'status-' + d.state.toLowerCase()">
+                        {{ d.state }}
+                      </span>
+                    </td>
+                    <td>{{ d.heldOn | date:'yyyy-MM-dd' }}</td>
+                    <td>{{ d.releasedOn ? (d.releasedOn | date:'yyyy-MM-dd') : '-' }}</td>
+                    <td>{{ d.forfeitedOn ? (d.forfeitedOn | date:'yyyy-MM-dd') : '-' }}</td>
+                    <td>{{ d.forfeitReason || '-' }}</td>
+                    <td>{{ d.notes || '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <button class="btn btn-outline" (click)="exportCustomerDetailExcel()" [disabled]="exportingDetail() || customerDetails().length === 0" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+          </svg>
+          {{ exportingDetail() ? 'Exporting...' : 'Export History (Excel)' }}
+        </button>
+        <button class="btn btn-primary" (click)="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}

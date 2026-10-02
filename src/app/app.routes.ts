@@ -40,7 +40,8 @@ export const routes: Routes = [
       { path: 'attendants', loadComponent: () => import('./pages/admin/attendant-management/attendant-management').then(m => m.AttendantManagement), canActivate: [adminGuard] },
       { path: 'biometric-users', loadComponent: () => import('./pages/admin/biometric-users/biometric-users').then(m => m.BiometricUsers), canActivate: [adminGuard] },
       { path: 'machine-users', redirectTo: 'biometric-users' },
-      { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
+            { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
+      { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]
   },
 

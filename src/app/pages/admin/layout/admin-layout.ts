@@ -44,7 +44,8 @@ export class AdminLayout {
     { route: '/admin/manage-spaces',  label: 'Manage Spaces',     icon: 'managespaces'    },
     { route: '/admin/attendants',     label: 'Attendants & Access', icon: 'users'         },
     { route: '/admin/biometric-users', label: 'Biometric Users',  icon: 'biometrics'      },
-    { route: '/admin/challan-validity', label: 'Challan Validity', icon: 'challan'        },
+        { route: '/admin/challan-validity', label: 'Challan Validity', icon: 'challan'        },
+    { route: '/admin/reports/security-deposits', label: 'Security Deposit Report', icon: 'reports' },
   ];
 
   constructor() {
