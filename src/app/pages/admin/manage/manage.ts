@@ -2816,6 +2816,9 @@ export class Manage implements OnInit {
         return this.formatChallanDisplay(item);
       }
       if (col.key === 'totalAmount') {
+        const backendAmt = item.initialPayable ?? item.InitialPayable;
+        if (backendAmt != null && Number(backendAmt) > 0) return Number(backendAmt);
+
         const payable = this.getChallanInitialPayable(item);
         if (payable > 0) return payable;
         const billedVal = item.totalPayable ?? item.currentCycleAmount ?? item.CurrentCycleAmount ?? item.firstCycleRent ?? item.FirstCycleRent;

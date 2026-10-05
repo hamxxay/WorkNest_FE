@@ -3288,11 +3288,11 @@
         <tbody>
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:10px 14px">
-              <strong>Base Room Rent</strong>
-              <div style="font-size:0.75rem;color:#64748b">Before discount & tax</div>
+              <strong>{{ isMeetingRoom(q) ? 'Booking Rent' : ('1st Cycle Advance Rent (' + getQuotationBillingMonths(q) + ' Month(s))') }}</strong>
+              <div style="font-size:0.75rem;color:#64748b">Advance rent for initial billed period (before discount & tax)</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              PKR {{ getQuotationTotalContract(q) | number:'1.0-0' }}
+              PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
             </td>
           </tr>
 
