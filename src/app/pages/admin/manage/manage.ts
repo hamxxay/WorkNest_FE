@@ -294,8 +294,10 @@ export class Manage implements OnInit {
   }
 
   get bookingTaxAmount(): number {
-    const baseRent = this.bookingBillingAmount;
-    const supportCharge = baseRent * 0.10;
+    if (this.isAdminMeetingRoom) {
+      return parseFloat((this.bookingSubtotal * 0.16).toFixed(2));
+    }
+    const supportCharge = 2000 * Math.max(1, Number(this.selectedAdminCapacity || 1)) * Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
 
@@ -2440,7 +2442,7 @@ export class Manage implements OnInit {
               billingDetails.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDepositAmount });
             }
             if (tax > 0) {
-              billingDetails.push({ feeType: 'TAX', description: 'Provincial Sales Tax (16% PST on 10% Support Services)', amount: tax });
+              billingDetails.push({ feeType: 'TAX', description: 'Provincial Sales Tax (16% PST on Support Services)', amount: tax });
             }
             if (discount > 0) {
               billingDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: discount });
@@ -2475,7 +2477,7 @@ export class Manage implements OnInit {
               securityDepositOverride: secDepositAmount,
               taxAmount: tax,
               taxAmountOnAdvanceRent: tax,
-              taxAmountOnContract: Math.round(Number(this.bookingSubtotal) * 0.10 * 0.16 * 100) / 100,
+              taxAmountOnContract: Math.round(2000 * (Number(this.selectedAdminCapacity) || 1) * Number(this.adminMonths || 12) * 0.16 * 100) / 100,
               bookingDetails: billingDetails,
               subtotalAmount: billingRentAmount,
               discountPercentage: Number(this.bookingDiscountPercentage || 0),
@@ -2494,7 +2496,7 @@ export class Manage implements OnInit {
               { feeType: 'RoomRent', description: `Meeting Room Rent`, amount: billingRentAmount }
             ];
             if (tax > 0) {
-              fullDetails.push({ feeType: 'TAX', description: 'Provincial Sales Tax (16% PST on 10% Support Services)', amount: tax });
+              fullDetails.push({ feeType: 'TAX', description: 'Provincial Sales Tax (16% PST)', amount: tax });
             }
             if (this.bookingDiscountAmount > 0) {
               fullDetails.push({ feeType: 'DISCOUNT', description: 'Discount', amount: this.bookingDiscountAmount });
@@ -2817,6 +2819,9 @@ export class Manage implements OnInit {
         return this.formatChallanDisplay(item);
       }
       if (col.key === 'totalAmount') {
+        const backendAmt = item.initialPayable ?? item.InitialPayable;
+        if (backendAmt != null && Number(backendAmt) > 0) return Number(backendAmt);
+
         const payable = this.getChallanInitialPayable(item);
         if (payable > 0) return payable;
         const billedVal = item.totalPayable ?? item.currentCycleAmount ?? item.CurrentCycleAmount ?? item.firstCycleRent ?? item.FirstCycleRent;
@@ -6278,29 +6283,72 @@ export class Manage implements OnInit {
     return baseDeposit;
   }
 
+  getChallanSupportCharges(c: any): number {
+    if (!c || this.isMeetingRoom(c)) return 0;
+    const rate = Number(c.perSeatSupportRate ?? c.PerSeatSupportRate ?? 2000);
+    let cap = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
+    if (!cap && c.spaceName) {
+      const match = String(c.spaceName).match(/\((\d+)\)/);
+      if (match && match[1]) cap = Number(match[1]);
+    }
+    const capacity = cap > 0 ? cap : 1;
+    const billingM = this.getChallanBillingMonths(c);
+    const billingMonths = billingM > 0 ? billingM : 3;
+    return rate * capacity * billingMonths;
+  }
+
   getChallanTaxAmount(c: any): number {
     if (!c) return 0;
-    if (c.taxAmount !== undefined && c.taxAmount !== null && Number(c.taxAmount) > 0 && !this.isMeetingRoom(c)) {
-      return Number(c.taxAmount);
+    if (this.isMeetingRoom(c)) {
+      const cycleRent = this.getChallanFirstCycleRent(c);
+      return Math.round(cycleRent * 0.16 * 100) / 100;
     }
-    const cycleRent = this.getChallanFirstCycleRent(c);
-    const supportServices = cycleRent * 0.10;
-    return Math.round(supportServices * 0.16 * 100) / 100;
+    const supportServices = this.getChallanSupportCharges(c);
+    const taxRate = Number(c.appliedTaxPercentage ?? c.AppliedTaxPercentage ?? 16);
+    return Math.round(supportServices * (taxRate / 100) * 100) / 100;
   }
 
   getChallanContractTaxAmount(c: any): number {
     if (!c || this.isMeetingRoom(c)) return 0;
-    const totalContract = this.getChallanTotalContract(c);
-    const supportServices = totalContract * 0.10;
-    return Math.round(supportServices * 0.16 * 100) / 100;
+    const rate = Number(c.perSeatSupportRate ?? c.PerSeatSupportRate ?? 2000);
+    let cap = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
+    if (!cap && c.spaceName) {
+      const match = String(c.spaceName).match(/\((\d+)\)/);
+      if (match && match[1]) cap = Number(match[1]);
+    }
+    const capacity = cap > 0 ? cap : 1;
+    const contractMonths = this.getChallanContractMonths(c);
+    const totalMonths = contractMonths > 0 ? contractMonths : 12;
+    const taxRate = Number(c.appliedTaxPercentage ?? c.AppliedTaxPercentage ?? 16);
+    const totalSupport = rate * capacity * totalMonths;
+    return Math.round(totalSupport * (taxRate / 100) * 100) / 100;
   }
+
+  getChallanFirstCycleDiscount(c: any): number {
+    if (!c) return 0;
+    const cycleRent = this.getChallanFirstCycleRent(c);
+    const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? 0);
+    if (discPct > 0) {
+      return Math.round(cycleRent * (discPct / 100) * 100) / 100;
+    }
+    const totalDisc = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
+    if (totalDisc > 0) {
+      return Math.min(cycleRent, totalDisc);
+    }
+    const discVal = Number(c.discountValue ?? c.DiscountValue ?? 0);
+    if (discVal > 0) {
+      return Math.min(cycleRent, discVal);
+    }
+    return 0;
+  }
+
 
   getChallanInitialPayable(c: any): number {
     if (!c) return 0;
     const cycleRent = this.getChallanFirstCycleRent(c);
     const deposit = this.getChallanSecurityDeposit(c);
     const tax = this.getChallanTaxAmount(c);
-    const discount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
+    const discount = this.getChallanFirstCycleDiscount(c);
     return Math.max(0, cycleRent + deposit + tax - discount);
   }
 
@@ -6446,12 +6494,6 @@ export class Manage implements OnInit {
 
   getQuotationSupportCharges(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    if (q.supportChargeAmount !== undefined && q.supportChargeAmount !== null && Number(q.supportChargeAmount) > 0) {
-      return Number(q.supportChargeAmount);
-    }
-    if (q.SupportChargeAmount !== undefined && q.SupportChargeAmount !== null && Number(q.SupportChargeAmount) > 0) {
-      return Number(q.SupportChargeAmount);
-    }
     let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
     if (!capacity && q.spaceName) {
       const match = String(q.spaceName).match(/\((\d+)\)/);
@@ -6469,12 +6511,6 @@ export class Manage implements OnInit {
       const base = Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
       return Math.round(base * 0.16 * 100) / 100;
     }
-    if (q.taxAmountOnAdvanceRent !== undefined && q.taxAmountOnAdvanceRent !== null && Number(q.taxAmountOnAdvanceRent) > 0) {
-      return Number(q.taxAmountOnAdvanceRent);
-    }
-    if (q.taxAmount !== undefined && q.taxAmount !== null && Number(q.taxAmount) > 0 && Number(q.taxAmount) < Number(this.getQuotationTotalContract(q))) {
-      return Number(q.taxAmount);
-    }
     const supportServices = this.getQuotationSupportCharges(q);
     const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
     return Math.round(supportServices * (taxPct / 100) * 100) / 100;
@@ -6482,9 +6518,6 @@ export class Manage implements OnInit {
 
   getQuotationContractTaxAmount(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    if (q.taxAmountOnContract !== undefined && q.taxAmountOnContract !== null && Number(q.taxAmountOnContract) > 0) {
-      return Number(q.taxAmountOnContract);
-    }
     let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
     if (!capacity && q.spaceName) {
       const match = String(q.spaceName).match(/\((\d+)\)/);
