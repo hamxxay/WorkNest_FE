@@ -2902,7 +2902,19 @@ export class Manage implements OnInit {
           'paid': 'Paid', 'partial': 'Partial', 'overdue': 'Overdue', 'challan expire': 'Overdue',
           'cancelled': 'Cancelled', 'un paid': 'Unpaid', 'unpaid': 'Unpaid'
         };
-        return map[label] ?? (label ? label.replace(/\b\w/g, c => c.toUpperCase()) : 'Unpaid');
+        let status = map[label];
+        if (!status) {
+          // No recognised status (e.g. "Unknown"): work it out from the amounts.
+          const total = Number(item.grandTotal ?? item.GrandTotal ?? 0), paid = Number(item.paidTotal ?? item.PaidTotal ?? 0);
+          status = total > 0 && paid >= total ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
+        }
+        // Unpaid / part-paid past the due date reads as Overdue (same rule as the dashboard).
+        const due = item.dueOn ?? item.DueOn;
+        if ((status === 'Unpaid' || status === 'Partial') && due) {
+          const d = new Date(due); const today = new Date(); today.setHours(0, 0, 0, 0);
+          if (!isNaN(d.getTime()) && d < today) status = 'Overdue';
+        }
+        return status;
       }
     }
 
@@ -3725,12 +3737,13 @@ export class Manage implements OnInit {
       return;
     }
 
+    // WN_BookingStatuses: 3 Rejected, 5 Pending, 6 No Show, 33 Confirmed, 86 Cancelled
     const bookingStatusMap: Record<string, number> = {
-      'confirmed': 1, '1': 1,
-      'pending': 2, '2': 2,
-      'cancelled': 3, '3': 3,
-      'completed': 4, '4': 4,
-      'noshow': 5, 'no show': 5, '5': 5
+      'pending': 5, '5': 5, '1': 5,
+      'confirmed': 33, '33': 33, '2': 33,
+      'rejected': 3, '3': 3,
+      'noshow': 6, 'no show': 6, '6': 6,
+      'cancelled': 86, '86': 86
     };
     const paymentStatusMap: Record<string, number> = {
       'pending': 1, '1': 1,
@@ -4294,7 +4307,7 @@ export class Manage implements OnInit {
         },
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
-        statusOptions: ['Confirmed', 'Cancelled', 'Completed'],
+        statusOptions: ['Pending', 'Confirmed', 'No Show', 'Rejected', 'Cancelled'],
       };
 
       case 'pricing': return {
@@ -5513,6 +5526,8 @@ export class Manage implements OnInit {
       return;
     }
     this.selectedInitialInvoiceItem.set(item);
+    // Only the invoice opened right after a signed agreement is dated on that agreement; any other is dated today.
+    this.initialInvoiceIssuedOn.set(item.issuedOn ?? null);
     const targetEmail = item.customerEmail || item.userEmail || item.email || '';
     this.initialInvoiceRecipientEmail.set(targetEmail);
     this.showInitialInvoicePreviewModal = true;
@@ -5526,9 +5541,10 @@ export class Manage implements OnInit {
 
     this.sendingInitialInvoiceId.set(bookingId);
 
-    this.admin.sendInitialInvoice(bookingId).subscribe({
+    this.admin.sendInitialInvoice(bookingId, this.initialInvoiceIssuedOn()).subscribe({
       next: (res: any) => {
         this.sendingInitialInvoiceId.set(null);
+        this.initialInvoiceIssuedOn.set(null);
         this.showInitialInvoicePreviewModal = false;
         if (item) item.initialInvoiceSent = true;
         this.sentInitialInvoices.add(bookingId);
@@ -6958,6 +6974,82 @@ export class Manage implements OnInit {
         window.URL.revokeObjectURL(url);
       },
       error: () => this.showError('Failed to download agreement PDF.')
+    });
+  }
+
+  // ---------- Signed agreement received (one step: scan + date -> booking -> first invoice) ----------
+  signAgreementItem = signal<any | null>(null);
+  signFile = signal<File | null>(null);
+  signDate = signal<string>('');
+  signNote = signal<string>('');
+  signingAgreement = signal(false);
+  /** Date for the next initial invoice (the signed agreement's date); null = today. */
+  initialInvoiceIssuedOn = signal<string | null>(null);
+
+  todayIso(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  signMinDate(ag: any): string {
+    const sent = ag?.sentDate || ag?.SentDate;
+    return sent ? String(sent).slice(0, 10) : '';
+  }
+  signChallanAlreadyExpired(): boolean {
+    const d = this.signDate();
+    if (!d) return false;
+    const days = (new Date(this.todayIso()).getTime() - new Date(d).getTime()) / 86400000;
+    return days > 7;
+  }
+  openSignAgreement(item: any) {
+    this.signAgreementItem.set(item);
+    this.signFile.set(null);
+    this.signDate.set(this.todayIso());
+    this.signNote.set('');
+  }
+  closeSignAgreement() {
+    if (!this.signingAgreement()) this.signAgreementItem.set(null);
+  }
+  onSignFileChosen(event: any) {
+    const f: File | undefined = event?.target?.files?.[0];
+    if (f && f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
+      this.showError('Only PDF files are allowed.');
+      this.signFile.set(null);
+      return;
+    }
+    if (f && f.size > 10 * 1024 * 1024) {
+      this.showError('File size exceeds the 10MB limit.');
+      this.signFile.set(null);
+      return;
+    }
+    this.signFile.set(f ?? null);
+  }
+  submitSignAgreement() {
+    const ag = this.signAgreementItem();
+    const file = this.signFile();
+    const date = this.signDate();
+    if (!ag || !file || !date || this.signingAgreement()) return;
+    const id = Number(ag.id || ag.agreementId);
+    this.signingAgreement.set(true);
+    this.agreementSvc.signAgreement(id, file, date, this.signNote().trim() || undefined).subscribe({
+      next: (res: any) => {
+        this.signingAgreement.set(false);
+        this.signAgreementItem.set(null);
+        this.showSuccess(res?.message || 'Signed agreement saved and booking created.');
+        const bookingId = res?.data?.bookingId ?? res?.data?.BookingId;
+        this.load();
+        if (bookingId) {
+          // Next step: first invoice, dated on the agreement
+          this.sendInitialInvoice({
+            bookingId,
+            issuedOn: date,
+            customerEmail: ag.customerEmail || ag.CustomerEmail || ag.email || res?.data?.customerEmail || ''
+          });
+        }
+      },
+      error: (err: any) => {
+        this.signingAgreement.set(false);
+        this.showError(err?.error?.message || 'Could not save the signed agreement.');
+      }
     });
   }
 

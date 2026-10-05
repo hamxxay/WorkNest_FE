@@ -69,6 +69,15 @@ export class AgreementService {
     return this.http.post<any>(`${this.apiUrl}/${agreementId}/mark-signed`, req || {});
   }
 
+  /** Signed agreement came back: upload the scan + the date on it; creates the booking dated on that date. */
+  signAgreement(agreementId: number, file: File, signedDate: string, note?: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('signedDate', signedDate);
+    if (note) formData.append('note', note);
+    return this.http.post<any>(`${this.apiUrl}/${agreementId}/sign`, formData);
+  }
+
   uploadSignedAgreement(agreementId: number, file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file, file.name);

@@ -325,14 +325,6 @@
               </button>
               }
               @if (isQuotationAccepted(item)) {
-              <button class="action-btn approve" (click)="convertQuotationToBooking(item)" title="Convert to Booking"
-                style="background:#16a34a;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
-              </button>
               <button class="action-btn" (click)="openSendAgreement(item)" title="Send Legal Agreement"
                 style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -346,12 +338,9 @@
               }
               }
               @if (entity === 'agreements') {
-              <input type="file" [id]="'upload-signed-' + (item.id || item.agreementId)" accept="application/pdf" style="display:none"
-                (change)="onSignedAgreementFileSelected(item.id || item.agreementId, $event)" />
-              
-              <button class="action-btn" (click)="triggerSignedUpload(item.id || item.agreementId)"
-                [disabled]="uploadingSignedAgreementId() === (item.id || item.agreementId)"
-                title="Upload Signed Agreement (PDF)" style="background:#4f46e5;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
+              @if (!(item.bookingId || item.BookingId)) {
+              <button class="action-btn" (click)="openSignAgreement(item)"
+                title="Signed agreement received — upload it, date it, create the booking" style="background:#16a34a;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -359,6 +348,7 @@
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
               </button>
+              }
 
               <button class="action-btn info" (click)="openAgreementDetailsModal(item)" title="View Agreement & Uploaded Copy">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -391,16 +381,6 @@
               </button>
               }
 
-              @if ((item.status || item.Status || '').toLowerCase() === 'agreementsent' || (item.status || item.Status
-              || '').toLowerCase() === 'sent') {
-              <button class="action-btn approve" (click)="markAgreementSigned(item.id || item.agreementId)"
-                title="Mark Signed & Convert to Booking" style="background:#16a34a;color:#fff;border:none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </button>
-              }
               }
               @if (entity === 'spaces') {
               <button class="action-btn info" (click)="openSpaceDetails(item)" title="Space Details">
@@ -3395,6 +3375,7 @@
       <div style="font-size:0.82rem;color:#1e40af">
         Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>, <strong>Security Deposit</strong>,
         and <strong>Bank Payment Procedure</strong> directly to the customer.
+        @if (initialInvoiceIssuedOn()) { The invoice is dated <strong>{{ initialInvoiceIssuedOn() | date:'d MMM y' }}</strong> (the signed agreement's date). }
       </div>
     </div>
 
@@ -3893,6 +3874,50 @@
 </div>
 }
 <!-- Agreement Details & Signed Copy Modal -->
+@if (signAgreementItem(); as ag) {
+<div class="modal-overlay" (click)="closeSignAgreement()">
+  <div class="modal-card" style="max-width:520px" (click)="$event.stopPropagation()">
+    <div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0;font-size:1.05rem;font-weight:700">Signed agreement received</h3>
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ ag.customerName || ag.CustomerName || 'Customer' }} &middot; Agreement #{{ ag.id || ag.agreementId }}</div>
+      </div>
+      <button (click)="closeSignAgreement()" aria-label="Close" style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+      <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">
+        Upload the scanned signed agreement and enter the date written on it. This creates the booking dated on that day,
+        then issues the first invoice with the same date.
+      </p>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
+        Signed agreement (PDF, max 10 MB)
+        <input type="file" accept="application/pdf" (change)="onSignFileChosen($event)" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
+        Date on the signed agreement
+        <input type="date" [value]="signDate()" (input)="signDate.set($any($event.target).value)" [max]="todayIso()" [min]="signMinDate(ag)" />
+      </label>
+      @if (signChallanAlreadyExpired()) {
+      <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:0.8rem;line-height:1.5">
+        This date is more than 7 days ago, so the booking challan will already be expired. If it is not paid, door access
+        will be suspended at the next hourly check.
+      </div>
+      }
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
+        Note (optional)
+        <textarea rows="2" [value]="signNote()" (input)="signNote.set($any($event.target).value)" placeholder="e.g. Received by hand at reception"></textarea>
+      </label>
+    </div>
+    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn-admin btn-outline-admin" (click)="closeSignAgreement()" [disabled]="signingAgreement()">Cancel</button>
+      <button class="btn-admin btn-primary-admin" (click)="submitSignAgreement()" [disabled]="signingAgreement() || !signFile() || !signDate()">
+        {{ signingAgreement() ? 'Creating booking…' : 'Save & create booking' }}
+      </button>
+    </div>
+  </div>
+</div>
+}
+
 @if (showAgreementDetailsModal && selectedAgreementDetails(); as agreement) {
 <div class="modal-overlay" (click)="showAgreementDetailsModal = false">
   <div class="modal-content" (click)="$event.stopPropagation()"

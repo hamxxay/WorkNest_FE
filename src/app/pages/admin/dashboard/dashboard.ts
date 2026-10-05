@@ -103,6 +103,9 @@ export interface SpaceTypeExpiringDetail {
   bookingStatus: string;
 }
 
+/** Booking statuses that occupy a space (same set as the dashboard SQL): old 1 / 2, 5 Pending, 33 Confirmed. */
+const LIVE_BOOKING_STATUS_IDS = [1, 2, 5, 33];
+
 export interface SpaceTypeCardData {
   spaceTypeId: number;
   spaceTypeName: string;
@@ -376,7 +379,8 @@ export class Dashboard implements OnInit, OnDestroy {
         const isDeleted = b.isDeleted || b.IsDeleted || false;
         const statusId = b.bookingStatusId ?? b.BookingStatusId ?? b.statusId ?? b.StatusId;
         const statusStr = String(b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase();
-        const isCancelledOrDone = statusStr.includes('cancel') || statusStr.includes('reject') || statusStr.includes('complete');
+        const isCancelledOrDone = statusStr.includes('cancel') || statusStr.includes('reject') || statusStr.includes('complete')
+          || statusStr.includes('no show') || statusStr.includes('noshow');
         
         const startDateStr = b.startOn || b.StartOn || b.startDateTime || b.StartDateTime;
         const startDate = startDateStr ? new Date(startDateStr) : null;
@@ -386,8 +390,10 @@ export class Dashboard implements OnInit, OnDestroy {
         const sId = b.spaceId || b.SpaceId;
         if (!sId || isDeleted || isCancelledOrDone) return;
 
-        const isActiveBooking = (!statusId || statusId === 1 || statusId === 2) && endDate && endDate >= now && (!startDate || startDate <= now);
-        const isFutureBooking = (!statusId || statusId === 1 || statusId === 2) && startDate && startDate > now;
+        // Live = WN_BookingStatuses 5 Pending / 33 Confirmed, plus old 1 / 2 still on older rows.
+        const isLive = !statusId || LIVE_BOOKING_STATUS_IDS.includes(Number(statusId));
+        const isActiveBooking = isLive && endDate && endDate >= now && (!startDate || startDate <= now);
+        const isFutureBooking = isLive && startDate && startDate > now;
 
         if (isActiveBooking) {
           if (!spaceActiveBookingsMap.has(sId)) {

@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Admin Service
 // ============================================================
 // This service provides comprehensive API endpoints for admin operations.
@@ -322,8 +322,10 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/send-email`, {});
   }
 
-  sendInitialInvoice(bookingId: number): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/send-initial-invoice`, {});
+  sendInitialInvoice(bookingId: number, issuedOn?: string | null): Observable<ApiResponse<any>> {
+    // issuedOn (yyyy-MM-dd): the signed agreement's date — the first invoice is dated on it
+    const params: any = issuedOn ? { issuedOn } : {};
+    return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/send-initial-invoice`, {}, { params });
   }
 
   recordInvoicePayment(invoiceId: number, data: { paidAmount: number; paymentMethod: string; transactionRef?: string; notes?: string }): Observable<ApiResponse<any>> {

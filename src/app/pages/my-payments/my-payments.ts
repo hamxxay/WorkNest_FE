@@ -71,10 +71,13 @@ export class MyPayments implements OnInit {
   private normalizePayment(p: any): any {
     return {
       ...p,
-      paidAt:        this.parseDate(p.paidAt),
+      // API fields: paymentMethodLabel, challanValidUntil, paidOn, createdOn (older shapes kept as fallbacks)
+      paymentMethod: p.paymentMethod ?? p.paymentMethodLabel ?? p.PaymentMethodLabel ?? null,
+      createdAt:     this.parseDate(p.createdAt ?? p.createdOn ?? p.CreatedOn),
+      paidAt:        this.parseDate(p.paidAt ?? p.paidOn ?? p.PaidOn),
       startDateTime: this.parseDate(p.startDateTime),
       endDateTime:   this.parseDate(p.endDateTime),
-      validity:      this.parseDate(p.validity),
+      validity:      this.parseDate(p.validity ?? p.challanValidUntil ?? p.ChallanValidUntil),
       validityDate:  this.parseDate(p.validityDate),
     };
   }

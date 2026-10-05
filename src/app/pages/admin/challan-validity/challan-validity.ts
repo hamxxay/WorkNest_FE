@@ -35,11 +35,15 @@ export class ChallanValidity {
 
   private admin = inject(AdminService);
 
+  // WN_BookingStatuses (3, 5, 6, 33, 86) plus old 1 / 2 still on older bookings
   private readonly BOOKING_STATUS: Record<number, { label: string; cls: string }> = {
-    1: { label: 'Pending',   cls: 'pending' },
-    2: { label: 'Confirmed', cls: 'confirmed' },
-    3: { label: 'Cancelled', cls: 'cancelled' },
-    4: { label: 'Completed', cls: 'confirmed' },
+    1:  { label: 'Pending',   cls: 'pending' },
+    2:  { label: 'Confirmed', cls: 'confirmed' },
+    3:  { label: 'Rejected',  cls: 'cancelled' },
+    5:  { label: 'Pending',   cls: 'pending' },
+    6:  { label: 'No Show',   cls: 'cancelled' },
+    33: { label: 'Confirmed', cls: 'confirmed' },
+    86: { label: 'Cancelled', cls: 'cancelled' },
   };
 
   bookingStatusLabel(val: any): string {
