@@ -6283,9 +6283,6 @@ export class Manage implements OnInit {
 
   getChallanTaxAmount(c: any): number {
     if (!c) return 0;
-    if (c.taxAmount !== undefined && c.taxAmount !== null && Number(c.taxAmount) > 0 && !this.isMeetingRoom(c)) {
-      return Number(c.taxAmount);
-    }
     if (this.isMeetingRoom(c)) {
       const cycleRent = this.getChallanFirstCycleRent(c);
       return Math.round(cycleRent * 0.16 * 100) / 100;
@@ -6462,12 +6459,6 @@ export class Manage implements OnInit {
 
   getQuotationSupportCharges(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    if (q.supportChargeAmount !== undefined && q.supportChargeAmount !== null && Number(q.supportChargeAmount) > 0) {
-      return Number(q.supportChargeAmount);
-    }
-    if (q.SupportChargeAmount !== undefined && q.SupportChargeAmount !== null && Number(q.SupportChargeAmount) > 0) {
-      return Number(q.SupportChargeAmount);
-    }
     let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
     if (!capacity && q.spaceName) {
       const match = String(q.spaceName).match(/\((\d+)\)/);
@@ -6485,12 +6476,6 @@ export class Manage implements OnInit {
       const base = Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
       return Math.round(base * 0.16 * 100) / 100;
     }
-    if (q.taxAmountOnAdvanceRent !== undefined && q.taxAmountOnAdvanceRent !== null && Number(q.taxAmountOnAdvanceRent) > 0) {
-      return Number(q.taxAmountOnAdvanceRent);
-    }
-    if (q.taxAmount !== undefined && q.taxAmount !== null && Number(q.taxAmount) > 0 && Number(q.taxAmount) < Number(this.getQuotationTotalContract(q))) {
-      return Number(q.taxAmount);
-    }
     const supportServices = this.getQuotationSupportCharges(q);
     const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
     return Math.round(supportServices * (taxPct / 100) * 100) / 100;
@@ -6498,9 +6483,6 @@ export class Manage implements OnInit {
 
   getQuotationContractTaxAmount(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    if (q.taxAmountOnContract !== undefined && q.taxAmountOnContract !== null && Number(q.taxAmountOnContract) > 0) {
-      return Number(q.taxAmountOnContract);
-    }
     let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
     if (!capacity && q.spaceName) {
       const match = String(q.spaceName).match(/\((\d+)\)/);
