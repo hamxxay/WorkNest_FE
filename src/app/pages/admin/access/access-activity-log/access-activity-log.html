@@ -1,0 +1,149 @@
+<div class="access-page">
+  <div class="page-header">
+    <div>
+      <h2>Access Activity Log</h2>
+      <p class="subtitle">Who entered, where and how — plus machine and sync activity.</p>
+    </div>
+    <div class="header-actions">
+      @if (updatedAt()) { <span class="updated">Updated {{ updatedAt() | date:'h:mm:ss a' }}</span> }
+      <button class="btn btn-outline btn-sm" (click)="exportCsv()" [disabled]="!totalRows()">Export CSV</button>
+      <button class="btn btn-outline btn-sm" (click)="load()" [disabled]="loading()">{{ loading() ? 'Loading…' : 'Refresh' }}</button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="error-state">{{ error() }}</div> }
+
+  <div class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label>Show</label>
+        <select class="form-control" [ngModel]="mode()" (ngModelChange)="setMode($event)">
+          <option value="entries">Machine entries (who entered)</option>
+          <option value="system">Machine & sync activity</option>
+        </select>
+      </div>
+
+      @if (mode() === 'entries') {
+      <div class="field">
+        <label>Period</label>
+        <select class="form-control" [ngModel]="period()" (ngModelChange)="setPeriod($event)">
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="custom">Custom range…</option>
+        </select>
+      </div>
+      @if (period() === 'custom') {
+      <div class="field">
+        <label>From</label>
+        <input type="date" class="form-control" [ngModel]="customFrom()" (ngModelChange)="customFrom.set($event)">
+      </div>
+      <div class="field">
+        <label>To</label>
+        <input type="date" class="form-control" [ngModel]="customTo()" (ngModelChange)="customTo.set($event)">
+      </div>
+      <button class="btn btn-primary btn-sm" (click)="applyCustom()">Apply</button>
+      }
+      <div class="field">
+        <label>Machine</label>
+        <select class="form-control" [ngModel]="deviceId()" (ngModelChange)="setDevice($event)">
+          <option [ngValue]="null">All machines</option>
+          @for (d of devices(); track d.id) { <option [ngValue]="d.id">{{ d.name }}</option> }
+        </select>
+      </div>
+      <div class="field">
+        <label>Method</label>
+        <select class="form-control" [ngModel]="method()" (ngModelChange)="setMethod($event)">
+          <option value="all">All methods</option>
+          <option value="fingerprint">Fingerprint</option>
+          <option value="face">Face</option>
+          <option value="card">Card</option>
+          <option value="door">Door sensor</option>
+          <option value="remote">Remote unlock</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      }
+
+      <div class="field">
+        <label>Result</label>
+        <select class="form-control" [ngModel]="result()" (ngModelChange)="setResult($event)">
+          <option value="all">All results</option>
+          <option value="ok">{{ mode() === 'entries' ? 'Granted' : 'OK' }}</option>
+          <option value="denied">{{ mode() === 'entries' ? 'Denied' : 'Failed' }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Search</label>
+        <input class="form-control search" placeholder="Name, #, machine, card…" [ngModel]="search()" (ngModelChange)="setSearch($event)">
+      </div>
+      @if (hasFilters()) { <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button> }
+    </div>
+
+    <div class="table-wrap">
+      @if (mode() === 'entries') {
+      <table class="data-table">
+        <thead>
+          <tr><th>Time</th><th>Person</th><th>Machine</th><th>Method</th><th>Event</th></tr>
+        </thead>
+        <tbody>
+          @for (e of pagedEvents(); track e.id) {
+          <tr>
+            <td>{{ relStamp(e.time) }}</td>
+            <td>
+              <div class="person">
+                <span class="avatar" [class.muted]="!e.name">{{ initials(e.name) }}</span>
+                <div>
+                  <div class="person-name">{{ e.name || (e.employeeNo ? 'User #' + e.employeeNo : (e.method === 'door' ? 'Door sensor' : 'Unregistered')) }}</div>
+                  @if (e.employeeNo) { <div class="person-sub">#{{ e.employeeNo }}</div> }
+                </div>
+              </div>
+            </td>
+            <td>{{ e.device }}</td>
+            <td>
+              <span class="method" [class]="'method-' + e.method">{{ methodLabels[e.method] }}</span>
+              @if (e.cardNo) { <div class="person-sub">card {{ e.cardNo }}</div> }
+            </td>
+            <td><span class="badge" [class.badge-ok]="!e.isDenied" [class.badge-bad]="e.isDenied">{{ e.label }}</span></td>
+          </tr>
+          } @empty {
+          <tr><td colspan="5"><div class="empty-state">{{ loading() ? 'Loading…' : 'No access events found' }}</div></td></tr>
+          }
+        </tbody>
+      </table>
+      } @else {
+      <table class="data-table">
+        <thead>
+          <tr><th>Time</th><th>Member</th><th>Machine</th><th>Action</th><th>Result</th><th>Detail</th></tr>
+        </thead>
+        <tbody>
+          @for (a of pagedActivity(); track a.id) {
+          <tr>
+            <td>{{ relStamp(a.time) }}</td>
+            <td>{{ a.employeeName || '—' }}</td>
+            <td>{{ a.deviceName || '—' }}</td>
+            <td>{{ prettyAction(a.action) }}</td>
+            <td><span class="badge" [class.badge-ok]="a.ok" [class.badge-bad]="!a.ok">{{ a.ok ? 'OK' : 'Failed' }}</span></td>
+            <td class="person-sub" [title]="a.detail || ''">{{ shortDetail(a.detail) }}</td>
+          </tr>
+          } @empty {
+          <tr><td colspan="6"><div class="empty-state">{{ loading() ? 'Loading…' : 'No activity recorded' }}</div></td></tr>
+          }
+        </tbody>
+      </table>
+      }
+    </div>
+
+    @if (totalRows() > pageSize) {
+    <div class="pager">
+      <span>{{ (page() - 1) * pageSize + 1 }}–{{ page() * pageSize < totalRows() ? page() * pageSize : totalRows() }} of {{ totalRows() }}</span>
+      <div class="header-actions">
+        <button class="btn btn-outline btn-sm" (click)="prevPage()" [disabled]="page() === 1">Previous</button>
+        <span>Page {{ page() }} / {{ totalPages() }}</span>
+        <button class="btn btn-outline btn-sm" (click)="nextPage()" [disabled]="page() >= totalPages()">Next</button>
+      </div>
+    </div>
+    }
+  </div>
+</div>

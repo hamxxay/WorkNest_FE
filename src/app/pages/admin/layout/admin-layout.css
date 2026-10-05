@@ -69,6 +69,13 @@
   gap: 2px;
 }
 
+/* Thin dark scrollbar so a long menu doesn't show a light browser scrollbar on the dark sidebar */
+.sidebar-nav { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: #475569; }
+
 .nav-label {
   font-size: 0.65rem;
   font-weight: 600;

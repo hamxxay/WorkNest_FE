@@ -1,0 +1,207 @@
+<div class="access-page">
+  <div class="page-header">
+    <div>
+      <h2>Access Analytics</h2>
+      <p class="subtitle">Traffic, peak hours and door usage from the permanent entry archive.</p>
+    </div>
+    <div class="header-actions">
+      <div class="field">
+        <label>Period</label>
+        <select class="form-control" [ngModel]="period()" (ngModelChange)="setPeriod($event)">
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="custom">Custom range…</option>
+        </select>
+      </div>
+      @if (period() === 'custom') {
+      <div class="field">
+        <label>From</label>
+        <input type="date" class="form-control" [ngModel]="customFrom()" (ngModelChange)="customFrom.set($event)">
+      </div>
+      <div class="field">
+        <label>To</label>
+        <input type="date" class="form-control" [ngModel]="customTo()" (ngModelChange)="customTo.set($event)">
+      </div>
+      <button class="btn btn-primary btn-sm align-end" (click)="load()">Apply</button>
+      }
+    </div>
+  </div>
+
+  @if (error()) { <div class="error-state">{{ error() }}</div> }
+
+  @if (data(); as d) {
+  <p class="range-hint">Showing {{ rangeText() }}{{ loading() ? ' · refreshing…' : '' }}</p>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Entries</div>
+      <div class="kpi-value">{{ d.totalEvents }}</div>
+      <div class="kpi-hint">door events recorded</div>
+    </div>
+    <div class="kpi good">
+      <div class="kpi-label">Unique People</div>
+      <div class="kpi-value">{{ d.uniquePeople }}</div>
+      <div class="kpi-hint">identified members</div>
+    </div>
+    <div class="kpi warn">
+      <div class="kpi-label">Peak Hour</div>
+      <div class="kpi-value small">{{ d.peakHourLabel }}</div>
+      <div class="kpi-hint">{{ d.peakHourCount }} scans</div>
+    </div>
+    <div class="kpi" [class.bad]="d.denied > 0">
+      <div class="kpi-label">Denied</div>
+      <div class="kpi-value">{{ d.denied }}</div>
+      <div class="kpi-hint">{{ d.totalEvents ? ((d.denied / d.totalEvents) * 100 | number:'1.0-1') : 0 }}% of entries</div>
+    </div>
+    <div class="kpi" [class.good]="d.devicesOnline === d.devicesCount" [class.warn]="d.devicesOnline < d.devicesCount">
+      <div class="kpi-label">Active Doors</div>
+      <div class="kpi-value">{{ d.devicesOnline }} / {{ d.devicesCount }}</div>
+      <div class="kpi-hint">online terminals</div>
+    </div>
+  </div>
+  } @else if (loading()) {
+  <div class="empty-state">Loading analytics…</div>
+  }
+
+  <!-- Charts: canvases stay mounted so they can be created on first load -->
+  <div [hidden]="!data()">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header-row"><h3 class="card-title">Hourly Traffic Distribution</h3></div>
+        <div class="chart-box"><canvas #hourlyCanvas></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header-row"><h3 class="card-title">Door & Terminal Utilization</h3></div>
+        <div class="donut-wrap">
+          <div class="chart-box sm"><canvas #doorsCanvas></canvas></div>
+          <div class="donut-center">
+            <strong>{{ data()?.totalEvents || 0 }}</strong>
+            <span>Total scans</span>
+          </div>
+        </div>
+        @for (door of topDoors(); track door.name; let i = $index) {
+        <div class="bar-row">
+          <div class="bar-row-head">
+            <span><span class="legend-dot" [style.background]="palette[i]"></span>{{ door.name }}</span>
+            <span class="person-sub">{{ door.count }} ({{ door.percent }}%)</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" [style.width.%]="door.percent" [style.background]="palette[i]"></div></div>
+        </div>
+        } @empty {
+        <div class="empty-state">No door activity in this period.</div>
+        }
+      </div>
+    </div>
+
+    <div class="card daily-card" [hidden]="!isMultiDay()">
+      <div class="card-header-row"><h3 class="card-title">Daily Trend</h3></div>
+      <div class="chart-box"><canvas #dailyCanvas></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header-row"><h3 class="card-title">Scans by User</h3><span class="card-sub">Top 10 · click for details</span></div>
+        @for (u of data()?.topUsers || []; track (u.employeeNo || '') + u.name) {
+        <div class="user-row" (click)="openUser(u)">
+          <span class="avatar">{{ initials(u.name) }}</span>
+          <div class="list-main">
+            <div class="bar-row-head">
+              <span class="list-title">{{ u.name || 'User #' + u.employeeNo }} @if (u.employeeNo) { <span class="person-sub">#{{ u.employeeNo }}</span> }</span>
+              <span class="person-sub">{{ u.count }} scans ({{ u.percent }}%)</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" [style.width.%]="u.percent"></div></div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+        } @empty {
+        <div class="empty-state">No identified users in this period.</div>
+        }
+      </div>
+      <div class="card">
+        <div class="card-header-row"><h3 class="card-title">Entry Methods</h3></div>
+        <div class="chart-box sm"><canvas #methodsCanvas></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- User drill-down -->
+@if (showUser()) {
+<div class="modal-backdrop" (click)="closeUser()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    @if (userLoading()) {
+    <div class="empty-state">Loading member activity…</div>
+    } @else if (user(); as u) {
+    <div class="modal-head">
+      <div class="person">
+        <span class="avatar lg">{{ initials(u.name) }}</span>
+        <div>
+          <h3>{{ u.name || 'Unknown member' }}</h3>
+          <div class="badge-row">
+            @if (u.employeeNo) { <span class="badge badge-muted">#{{ u.employeeNo }}</span> }
+            @if (u.status) { <span class="badge" [class.badge-ok]="u.status === 'active'" [class.badge-bad]="u.status !== 'active'">{{ u.status === 'active' ? 'Active' : 'Expired' }}</span> }
+            @if (u.room) { <span class="badge badge-muted">Room {{ u.room }}</span> }
+            <span class="badge badge-muted">{{ u.cardNo ? 'Card ' + u.cardNo : 'No card' }}</span>
+            @if (u.validEnd) { <span class="badge badge-warn">Valid until {{ u.validEnd.slice(0, 10) }}</span> }
+          </div>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeUser()" aria-label="Close">×</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Scans (period)</div>
+        <div class="kpi-value">{{ u.totalScans }}</div>
+        <div class="kpi-hint">{{ u.allTimeScans }} all-time</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Peak Hour</div>
+        <div class="kpi-value small">{{ u.peakHourLabel }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">First & Last Scan</div>
+        <div class="kpi-value small">{{ relStamp(u.firstScan) }} / {{ relStamp(u.lastScan) }}</div>
+      </div>
+    </div>
+
+    <div class="grid-2 even">
+      <div>
+        <h4 class="section-title">Doors used</h4>
+        @for (door of u.doors; track door.name) {
+        <div class="bar-row">
+          <div class="bar-row-head"><span>{{ door.name }}</span><span class="person-sub">{{ door.count }} ({{ door.percent }}%)</span></div>
+          <div class="bar-track"><div class="bar-fill" [style.width.%]="door.percent"></div></div>
+        </div>
+        } @empty {
+        <div class="empty-state">No scans in this period.</div>
+        }
+      </div>
+      <div>
+        <h4 class="section-title">Recent scans</h4>
+        <div class="table-wrap">
+          <table class="data-table">
+            <tbody>
+              @for (e of u.recentEvents; track e.id) {
+              <tr>
+                <td>{{ relStamp(e.time) }}</td>
+                <td>{{ e.device }}</td>
+                <td><span class="method" [class]="'method-' + e.method">{{ methodLabels[e.method] }}</span></td>
+                <td><span class="badge" [class.badge-ok]="!e.isDenied" [class.badge-bad]="e.isDenied">{{ e.isDenied ? 'Denied' : 'Granted' }}</span></td>
+              </tr>
+              } @empty {
+              <tr><td colspan="4"><div class="empty-state">No scans in this period.</div></td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    } @else {
+    <div class="empty-state">Could not load this member's activity.</div>
+    }
+  </div>
+</div>
+}

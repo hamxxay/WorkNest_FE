@@ -1,4 +1,4 @@
-<div class="Userainer">
+<div class="attendant-container">
   <div class="page-header">
     <div>
       <h2>User & Access Control</h2>
@@ -52,6 +52,131 @@
             User</button>
         </div>
 
+        @if (selectedBookingDetailId && upcomingSuspension(); as u) {
+        <div class="suspension-banner upcoming">
+          <div class="suspension-text">
+            <strong>Access will be disabled on {{ u.disableOn | date:'d MMM yyyy' }}{{ u.daysLeft <= 1 ? ' (tomorrow)' : ' (in ' + u.daysLeft + ' days)' }}.</strong>
+            <div>
+              {{ u.challan.type === 'Booking challan' ? 'Booking challan' : 'Challan' }} {{ u.challan.invoiceNumber }}
+              (PKR {{ u.challan.balanceDue | number:'1.0-0' }}) is unpaid. If it is not paid by {{ u.payBy | date:'d MMM yyyy' }},
+              door access for everyone in this booking is suspended automatically.
+            </div>
+          </div>
+        </div>
+        }
+
+        @if (selectedBookingDetailId && suspension(); as s) {
+        <div class="suspension-banner" [class.extended]="s.extended">
+          <div class="suspension-text">
+            @if (s.suspended) {
+            <strong>Access suspended — challan overdue.</strong>
+            } @else {
+            <strong>Temporary access until {{ s.overrideUntil }} — challan still unpaid.</strong>
+            }
+            <div>
+              @if (s.invoiceNumber) {
+              Challan {{ s.invoiceNumber }}{{ s.dueOn ? ' was due ' + s.dueOn : '' }}{{ s.balanceDue ? ' · balance PKR ' + (s.balanceDue | number:'1.0-0') : '' }}.
+              } @else {
+              {{ s.reason }}.
+              }
+              @if (s.suspended) { Door access for everyone in this booking is blocked until the challan is paid. }
+              @if (s.extended) { Extended by {{ s.overrideByEmail || 'staff' }}{{ s.overrideReason ? ' — ' + s.overrideReason : '' }}. If still unpaid after {{ s.overrideUntil }}, access is suspended again. }
+            </div>
+          </div>
+          <!-- Temporary access is only offered once access has actually been suspended (challan expired & unpaid) -->
+          <button class="btn btn-sm" [class.btn-warning]="s.suspended" [class.btn-outline]="!s.suspended" (click)="openExtendModal()">
+            {{ s.extended ? 'Change temporary access' : 'Temporary access' }}
+          </button>
+        </div>
+        }
+
+        @if (selectedBookingDetailId) {
+        <div class="challan-box">
+          <div class="challan-head">
+            <div>
+              <div class="machine-strip-title">Challans for this booking</div>
+              @if (challans()?.challanNumber) {
+              <small class="text-muted">Challan # {{ challans().challanNumber }}{{ challans().challanValidUntil ? ' · valid until ' + challans().challanValidUntil : '' }}</small>
+              }
+            </div>
+            @if (challans(); as c) {
+            <div class="challan-summary">
+              @if (c.overdueCount) { <span class="status-pill overdue">{{ c.overdueCount }} overdue</span> }
+              <span class="text-muted">Balance due</span>
+              <strong>PKR {{ c.totalBalanceDue | number:'1.0-0' }}</strong>
+            </div>
+            }
+          </div>
+          @if (challansLoading()) {
+          <div class="empty-state small">Loading challans…</div>
+          } @else if (!challans()?.challans?.length) {
+          <div class="empty-state small">No challans or invoices issued for this booking yet.</div>
+          } @else {
+          <div class="challan-table-wrap">
+            <table class="data-table challan-table">
+              <thead>
+                <tr>
+                  <th>Challan / Invoice</th>
+                  <th>Type</th>
+                  <th>Period</th>
+                  <th>Issued</th>
+                  <th>Due / Valid until</th>
+                  <th class="text-end">Total</th>
+                  <th class="text-end">Paid</th>
+                  <th class="text-end">Balance</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ch of challans().challans; track ch.id) {
+                <tr [class.row-overdue]="ch.isOverdue">
+                  <td><strong>{{ ch.invoiceNumber || ('#' + ch.id) }}</strong></td>
+                  <td>{{ ch.type }}</td>
+                  <td>{{ ch.periodStart && ch.periodEnd ? ch.periodStart + ' → ' + ch.periodEnd : '—' }}</td>
+                  <td>{{ ch.issuedOn || '—' }}</td>
+                  <td>{{ ch.dueOn || '—' }}</td>
+                  <td class="text-end">{{ ch.grandTotal | number:'1.0-0' }}</td>
+                  <td class="text-end">{{ ch.paidTotal | number:'1.0-0' }}</td>
+                  <td class="text-end">{{ ch.balanceDue | number:'1.0-0' }}</td>
+                  <td><span class="status-pill" [class.paid]="ch.status === 'Paid'" [class.partial]="ch.status === 'Partial'"
+                      [class.overdue]="ch.status === 'Overdue' || ch.status === 'Expired'" [class.unpaid]="ch.status === 'Unpaid'"
+                      [class.cancelled]="ch.status === 'Cancelled'" [title]="ch.status === 'Expired' ? 'Unpaid and past its valid-until date' : ''">{{ ch.status }}</span></td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          }
+        </div>
+        }
+
+        @if (selectedBookingDetailId && captureBlockedReason; as reason) {
+        <div class="machine-error">
+          <strong>Enrollment unavailable:</strong> {{ reason }}
+        </div>
+        }
+
+        @if (selectedBookingDetailId && bookingMachines().length) {
+        <div class="machine-strip">
+          <div class="machine-strip-title">Access machines for this space</div>
+          <div class="machine-chips">
+            @for (d of bookingMachines(); track d.id) {
+            <span class="machine-chip" [class.offline]="!d.online" [title]="d.online ? 'Online' : 'Offline'">
+              <span class="status-dot" [class.on]="d.online"></span>
+              {{ d.name }}
+              <small>{{ isRoomDevice(d) ? 'Room' : 'Entrance' }}{{ d.online ? '' : ' · offline' }}</small>
+            </span>
+            }
+          </div>
+          @if (offlineBookingMachines().length) {
+          <div class="machine-offline-note">
+            {{ offlineBookingMachines().length }} machine(s) offline: {{ offlineBookingMachines().map(m => m.name).join(', ') }}.
+            Enrollments for them are queued and applied automatically when they reconnect.
+          </div>
+          }
+        </div>
+        }
+
         @if (capacityInfo()) {
         <div class="capacity-box">
           <div class="cap-header">
@@ -63,7 +188,8 @@
           </div>
           <div class="batch-row">
             <span>Batch Space Access Switch:</span>
-            <input type="checkbox" [checked]="allAttendantsEnabled" (change)="toggleBatchAccess($event)">
+            <input type="checkbox" [checked]="allAttendantsEnabled" [disabled]="savingAccess()" (change)="toggleBatchAccess($event)"
+              title="Untick to block everyone in this space at the room + Entrance machines">
           </div>
         </div>
         }
@@ -71,7 +197,7 @@
         @if (!selectedBookingDetailId) {
         <div class="empty-state">Select a customer and room/space to manage attendants</div>
         } @else if (attendants().length === 0) {
-        <div class="empty-state">No Users assigned to this space yet. Click <strong>+ Add Attendant</strong> above.
+        <div class="empty-state">No Users assigned to this space yet. Click <strong>+ Add User</strong> above.
         </div>
         } @else {
         <table class="data-table">
@@ -91,6 +217,12 @@
               <td>
                 <strong>{{ a.name }}</strong><br>
                 <small class="text-muted">{{ a.personGuid.substring(0, 8) }}...</small>
+                @if (a.machineId) {
+                <small class="emp-no">Machine ID {{ a.machineId }}</small>
+                }
+                @if (a.hikPendingOps > 0) {
+                <small class="queued-tag" title="Waiting for offline machine(s) to reconnect">{{ a.hikPendingOps }} machine(s) pending sync</small>
+                }
               </td>
               <td>{{ a.idType }}: {{ a.idNumber }}</td>
               <td>{{ a.email }}<br><small class="text-muted">{{ a.phone }}</small></td>
@@ -102,10 +234,17 @@
                 }
               </td>
               <td>
-                <input type="checkbox" [checked]="a.isEnabled" (change)="toggleIndividualAccess(a, $event)">
+                <input type="checkbox" [checked]="a.isEnabled" [disabled]="savingAccess()" (change)="toggleIndividualAccess(a, $event)"
+                  [title]="a.isEnabled ? 'Access allowed — untick to block at the room + Entrance machines' : 'Blocked at the machines — tick to allow again'">
+                <small class="access-state" [class.blocked]="!a.isEnabled || suspension()?.suspended">{{ suspension()?.suspended ? 'Suspended' : (a.isEnabled ? 'Allowed' : 'Blocked') }}</small>
               </td>
               <td class="text-end">
-                <button class="btn btn-sm btn-danger" (click)="removeAttendant(a.personId)">Remove</button>
+                <div class="action-group">
+                  <button class="btn btn-sm btn-outline" [disabled]="!!captureBlockedReason" (click)="openEnrollModal(a, 'fingerprint')" title="Enroll fingerprint on a machine">Fingerprint</button>
+                  <button class="btn btn-sm btn-outline" [disabled]="!!captureBlockedReason" (click)="openEnrollModal(a, 'card')" title="Tag an RFID card on a machine">Card</button>
+                  <button class="btn btn-sm btn-outline" [disabled]="!!captureBlockedReason" (click)="openEnrollModal(a, 'face')" title="Enroll face on a machine">Face</button>
+                  <button class="btn btn-sm btn-danger" (click)="removeAttendant(a.personId)">Remove</button>
+                </div>
               </td>
             </tr>
             }
@@ -171,6 +310,138 @@
     <div class="modal-actions">
       <button class="btn btn-outline" (click)="closeAddModal()">Cancel</button>
       <button class="btn btn-primary" (click)="submitAddAttendant()">Proceed</button>
+    </div>
+  </div>
+</div>
+}
+
+<!-- Modal: Enroll Fingerprint / Card / Face (confirm prompt → capture on the booked room's machine) -->
+@if (showEnrollModal) {
+<div class="modal-backdrop">
+  <div class="modal-card" style="max-width: 520px;">
+    <h3>{{ enrollTitle }} — {{ enrollAttendant?.name }}</h3>
+
+    @if (captureBlockedReason; as reason) {
+    <div class="warning-alert">{{ reason }}</div>
+    } @else if (!enrollResult()) {
+    <div class="enroll-prompt">
+      @switch (enrollType) {
+      @case ('fingerprint') { <p>Ask <strong>{{ enrollAttendant?.name }}</strong> to go to <strong>{{ captureMachine()?.name }}</strong>. When you click <strong>OK</strong>, the machine will ask for a finger to be placed on its sensor.</p> }
+      @case ('card') {
+      <div class="mode-toggle">
+        <button type="button" class="pill" [class.active]="cardMode === 'tap'" (click)="cardMode = 'tap'" [disabled]="enrolling()">Tap on reader</button>
+        <button type="button" class="pill" [class.active]="cardMode === 'manual'" (click)="cardMode = 'manual'" [disabled]="enrolling()">Enter card number</button>
+      </div>
+      @if (cardMode === 'tap') {
+      <p>Hand the card to <strong>{{ enrollAttendant?.name }}</strong> at <strong>{{ captureMachine()?.name }}</strong>. When you click <strong>OK</strong>, tap the card on the machine's reader.</p>
+      } @else {
+      <div class="form-group">
+        <label>Card number</label>
+        <input type="text" class="form-control" [(ngModel)]="manualCardNo" placeholder="e.g. 1234567890" maxlength="32" [disabled]="enrolling()" (keyup.enter)="startEnroll()">
+      </div>
+      <p>When you click <strong>OK</strong>, this card number is assigned to <strong>{{ enrollAttendant?.name }}</strong>.</p>
+      }
+      }
+      @case ('face') { <p>Ask <strong>{{ enrollAttendant?.name }}</strong> to stand in front of <strong>{{ captureMachine()?.name }}</strong>. When you click <strong>OK</strong>, the machine will open its face-capture screen.</p> }
+      }
+      <p class="text-muted enroll-hint">
+        Access will be given on {{ captureMachine()?.name }} (booked room) and {{ entranceMachines().length }} Entrance machine(s).
+        @if (offlineBookingMachines().length) { Offline machines will be updated automatically when they reconnect. }
+      </p>
+    </div>
+
+    @if (enrollType === 'fingerprint') {
+    <div class="form-group">
+      <label>Finger slot</label>
+      <select class="form-control" [(ngModel)]="enrollFingerNo" [disabled]="enrolling()">
+        @for (n of fingerSlots; track n) {
+        <option [ngValue]="n">Finger {{ n }}</option>
+        }
+      </select>
+    </div>
+    }
+    }
+
+    @if (enrolling()) {
+    <div class="enroll-waiting">
+      <span class="spinner"></span>
+      <span>{{ enrollWaitingText }}</span>
+    </div>
+    }
+
+    @if (enrollResult(); as res) {
+    <div class="enroll-result" [class.failed]="!res.ok">
+      @if (res.ok) {
+      <strong>Enrolled successfully</strong>
+      } @else {
+      <strong>{{ res.error || 'Enrollment failed' }}</strong>
+      }
+      @if (res.machineId) { <div>Machine ID {{ res.machineId }}</div> }
+      @if (res.cardNo) { <div>Card #{{ res.cardNo }}</div> }
+      @if (res.quality) { <div>Fingerprint quality: {{ res.quality }}</div> }
+      @if (res.devices?.length) {
+      <ul class="device-results">
+        @for (r of res.devices; track r.deviceId) {
+        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.error) { — {{ r.error }} }</li>
+        }
+      </ul>
+      }
+    </div>
+    }
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" (click)="closeEnrollModal()" [disabled]="enrolling()">{{ enrollResult()?.ok ? 'Done' : 'Cancel' }}</button>
+      @if (!enrollResult()?.ok) {
+      <button class="btn btn-primary" (click)="startEnroll()" [disabled]="enrolling() || !!captureBlockedReason">
+        {{ enrolling() ? 'Waiting for machine…' : (enrollResult() ? 'Try Again' : 'OK') }}
+      </button>
+      }
+    </div>
+  </div>
+</div>
+}
+
+<!-- Modal: Extend access while the challan is unpaid -->
+@if (showExtendModal()) {
+<div class="modal-backdrop">
+  <div class="modal-card" style="max-width: 480px;">
+    <h3>Temporary Access</h3>
+    @if (!extendResult() || extendResult()?.error) {
+    <p class="text-muted enroll-hint">
+      Door access for this booking is restored temporarily until the date you choose, even though the challan is unpaid.
+      If it is still unpaid after that date, access is suspended again automatically.
+    </p>
+    <div class="form-group">
+      <label>Allow access until</label>
+      <input type="date" class="form-control" [(ngModel)]="extendUntil" [min]="todayIso" [disabled]="extending()">
+    </div>
+    <div class="form-group">
+      <label>Reason</label>
+      <textarea class="form-control" rows="3" maxlength="500" [(ngModel)]="extendReason" [disabled]="extending()"
+        placeholder="e.g. Customer promised payment by Friday — approved by manager"></textarea>
+    </div>
+    }
+    @if (extending()) {
+    <div class="enroll-waiting"><span class="spinner"></span><span>Restoring access on the machines…</span></div>
+    }
+    @if (extendResult(); as res) {
+    <div class="enroll-result" [class.failed]="!!res.error">
+      <strong>{{ res.error ? res.error : 'Temporary access given until ' + extendUntil }}</strong>
+      @if (!res.error && res.notEnrolled) { <div>{{ res.notEnrolled }} user(s) not enrolled on any machine yet.</div> }
+      @if (res.devices?.length) {
+      <ul class="device-results">
+        @for (r of res.devices; track $index) {
+        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.error) { — {{ r.error }} }</li>
+        }
+      </ul>
+      }
+    </div>
+    }
+    <div class="modal-actions">
+      <button class="btn btn-outline" (click)="closeExtendModal()" [disabled]="extending()">{{ extendResult() && !extendResult()?.error ? 'Done' : 'Cancel' }}</button>
+      @if (!extendResult() || extendResult()?.error) {
+      <button class="btn btn-warning" (click)="submitExtend()" [disabled]="extending()">{{ extending() ? 'Restoring access…' : 'Give Temporary Access' }}</button>
+      }
     </div>
   </div>
 </div>

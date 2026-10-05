@@ -17,6 +17,7 @@ export class AdminLayout {
   userRole = '';
 
   isSuperAdmin = false;
+  isAdmin = false;
   isSalesExecutive = false;
 
   public toastService = inject(ToastService);
@@ -43,7 +44,11 @@ export class AdminLayout {
     { route: '/admin/space-configuration', label: 'Space Config', icon: 'spaceconfig',  superAdminOnly: true },
     { route: '/admin/manage-spaces',  label: 'Manage Spaces',     icon: 'managespaces'    },
     { route: '/admin/attendants',     label: 'Attendants & Access', icon: 'users'         },
-    { route: '/admin/biometric-users', label: 'Biometric Users',  icon: 'biometrics'      },
+    { route: '/admin/biometric-users', label: 'Access Users',     icon: 'biometrics'      },
+    { route: '/admin/staff-access',        label: 'Staff Access',        icon: 'users' },
+    { route: '/admin/access-dashboard',    label: 'Access Dashboard',    icon: 'access-dashboard', adminOnly: true },
+    { route: '/admin/access-activity-log', label: 'Access Activity Log', icon: 'access-activity',  adminOnly: true },
+    { route: '/admin/access-analytics',    label: 'Access Analytics',    icon: 'access-analytics', adminOnly: true },
         { route: '/admin/challan-validity', label: 'Challan Validity', icon: 'challan'        },
     { route: '/admin/reports/security-deposits', label: 'Security Deposit Report', icon: 'reports' },
   ];
@@ -53,10 +58,11 @@ export class AdminLayout {
     this.userRole = u?.roles?.[0] ?? 'Admin';
     this.isSuperAdmin = this.auth.hasRole('super_admin');
     const isAdmin = this.auth.hasRole('admin');
+    this.isAdmin = isAdmin || this.isSuperAdmin;
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
+      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/staff-access', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
       this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
       if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
         this.router.navigate(['/admin/quotations']);

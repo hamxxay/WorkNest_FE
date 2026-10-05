@@ -81,6 +81,20 @@ function toDisplayName(s: string): string {
   return s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim();
 }
 
+/**
+ * Booking times are stored as Pakistan local wall-clock time (no timezone), the same as admin-created
+ * bookings and the access machines. toISOString() would shift them to UTC (5 hours earlier), so format
+ * the browser's local date/time instead.
+ */
+function toLocalDateTime(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function toLocalDate(d: Date): string {
+  return toLocalDateTime(d).slice(0, 10);
+}
+
 @Component({
   selector: 'app-booking',
   imports: [ReactiveFormsModule, RouterLink, DecimalPipe],
@@ -219,7 +233,7 @@ export class Booking implements OnInit {
   meetingSlots: { label: string; start: string; end: string; isLocked?: boolean }[] = [];
   selectedSlots = signal<Set<string>>(new Set());
 
-  readonly today = new Date().toISOString().split('T')[0];
+  readonly today = toLocalDate(new Date());
   private pendingTypeFilter = '';
 
   constructor(
@@ -521,8 +535,8 @@ export class Booking implements OnInit {
 
     this.bookingService.getSmartAvailableSpaces(
       CATEGORY_CODE_MAP[this.bookingCategory] ?? this.bookingCategory,
-      start.toISOString().slice(0, 19),
-      end.toISOString().slice(0, 19),
+      toLocalDateTime(start),
+      toLocalDateTime(end),
       cap
     ).subscribe({
       next: (res: any) => {
@@ -552,7 +566,7 @@ export class Booking implements OnInit {
     this.buildForm();
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = toLocalDate(tomorrow);
     this.bookingForm.patchValue({ startDate: tomorrowStr });
     if (preselectedCapacity) this.bookingForm.patchValue({ capacity: preselectedCapacity });
     this.loadExistingBookings();
@@ -715,10 +729,10 @@ export class Booking implements OnInit {
           spaceCategory:   this.bookingCategory,
           categoryCode:    CATEGORY_CODE_MAP[this.bookingCategory] ?? this.bookingCategory,
           spaceName:       `${spaceTypeName} (Auto-assigned)`,
-          startDateTime:   start.toISOString().slice(0, 19),
-          startOn:         start.toISOString().slice(0, 19),
-          endDateTime:     end.toISOString().slice(0, 19),
-          endOn:           end.toISOString().slice(0, 19),
+          startDateTime:   toLocalDateTime(start),
+          startOn:         toLocalDateTime(start),
+          endDateTime:     toLocalDateTime(end),
+          endOn:           toLocalDateTime(end),
           totalAmount:     breakdown?.total ?? 0,
           rentAmount:      breakdown?.final ?? 0,
           baseAmount:      breakdown?.base ?? 0,

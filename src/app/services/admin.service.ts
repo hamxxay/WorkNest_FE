@@ -521,6 +521,21 @@ export class AdminService {
   getHikvisionExport(): Observable<any[]> {
     return this.http.get<any[]>(`${this.api}/access-status/export`);
   }
+  // Long-running: the terminal waits for the finger / card / face before the request returns.
+  // Challans (invoices) of the booking behind a booked space.
+  getBookingChallans(bookingDetailId: number): Observable<any> {
+    return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/challans`);
+  }
+  // Challan-based access suspension for the booking behind a booked space.
+  getAccessSuspension(bookingDetailId: number): Observable<any> {
+    return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
+  }
+  extendAccessSuspension(bookingDetailId: number, data: { overrideUntil: string; reason: string }): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension/extend`, data);
+  }
+  enrollAttendantCredential(bookingDetailId: number, personId: number, type: 'fingerprint' | 'card' | 'face', data: any): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/attendants/${personId}/hik/${type}`, data);
+  }
   sendAgreement(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/agreements/send`, data);
   }
