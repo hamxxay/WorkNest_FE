@@ -2807,8 +2807,9 @@ export class Manage implements OnInit {
       if (col.key === 'bookingStatusLabel') {
         const st = item.bookingStatusLabel || item.bookingStatus || item.BookingStatus || item.status || item.Status;
         if (typeof st === 'number') {
-          const statusNames: Record<number, string> = { 1: 'Confirmed', 2: 'Pending', 3: 'Cancelled', 4: 'Completed' };
-          return statusNames[st] || 'Confirmed';
+          // WN_BookingStatuses: 3 Rejected, 5 Pending, 6 No Show, 33 Confirmed, 86 Cancelled (1 = old pending)
+          const statusNames: Record<number, string> = { 1: 'Pending', 3: 'Rejected', 5: 'Pending', 6: 'No Show', 33: 'Confirmed', 86: 'Cancelled' };
+          return statusNames[st] || 'Pending';
         }
         return st || 'Confirmed';
       }
