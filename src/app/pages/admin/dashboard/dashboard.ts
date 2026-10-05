@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, computed, inject } from '@angular/core';
+import { Component, signal, OnInit, OnDestroy, computed, inject } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +6,7 @@ import { AdminService } from '../../../services/admin.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { AuthService } from '../../../services/auth.service';
 import { AccessOverview } from './access-overview/access-overview';
+import { DashboardOverview } from './dashboard-overview/dashboard-overview';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
 
 export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
@@ -118,11 +119,11 @@ export interface SpaceTypeCardData {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview],
+  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview, DashboardOverview],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
-export class Dashboard implements OnInit {
+export class Dashboard implements OnInit, OnDestroy {
   private admin = inject(AdminService);
   private quotationService = inject(QuotationService);
   private router = inject(Router);
@@ -208,8 +209,67 @@ export class Dashboard implements OnInit {
   announcementFormError = signal<string>('');
   announcementFormSuccess = signal<string>('');
 
+  // ---------- Header: greeting, date, location, last updated ----------
+  readonly today = new Date();
+  refreshTick = signal(0);
+  lastUpdated = signal<Date | null>(null);
+  private nowTick = signal(Date.now());
+  private autoRefresh?: ReturnType<typeof setInterval>;
+  private clock?: ReturnType<typeof setInterval>;
+
+  greeting = computed(() => {
+    this.nowTick();
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  });
+
+  firstName = computed(() => {
+    const u = this.auth.user();
+    const raw = (u?.displayName || u?.email?.split('@')[0] || 'there').trim();
+    const first = raw.split(/[\s._-]+/)[0].replace(/\d+$/, '') || raw;
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  });
+
+  locationLabel = computed(() => {
+    const sel = this.selectedLocation();
+    if (!sel || sel === 'ALL') return 'All locations';
+    const loc = this.locationsList().find((l: any) => String(l.id ?? l.Id) === String(sel));
+    return (loc as any)?.name ?? (loc as any)?.Name ?? 'Your location';
+  });
+
+  updatedAgo = computed(() => {
+    const at = this.lastUpdated();
+    if (!at) return '';
+    const mins = Math.floor((this.nowTick() - at.getTime()) / 60000);
+    return mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  });
+
+  // Occupancy ring on the space-type cards
+  readonly ringLength = 2 * Math.PI * 21;
+  occPct(t: SpaceTypeCardData): number {
+    return t.totalSpaces > 0 ? Math.round((t.bookedCount / t.totalSpaces) * 100) : 0;
+  }
+  ringOffset(t: SpaceTypeCardData): number {
+    return this.ringLength * (1 - Math.min(100, this.occPct(t)) / 100);
+  }
+
   ngOnInit() {
     this.loadDashboardData();
+    this.loadAnnouncements();
+    // Keep the numbers current without a manual refresh.
+    this.autoRefresh = setInterval(() => this.refreshAll(true), 5 * 60 * 1000);
+    this.clock = setInterval(() => this.nowTick.set(Date.now()), 30 * 1000);
+  }
+
+  ngOnDestroy() {
+    if (this.autoRefresh) clearInterval(this.autoRefresh);
+    if (this.clock) clearInterval(this.clock);
+  }
+
+  /** Reload every section (header button + 5-minute auto refresh). */
+  refreshAll(silent = false) {
+    this.refreshTick.update(v => v + 1);
+    if (silent) this.loadFallbackData(); else this.loadDashboardData();
     this.loadAnnouncements();
   }
 
@@ -683,6 +743,8 @@ export class Dashboard implements OnInit {
 
       this.spaceTypeCards.set(cardList);
       this.loading.set(false);
+      this.lastUpdated.set(new Date());
+      this.nowTick.set(Date.now());
     });
   }
 

@@ -1456,3 +1456,68 @@
   margin-top: 12px;
   font-size: 0.92rem;
 }
+
+/* =====================================================================
+   Dashboard refresh — header, placeholders, rings, one card style
+   ===================================================================== */
+.ops-dashboard { max-width: 1600px; margin: 0 auto; overflow-x: hidden; }
+
+/* Header */
+.dash-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.dash-header h1 { margin: 0 0 6px; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: #0f172a; }
+.dash-meta { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: #64748b; font-size: 0.88rem; }
+.dot-sep { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; }
+.loc-chip { display: inline-flex; align-items: center; gap: 5px; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 10px; color: #334155; font-weight: 600; font-size: 0.8rem; }
+.loc-chip svg { color: #0d9488; }
+.dash-header-actions { display: flex; align-items: center; gap: 10px; }
+.updated { font-size: 0.8rem; color: #94a3b8; white-space: nowrap; }
+.icon-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; color: #334155; cursor: pointer; transition: border-color .15s, background .15s; }
+.icon-btn:hover:not(:disabled) { border-color: #94a3b8; background: #f8fafc; }
+.icon-btn:disabled { opacity: .6; cursor: default; }
+.btn-new-ann { height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 10px; border: none; background: #0d9488; color: #fff; font-weight: 600; font-size: 0.86rem; cursor: pointer; transition: background .15s, box-shadow .15s; }
+.btn-new-ann:hover { background: #0f766e; box-shadow: 0 6px 16px rgba(13, 148, 136, 0.25); }
+
+/* One card style across the page */
+.ops-dashboard .admin-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 22px 24px;
+  margin-bottom: 20px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.ops-dashboard .admin-card h3 { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
+.ops-dashboard .admin-card .summary-sub { font-size: 0.82rem; color: #64748b; margin: 0; }
+/* section pills inside cards add noise — the heading is enough */
+.ops-dashboard .admin-card .header-badge,
+.ops-dashboard .admin-card .section-tag-pill { display: none !important; }
+
+/* Placeholders while a section loads */
+.skeleton-block { display: flex; flex-direction: column; gap: 12px; }
+.skeleton-block .sk { display: block; border-radius: 8px; background: linear-gradient(90deg, #eef2f6 25%, #f8fafc 37%, #eef2f6 63%); background-size: 400% 100%; animation: dash-shimmer 1.3s ease infinite; }
+.skeleton-block .sk-title { height: 16px; width: 220px; }
+.skeleton-block .sk-text { height: 11px; width: 380px; max-width: 80%; margin-bottom: 6px; }
+.skeleton-block .sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.skeleton-block .sk-tile { height: 120px; border-radius: 12px; }
+.skeleton-block .sk-row { height: 38px; }
+@keyframes dash-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* Occupancy ring on space-type cards */
+.occ-ring { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
+.occ-ring-track { fill: none; stroke: #e2e8f0; stroke-width: 6; }
+.occ-ring-fill { fill: none; stroke: #0d9488; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.occ-ring-fill.low { stroke: #f59e0b; }
+.occ-ring-fill.high { stroke: #10b981; }
+.occ-ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; color: #0f172a; }
+
+/* No sideways page scroll — wide tables scroll inside their card */
+.ops-dashboard .table-container,
+.ops-dashboard .dropdown-table-container { max-width: 100%; overflow-x: auto; }
+
+@media (max-width: 640px) {
+  .ops-dashboard { padding: 20px 14px; }
+  .dash-header h1 { font-size: 1.4rem; }
+  .dash-header-actions { width: 100%; }
+  .btn-new-ann { flex: 1; justify-content: center; }
+  .updated { display: none; }
+}

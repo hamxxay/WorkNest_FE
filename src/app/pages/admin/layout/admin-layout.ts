@@ -1,4 +1,4 @@
-﻿import { Component, inject } from '@angular/core';
+﻿import { Component, HostListener, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
@@ -13,7 +13,7 @@ export class AdminLayout {
   get boundLocationId(): number | null {
     return this.auth.getUser()?.locationId ?? null;
   }
-  sidebarCollapsed = false;
+  sidebarCollapsed = typeof window !== 'undefined' && window.innerWidth < 1280;
   userRole = '';
 
   isSuperAdmin = false;
@@ -71,6 +71,25 @@ export class AdminLayout {
   }
 
   toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; }
+
+  // Icon-only sidebar on smaller screens; the toggle still works, and the sidebar
+  // only auto-changes when the window crosses the breakpoint.
+  private static readonly COMPACT_WIDTH = 1280;
+  private wasCompact = typeof window !== 'undefined' && window.innerWidth < AdminLayout.COMPACT_WIDTH;
+
+  @HostListener('window:resize')
+  onResize() {
+    const compact = window.innerWidth < AdminLayout.COMPACT_WIDTH;
+    if (compact !== this.wasCompact) {
+      this.sidebarCollapsed = compact;
+      this.wasCompact = compact;
+    }
+  }
+
+  /** "super_admin" -> "Super Admin" */
+  get roleLabel(): string {
+    return (this.userRole || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
 
   getUserName(): string {
     return this.auth.getUser()?.email?.split('@')[0] ?? 'Admin';

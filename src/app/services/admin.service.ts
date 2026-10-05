@@ -530,6 +530,12 @@ export class AdminService {
   getAccessSuspension(bookingDetailId: number): Observable<any> {
     return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
   }
+  // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
+  getDashboardOverview(locationId?: number | null): Observable<any> {
+    const params: any = {};
+    if (locationId) params.locationId = locationId;
+    return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
+  }
   // Admin dashboard "Door access" card: machines, queued operations, suspended bookings.
   getAccessOverview(): Observable<any> {
     return this.http.get<any>(`${this.api}/access-suspensions/overview`);

@@ -1,186 +1,52 @@
-﻿<div class="admin-page ops-dashboard">
+<div class="admin-page ops-dashboard">
   <!-- Page Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-badge">Control Center</div>
-      <h1>Operations Control Center</h1>
-      <p class="subtitle">Real-time space inventory, shift-aware bookings, quotations, and upcoming lease expirations.
+  <div class="dash-header">
+    <div class="dash-header-text">
+      <h1>{{ greeting() }}, {{ firstName() }}</h1>
+      <p class="dash-meta">
+        <span>{{ today | date:'EEEE, d MMMM y' }}</span>
+        <span class="dot-sep"></span>
+        <span class="loc-chip">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          {{ locationLabel() }}
+        </span>
       </p>
     </div>
-    <div class="header-actions">
-      <button class="btn btn-refresh" (click)="loadDashboardData()" [disabled]="loading()">
+    <div class="dash-header-actions">
+      <span class="updated">
+        @if (loading()) { Updating… } @else if (lastUpdated()) { Updated {{ updatedAgo() }} }
+      </span>
+      <button class="icon-btn" (click)="refreshAll()" [disabled]="loading()" title="Refresh" aria-label="Refresh dashboard">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          [class.spin]="loading()">
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading()">
           <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
           <path d="M21 3v5h-5" />
         </svg>
-        Refresh Operations
+      </button>
+      <button class="btn-new-ann" (click)="openCreateAnnouncementModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5-5 18-4-6-9-7Z"/></svg>
+        New announcement
       </button>
     </div>
   </div>
 
-  @if (loading()) {
-  <div class="loading-spinner">
-    <div class="spinner"></div>
-    <p>Loading space operations control center...</p>
-  </div>
-  } @else {
+  <!-- Headline numbers, needs attention, 6-month trend -->
+  <app-dashboard-overview [locationId]="selectedLocation()" [refreshTick]="refreshTick()"></app-dashboard-overview>
+
   @if (canSeeAccess) {
   <app-access-overview></app-access-overview>
   }
 
-  <!-- ========================================================================= -->
-  <!-- ANNOUNCEMENTS & ALERTS DISPATCH CENTER                                    -->
-  <!-- ========================================================================= -->
-  <div class="admin-card announcements-card" style="margin-bottom:24px">
-    <div class="card-title-row">
-      <div>
-        <div class="header-badge" style="display:inline-block;margin-bottom:6px">Live Broadcast System</div>
-        <h3>Announcements & Urgent Alerts Center</h3>
-        <p class="summary-sub">Dispatch in-app push notifications and emails to all members, specific locations, spaces,
-          or custom recipient lists.</p>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button class="btn btn-sm btn-outline" (click)="loadAnnouncements()" [disabled]="announcementsLoading()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            [class.spin]="announcementsLoading()">
-            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-            <path d="M21 3v5h-5" />
-          </svg>
-          Refresh
-        </button>
-        <button class="btn btn-primary-gradient btn-sm" (click)="openCreateAnnouncementModal()"
-          style="display:flex;align-items:center;gap:6px">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m3 11 18-5-5 18-4-6-9-7Z" />
-            <path d="M14 13l-4 4" />
-          </svg>
-          + Create Announcement / Alert
-        </button>
-      </div>
-    </div>
 
-    <!-- Quick Metrics Summary -->
-    <div class="announcement-stats-strip">
-      <div class="ann-stat-box">
-        <span class="ann-stat-label">Total Broadcasts</span>
-        <span class="ann-stat-num">{{ announcementsTotalBroadcasts() }}</span>
-      </div>
-      <div class="ann-stat-box">
-        <span class="ann-stat-label">Delivered Messages</span>
-        <span class="ann-stat-num text-success">{{ announcementsTotalDelivered() }}</span>
-      </div>
-      <div class="ann-stat-box">
-        <span class="ann-stat-label">Mobile App Reads</span>
-        <span class="ann-stat-num" style="color:#60a5fa">{{ announcementsTotalRead() }}</span>
-      </div>
-      <div class="ann-stat-box">
-        <span class="ann-stat-label">Pending Queued</span>
-        <span class="ann-stat-num" style="color:#facc15">{{ announcementsTotalPending() }}</span>
-      </div>
-      @if (announcementsTotalFailed() > 0) {
-      <div class="ann-stat-box">
-        <span class="ann-stat-label">Failed Deliveries</span>
-        <span class="ann-stat-num" style="color:#f87171">{{ announcementsTotalFailed() }}</span>
-      </div>
-      }
+  @if (loading()) {
+  <div class="admin-card skeleton-block">
+    <span class="sk sk-title"></span>
+    <span class="sk sk-text"></span>
+    <div class="sk-grid">
+      @for (i of [1,2,3]; track i) { <span class="sk sk-tile"></span> }
     </div>
-
-    <!-- Announcements Table -->
-    @if (announcementsLoading() && announcementsList().length === 0) {
-    <div class="loading-spinner" style="padding:40px 0">
-      <div class="spinner"></div>
-      <p>Loading announcements and delivery records...</p>
-    </div>
-    } @else if (announcementsList().length === 0) {
-    <div class="empty-state">
-      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m3 11 18-5-5 18-4-6-9-7Z" />
-        <path d="M14 13l-4 4" />
-      </svg>
-      <p>No announcements or alerts broadcasted yet. Click "+ Create Announcement / Alert" to dispatch your first
-        message.</p>
-    </div>
-    } @else {
-    <div class="table-container">
-      <table class="clean-table">
-        <thead>
-          <tr>
-            <th>Title & Message</th>
-            <th>Type</th>
-            <th>Target Scope</th>
-            <th>Status</th>
-            <th>Delivery Stats</th>
-            <th>Created / Scheduled</th>
-            <th class="text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (ann of announcementsList(); track ann.id) {
-          <tr>
-            <td style="max-width:280px">
-              <strong class="space-title">{{ ann.title }}</strong>
-              <div class="ann-body-preview">{{ ann.body }}</div>
-            </td>
-            <td>
-              <span class="type-badge" [class.badge-alert]="ann.type === 'Alert'"
-                [class.badge-ann]="ann.type === 'Announcement'">
-                <span class="badge-dot"></span>
-                {{ ann.type }}
-              </span>
-            </td>
-            <td>
-              <div class="scope-tag">
-                <span class="scope-name">{{ ann.targetScope }}</span>
-                @if (ann.targetScope === 'Location' && ann.locationName) {
-                <span class="scope-sub">{{ ann.locationName }}</span>
-                }
-                @if (ann.targetScope === 'Space' && ann.spaceName) {
-                <span class="scope-sub">{{ ann.spaceName }}</span>
-                }
-              </div>
-            </td>
-            <td>
-              <span class="status-badge" [class]="'badge-' + (ann.status || 'draft').toLowerCase()">
-                <span class="badge-dot"></span>
-                {{ ann.status }}
-              </span>
-            </td>
-            <td>
-              <div class="delivery-mini-stats">
-                <span class="pill-stat pill-sent" title="Successfully Delivered">✓ {{ ann.sentCount }}</span>
-                <span class="pill-stat pill-read" title="Read in Mobile App">👁 {{ ann.readCount }}</span>
-                @if (ann.failedCount > 0) {
-                <span class="pill-stat pill-failed" title="Failed Deliveries">✕ {{ ann.failedCount }}</span>
-                }
-                @if (ann.pendingCount > 0) {
-                <span class="pill-stat pill-pending" title="Pending in Queue">⏳ {{ ann.pendingCount }}</span>
-                }
-              </div>
-            </td>
-            <td>
-              <div style="font-size:0.85rem">{{ ann.createdAt | date:'short' }}</div>
-              @if (ann.scheduledAt) {
-              <div style="font-size:0.75rem;color:#94a3b8">Sched: {{ ann.scheduledAt | date:'short' }}</div>
-              }
-            </td>
-            <td class="text-right">
-              <button class="btn-sm btn-quote" (click)="viewAnnouncementDetail(ann)">
-                Stats & Recipients
-              </button>
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    }
   </div>
-
+  } @else {
   <!-- ========================================================================= -->
   <!-- WIDGET 1: SPACE TYPES CAPACITY & OCCUPANCY (Space Category Intelligence) -->
   <!-- ========================================================================= -->
@@ -221,8 +87,13 @@
               <span class="widget-spaces-count">{{ t.totalSpaces }} Space{{ t.totalSpaces === 1 ? '' : 's' }}</span>
             </div>
           </div>
-          <div class="widget-total-badge">
-            Total: <strong>{{ t.totalSpaces }}</strong>
+          <div class="occ-ring" [title]="t.bookedCount + ' of ' + t.totalSpaces + ' booked'">
+            <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
+              <circle cx="26" cy="26" r="21" class="occ-ring-track" />
+              <circle cx="26" cy="26" r="21" class="occ-ring-fill" [class.low]="occPct(t) < 40" [class.high]="occPct(t) >= 80"
+                [attr.stroke-dasharray]="ringLength" [attr.stroke-dashoffset]="ringOffset(t)" transform="rotate(-90 26 26)" />
+            </svg>
+            <span class="occ-ring-label">{{ occPct(t) }}%</span>
           </div>
         </div>
 
@@ -548,6 +419,15 @@
     }
   </div>
 
+  }
+
+  @if (loading()) {
+  <div class="admin-card skeleton-block">
+    <span class="sk sk-title"></span>
+    <span class="sk sk-text"></span>
+    @for (i of [1,2,3,4,5]; track i) { <span class="sk sk-row"></span> }
+  </div>
+  } @else {
   <!-- ========================================================================= -->
   <!-- WIDGET 2: SPACE OPERATIONS & INVENTORY TABLE                             -->
   <!-- ========================================================================= -->
@@ -808,6 +688,197 @@
     </div>
     }
   </div>
+
+  }
+
+  <!-- ========================================================================= -->
+  <!-- ANNOUNCEMENTS & ALERTS DISPATCH CENTER                                    -->
+  <!-- ========================================================================= -->
+  <div class="admin-card announcements-card" style="margin-bottom:24px">
+    <div class="card-title-row">
+      <div>
+        <div class="header-badge" style="display:inline-block;margin-bottom:6px">Live Broadcast System</div>
+        <h3>Announcements & Urgent Alerts Center</h3>
+        <p class="summary-sub">Dispatch in-app push notifications and emails to all members, specific locations, spaces,
+          or custom recipient lists.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-sm btn-outline" (click)="loadAnnouncements()" [disabled]="announcementsLoading()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            [class.spin]="announcementsLoading()">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+          Refresh
+        </button>
+        <button class="btn btn-primary-gradient btn-sm" (click)="openCreateAnnouncementModal()"
+          style="display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 11 18-5-5 18-4-6-9-7Z" />
+            <path d="M14 13l-4 4" />
+          </svg>
+          + Create Announcement / Alert
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Metrics Summary -->
+    <div class="announcement-stats-strip">
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Total Broadcasts</span>
+        <span class="ann-stat-num">{{ announcementsTotalBroadcasts() }}</span>
+      </div>
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Delivered Messages</span>
+        <span class="ann-stat-num text-success">{{ announcementsTotalDelivered() }}</span>
+      </div>
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Mobile App Reads</span>
+        <span class="ann-stat-num" style="color:#60a5fa">{{ announcementsTotalRead() }}</span>
+      </div>
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Pending Queued</span>
+        <span class="ann-stat-num" style="color:#facc15">{{ announcementsTotalPending() }}</span>
+      </div>
+      @if (announcementsTotalFailed() > 0) {
+      <div class="ann-stat-box">
+        <span class="ann-stat-label">Failed Deliveries</span>
+        <span class="ann-stat-num" style="color:#f87171">{{ announcementsTotalFailed() }}</span>
+      </div>
+      }
+    </div>
+
+    <!-- Announcements Table -->
+    @if (announcementsLoading() && announcementsList().length === 0) {
+    <div class="loading-spinner" style="padding:40px 0">
+      <div class="spinner"></div>
+      <p>Loading announcements and delivery records...</p>
+    </div>
+    } @else if (announcementsList().length === 0) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 11 18-5-5 18-4-6-9-7Z" />
+        <path d="M14 13l-4 4" />
+      </svg>
+      <p>No announcements or alerts broadcasted yet. Click "+ Create Announcement / Alert" to dispatch your first
+        message.</p>
+    </div>
+    } @else {
+    <div class="table-container">
+      <table class="clean-table">
+        <thead>
+          <tr>
+            <th>Title & Message</th>
+            <th>Type</th>
+            <th>Target Scope</th>
+            <th>Status</th>
+            <th>Delivery Stats</th>
+            <th>Created / Scheduled</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ann of announcementsList(); track ann.id) {
+          <tr>
+            <td style="max-width:280px">
+              <strong class="space-title">{{ ann.title }}</strong>
+              <div class="ann-body-preview">{{ ann.body }}</div>
+            </td>
+            <td>
+              <span class="type-badge" [class.badge-alert]="ann.type === 'Alert'"
+                [class.badge-ann]="ann.type === 'Announcement'">
+                <span class="badge-dot"></span>
+                {{ ann.type }}
+              </span>
+            </td>
+            <td>
+              <div class="scope-tag">
+                <span class="scope-name">{{ ann.targetScope }}</span>
+                @if (ann.targetScope === 'Location' && ann.locationName) {
+                <span class="scope-sub">{{ ann.locationName }}</span>
+                }
+                @if (ann.targetScope === 'Space' && ann.spaceName) {
+                <span class="scope-sub">{{ ann.spaceName }}</span>
+                }
+              </div>
+            </td>
+            <td>
+              <span class="status-badge" [class]="'badge-' + (ann.status || 'draft').toLowerCase()">
+                <span class="badge-dot"></span>
+                {{ ann.status }}
+              </span>
+            </td>
+            <td>
+              <div class="delivery-mini-stats">
+                <span class="pill-stat pill-sent" title="Successfully Delivered">✓ {{ ann.sentCount }}</span>
+                <span class="pill-stat pill-read" title="Read in Mobile App">👁 {{ ann.readCount }}</span>
+                @if (ann.failedCount > 0) {
+                <span class="pill-stat pill-failed" title="Failed Deliveries">✕ {{ ann.failedCount }}</span>
+                }
+                @if (ann.pendingCount > 0) {
+                <span class="pill-stat pill-pending" title="Pending in Queue">⏳ {{ ann.pendingCount }}</span>
+                }
+              </div>
+            </td>
+            <td>
+              <div style="font-size:0.85rem">{{ ann.createdAt | date:'short' }}</div>
+              @if (ann.scheduledAt) {
+              <div style="font-size:0.75rem;color:#94a3b8">Sched: {{ ann.scheduledAt | date:'short' }}</div>
+              }
+            </td>
+            <td class="text-right">
+              <button class="btn-sm btn-quote" (click)="viewAnnouncementDetail(ann)">
+                Stats & Recipients
+              </button>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </div>
+
+
+<!-- ========================================================================= -->
+<!-- FINANCIAL REPORTS & ANALYTICS SECTION                                     -->
+<!-- ========================================================================= -->
+<div class="admin-card" style="margin-bottom:24px">
+  <div class="card-title-row">
+    <div>
+      <div class="header-badge" style="display:inline-block;margin-bottom:6px">Financial Intelligence</div>
+      <h3>Reports & Analytics</h3>
+      <p class="summary-sub">Generate audit-ready statements and track security deposit lifecycle across customers.</p>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;margin-top:16px;">
+    <div
+      style="border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#f8fafc;display:flex;gap:14px;align-items:flex-start;">
+      <div
+        style="background:#e0e7ff;color:#4338ca;padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+      </div>
+      <div style="flex:1;">
+        <h4 style="margin:0 0 4px;font-size:15px;color:#0f172a;">Security Deposit Report</h4>
+        <p style="margin:0 0 14px;font-size:13px;color:#64748b;">Customer-wise balances, total received, refunds,
+          forfeitures, and Excel export.</p>
+        <a routerLink="/admin/reports/security-deposits" class="btn btn-sm btn-primary-gradient"
+          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:13px;text-decoration:none;">
+          Generate Report &rarr;
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: CREATE ANNOUNCEMENT / ALERT                                        -->
@@ -1093,41 +1164,4 @@
     </div>
   </div>
   }
-  }
-</div>
-<!-- ========================================================================= -->
-<!-- FINANCIAL REPORTS & ANALYTICS SECTION                                     -->
-<!-- ========================================================================= -->
-<div class="admin-card" style="margin-bottom:24px">
-  <div class="card-title-row">
-    <div>
-      <div class="header-badge" style="display:inline-block;margin-bottom:6px">Financial Intelligence</div>
-      <h3>Reports & Analytics</h3>
-      <p class="summary-sub">Generate audit-ready statements and track security deposit lifecycle across customers.</p>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;margin-top:16px;">
-    <div
-      style="border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#f8fafc;display:flex;gap:14px;align-items:flex-start;">
-      <div
-        style="background:#e0e7ff;color:#4338ca;padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect width="18" height="18" x="3" y="3" rx="2" />
-          <path d="M3 9h18" />
-          <path d="M9 21V9" />
-        </svg>
-      </div>
-      <div style="flex:1;">
-        <h4 style="margin:0 0 4px;font-size:15px;color:#0f172a;">Security Deposit Report</h4>
-        <p style="margin:0 0 14px;font-size:13px;color:#64748b;">Customer-wise balances, total received, refunds,
-          forfeitures, and Excel export.</p>
-        <a routerLink="/admin/reports/security-deposits" class="btn btn-sm btn-primary-gradient"
-          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:13px;text-decoration:none;">
-          Generate Report &rarr;
-        </a>
-      </div>
-    </div>
-  </div>
 </div>
