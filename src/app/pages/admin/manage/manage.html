@@ -3913,8 +3913,14 @@
         Upload the scanned signed agreement and enter the date written on it. This creates the booking dated on that day,
         then issues the first invoice with the same date.
       </p>
+      @if (customerCopyOnFile(ag)) {
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:8px;padding:10px 12px;font-size:0.82rem;line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span>The customer uploaded the signed copy on {{ (ag.signedPdfUploadedAt || ag.SignedPdfUploadedAt) | date:'d MMM y' }}. Check it before confirming.</span>
+        <button class="btn-admin btn-outline-admin" style="white-space:nowrap" (click)="downloadSignedAgreementPdf(ag.id || ag.agreementId)">View copy</button>
+      </div>
+      }
       <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
-        Signed agreement (PDF, max 10 MB)
+        {{ customerCopyOnFile(ag) ? 'Replace with another scan (optional)' : 'Signed agreement (PDF, max 10 MB)' }}
         <input type="file" accept="application/pdf" (change)="onSignFileChosen($event)" />
       </label>
       <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
@@ -3934,8 +3940,8 @@
     </div>
     <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
       <button class="btn-admin btn-outline-admin" (click)="closeSignAgreement()" [disabled]="signingAgreement()">Cancel</button>
-      <button class="btn-admin btn-primary-admin" (click)="submitSignAgreement()" [disabled]="signingAgreement() || !signFile() || !signDate()">
-        {{ signingAgreement() ? 'Creating booking…' : 'Save & create booking' }}
+      <button class="btn-admin btn-primary-admin" (click)="submitSignAgreement()" [disabled]="signingAgreement() || (!signFile() && !customerCopyOnFile(ag)) || !signDate()">
+        {{ signingAgreement() ? 'Creating booking…' : (customerCopyOnFile(ag) ? 'Verify & create booking' : 'Save & create booking') }}
       </button>
     </div>
   </div>

@@ -1,0 +1,88 @@
+<section class="my-agreements-section">
+  <div class="container">
+    <div class="section-header">
+      <h1>My Agreements</h1>
+      <p>Download your agreement, sign it, and upload the signed copy here. Your booking is confirmed once we verify it.</p>
+    </div>
+
+    @if (success()) { <div class="notice ok">{{ success() }}</div> }
+    @if (error() && uploadFor() === null) { <div class="notice err">{{ error() }}</div> }
+
+    @if (loading()) {
+      <div class="loading-spinner"><div class="spinner"></div><p>Loading your agreements...</p></div>
+    } @else if (items().length === 0) {
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <h3>No agreements yet</h3>
+        <p>When you accept a quotation, your agreement will appear here.</p>
+        <a routerLink="/my-quotations" class="btn-primary">View my quotations</a>
+      </div>
+    } @else {
+      <div class="agreement-list">
+        @for (a of items(); track id(a)) {
+          <article class="agreement-card">
+            <div class="card-top">
+              <div>
+                <h3>{{ a.spaceName || a.SpaceName || 'Workspace agreement' }}</h3>
+                <p class="meta">
+                  Agreement #{{ id(a) }}
+                  @if (a.sentDate || a.SentDate) { &middot; sent {{ (a.sentDate || a.SentDate) | date:'d MMM y' }} }
+                  @if (a.feeAmount || a.FeeAmount) { &middot; PKR {{ (a.feeAmount || a.FeeAmount) | number:'1.0-0' }} / month }
+                </p>
+              </div>
+              @switch (stage(a)) {
+                @case ('booked') { <span class="badge ok">Booking confirmed</span> }
+                @case ('review') { <span class="badge info">Signed copy received &middot; verifying</span> }
+                @case ('sign') { <span class="badge warn">Waiting for your signature</span> }
+                @default { <span class="badge">{{ a.status || a.Status }}</span> }
+              }
+            </div>
+
+            <ol class="steps">
+              <li class="done">Agreement sent</li>
+              <li [class.done]="stage(a) === 'review' || stage(a) === 'booked'" [class.current]="stage(a) === 'sign'">You sign &amp; upload</li>
+              <li [class.done]="stage(a) === 'booked'" [class.current]="stage(a) === 'review'">We verify</li>
+              <li [class.done]="stage(a) === 'booked'">Booking confirmed</li>
+            </ol>
+
+            @if (stage(a) === 'review' && (a.signedDate || a.SignedDate)) {
+              <p class="hint">You signed on {{ (a.signedDate || a.SignedDate) | date:'d MMMM y' }}. We'll confirm your booking after checking it.</p>
+            }
+
+            <div class="actions">
+              <button class="btn-outline" (click)="download(a)" [disabled]="busyDownload() === id(a)">Download agreement</button>
+              @if (a.hasSignedCopy || a.HasSignedCopy) {
+                <button class="btn-outline" (click)="download(a, true)" [disabled]="busyDownload() === id(a)">My signed copy</button>
+              }
+              @if (stage(a) === 'sign' || stage(a) === 'review') {
+                <button class="btn-primary" (click)="openUpload(a)">
+                  {{ stage(a) === 'review' ? 'Replace signed copy' : 'Upload signed agreement' }}
+                </button>
+              }
+            </div>
+
+            @if (uploadFor() === id(a)) {
+              <div class="upload-panel">
+                <label>
+                  <span>Signed agreement (PDF, up to 10 MB)</span>
+                  <input type="file" accept="application/pdf" (change)="onFile($event)" />
+                </label>
+                <label>
+                  <span>Date you signed it</span>
+                  <input type="date" [value]="signedDate()" (input)="signedDate.set($any($event.target).value)" [max]="todayIso()" [min]="minDate(a)" />
+                </label>
+                @if (error()) { <div class="notice err">{{ error() }}</div> }
+                <div class="actions">
+                  <button class="btn-outline" (click)="cancelUpload()" [disabled]="uploading()">Cancel</button>
+                  <button class="btn-primary" (click)="submit()" [disabled]="uploading() || !file() || !signedDate()">
+                    {{ uploading() ? 'Uploading…' : 'Submit signed agreement' }}
+                  </button>
+                </div>
+              </div>
+            }
+          </article>
+        }
+      </div>
+    }
+  </div>
+</section>

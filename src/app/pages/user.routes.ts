@@ -39,6 +39,11 @@ export const USER_ROUTES: Routes = [
     canActivate: [authGuard, userGuard]
   },
   {
+    path: 'my-agreements',
+    loadComponent: () => import('./my-agreements/my-agreements').then(m => m.MyAgreements),
+    canActivate: [authGuard, userGuard]
+  },
+  {
     path: 'my-quotations',
     loadComponent: () => import('./my-quotations/my-quotations').then(m => m.MyQuotations),
     canActivate: [authGuard, userGuard]
@@ -48,4 +53,4 @@ export const USER_ROUTES: Routes = [
     loadComponent: () => import('./my-quotations/my-quotations').then(m => m.MyQuotations)
   }
 ];
-
+

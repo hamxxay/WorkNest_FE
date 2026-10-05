@@ -2743,7 +2743,12 @@ export class Manage implements OnInit {
         return item.contractEndDate || item.ContractEndDate || item.endDate || item.EndDate || '';
       }
       if (col.key === 'status') {
-        return item.status || item.Status || 'AgreementSent';
+        const st = String(item.status || item.Status || 'AgreementSent');
+        const labels: Record<string, string> = {
+          agreementsent: 'Sent', sent: 'Sent', signeduploaded: 'Signed copy received — verify',
+          emailfailed: 'Email failed — resend', signed: 'Signed', converted: 'Signed'
+        };
+        return (item.bookingId || item.BookingId) ? 'Signed · booking created' : (labels[st.toLowerCase()] ?? st);
       }
       if (col.key === 'createdOn') {
         return item.sentDate || item.SentDate || item.createdOn || item.CreatedOn || item.createdAt || item.CreatedAt || '';
@@ -7033,10 +7038,16 @@ export class Manage implements OnInit {
     const days = (new Date(this.todayIso()).getTime() - new Date(d).getTime()) / 86400000;
     return days > 7;
   }
+  /** The customer already uploaded the signed copy from their portal (admin is verifying it). */
+  customerCopyOnFile(ag: any): boolean {
+    return !!(ag?.signedPdfUploadedAt || ag?.SignedPdfUploadedAt);
+  }
   openSignAgreement(item: any) {
     this.signAgreementItem.set(item);
     this.signFile.set(null);
-    this.signDate.set(this.todayIso());
+    // Pre-fill the date the customer gave when they uploaded; otherwise today.
+    const proposed = item?.signedDate || item?.SignedDate;
+    this.signDate.set(proposed ? String(proposed).slice(0, 10) : this.todayIso());
     this.signNote.set('');
   }
   closeSignAgreement() {
@@ -7060,7 +7071,8 @@ export class Manage implements OnInit {
     const ag = this.signAgreementItem();
     const file = this.signFile();
     const date = this.signDate();
-    if (!ag || !file || !date || this.signingAgreement()) return;
+    if (!ag || !date || this.signingAgreement()) return;
+    if (!file && !this.customerCopyOnFile(ag)) return;
     const id = Number(ag.id || ag.agreementId);
     this.signingAgreement.set(true);
     this.agreementSvc.signAgreement(id, file, date, this.signNote().trim() || undefined).subscribe({
