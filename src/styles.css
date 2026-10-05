@@ -428,3 +428,99 @@ textarea.has-error,
   20%, 60% { transform: translateX(-4px); }
   40%, 80% { transform: translateX(4px); }
 }
+
+/* =====================================================================
+   Admin area — uniform, polished form controls on every page
+   Same 40px height for dropdowns, text, number, date and search fields,
+   custom dropdown arrow (identical in Safari & Chrome), teal focus ring.
+   Scoped to the admin layout so the public site is untouched.
+   ===================================================================== */
+.admin-shell select:not([multiple]):not([size]),
+.admin-shell input[type="text"],
+.admin-shell input[type="search"],
+.admin-shell input[type="email"],
+.admin-shell input[type="tel"],
+.admin-shell input[type="number"],
+.admin-shell input[type="date"],
+.admin-shell input[type="datetime-local"],
+.admin-shell input[type="month"],
+.admin-shell input[type="time"],
+.admin-shell input[type="password"],
+.admin-shell input:not([type]) {
+  box-sizing: border-box !important;
+  height: 40px !important;
+  min-height: 40px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background-color: #fff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 0.875rem !important;
+  line-height: 38px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  vertical-align: middle;
+}
+
+.admin-shell select:not([multiple]):not([size]) {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding-left: 0.8rem !important;
+  padding-right: 2.2rem !important;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.8rem center !important;
+  background-size: 12px !important;
+  text-overflow: ellipsis;
+}
+
+/* Text fields keep each page's own left/right padding (some leave room for a search icon). */
+
+/* Safari: keep date text vertically centred inside the 40px box */
+.admin-shell input[type="date"]::-webkit-datetime-edit,
+.admin-shell input[type="datetime-local"]::-webkit-datetime-edit { padding: 0; line-height: 1; }
+.admin-shell input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+
+.admin-shell select:not([multiple]):not([size]):hover,
+.admin-shell input[type="text"]:hover, .admin-shell input[type="search"]:hover,
+.admin-shell input[type="email"]:hover, .admin-shell input[type="tel"]:hover,
+.admin-shell input[type="number"]:hover, .admin-shell input[type="date"]:hover,
+.admin-shell input[type="datetime-local"]:hover, .admin-shell input[type="password"]:hover {
+  border-color: #94a3b8 !important;
+}
+
+.admin-shell select:focus, .admin-shell input:focus, .admin-shell textarea:focus {
+  outline: none !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15) !important;
+}
+
+.admin-shell select:disabled, .admin-shell input:disabled {
+  background-color: #f1f5f9 !important;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.admin-shell textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+/* Compact dropdowns inside tables and pagers keep a smaller height */
+.admin-shell td select:not([multiple]):not([size]),
+.admin-shell .status-select,
+.admin-shell .bio-page-select {
+  height: 32px !important;
+  min-height: 32px;
+  line-height: 30px;
+  font-size: 0.8rem !important;
+}
+
+/* Buttons that sit next to filters line up with the 40px controls */
+.admin-shell .toolbar .btn,
+.admin-shell .filters .btn,
+.admin-shell .filter-bar .btn { min-height: 40px; }

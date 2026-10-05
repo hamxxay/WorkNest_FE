@@ -2827,11 +2827,13 @@ export class Manage implements OnInit {
         return Math.max(0, total - paid);
       }
       if (col.key === 'statusLabel') {
-        const st = item.statusId ?? item.StatusId;
-        if (st === 2 || item.status === 'Paid') return 'Paid';
-        if (st === 3 || item.status === 'Partial') return 'Partial';
-        if (st === 4 || item.status === 'Overdue') return 'Overdue';
-        return 'Unpaid';
+        // The API resolves the label from dbo.OrderStatus (and legacy values) — show it, normalised.
+        const label = String(item.statusLabel ?? item.StatusLabel ?? item.status ?? '').trim().toLowerCase();
+        const map: Record<string, string> = {
+          'paid': 'Paid', 'partial': 'Partial', 'overdue': 'Overdue', 'challan expire': 'Overdue',
+          'cancelled': 'Cancelled', 'un paid': 'Unpaid', 'unpaid': 'Unpaid'
+        };
+        return map[label] ?? (label ? label.replace(/\b\w/g, c => c.toUpperCase()) : 'Unpaid');
       }
     }
 

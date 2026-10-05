@@ -259,3 +259,6 @@
   cursor: pointer;
   color: #64748b;
 }
+/* Filter row: controls share the admin-wide 40px height; button matches */
+.filter-grid .form-group { margin: 0; }
+.filter-grid .btn { height: 40px; white-space: nowrap; }
