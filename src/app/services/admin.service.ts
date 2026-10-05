@@ -530,6 +530,10 @@ export class AdminService {
   getAccessSuspension(bookingDetailId: number): Observable<any> {
     return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
   }
+  // Admin dashboard "Door access" card: machines, queued operations, suspended bookings.
+  getAccessOverview(): Observable<any> {
+    return this.http.get<any>(`${this.api}/access-suspensions/overview`);
+  }
   extendAccessSuspension(bookingDetailId: number, data: { overrideUntil: string; reason: string }): Observable<any> {
     return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension/extend`, data);
   }

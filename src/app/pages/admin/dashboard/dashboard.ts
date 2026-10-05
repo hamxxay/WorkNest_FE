@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { AuthService } from '../../../services/auth.service';
+import { AccessOverview } from './access-overview/access-overview';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
 
 export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
@@ -117,7 +118,7 @@ export interface SpaceTypeCardData {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, RouterLink, FormsModule, DatePipe],
+  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
@@ -131,6 +132,11 @@ export class Dashboard implements OnInit {
 
   get isSuperAdmin(): boolean {
     return this.auth.hasRole('super_admin');
+  }
+
+  /** Door access card: machines + challan suspensions (admin / super admin). */
+  get canSeeAccess(): boolean {
+    return this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
   }
 
   get userLocationId(): number | null {

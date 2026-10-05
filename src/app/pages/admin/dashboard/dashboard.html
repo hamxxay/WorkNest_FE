@@ -26,6 +26,10 @@
     <p>Loading space operations control center...</p>
   </div>
   } @else {
+  @if (canSeeAccess) {
+  <app-access-overview></app-access-overview>
+  }
+
   <!-- ========================================================================= -->
   <!-- ANNOUNCEMENTS & ALERTS DISPATCH CENTER                                    -->
   <!-- ========================================================================= -->
