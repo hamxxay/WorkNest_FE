@@ -5,6 +5,7 @@ import { AdminService } from '../../../../services/admin.service';
 import { Chart } from '../../access/access-shared';
 
 type AttentionTab = 'overdue' | 'ending' | 'pending';
+export type DashPeriod = 'month' | 'quarter' | 'year';
 
 interface Kpi {
   key: string;
@@ -14,6 +15,7 @@ interface Kpi {
   link: string;
   tone: 'ok' | 'warn' | 'danger' | 'neutral';
   trend?: { text: string; dir: 'up' | 'down' | 'flat'; good: boolean } | null;
+  vs?: string;
   full?: string;
 }
 
@@ -36,6 +38,12 @@ export class DashboardOverview {
   locationId = input<string>('ALL');
   /** Bumped by the dashboard to reload. */
   refreshTick = input<number>(0);
+  /** This month / quarter / year — every number and chart follows it. */
+  period = input<DashPeriod>('month');
+
+  periodWord = computed(() => this.period());
+  seriesLabel = computed(() => `Last ${this.period() === 'year' ? 24 : this.period() === 'quarter' ? 12 : 6} months`);
+  aheadLabel = computed(() => `Next ${this.period() === 'year' ? 12 : this.period() === 'quarter' ? 6 : 3} months`);
 
   loading = signal(true);
   failed = signal(false);
@@ -56,6 +64,7 @@ export class DashboardOverview {
     effect(() => {
       const loc = this.locationId();
       this.refreshTick();
+      this.period();
       untracked(() => this.load(loc));
     });
   }
@@ -63,7 +72,7 @@ export class DashboardOverview {
   load(loc: string) {
     if (!this.data()) this.loading.set(true);
     const id = loc && loc !== 'ALL' ? Number(loc) : null;
-    this.admin.getDashboardOverview(id).subscribe({
+    this.admin.getDashboardOverview(id, this.period()).subscribe({
       next: (res) => {
         this.data.set(res); this.failed.set(false); this.loading.set(false);
         setTimeout(() => this.renderCharts(res));
@@ -76,13 +85,13 @@ export class DashboardOverview {
   static money(v: number | null | undefined): string {
     const n = Number(v || 0);
     const a = Math.abs(n);
-    if (a >= 1_000_000) return `Rs ${(n / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2).replace(/\.0+$/, '')}M`;
-    if (a >= 1_000) return `Rs ${(n / 1_000).toFixed(a >= 100_000 ? 0 : 1).replace(/\.0$/, '')}K`;
-    return `Rs ${Math.round(n).toLocaleString()}`;
+    if (a >= 1_000_000) return `PKR ${(n / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2).replace(/\.0+$/, '')}M`;
+    if (a >= 1_000) return `PKR ${(n / 1_000).toFixed(a >= 100_000 ? 0 : 1).replace(/\.0$/, '')}K`;
+    return `PKR ${Math.round(n).toLocaleString()}`;
   }
   money = DashboardOverview.money;
   fullMoney(v: number | null | undefined): string {
-    return 'Rs ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    return 'PKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   }
 
   private trend(now: number, prev: number, unit: '%' | 'pts' | 'n', higherIsGood = true): Kpi['trend'] {
@@ -112,12 +121,12 @@ export class DashboardOverview {
         key: 'occupancy', label: 'Occupancy', value: `${d.occupancyPct}%`,
         sub: `${d.occupiedSpaces} of ${d.totalSpaces} spaces in use`, link: '/admin/spaces',
         tone: d.occupancyPct >= 70 ? 'ok' : d.occupancyPct >= 40 ? 'neutral' : 'warn',
-        trend: this.trend(d.occupancyPct, d.occupancyPctLastMonth, 'pts')
+        trend: this.trend(d.occupancyPct, d.occupancyPctLastMonth, 'pts'), vs: `vs a ${this.periodWord()} ago`
       },
       {
         key: 'active', label: 'Active bookings', value: `${d.activeBookings}`,
         sub: 'Running today', link: '/admin/bookings', tone: 'neutral',
-        trend: this.trend(d.activeBookings, d.activeBookingsLastMonth, 'n')
+        trend: this.trend(d.activeBookings, d.activeBookingsLastMonth, 'n'), vs: `vs a ${this.periodWord()} ago`
       },
       {
         key: 'pending', label: 'Awaiting confirmation', value: `${d.pendingConfirmations}`,
@@ -135,9 +144,9 @@ export class DashboardOverview {
         tone: d.overdueCount ? 'danger' : 'ok'
       },
       {
-        key: 'invoiced', label: 'Invoiced this month', value: this.money(d.invoicedThisMonth), full: this.fullMoney(d.invoicedThisMonth),
-        sub: `Last month ${this.money(d.invoicedLastMonth)}`, link: '/admin/invoices', tone: 'neutral',
-        trend: this.trend(d.invoicedThisMonth, d.invoicedLastMonth, '%')
+        key: 'invoiced', label: `Invoiced this ${this.periodWord()}`, value: this.money(d.invoicedThisPeriod), full: this.fullMoney(d.invoicedThisPeriod),
+        sub: `${this.money(d.paidThisPeriod)} of it paid`, link: '/admin/invoices', tone: 'neutral',
+        trend: this.trend(d.invoicedThisPeriod, d.invoicedPrevPeriod, '%'), vs: `vs last ${this.periodWord()} to date`
       }
     ];
   });
@@ -172,8 +181,104 @@ export class DashboardOverview {
     return { invoiced, paid, rate: invoiced > 0 ? Math.round((paid / invoiced) * 100) : 0 };
   });
 
+  // "No data yet" overlays instead of bare axes
+  empty = computed(() => {
+    const d = this.data();
+    const months: any[] = d?.months ?? [];
+    return {
+      revenue: !months.some(m => m.invoiced > 0 || m.paid > 0),
+      aging: !(d?.aging ?? []).some((a: any) => a.amount > 0),
+      occupancy: !months.some(m => m.occupancyPct > 0 || m.newBookings > 0),
+      types: !(d?.spaceTypes ?? []).some((t: any) => t.total > 0),
+      customers: !(d?.topCustomers ?? []).length,
+      expiries: !(d?.leaseExpiries ?? []).some((e: any) => e.count > 0)
+    };
+  });
+
   agingTotal = computed(() => (this.data()?.aging ?? []).reduce((a: number, b: any) => a + (b.amount || 0), 0));
   readonly agingColors = ['#10b981', '#fbbf24', '#f97316', '#ef4444', '#991b1b'];
+
+  // ---------- One-page PDF report (A4 landscape) ----------
+  exporting = signal(false);
+
+  async downloadReport(meta: { location: string; preparedBy: string }) {
+    const d = this.data();
+    if (!d || this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const W = 297, M = 12;
+      const periodTitle = { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.period()];
+      const now = new Date();
+
+      // Header band
+      pdf.setFillColor(15, 23, 42); pdf.rect(0, 0, W, 24, 'F');
+      pdf.setFillColor(13, 148, 136); pdf.rect(0, 24, W, 1.2, 'F');
+      pdf.setTextColor(255, 255, 255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16);
+      pdf.text('WorkNest  ·  Executive Summary', M, 11);
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(203, 213, 225);
+      pdf.text(`${periodTitle}  ·  ${meta.location}  ·  ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, M, 18);
+      pdf.text(`Prepared by ${meta.preparedBy}`, W - M, 18, { align: 'right' });
+
+      // Headline numbers
+      const kpis = this.kpis();
+      const gap = 4, boxW = (W - 2 * M - gap * (kpis.length - 1)) / kpis.length, boxH = 22, y0 = 31;
+      const toneRgb: Record<string, [number, number, number]> = { ok: [16, 185, 129], warn: [245, 158, 11], danger: [239, 68, 68], neutral: [13, 148, 136] };
+      kpis.forEach((k, i) => {
+        const x = M + i * (boxW + gap);
+        pdf.setDrawColor(226, 232, 240); pdf.setFillColor(255, 255, 255); pdf.roundedRect(x, y0, boxW, boxH, 2, 2, 'FD');
+        const c = toneRgb[k.tone] ?? toneRgb['neutral']; pdf.setFillColor(c[0], c[1], c[2]); pdf.rect(x, y0 + 2, 1.1, boxH - 4, 'F');
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor(100, 116, 139);
+        pdf.text(k.label.toUpperCase(), x + 4, y0 + 6);
+        pdf.setFontSize(13); pdf.setTextColor(15, 23, 42);
+        pdf.text(k.value, x + 4, y0 + 13.5);
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(100, 116, 139);
+        const foot = k.trend ? `${k.trend.dir === 'up' ? '+' : k.trend.dir === 'down' ? '-' : ''}${k.trend.text} ${k.vs ?? ''}` : k.sub;
+        pdf.text(pdf.splitTextToSize(foot, boxW - 6)[0] ?? '', x + 4, y0 + 18.5);
+      });
+
+      // Charts: 3 x 2 grid
+      const e = this.empty();
+      const charts: { title: string; canvas?: ElementRef<HTMLCanvasElement>; empty: boolean; note?: string }[] = [
+        { title: `Revenue & collections (${this.seriesLabel().toLowerCase()})`, canvas: this.revenueCanvas(), empty: e.revenue },
+        { title: 'Receivables aging (as of today)', canvas: this.agingCanvas(), empty: e.aging, note: `Outstanding ${this.fullMoney(this.agingTotal())}` },
+        { title: `Occupancy & new bookings (${this.seriesLabel().toLowerCase()})`, canvas: this.occCanvas(), empty: e.occupancy },
+        { title: 'Occupancy by space type (today)', canvas: this.typeCanvas(), empty: e.types },
+        { title: `Top customers (this ${this.periodWord()})`, canvas: this.custCanvas(), empty: e.customers },
+        { title: `Leases expiring (${this.aheadLabel().toLowerCase()})`, canvas: this.expCanvas(), empty: e.expiries }
+      ];
+      const cols = 3, cg = 5, rg = 5, top = y0 + boxH + 6;
+      const cw = (W - 2 * M - cg * (cols - 1)) / cols, ch = (210 - top - 12 - rg) / 2;
+      charts.forEach((c, i) => {
+        const x = M + (i % cols) * (cw + cg), y = top + Math.floor(i / cols) * (ch + rg);
+        pdf.setDrawColor(226, 232, 240); pdf.setFillColor(255, 255, 255); pdf.roundedRect(x, y, cw, ch, 2, 2, 'FD');
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8.5); pdf.setTextColor(15, 23, 42); pdf.text(c.title, x + 4, y + 6);
+        if (c.note) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(100, 116, 139); pdf.text(c.note, x + cw - 4, y + 6, { align: 'right' }); }
+        const ax = x + 3, ay = y + 9, aw = cw - 6, ah = ch - 12;
+        if (c.empty || !c.canvas) {
+          pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(148, 163, 184);
+          pdf.text('No data yet', x + cw / 2, y + ch / 2, { align: 'center' });
+          return;
+        }
+        const el = c.canvas.nativeElement;
+        const ratio = el.width / el.height || 2;
+        let w = aw, h = aw / ratio;
+        if (h > ah) { h = ah; w = ah * ratio; }
+        pdf.addImage(el.toDataURL('image/png', 1), 'PNG', ax + (aw - w) / 2, ay + (ah - h) / 2, w, h);
+      });
+
+      // Footer
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
+      pdf.text(`Generated ${now.toLocaleString('en-GB')}  ·  Figures in PKR  ·  Occupancy = spaces with a live booking`, M, 205);
+      pdf.text('WorkNest', W - M, 205, { align: 'right' });
+
+      const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      pdf.save(`WorkNest-Executive-Summary-${this.period()}-${stamp}.pdf`);
+    } finally {
+      this.exporting.set(false);
+    }
+  }
 
   // ---------- Chart.js ----------
   private destroyCharts() {
@@ -197,7 +302,7 @@ export class DashboardOverview {
       titleFont: { weight: 600 as const }, boxPadding: 4, usePointStyle: true
     };
     const grid = { color: '#eef2f6', drawTicks: false };
-    const axisMoney = { callback: (v: any) => this.money(Number(v)).replace('Rs ', ''), padding: 8 };
+    const axisMoney = { callback: (v: any) => this.money(Number(v)).replace('PKR ', ''), padding: 8 };
     const legend = { position: 'bottom' as const, labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 16 } };
     const months: any[] = d.months ?? [];
     const labels = months.map(m => this.monthLabel(m.month));

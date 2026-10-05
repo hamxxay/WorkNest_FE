@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, OnDestroy, computed, inject } from '@angular/core';
+import { Component, signal, OnInit, OnDestroy, computed, inject, viewChild } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +6,7 @@ import { AdminService } from '../../../services/admin.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { AuthService } from '../../../services/auth.service';
 import { AccessOverview } from './access-overview/access-overview';
-import { DashboardOverview } from './dashboard-overview/dashboard-overview';
+import { DashboardOverview, DashPeriod } from './dashboard-overview/dashboard-overview';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
 
 export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
@@ -208,6 +208,18 @@ export class Dashboard implements OnInit, OnDestroy {
   announcementScheduledDate = signal<string>('');
   announcementFormError = signal<string>('');
   announcementFormSuccess = signal<string>('');
+
+  // ---------- Period selector + one-page PDF report ----------
+  period = signal<DashPeriod>('month');
+  readonly periods: { key: DashPeriod; label: string }[] = [
+    { key: 'month', label: 'This month' }, { key: 'quarter', label: 'Quarter' }, { key: 'year', label: 'Year' }
+  ];
+  private overview = viewChild(DashboardOverview);
+  downloadReport() {
+    const u = this.auth.user();
+    this.overview()?.downloadReport({ location: this.locationLabel(), preparedBy: u?.displayName || u?.email || 'WorkNest' });
+  }
+  get exporting(): boolean { return this.overview()?.exporting() ?? false; }
 
   // ---------- Header: greeting, date, location, last updated ----------
   readonly today = new Date();

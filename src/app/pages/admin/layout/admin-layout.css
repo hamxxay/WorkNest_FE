@@ -274,3 +274,8 @@
 .sidebar-user-role { color: #94a3b8; }
 .sidebar-user .sidebar-logout { width: 32px; height: 32px; padding: 0; justify-content: center; flex-shrink: 0; border-radius: 8px; }
 .admin-shell.collapsed .sidebar-user { flex-direction: column; background: none; padding: 4px 0; }
+
+/* Section headings in the sidebar */
+.sidebar-nav .nav-label { display: block; text-transform: uppercase; color: #64748b; padding: 16px 12px 6px; }
+.sidebar-nav .nav-label:first-child { padding-top: 6px; }
+.admin-shell.collapsed .sidebar-nav .nav-label { display: block; height: 1px; padding: 0; margin: 10px 14px; background: rgba(255,255,255,0.08); color: transparent; overflow: hidden; }

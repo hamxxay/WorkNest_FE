@@ -531,8 +531,8 @@ export class AdminService {
     return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
   }
   // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
-  getDashboardOverview(locationId?: number | null): Observable<any> {
-    const params: any = {};
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month'): Observable<any> {
+    const params: any = { period };
     if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }

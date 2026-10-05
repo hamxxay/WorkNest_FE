@@ -25,7 +25,7 @@
               @if (k.trend.dir === 'up') { ↑ } @else if (k.trend.dir === 'down') { ↓ }
               {{ k.trend.text }}
             </span>
-            <span class="kpi-sub">vs last month</span>
+            <span class="kpi-sub">{{ k.vs }}</span>
           } @else {
             <span class="kpi-sub">{{ k.sub }}</span>
           }
@@ -42,7 +42,7 @@
     <div class="panel-head">
       <div>
         <h3>Revenue &amp; collections</h3>
-        <p class="panel-sub">Last 12 months · invoiced vs paid, with collection rate</p>
+        <p class="panel-sub">{{ seriesLabel() }} · invoiced vs paid, with collection rate</p>
       </div>
       @if (!loading()) {
         <div class="head-stats">
@@ -54,23 +54,27 @@
     </div>
     <div class="chart-box h-lg">
       <canvas #revenueCanvas></canvas>
-      @if (loading()) { <div class="sk chart-sk"></div> }
+      @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().revenue) {
+        <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No invoices in this range yet</strong><span>The chart fills in as data comes in.</span></div>
+      }
     </div>
   </div>
   <div class="dash-panel span-4">
     <div class="panel-head">
       <div>
         <h3>Receivables aging</h3>
-        <p class="panel-sub">Outstanding by days past due</p>
+        <p class="panel-sub">Outstanding by days past due, as of today</p>
       </div>
     </div>
     <div class="chart-box h-donut">
       <canvas #agingCanvas></canvas>
-      @if (loading()) { <div class="sk chart-sk round"></div> } @else {
+      @if (loading()) { <div class="sk chart-sk round"></div> } @else if (empty().aging) {
+        <div class="chart-empty"><span class="chart-empty-icon ok"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><strong>Nothing outstanding</strong><span>Every invoice is paid.</span></div>
+      } @else {
         <div class="donut-center"><span>Outstanding</span><strong [title]="fullMoney(agingTotal())">{{ money(agingTotal()) }}</strong></div>
       }
     </div>
-    @if (!loading()) {
+    @if (!loading() && !empty().aging) {
       <ul class="aging-legend">
         @for (a of data()?.aging ?? []; track a.label; let i = $index) {
           <li>
@@ -86,48 +90,56 @@
     <div class="panel-head">
       <div>
         <h3>Occupancy &amp; new bookings</h3>
-        <p class="panel-sub">Last 12 months · share of spaces in use, bookings created each month</p>
+        <p class="panel-sub">{{ seriesLabel() }} · share of spaces in use, bookings created each month</p>
       </div>
     </div>
     <div class="chart-box h-lg">
       <canvas #occCanvas></canvas>
-      @if (loading()) { <div class="sk chart-sk"></div> }
+      @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().occupancy) {
+        <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No occupancy or bookings in this range yet</strong><span>The chart fills in as data comes in.</span></div>
+      }
     </div>
   </div>
   <div class="dash-panel span-4">
     <div class="panel-head">
       <div>
         <h3>Occupancy by space type</h3>
-        <p class="panel-sub">Booked vs vacant right now</p>
+        <p class="panel-sub">Booked vs vacant, as of today</p>
       </div>
     </div>
     <div class="chart-box h-lg">
       <canvas #typeCanvas></canvas>
-      @if (loading()) { <div class="sk chart-sk"></div> }
+      @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().types) {
+        <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No spaces set up yet</strong><span>The chart fills in as data comes in.</span></div>
+      }
     </div>
   </div>
   <div class="dash-panel span-4">
     <div class="panel-head">
       <div>
         <h3>Top customers</h3>
-        <p class="panel-sub">By amount invoiced, last 12 months</p>
+        <p class="panel-sub">By amount invoiced this {{ periodWord() }}</p>
       </div>
     </div>
     <div class="chart-box h-md">
       <canvas #custCanvas></canvas>
-      @if (loading()) { <div class="sk chart-sk"></div> }
+      @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().customers) {
+        <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No invoices this period yet</strong><span>The chart fills in as data comes in.</span></div>
+      }
     </div>
   </div>
   <div class="dash-panel span-4">
     <div class="panel-head">
       <div>
         <h3>Leases expiring</h3>
-        <p class="panel-sub">Next 6 months · renewal pipeline</p>
+        <p class="panel-sub">{{ aheadLabel() }} · renewal pipeline</p>
       </div>
     </div>
     <div class="chart-box h-md">
       <canvas #expCanvas></canvas>
-      @if (loading()) { <div class="sk chart-sk"></div> }
+      @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().expiries) {
+        <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No leases end in this window</strong><span>The chart fills in as data comes in.</span></div>
+      }
     </div>
   </div>
   <div class="dash-panel attention span-4">
@@ -159,7 +171,7 @@
       }
     } @else if (attentionItems().length === 0) {
       <div class="empty">
-        <span class="empty-icon">✓</span>
+        <span class="empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
         <strong>
           @if (tab() === 'overdue') { No overdue invoices }
           @else if (tab() === 'ending') { No leases ending in the next {{ data()?.endingSoonDays }} days }

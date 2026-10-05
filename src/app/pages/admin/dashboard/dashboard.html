@@ -13,6 +13,11 @@
       </p>
     </div>
     <div class="dash-header-actions">
+      <div class="period-seg" role="tablist" aria-label="Period">
+        @for (p of periods; track p.key) {
+          <button role="tab" [class.active]="period() === p.key" [attr.aria-selected]="period() === p.key" (click)="period.set(p.key)">{{ p.label }}</button>
+        }
+      </div>
       <span class="updated">
         @if (loading()) { Updating… } @else if (lastUpdated()) { Updated {{ updatedAgo() }} }
       </span>
@@ -23,6 +28,10 @@
           <path d="M21 3v5h-5" />
         </svg>
       </button>
+      <button class="btn-report" (click)="downloadReport()" [disabled]="exporting" title="Download a one-page PDF of this view">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        {{ exporting ? 'Preparing…' : 'Download report' }}
+      </button>
       <button class="btn-new-ann" (click)="openCreateAnnouncementModal()">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5-5 18-4-6-9-7Z"/></svg>
         New announcement
@@ -31,7 +40,7 @@
   </div>
 
   <!-- Headline numbers, needs attention, 6-month trend -->
-  <app-dashboard-overview [locationId]="selectedLocation()" [refreshTick]="refreshTick()"></app-dashboard-overview>
+  <app-dashboard-overview [locationId]="selectedLocation()" [refreshTick]="refreshTick()" [period]="period()"></app-dashboard-overview>
 
   @if (canSeeAccess) {
   <app-access-overview></app-access-overview>
@@ -174,7 +183,7 @@
               @if (activeDropdown()?.tag === 'booked' || activeDropdown()?.tag === 'expiring') {
               <a class="header-link-action" routerLink="/admin/bookings">Manage Bookings →</a>
               }
-              <button class="btn-close-dropdown" (click)="closeDropdown($event)" title="Close details">✕</button>
+              <button class="btn-close-dropdown" (click)="closeDropdown($event)" title="Close details" aria-label="Close details"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
             </div>
           </div>
 
@@ -213,7 +222,7 @@
                   <td>
                     <div class="shift-tags-list">
                       @for (sh of item.occupiedShifts; track sh) {
-                      <span class="shift-tag shift-occupied">🔒 {{ sh }}</span>
+                      <span class="shift-tag shift-occupied"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> {{ sh }}</span>
                       }
                     </div>
                   </td>
@@ -222,7 +231,7 @@
                       @for (sh of item.openShifts; track sh) {
                       <span class="shift-tag" [class.shift-open]="sh !== 'None (Fully Occupied)'"
                         [class.shift-none]="sh === 'None (Fully Occupied)'">
-                        {{ sh === 'None (Fully Occupied)' ? '⛔ None (Fully Occupied)' : '⚡ Open: ' + sh }}
+                        {{ sh === 'None (Fully Occupied)' ? 'None (Fully Occupied)' : 'Open: ' + sh }}
                       </span>
                       }
                     </div>
@@ -269,7 +278,7 @@
                   <td>
                     @if (item.nextBookingDate) {
                     <div class="next-booking-wrap">
-                      <span class="next-date">📅 {{ item.nextBookingDate | date:'dd-MMM-yyyy' }}</span>
+                      <span class="next-date"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg> {{ item.nextBookingDate | date:'dd-MMM-yyyy' }}</span>
                       <span class="next-cust" *ngIf="item.nextBookingCustomer">({{ item.nextBookingCustomer }})</span>
                     </div>
                     } @else {
@@ -332,9 +341,9 @@
                   </td>
                   <td>
                     @if (item.isAlsoBooked) {
-                    <span class="shift-tag shift-occupied">🔒 Currently Booked</span>
+                    <span class="shift-tag shift-occupied"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Currently Booked</span>
                     } @else {
-                    <span class="shift-tag shift-open">⚡ Available for Conversion</span>
+                    <span class="shift-tag shift-open"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg> Available for Conversion</span>
                     }
                   </td>
                   <td class="text-right">
@@ -509,7 +518,7 @@
         <label>Private Only</label>
         <button class="btn-filter-toggle" [class.active]="privateSpacesOnlyFilter()"
           (click)="privateSpacesOnlyFilter.set(!privateSpacesOnlyFilter()); onFilterChange()">
-          {{ privateSpacesOnlyFilter() ? '🔒 Private Spaces Only' : '🏢 All Spaces' }}
+          {{ privateSpacesOnlyFilter() ? 'Private Spaces Only' : 'All Spaces' }}
         </button>
       </div>
 
@@ -694,7 +703,7 @@
   <!-- ========================================================================= -->
   <!-- ANNOUNCEMENTS & ALERTS DISPATCH CENTER                                    -->
   <!-- ========================================================================= -->
-  <div class="admin-card announcements-card" style="margin-bottom:24px">
+  <div class="admin-card announcements-card">
     <div class="card-title-row">
       <div>
         <div class="header-badge" style="display:inline-block;margin-bottom:6px">Live Broadcast System</div>
@@ -732,20 +741,20 @@
       </div>
       <div class="ann-stat-box">
         <span class="ann-stat-label">Delivered Messages</span>
-        <span class="ann-stat-num text-success">{{ announcementsTotalDelivered() }}</span>
+        <span class="ann-stat-num tone-ok">{{ announcementsTotalDelivered() }}</span>
       </div>
       <div class="ann-stat-box">
         <span class="ann-stat-label">Mobile App Reads</span>
-        <span class="ann-stat-num" style="color:#60a5fa">{{ announcementsTotalRead() }}</span>
+        <span class="ann-stat-num tone-info">{{ announcementsTotalRead() }}</span>
       </div>
       <div class="ann-stat-box">
         <span class="ann-stat-label">Pending Queued</span>
-        <span class="ann-stat-num" style="color:#facc15">{{ announcementsTotalPending() }}</span>
+        <span class="ann-stat-num tone-warn">{{ announcementsTotalPending() }}</span>
       </div>
       @if (announcementsTotalFailed() > 0) {
       <div class="ann-stat-box">
         <span class="ann-stat-label">Failed Deliveries</span>
-        <span class="ann-stat-num" style="color:#f87171">{{ announcementsTotalFailed() }}</span>
+        <span class="ann-stat-num tone-danger">{{ announcementsTotalFailed() }}</span>
       </div>
       }
     </div>
@@ -813,10 +822,10 @@
             </td>
             <td>
               <div class="delivery-mini-stats">
-                <span class="pill-stat pill-sent" title="Successfully Delivered">✓ {{ ann.sentCount }}</span>
-                <span class="pill-stat pill-read" title="Read in Mobile App">👁 {{ ann.readCount }}</span>
+                <span class="pill-stat pill-sent" title="Successfully Delivered"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> {{ ann.sentCount }}</span>
+                <span class="pill-stat pill-read" title="Read in Mobile App"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> {{ ann.readCount }}</span>
                 @if (ann.failedCount > 0) {
-                <span class="pill-stat pill-failed" title="Failed Deliveries">✕ {{ ann.failedCount }}</span>
+                <span class="pill-stat pill-failed" title="Failed Deliveries"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> {{ ann.failedCount }}</span>
                 }
                 @if (ann.pendingCount > 0) {
                 <span class="pill-stat pill-pending" title="Pending in Queue">⏳ {{ ann.pendingCount }}</span>
@@ -846,37 +855,26 @@
 <!-- ========================================================================= -->
 <!-- FINANCIAL REPORTS & ANALYTICS SECTION                                     -->
 <!-- ========================================================================= -->
-<div class="admin-card" style="margin-bottom:24px">
+<div class="admin-card reports-card">
   <div class="card-title-row">
     <div>
-      <div class="header-badge" style="display:inline-block;margin-bottom:6px">Financial Intelligence</div>
-      <h3>Reports & Analytics</h3>
-      <p class="summary-sub">Generate audit-ready statements and track security deposit lifecycle across customers.</p>
+      <h3>Reports &amp; Analytics</h3>
+      <p class="summary-sub">Generate audit-ready statements and track the security deposit lifecycle across customers.</p>
     </div>
   </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;margin-top:16px;">
-    <div
-      style="border:1px solid #e2e8f0;border-radius:10px;padding:18px;background:#f8fafc;display:flex;gap:14px;align-items:flex-start;">
-      <div
-        style="background:#e0e7ff;color:#4338ca;padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect width="18" height="18" x="3" y="3" rx="2" />
-          <path d="M3 9h18" />
-          <path d="M9 21V9" />
-        </svg>
-      </div>
-      <div style="flex:1;">
-        <h4 style="margin:0 0 4px;font-size:15px;color:#0f172a;">Security Deposit Report</h4>
-        <p style="margin:0 0 14px;font-size:13px;color:#64748b;">Customer-wise balances, total received, refunds,
-          forfeitures, and Excel export.</p>
-        <a routerLink="/admin/reports/security-deposits" class="btn btn-sm btn-primary-gradient"
-          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:13px;text-decoration:none;">
-          Generate Report &rarr;
-        </a>
-      </div>
-    </div>
+  <div class="report-grid">
+    <a class="report-tile" routerLink="/admin/reports/security-deposits">
+      <span class="report-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      </span>
+      <span class="report-text">
+        <strong>Security Deposit Report</strong>
+        <span>Customer-wise balances, total received, refunds, forfeitures, and Excel export.</span>
+      </span>
+      <span class="report-go">Generate
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
   </div>
 </div>
 
@@ -891,7 +889,7 @@
           <div class="header-badge" style="margin-bottom:6px">New Dispatch</div>
           <h2>Broadcast Announcement or Alert</h2>
         </div>
-        <button class="btn-close" (click)="closeCreateAnnouncementModal()">✕</button>
+        <button class="btn-close" (click)="closeCreateAnnouncementModal()" aria-label="Close"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div class="modal-body">
@@ -914,7 +912,7 @@
           <div class="type-toggle-grid">
             <button type="button" class="type-option-btn" [class.active]="announcementFormType() === 'Announcement'"
               (click)="announcementFormType.set('Announcement')">
-              <span class="type-opt-icon">📢</span>
+              <span class="type-opt-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
               <div>
                 <strong>Announcement</strong>
                 <p>Community news, updates, promotions</p>
@@ -922,7 +920,7 @@
             </button>
             <button type="button" class="type-option-btn type-alert-btn"
               [class.active]="announcementFormType() === 'Alert'" (click)="announcementFormType.set('Alert')">
-              <span class="type-opt-icon">🚨</span>
+              <span class="type-opt-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
               <div>
                 <strong>Critical Alert</strong>
                 <p>High priority, maintenance, urgent notices</p>
@@ -1030,7 +1028,7 @@
           @if (announcementCreating()) {
           <span class="spinner-sm"></span> Dispatching...
           } @else {
-          🚀 Dispatch Announcement
+          <svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg> Dispatch Announcement
           }
         </button>
       </div>
@@ -1084,7 +1082,7 @@
           <p class="summary-sub" style="margin-bottom:0">Created on {{ selectedAnnouncement()?.createdAt | date:'medium'
             }} • Target: {{ selectedAnnouncement()?.targetScope }}</p>
         </div>
-        <button class="btn-close" (click)="closeAnnouncementDetailModal()">✕</button>
+        <button class="btn-close" (click)="closeAnnouncementDetailModal()" aria-label="Close"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div class="modal-body">
@@ -1141,7 +1139,7 @@
                 <td>
                   <span class="channel-pill" [class.chan-push]="rec.channel === 'Push'"
                     [class.chan-email]="rec.channel === 'Email'">
-                    {{ rec.channel === 'Push' ? '📱 Push' : '✉️ Email' }}
+                    {{ rec.channel === 'Push' ? 'Push' : 'Email' }}
                   </span>
                 </td>
                 <td>

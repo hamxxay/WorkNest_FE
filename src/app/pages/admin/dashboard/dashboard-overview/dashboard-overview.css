@@ -138,3 +138,28 @@ a.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,
   .panel-head { flex-direction: column; }
   .head-stats div { align-items: flex-start; }
 }
+
+/* ---------- empty charts ---------- */
+.chart-empty {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+  background: rgba(255, 255, 255, 0.92); border: 1px dashed #e2e8f0; border-radius: 12px;
+  color: #94a3b8; font-size: 0.78rem; padding: 12px;
+}
+.chart-empty strong { color: #334155; font-size: 0.88rem; }
+.chart-empty-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f1f5f9; color: #64748b; margin-bottom: 4px; }
+.chart-empty-icon.ok { background: #d1fae5; color: #047857; }
+
+/* ---------- fade-in on load ---------- */
+.kpi-card, .dash-panel { animation: dash-rise 0.45s ease both; }
+.kpi-grid .kpi-card:nth-child(2) { animation-delay: 40ms; }
+.kpi-grid .kpi-card:nth-child(3) { animation-delay: 80ms; }
+.kpi-grid .kpi-card:nth-child(4) { animation-delay: 120ms; }
+.kpi-grid .kpi-card:nth-child(5) { animation-delay: 160ms; }
+.kpi-grid .kpi-card:nth-child(6) { animation-delay: 200ms; }
+.ins-grid .dash-panel:nth-child(2) { animation-delay: 60ms; }
+.ins-grid .dash-panel:nth-child(3) { animation-delay: 120ms; }
+.ins-grid .dash-panel:nth-child(4) { animation-delay: 160ms; }
+.ins-grid .dash-panel:nth-child(n+5) { animation-delay: 200ms; }
+@keyframes dash-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .kpi-card, .dash-panel { animation: none; } }

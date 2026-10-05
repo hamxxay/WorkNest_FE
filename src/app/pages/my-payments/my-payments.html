@@ -28,11 +28,11 @@
     <div class="summary-cards">
       <div class="summary-card">
         <span class="summary-label">Total Paid</span>
-        <span class="summary-value paid">Rs {{ totalPaid() | number:'1.0-0' }}</span>
+        <span class="summary-value paid">PKR {{ totalPaid() | number:'1.0-0' }}</span>
       </div>
       <div class="summary-card">
         <span class="summary-label">Pending</span>
-        <span class="summary-value pending">Rs {{ totalPending() | number:'1.0-0' }}</span>
+        <span class="summary-value pending">PKR {{ totalPending() | number:'1.0-0' }}</span>
       </div>
       <div class="summary-card">
         <span class="summary-label">Transactions</span>
@@ -60,7 +60,7 @@
           @for (p of payments(); track p.id) {
           <tr>
             <td class="cell-id">#{{ p.id }}</td>
-            <td class="cell-amount">Rs {{ p.amount | number:'1.0-0' }}</td>
+            <td class="cell-amount">PKR {{ p.amount | number:'1.0-0' }}</td>
             <td>{{ p.paymentMethod || '—' }}</td>
             <td><span class="status-badge" [class]="getStatusClass(getDisplayStatus(p))">{{ getDisplayStatus(p)
                 }}</span></td>
@@ -86,7 +86,7 @@
       <div class="payment-card-mobile">
         <div class="payment-mobile-header">
           <div class="payment-mobile-body">
-            <div class="payment-mobile-amount">Rs {{ p.amount | number:'1.0-0' }}</div>
+            <div class="payment-mobile-amount">PKR {{ p.amount | number:'1.0-0' }}</div>
             <div class="payment-mobile-details">
               <span>{{ p.paymentMethod || 'N/A' }}</span>
               <span>{{ tryDate(p.paidAt || p.createdAt) }}</span>
@@ -215,14 +215,14 @@
                   }
                 </td>
                 <td style="text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName || '—' }}</td>
-                <td style="text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.0-0' }}</td>
+                <td style="text-align:right;font-weight:600">PKR {{ line.lineTotal | number:'1.0-0' }}</td>
               </tr>
               }
               @if (!challanToPrint()!.details || challanToPrint()!.details.length === 0) {
               <tr>
                 <td>Workspace Fee (Room Rent / Space Booking)</td>
                 <td style="text-align:right;color:#64748b;font-size:.8rem">—</td>
-                <td style="text-align:right;font-weight:600">Rs {{ (challanToPrint()!.currentCycleAmount ||
+                <td style="text-align:right;font-weight:600">PKR {{ (challanToPrint()!.currentCycleAmount ||
                   challanToPrint()!.monthlyRent || challanToPrint()!.amount) | number:'1.0-0' }}</td>
               </tr>
               }
@@ -231,14 +231,14 @@
               <tr style="color:#0284c7">
                 <td>Sales Tax / PST (16% on 10% Support Services)</td>
                 <td style="text-align:right;color:#64748b;font-size:.8rem">Tax</td>
-                <td style="text-align:right;font-weight:600">Rs {{ (challanToPrint()!.taxAmount ??
+                <td style="text-align:right;font-weight:600">PKR {{ (challanToPrint()!.taxAmount ??
                   challanToPrint()!.contract?.taxAmount ?? ((challanToPrint()!.currentCycleAmount * 0.10) * 0.16)) |
                   number:'1.0-0' }}</td>
               </tr>
               }
               <tr class="total-row">
                 <td colspan="2">TOTAL PAYABLE</td>
-                <td style="text-align:right">Rs {{ (challanToPrint()!.totalPayable || challanToPrint()!.amount) |
+                <td style="text-align:right">PKR {{ (challanToPrint()!.totalPayable || challanToPrint()!.amount) |
                   number:'1.0-0' }}</td>
               </tr>
             </tbody>
