@@ -154,7 +154,7 @@
               } @else if (col.type === 'date' || col.type === 'datetime') {
               {{ getCellValue(item, col) | date:'short' }}
               } @else if (col.type === 'currency') {
-              PKR {{ (getCellValue(item, col) || 0) | number:'1.2-2' }}
+              PKR {{ (getCellValue(item, col) || 0) | number:'1.0-0' }}
               } @else if (col.type === 'space-prices') {
               <span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(item).display }}</span>
               } @else if (col.type === 'roles') {
@@ -774,7 +774,7 @@
         <div class="stat-card"><span>Total Bookings</span><strong>{{ s.stats?.totalBookings ?? 0 }}</strong></div>
         <div class="stat-card"><span>Confirmed</span><strong>{{ s.stats?.confirmedBookings ?? 0 }}</strong></div>
         <div class="stat-card"><span>Cancelled</span><strong>{{ s.stats?.cancelledBookings ?? 0 }}</strong></div>
-        <div class="stat-card"><span>Revenue</span><strong>PKR {{ (s.stats?.collectedRevenue ?? 0) | number:'1.2-2'
+        <div class="stat-card"><span>Revenue</span><strong>PKR {{ (s.stats?.collectedRevenue ?? 0) | number:'1.0-0'
             }}</strong></div>
       </div>
       <div class="history-list">
@@ -822,14 +822,14 @@
       <div class="user-line"><span>Plan</span><strong>{{ s.plan?.name }}</strong></div>
       <div class="user-line"><span>Cycle</span><strong>{{ s.plan?.billingCycle }}</strong></div>
       <div class="user-line"><span>{{ amountLabels['PricingPlan.price'] || 'Price' }}</span><strong>PKR {{
-          (s.plan?.price ?? 0) | number:'1.2-2' }}</strong></div>
+          (s.plan?.price ?? 0) | number:'1.0-0' }}</strong></div>
     </div>
     <div class="history-section">
       <h3>Stats</h3>
       <div class="history-stats">
         <div class="stat-card"><span>Total Subscribers</span><strong>{{ s.stats?.totalSubscribers ?? 0 }}</strong></div>
         <div class="stat-card"><span>Active</span><strong>{{ s.stats?.activeSubscribers ?? 0 }}</strong></div>
-        <div class="stat-card"><span>Revenue</span><strong>PKR {{ (s.stats?.paidRevenue ?? 0) | number:'1.2-2'
+        <div class="stat-card"><span>Revenue</span><strong>PKR {{ (s.stats?.paidRevenue ?? 0) | number:'1.0-0'
             }}</strong></div>
       </div>
     </div>
@@ -860,7 +860,7 @@
     <div class="user-detail-grid">
       <div class="user-line"><span>User</span><strong>{{ s.payment?.userEmail }}</strong></div>
       <div class="user-line"><span>{{ amountLabels['Payment.amount'] || 'Amount' }}</span><strong>PKR {{
-          (s.payment?.amount ?? 0) | number:'1.2-2' }}</strong></div>
+          (s.payment?.amount ?? 0) | number:'1.0-0' }}</strong></div>
       <div class="user-line"><span>Method</span><strong>{{ s.payment?.paymentMethod }}</strong></div>
       <div class="user-line"><span>Status</span><strong>{{ s.payment?.paymentStatus }}</strong></div>
       <div class="user-line"><span>Ref</span><strong>{{ s.payment?.transactionRef }}</strong></div>
@@ -876,14 +876,14 @@
           <div><span style="color:#64748b;font-size:.7rem;display:block">Advance Rent Period</span><strong
               style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong
-              style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:"1.2-2" }}</strong></div>
+              style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:'1.0-0' }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Security Deposit</span><strong
-              style="color:#475569">PKR {{ (s.payment?.securityDeposit ?? 0) | number:"1.2-2" }}</strong></div>
+              style="color:#475569">PKR {{ (s.payment?.securityDeposit ?? 0) | number:'1.0-0' }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Next Bill Due</span><strong
               style="color:#0284c7">{{ s.payment?.nextBillDueDate ? (s.payment?.nextBillDueDate | date:"mediumDate") :
               "N/A" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Balance Left</span><strong
-              style="color:#b45309">PKR {{ (s.payment?.balanceLeft ?? 0) | number:"1.2-2" }}</strong></div>
+              style="color:#b45309">PKR {{ (s.payment?.balanceLeft ?? 0) | number:'1.0-0' }}</strong></div>
         </div>
       </div>
       <h3>User Payment Stats</h3>
@@ -892,7 +892,7 @@
         <div class="stat-card"><span>Paid</span><strong>{{ s.userPaymentStats?.paidPayments ?? 0 }}</strong></div>
         <div class="stat-card"><span>Failed</span><strong>{{ s.userPaymentStats?.failedPayments ?? 0 }}</strong></div>
         <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (s.userPaymentStats?.totalPaidAmount ?? 0) |
-            number:'1.2-2' }}</strong></div>
+            number:'1.0-0' }}</strong></div>
       </div>
     </div>
     }
@@ -933,7 +933,7 @@
       <div class="history-stats">
         <div class="stat-card"><span>Total Bookings</span><strong>{{ history.stats?.totalBookings ?? 0 }}</strong></div>
         <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (history.stats?.totalPaidAmount ?? 0) |
-            number:'1.2-2' }}</strong></div>
+            number:'1.0-0' }}</strong></div>
         <div class="stat-card"><span>Cancelled</span><strong>{{ history.stats?.cancelledBookings ?? 0 }}</strong></div>
         <div class="stat-card"><span>Failed Payments</span><strong>{{ history.stats?.failedPayments ?? 0 }}</strong>
         </div>
@@ -957,7 +957,7 @@
               <td>{{ b.spaceName || 'N/A' }}</td>
               <td>{{ b.startDateTime | date:'mediumDate' }}</td>
               <td>{{ b.endDateTime | date:'mediumDate' }}</td>
-              <td>PKR {{ (b.totalAmount ?? 0) | number:'1.2-2' }}</td>
+              <td>PKR {{ (b.totalAmount ?? 0) | number:'1.0-0' }}</td>
               <td><span class="status-badge" [class]="'status-' + (b.bookingStatus || '').toLowerCase()">{{
                   b.bookingStatus }}</span></td>
             </tr>
@@ -983,7 +983,7 @@
           <tbody>
             @for (p of history.recentPayments; track p.id) {
             <tr>
-              <td>PKR {{ (p.amount ?? 0) | number:'1.2-2' }}</td>
+              <td>PKR {{ (p.amount ?? 0) | number:'1.0-0' }}</td>
               <td>{{ p.paymentMethod }}</td>
               <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{
                   p.paymentStatus }}</span></td>
@@ -1371,19 +1371,19 @@
         <div>
           <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Booking Rent</div>
           <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (c.subtotalAmount || c.totalPayable || 0)
-            | number:'1.2-2' }}</div>
+            | number:'1.0-0' }}</div>
           <div style="font-size:0.72rem;color:#64748b">Base Booking Rent</div>
         </div>
         <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
           <div style="font-size:0.68rem;font-weight:700;color:#1e40af;text-transform:uppercase">Total Payable</div>
           <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getChallanInitialPayable(c) |
-            number:'1.2-2' }}</div>
+            number:'1.0-0' }}</div>
           <div style="font-size:0.72rem;color:#1e40af">Rent + Tax</div>
         </div>
         } @else {
         <div>
           <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
-          <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getChallanMonthlyRent(c) | number:'1.2-2'
+          <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getChallanMonthlyRent(c) | number:'1.0-0'
             }}</div>
           <div style="font-size:0.72rem;color:#64748b">per month</div>
         </div>
@@ -1391,7 +1391,7 @@
         <div>
           <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Security Deposit</div>
           <div style="font-size:1.05rem;font-weight:800;color:#d97706">PKR {{ getChallanSecurityDeposit(c) |
-            number:'1.2-2' }}</div>
+            number:'1.0-0' }}</div>
           <div style="font-size:0.72rem;color:#64748b">Refundable</div>
         </div>
         }
@@ -1405,7 +1405,7 @@
           <div style="font-size:0.68rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent
           </div>
           <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getChallanFirstCycleRent(c) |
-            number:'1.2-2' }}</div>
+            number:'1.0-0' }}</div>
           <div style="font-size:0.72rem;color:#1e40af">First {{ getChallanBillingMonths(c) }} Months Rent</div>
         </div>
         }
@@ -1433,7 +1433,7 @@
               Per Booking Slot
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-              PKR {{ (c.subtotalAmount || c.totalPayable || 0) | number:'1.2-2' }}
+              PKR {{ (c.subtotalAmount || c.totalPayable || 0) | number:'1.0-0' }}
             </td>
           </tr>
           } @else {
@@ -1444,10 +1444,10 @@
               <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
             </td>
             <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-              {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.2-2' }}
+              {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.0-0' }}
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-              PKR {{ getChallanFirstCycleRent(c) | number:'1.2-2' }}
+              PKR {{ getChallanFirstCycleRent(c) | number:'1.0-0' }}
             </td>
           </tr>
 
@@ -1462,7 +1462,7 @@
               {{ getChallanSecurityMonths(c) }} Month(s) Equivalent
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
-              PKR {{ getChallanSecurityDeposit(c) | number:'1.2-2' }}
+              PKR {{ getChallanSecurityDeposit(c) | number:'1.0-0' }}
             </td>
           </tr>
           }
@@ -1478,7 +1478,7 @@
               16% on Support Services
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
-              + PKR {{ getChallanTaxAmount(c) | number:'1.2-2' }}
+              + PKR {{ getChallanTaxAmount(c) | number:'1.0-0' }}
             </td>
           </tr>
 
@@ -1491,7 +1491,7 @@
               Discount Offset
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
-              - PKR {{ (c.discountAmount || 0) | number:'1.2-2' }}
+              - PKR {{ (c.discountAmount || 0) | number:'1.0-0' }}
             </td>
           </tr>
         </tbody>
@@ -1502,7 +1502,7 @@
               TOTAL INITIAL AMOUNT PAYABLE (NOW)
             </td>
             <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
-              PKR {{ getChallanInitialPayable(c) | number:'1.2-2' }}
+              PKR {{ getChallanInitialPayable(c) | number:'1.0-0' }}
             </td>
           </tr>
         </tfoot>
@@ -1851,7 +1851,7 @@
             <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%)</small>
             } @else {
             <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ quotationMaxAllowedDiscountFixed |
-              number:'1.0-2' }})</small>
+              number:'1.0-0' }})</small>
             }
           </label>
           <input class="form-input-admin" [class.is-invalid]="quotationDiscountError" type="number" min="0"
@@ -1923,37 +1923,37 @@
           @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Advance Rent ({{ quotationBillingPeriodMonths }} Month(s)):</span>
-            <strong style="color:#1e3a8a">PKR {{ quotationBillingAmount | number:'1.2-2' }}</strong>
+            <strong style="color:#1e3a8a">PKR {{ quotationBillingAmount | number:'1.0-0' }}</strong>
           </div>
           } @else {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Booking Rent:</span>
-            <strong style="color:#1e3a8a">PKR {{ quotationSubtotal | number:'1.2-2' }}</strong>
+            <strong style="color:#1e3a8a">PKR {{ quotationSubtotal | number:'1.0-0' }}</strong>
           </div>
           }
 
           @if (quotationFirstInvoiceDiscount > 0) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">- PKR {{ quotationFirstInvoiceDiscount | number:'1.2-2' }}</strong>
+            <strong style="color:#ef4444">- PKR {{ quotationFirstInvoiceDiscount | number:'1.0-0' }}</strong>
           </div>
           }
 
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#0284c7">Sales Tax / PST (16% on Support Services):</span>
-            <strong style="color:#0284c7">PKR {{ quotationTaxAmount | number:'1.2-2' }}</strong>
+            <strong style="color:#0284c7">PKR {{ quotationTaxAmount | number:'1.0-0' }}</strong>
           </div>
 
           @if (isQuotationPrivateRoom) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Security Deposit ({{ quotationSecurityDepositMonths }} Month(s)):</span>
-            <strong style="color:#1e3a8a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.2-2' }}</strong>
+            <strong style="color:#1e3a8a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.0-0' }}</strong>
           </div>
           }
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
           <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:700">
             <span style="color:#1e3a8a">FIRST INVOICE TOTAL:</span>
-            <strong style="color:#15803d;font-size:1.05rem">PKR {{ quotationFirstInvoiceTotal | number:'1.2-2'
+            <strong style="color:#15803d;font-size:1.05rem">PKR {{ quotationFirstInvoiceTotal | number:'1.0-0'
               }}</strong>
           </div>
         </div>
@@ -2246,7 +2246,7 @@
             <small style="color:#64748b;font-weight:500">(Max cap: {{ bookingDynamicDiscountCap }}%)</small>
             } @else {
             <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ bookingMaxAllowedDiscountFixed |
-              number:'1.0-2' }})</small>
+              number:'1.0-0' }})</small>
             }
           </label>
           <input class="form-input-admin" [class.is-invalid]="bookingDiscountError" type="number" min="0"
@@ -2305,12 +2305,12 @@
         @if (!isAdminMeetingRoom) {
         <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
           <span style="color:#64748b">MONTHLY RENT RATE:</span>
-          <strong style="color:#0f172a">PKR {{ bookingMonthlyRent | number:'1.2-2' }} / month</strong>
+          <strong style="color:#0f172a">PKR {{ bookingMonthlyRent | number:'1.0-0' }} / month</strong>
         </div>
         } @else {
         <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
           <span style="color:#64748b">BASE RENT RATE:</span>
-          <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
+          <strong style="color:#0f172a">PKR {{ bookingSubtotal | number:'1.0-0' }}</strong>
         </div>
         }
         <div style="background:#eff6ff;padding:10px 12px;border-radius:6px;margin:8px 0;border:1px solid #bfdbfe">
@@ -2319,37 +2319,37 @@
           @if (isAdminPrivateRoom || isAdminSharedSpace) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Advance Rent ({{ bookingBillingPeriodMonths }} Month(s)):</span>
-            <strong style="color:#1e3a8a">PKR {{ bookingBillingAmount | number:'1.2-2' }}</strong>
+            <strong style="color:#1e3a8a">PKR {{ bookingBillingAmount | number:'1.0-0' }}</strong>
           </div>
           } @else {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Booking Rent:</span>
-            <strong style="color:#1e3a8a">PKR {{ bookingSubtotal | number:'1.2-2' }}</strong>
+            <strong style="color:#1e3a8a">PKR {{ bookingSubtotal | number:'1.0-0' }}</strong>
           </div>
           }
 
           @if (bookingFirstInvoiceDiscount > 0) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">- PKR {{ bookingFirstInvoiceDiscount | number:'1.2-2' }}</strong>
+            <strong style="color:#ef4444">- PKR {{ bookingFirstInvoiceDiscount | number:'1.0-0' }}</strong>
           </div>
           }
 
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#0284c7">Sales Tax / PST (16% on Support Services):</span>
-            <strong style="color:#0284c7">PKR {{ bookingTaxAmount | number:'1.2-2' }}</strong>
+            <strong style="color:#0284c7">PKR {{ bookingTaxAmount | number:'1.0-0' }}</strong>
           </div>
 
           @if (isAdminPrivateRoom) {
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
             <span style="color:#3b82f6">Security Deposit ({{ bookingSecurityDepositMonths }} Month(s)):</span>
-            <strong style="color:#1e3a8a">PKR {{ effectiveSecurityDeposit | number:'1.2-2' }}</strong>
+            <strong style="color:#1e3a8a">PKR {{ effectiveSecurityDeposit | number:'1.0-0' }}</strong>
           </div>
           }
           <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
           <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:700">
             <span style="color:#1e3a8a">FIRST INVOICE TOTAL:</span>
-            <strong style="color:#15803d;font-size:1.05rem">PKR {{ bookingFirstInvoiceTotal | number:'1.2-2' }}</strong>
+            <strong style="color:#15803d;font-size:1.05rem">PKR {{ bookingFirstInvoiceTotal | number:'1.0-0' }}</strong>
           </div>
         </div>
       </div>
@@ -2581,7 +2581,7 @@
             Monthly Rent</div>
           <div style="font-size:1.1rem;font-weight:700;color:#0f172a">
             PKR {{ (booking.monthlyRent ?? booking.MonthlyRent ?? booking.contract?.monthlyRent ?? booking.pricePerMonth
-            ?? 0) | number:'1.2-2' }}
+            ?? 0) | number:'1.0-0' }}
           </div>
         </div>
 
@@ -2591,7 +2591,7 @@
             Current Cycle Amount</div>
           <div style="font-size:1.1rem;font-weight:700;color:#0369a1">
             PKR {{ (booking.currentCycleAmount ?? booking.CurrentCycleAmount ?? booking.contract?.currentCycleAmount ??
-            booking.monthlyRent ?? booking.totalAmount ?? 0) | number:'1.2-2' }}
+            booking.monthlyRent ?? booking.totalAmount ?? 0) | number:'1.0-0' }}
           </div>
         </div>
 
@@ -2602,7 +2602,7 @@
             Security Deposit (One-time)</div>
           <div style="font-size:1.1rem;font-weight:700;color:#c2410c">
             PKR {{ (booking.securityDeposit ?? booking.SecurityDeposit ?? booking.contract?.securityDeposit ?? 0) |
-            number:'1.2-2' }}
+            number:'1.0-0' }}
           </div>
         </div>
 
@@ -2612,7 +2612,7 @@
             Balance Remaining</div>
           <div style="font-size:1.1rem;font-weight:700;color:#b45309">
             PKR {{ (booking.balanceLeft ?? booking.BalanceLeft ?? booking.contract?.balanceLeft ?? booking.balanceAmount
-            ?? booking.BalanceAmount ?? 0) | number:'1.2-2' }}
+            ?? booking.BalanceAmount ?? 0) | number:'1.0-0' }}
           </div>
         </div>
 
@@ -2638,23 +2638,23 @@
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Required</span>
             <strong style="font-size:0.88rem;color:#0f172a">PKR {{ (summary.securityDepositRequired ?? 0) |
-              number:'1.2-2' }}</strong>
+              number:'1.0-0' }}</strong>
           </div>
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Invoiced</span>
             <strong style="font-size:0.88rem;color:#0284c7">PKR {{ (summary.securityDepositInvoiced ?? 0) |
-              number:'1.2-2' }}</strong>
+              number:'1.0-0' }}</strong>
           </div>
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Paid</span>
-            <strong style="font-size:0.88rem;color:#16a34a">PKR {{ (summary.securityDepositPaid ?? 0) | number:'1.2-2'
+            <strong style="font-size:0.88rem;color:#16a34a">PKR {{ (summary.securityDepositPaid ?? 0) | number:'1.0-0'
               }}</strong>
           </div>
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Outstanding</span>
             <strong style="font-size:0.88rem"
               [style.color]="(summary.securityDepositOutstanding ?? 0) > 0 ? '#dc2626' : '#16a34a'">
-              PKR {{ (summary.securityDepositOutstanding ?? 0) | number:'1.2-2' }}
+              PKR {{ (summary.securityDepositOutstanding ?? 0) | number:'1.0-0' }}
             </strong>
           </div>
         </div>
@@ -2794,24 +2794,24 @@
           <div
             style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
             <span>{{ line.description || line.Description || line.chargeTypeLabel || line.feeType || 'Item' }}</span>
-            <strong>PKR {{ (line.amount || line.Amount || line.unitPrice || line.lineTotal || 0) | number:'1.2-2'
+            <strong>PKR {{ (line.amount || line.Amount || line.unitPrice || line.lineTotal || 0) | number:'1.0-0'
               }}</strong>
           </div>
           }
           <div
             style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
             <span>Total Amount</span>
-            <span>PKR {{ (inv.totalAmount ?? inv.TotalAmount ?? inv.total ?? inv.Total ?? 0) | number:'1.2-2' }}</span>
+            <span>PKR {{ (inv.totalAmount ?? inv.TotalAmount ?? inv.total ?? inv.Total ?? 0) | number:'1.0-0' }}</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#166534">
             <span>Amount Paid</span>
-            <span>PKR {{ (inv.paidAmount ?? inv.PaidAmount ?? 0) | number:'1.2-2' }}</span>
+            <span>PKR {{ (inv.paidAmount ?? inv.PaidAmount ?? 0) | number:'1.0-0' }}</span>
           </div>
           <div
             style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
             <span>Balance Due</span>
             <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balance ?? ((inv.totalAmount || inv.TotalAmount
-              || 0) - (inv.paidAmount || inv.PaidAmount || 0))) | number:'1.2-2' }}</span>
+              || 0) - (inv.paidAmount || inv.PaidAmount || 0))) | number:'1.0-0' }}</span>
           </div>
         </div>
       </div>
@@ -3030,28 +3030,28 @@
           @if (isMeetingRoom(q)) {
           <div>
             <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Booking Rent</div>
-            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (q.subtotalAmount || 0) | number:'1.2-2'
+            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (q.subtotalAmount || 0) | number:'1.0-0'
               }}</div>
             <div style="font-size:0.72rem;color:#64748b">Base Booking Amount</div>
           </div>
           <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
             <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">Total Payable</div>
             <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getQuotationInitialPayable(q) |
-              number:'1.2-2' }}</div>
+              number:'1.0-0' }}</div>
             <div style="font-size:0.72rem;color:#1e40af">Rent + Tax</div>
           </div>
           } @else {
           <div>
             <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
             <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getQuotationMonthlyRent(q) |
-              number:'1.2-2' }}</div>
+              number:'1.0-0' }}</div>
             <div style="font-size:0.72rem;color:#64748b">per month</div>
           </div>
           @if (isPrivateRoom(q)) {
           <div>
             <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Security Deposit</div>
             <div style="font-size:1.05rem;font-weight:800;color:#d97706">PKR {{ getQuotationSecurityDeposit(q) |
-              number:'1.2-2' }}</div>
+              number:'1.0-0' }}</div>
             <div style="font-size:0.72rem;color:#64748b">Refundable</div>
           </div>
           }
@@ -3066,7 +3066,7 @@
             <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent
             </div>
             <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getQuotationFirstCycleRent(q) |
-              number:'1.2-2' }}</div>
+              number:'1.0-0' }}</div>
             <div style="font-size:0.72rem;color:#1e40af">First {{ getQuotationBillingMonths(q) }} Months Rent</div>
           </div>
           }
@@ -3093,7 +3093,7 @@
                 Per Booking Slot
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-                PKR {{ (q.subtotalAmount || 0) | number:'1.2-2' }}
+                PKR {{ (q.subtotalAmount || 0) | number:'1.0-0' }}
               </td>
             </tr>
             } @else {
@@ -3106,10 +3106,10 @@
                   services)</div>
               </td>
               <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-                {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.2-2' }}
+                {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.0-0' }}
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-                PKR {{ getQuotationFirstCycleRent(q) | number:'1.2-2' }}
+                PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
               </td>
             </tr>
 
@@ -3124,7 +3124,7 @@
                 Rent Discount Offset
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
-                - PKR {{ getQuotationDiscountAmount(q) | number:'1.2-2' }}
+                - PKR {{ getQuotationDiscountAmount(q) | number:'1.0-0' }}
               </td>
             </tr>
             }
@@ -3138,10 +3138,10 @@
                   itemized on Sales Tax Invoice)</div>
               </td>
               <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
-                16% on PKR {{ getQuotationSupportCharges(q) | number:'1.2-2' }} Support Portion
+                16% on PKR {{ getQuotationSupportCharges(q) | number:'1.0-0' }} Support Portion
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
-                + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
+                + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
               </td>
             </tr>
             }
@@ -3158,7 +3158,7 @@
                 {{ getQuotationSecurityMonths(q) }} Month(s) Equivalent
               </td>
               <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
-                PKR {{ getQuotationSecurityDeposit(q) | number:'1.2-2' }}
+                PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
               </td>
             </tr>
             }
@@ -3170,7 +3170,7 @@
                 TOTAL INITIAL PAYABLE AMOUNT (1ST BILLING CYCLE)
               </td>
               <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
-                PKR {{ getQuotationInitialPayable(q) | number:'1.2-2' }}
+                PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
               </td>
             </tr>
           </tfoot>
@@ -3289,7 +3289,7 @@
               <div style="font-size:0.75rem;color:#64748b">Before discount & tax</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              PKR {{ getQuotationTotalContract(q) | number:'1.2-2' }}
+              PKR {{ getQuotationTotalContract(q) | number:'1.0-0' }}
             </td>
           </tr>
 
@@ -3299,7 +3299,7 @@
               <strong>Special Discount</strong>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
-              - PKR {{ (q.discountAmount || q.DiscountAmount || 0) | number:'1.2-2' }}
+              - PKR {{ (q.discountAmount || q.DiscountAmount || 0) | number:'1.0-0' }}
             </td>
           </tr>
           }
@@ -3311,7 +3311,7 @@
                 & challan</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              + PKR {{ getQuotationTaxAmount(q) | number:'1.2-2' }}
+              + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
             </td>
           </tr>
 
@@ -3321,7 +3321,7 @@
               <strong>Security Deposit (Refundable)</strong>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              + PKR {{ getQuotationSecurityDeposit(q) | number:'1.2-2' }}
+              + PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
             </td>
           </tr>
           }
@@ -3332,7 +3332,7 @@
               Initial Challan Amount Payable (1st Cycle Rent + Tax + Security Deposit)
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
-              PKR {{ getQuotationInitialPayable(q) | number:'1.2-2' }}
+              PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
             </td>
           </tr>
         </tfoot>
@@ -3439,11 +3439,11 @@
         <tbody>
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:10px 14px">
-              <strong>1st Cycle Advance Rent ({{ item.billingPeriodMonths || 3 }} Month(s))</strong>
+              <strong>1st Cycle Advance Rent ({{ getChallanBillingMonths(item) }} Month(s))</strong>
               <div style="font-size:0.75rem;color:#64748b">Advance rent for initial contract period</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              PKR {{ (item.firstCycleRent || item.currentCycleAmount || item.subtotalAmount || 0) | number:'1.2-2' }}
+              PKR {{ getChallanFirstCycleRent(item) | number:'1.0-0' }}
             </td>
           </tr>
 
@@ -3453,7 +3453,7 @@
               <strong>Special Discount</strong>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
-              - PKR {{ (item.discountAmount || 0) | number:'1.2-2' }}
+              - PKR {{ (item.discountAmount || 0) | number:'1.0-0' }}
             </td>
           </tr>
           }
@@ -3464,17 +3464,17 @@
               <div style="font-size:0.75rem;color:#166534">Effective-dated provincial tax snapshot</div>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              + PKR {{ (item.taxAmount || item.totalTax || getQuotationTaxAmount(item)) | number:'1.2-2' }}
+              + PKR {{ getChallanTaxAmount(item) | number:'1.0-0' }}
             </td>
           </tr>
 
-          @if (item.securityDeposit || item.securityDepositOverride) {
+          @if (getChallanSecurityDeposit(item) > 0) {
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:10px 14px">
               <strong>Security Deposit (Refundable)</strong>
             </td>
             <td style="padding:10px 14px;text-align:right;font-weight:600">
-              + PKR {{ (item.securityDepositOverride || item.securityDeposit || 0) | number:'1.2-2' }}
+              + PKR {{ getChallanSecurityDeposit(item) | number:'1.0-0' }}
             </td>
           </tr>
           }
@@ -3485,7 +3485,7 @@
               Total Initial Amount Payable
             </td>
             <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
-              PKR {{ (item.totalPayable || item.totalAmount || getQuotationInitialPayable(item)) | number:'1.2-2' }}
+              PKR {{ getChallanInitialPayable(item) | number:'1.0-0' }}
             </td>
           </tr>
         </tfoot>
@@ -3625,7 +3625,7 @@
                 </select>
               </td>
               <td style="text-align:right;font-weight:600;color:#0f172a">
-                PKR {{ (((line.quantity || 1) * (line.unitPrice || 0)) * (1 + (+line.taxRate || 0))) | number:'1.2-2' }}
+                PKR {{ (((line.quantity || 1) * (line.unitPrice || 0)) * (1 + (+line.taxRate || 0))) | number:'1.0-0' }}
               </td>
               <td style="text-align:center">
                 @if (customInvoiceLines.length > 1) {
@@ -3651,16 +3651,16 @@
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;font-size:.82rem;color:#64748b;margin-bottom:4px">
         <span>Subtotal:</span>
-        <strong>PKR {{ customInvoiceSubtotal | number:'1.2-2' }}</strong>
+        <strong>PKR {{ customInvoiceSubtotal | number:'1.0-0' }}</strong>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:.82rem;color:#0284c7;margin-bottom:4px">
         <span>Taxes:</span>
-        <strong>PKR {{ customInvoiceTaxTotal | number:'1.2-2' }}</strong>
+        <strong>PKR {{ customInvoiceTaxTotal | number:'1.0-0' }}</strong>
       </div>
       <div
         style="display:flex;justify-content:space-between;font-size:.95rem;font-weight:700;color:#0f172a;border-top:1px solid #cbd5e1;padding-top:6px;margin-top:4px">
         <span>Grand Total:</span>
-        <span style="color:#16a34a">PKR {{ customInvoiceGrandTotal | number:'1.2-2' }}</span>
+        <span style="color:#16a34a">PKR {{ customInvoiceGrandTotal | number:'1.0-0' }}</span>
       </div>
     </div>
 
