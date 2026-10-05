@@ -6308,12 +6308,31 @@ export class Manage implements OnInit {
     return Math.round(totalSupport * (taxRate / 100) * 100) / 100;
   }
 
+  getChallanFirstCycleDiscount(c: any): number {
+    if (!c) return 0;
+    const cycleRent = this.getChallanFirstCycleRent(c);
+    const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? 0);
+    if (discPct > 0) {
+      return Math.round(cycleRent * (discPct / 100) * 100) / 100;
+    }
+    const totalDisc = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
+    if (totalDisc > 0) {
+      return Math.min(cycleRent, totalDisc);
+    }
+    const discVal = Number(c.discountValue ?? c.DiscountValue ?? 0);
+    if (discVal > 0) {
+      return Math.min(cycleRent, discVal);
+    }
+    return 0;
+  }
+
+
   getChallanInitialPayable(c: any): number {
     if (!c) return 0;
     const cycleRent = this.getChallanFirstCycleRent(c);
     const deposit = this.getChallanSecurityDeposit(c);
     const tax = this.getChallanTaxAmount(c);
-    const discount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
+    const discount = this.getChallanFirstCycleDiscount(c);
     return Math.max(0, cycleRent + deposit + tax - discount);
   }
 
