@@ -86,12 +86,15 @@
   <div class="admin-card">
     <div class="card-toolbar">
       <div class="search-box">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        <svg (click)="onSearchImmediate()" style="cursor:pointer" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
-        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" />
+        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" (keyup.enter)="onSearchImmediate()" />
+        @if (searchQuery) {
+        <button (click)="clearSearch()" title="Clear search" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px">&times;</button>
+        }
       </div>
       <div class="toolbar-right">
         <label class="page-size-wrap">
@@ -1614,7 +1617,7 @@
         <label>Search Customer *</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="quotationCustomerSearch"
-            placeholder="Type name or email..." (input)="onCustomerSearch()" autocomplete="off" />
+            placeholder="Type name or email..." (input)="onCustomerSearch()" (click)="onCustomerSearch()" (focus)="onCustomerSearch()" autocomplete="off" />
           <button type="button" class="btn-admin btn-outline-admin" (click)="openCreateCustomerFromBooking()"
             title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create
             Customer</button>
@@ -1995,7 +1998,7 @@
         <label>Search Customer *</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="customerSearch"
-            placeholder="Type name or email..." (input)="onCustomerSearch()" autocomplete="off" />
+            placeholder="Type name or email..." (input)="onCustomerSearch()" (click)="onCustomerSearch()" (focus)="onCustomerSearch()" autocomplete="off" />
           <button type="button" class="btn-admin btn-outline-admin" (click)="openCreateCustomerFromBooking()"
             title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create
             Customer</button>

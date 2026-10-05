@@ -59,7 +59,18 @@ export class Manage implements OnInit {
     this.searchTimer = setTimeout(() => {
       this.page.set(1);
       this.load();
-    }, 400);
+    }, 150);
+  }
+
+  onSearchImmediate() {
+    clearTimeout(this.searchTimer);
+    this.page.set(1);
+    this.load();
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    this.onSearchImmediate();
   }
 
   get filtered() {
@@ -1825,7 +1836,14 @@ export class Manage implements OnInit {
     }
 
     if (!query) {
-      this.customerSearchResults = [];
+      this.admin.getCustomers(1, 20, '').subscribe({
+        next: (res: any) => {
+          this.customerSearchResults = res?.data ?? (Array.isArray(res) ? res : []);
+        },
+        error: () => {
+          this.customerSearchResults = [];
+        }
+      });
       return;
     }
 
@@ -1843,7 +1861,7 @@ export class Manage implements OnInit {
           this.fallbackCustomerSearch(query);
         }
       });
-    }, 250);
+    }, 100);
   }
 
   private fallbackCustomerSearch(query: string) {
@@ -2798,6 +2816,10 @@ export class Manage implements OnInit {
         return this.formatChallanDisplay(item);
       }
       if (col.key === 'totalAmount') {
+        const payable = this.getChallanInitialPayable(item);
+        if (payable > 0) return payable;
+        const billedVal = item.totalPayable ?? item.currentCycleAmount ?? item.CurrentCycleAmount ?? item.firstCycleRent ?? item.FirstCycleRent;
+        if (billedVal != null && Number(billedVal) > 0) return Number(billedVal);
         const directVal = item.totalAmount ?? item.TotalAmount ?? item.rentAmount ?? item.RentAmount ?? item.amount ?? item.Amount;
         if (directVal != null && directVal > 0) return Number(directVal);
 
@@ -2815,11 +2837,6 @@ export class Manage implements OnInit {
         if (roomPrice > 0) {
           return (isPrivate ? roomPrice : (roomPrice / (capacity || 1))) + secDeposit;
         }
-
-        if (isPrivate) return 0;
-        if (cat.includes('shared') || cat.includes('co-working')) return 0;
-        if (cat.includes('conference')) return 0;
-        if (cat.includes('meeting')) return 0;
 
         return 0;
       }

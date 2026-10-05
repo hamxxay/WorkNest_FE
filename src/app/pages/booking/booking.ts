@@ -271,7 +271,16 @@ export class Booking implements OnInit {
     });
   }
 
-  filterWorkspaces() { /* computed signal reactive — no-op */ }
+  filterWorkspaces() {
+    const q = this.searchQuery().trim().toLowerCase();
+    if (q) {
+      for (const loc of this.locationGroups()) {
+        for (const st of loc.spaceTypes) {
+          this.expandedGroups.add(`${loc.locationName}|${st.spaceTypeId}`);
+        }
+      }
+    }
+  }
 
   getCategory = getCategory;
 
@@ -637,13 +646,15 @@ export class Booking implements OnInit {
     if (!start || !end) return null;
     const seatPrice = +((this.selectedSpace as any).price || (this.selectedSpace as any).seatPrice || 0);
     let base: number;
+    let billingMonths = 1;
+    const contractMonths = +(this.bookingForm?.value?.months ?? 1);
     if (this.isPrivate) {
       const capacity  = +(this.bookingForm?.value?.capacity ?? 1);
-      const months = +(this.bookingForm?.value?.months ?? 1);
-      base = seatPrice * capacity * months;
+      billingMonths = Math.min(contractMonths, 3);
+      base = seatPrice * capacity * billingMonths;
     } else if (this.isShared) {
-      const months = +(this.bookingForm?.value?.months ?? 1);
-      base = seatPrice * months;
+      billingMonths = Math.min(contractMonths, 3);
+      base = seatPrice * billingMonths;
     } else {
       const hours = (end.getTime() - start.getTime()) / 3_600_000;
       base = Math.ceil(hours) * seatPrice;
@@ -653,7 +664,7 @@ export class Booking implements OnInit {
           ? this.selectedSpace.securityDeposit
           : +(this.spaceConfig().find(c => c.spaceCategory === 'Private')?.securityDeposit ?? 0))
       : 0;
-    return { base, percent: 0, discountAmount: 0, final: base, securityDeposit: deposit, total: base + deposit };
+    return { base, billingMonths, contractMonths, percent: 0, discountAmount: 0, final: base, securityDeposit: deposit, total: base + deposit };
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -722,8 +733,11 @@ export class Booking implements OnInit {
           totalAmount:     breakdown?.total ?? 0,
           rentAmount:      breakdown?.final ?? 0,
           baseAmount:      breakdown?.base ?? 0,
+          currentCycleAmount: breakdown?.final ?? 0,
+          firstCycleRent:  breakdown?.final ?? 0,
           securityDeposit: breakdown?.securityDeposit ?? 0,
           months:          (this.isPrivate || this.isShared) ? (+this.bookingForm.value.months || 1) : undefined,
+          billingPeriodMonths: (this.isPrivate || this.isShared) ? (breakdown?.billingMonths ?? 3) : undefined,
           price:           this.selectedSpace?.price ?? 0,
           notes:           this.bookingForm.value.notes || null,
           capacity:        cap,

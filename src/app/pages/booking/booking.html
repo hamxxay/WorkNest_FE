@@ -246,11 +246,14 @@
 
         @if (getPriceBreakdown(); as pb) {
           <div class="modal-price">
-            <div class="price-row"><span>Base Amount</span><span>Rs {{ pb.base | number:'1.0-0' }}</span></div>
+            <div class="price-row">
+              <span>{{ (isPrivate || isShared) ? ('1st Cycle Advance Rent (' + pb.billingMonths + ' Mo)') : 'Base Amount' }}</span>
+              <span>Rs {{ pb.base | number:'1.0-0' }}</span>
+            </div>
             @if (pb.securityDeposit > 0) {
               <div class="price-row"><span>Security Deposit <small>(refundable)</small></span><span>Rs {{ pb.securityDeposit | number:'1.0-0' }}</span></div>
             }
-            <div class="price-row price-total"><span>Total</span><span>Rs {{ pb.total | number:'1.0-0' }}</span></div>
+            <div class="price-row price-total"><span>Total Initial Payable</span><span>Rs {{ pb.total | number:'1.0-0' }}</span></div>
           </div>
         }
 
