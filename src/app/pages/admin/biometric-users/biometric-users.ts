@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { HikDeviceService } from '../../../services/hik-device.service';
 import { ToastService } from '../../../services/toast.service';
+import { AuthService } from '../../../services/auth.service';
 import { HikDevice, MergedBiometricUser, HikDeviceUser } from '../../../models/hik-device.model';
 
 @Component({
@@ -16,6 +17,10 @@ import { HikDevice, MergedBiometricUser, HikDeviceUser } from '../../../models/h
 export class BiometricUsers implements OnInit {
   private hikService = inject(HikDeviceService);
   private toastService = inject(ToastService);
+  private auth = inject(AuthService);
+
+  /** Machine-admin users are only shown to admin / super admin (the API also withholds them). */
+  readonly canSeeMachineAdmins = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
 
   loading = signal<boolean>(true);
   refreshing = signal<boolean>(false);
@@ -57,21 +62,20 @@ export class BiometricUsers implements OnInit {
     return this.allMembers().filter(m => m.isExpired || m.isBlocked).length;
   });
 
-  // Distinct room list for dropdown
+  // Distinct room list for dropdown: booked spaces (e.g. "Office 336") and machine rooms ("Room 336")
   distinctRooms = computed(() => {
     const set = new Set<string>();
     for (const m of this.allMembers()) {
-      for (const r of m.rooms) {
+      for (const r of m.roomLabels) {
         if (r) set.add(r);
       }
     }
-    return Array.from(set).sort((a, b) => {
-      const numA = Number(a);
-      const numB = Number(b);
-      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-      return a.localeCompare(b);
-    });
+    const num = (s: string) => Number((s.match(/\d+/) || [''])[0]) || Infinity;
+    return Array.from(set).sort((a, b) => num(a) - num(b) || a.localeCompare(b));
   });
+
+  distinctTags = computed(() =>
+    Array.from(new Set(this.allMembers().map(m => m.tag).filter((t): t is string => !!t))).sort());
 
   // Filtered members
   filteredMembers = computed(() => {
@@ -92,14 +96,18 @@ export class BiometricUsers implements OnInit {
       if (status === 'expired' && !m.isExpired && !m.isBlocked) return false;
       if (status === 'active' && (m.isExpired || m.isBlocked)) return false;
 
-      // Room filter
-      if (room !== 'all' && !m.rooms.includes(room)) return false;
+      // Room filter (booked room / machine room), staff tag, or no booking
+      if (room === 'staff' && !m.tag) return false;
+      if (room === 'none' && (m.bookedRooms.length || m.tag)) return false;
+      if (room.startsWith('tag:') && m.tag !== room.slice(4)) return false;
+      if (room !== 'all' && room !== 'staff' && room !== 'none' && !room.startsWith('tag:') && !m.roomLabels.includes(room)) return false;
 
       // Text search
       if (q) {
         const roomTerms = m.rooms.map(r => `room ${r}`).join(' ');
         const deviceNames = m.devices.map(d => d.name).join(' ');
-        const searchPool = `${m.name} ${m.employeeNo} ${m.cnic} ${roomTerms} ${deviceNames}`.toLowerCase();
+        const booked = m.bookedRooms.map(b => `${b.space} ${b.customer || ''}`).join(' ');
+        const searchPool = `${m.name} ${m.employeeNo} ${m.cnic} ${roomTerms} ${booked} ${m.tag || ''} ${deviceNames}`.toLowerCase();
         if (!searchPool.includes(q)) return false;
       }
 
@@ -171,6 +179,8 @@ export class BiometricUsers implements OnInit {
 
   private processRosterData(devices: HikDevice[], roster: any) {
     const cnics: Record<string, string> = roster?.cnics || {};
+    const bookings: Record<string, any[]> = roster?.bookings || {};
+    const tags: Record<string, string> = roster?.tags || {};
     const rostersList = roster?.rosters || [];
 
     const deviceMap = new Map<number, HikDevice>(devices.map(d => [d.id, d]));
@@ -231,6 +241,11 @@ export class BiometricUsers implements OnInit {
       const endTimeStr = u.Valid?.endTime ? String(u.Valid.endTime).replace('T', ' ').slice(0, 16) : null;
       const isExpired = !!(u.Valid?.endTime && new Date(u.Valid.endTime) <= now);
       const isAdmin = u.localUIRight === 1 || u.localUIRight === true;
+      const bookedRooms = bookings[u.employeeNo || ''] || [];
+      const tag = tags[u.employeeNo || ''] || null;
+      const roomLabels = bookedRooms.length
+        ? bookedRooms.map(b => b.space).filter((v, i, a) => !!v && a.indexOf(v) === i)
+        : rooms.map(r => `Room ${r}`);
 
       return {
         key,
@@ -239,6 +254,9 @@ export class BiometricUsers implements OnInit {
         cnic,
         isAdmin,
         rooms,
+        bookedRooms,
+        tag,
+        roomLabels,
         devices: on,
         validUntil: endTimeStr,
         isExpired,

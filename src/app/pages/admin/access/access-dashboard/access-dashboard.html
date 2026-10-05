@@ -1,0 +1,254 @@
+<div class="access-page">
+  <div class="page-header">
+    <div>
+      <h2>Access Dashboard</h2>
+      <p class="subtitle">{{ greeting() }} — live door access across all Hikvision machines.</p>
+    </div>
+    <div class="header-actions">
+      @if (updatedAt()) { <span class="updated">Updated {{ updatedAt() | date:'h:mm:ss a' }} · auto-refresh 30s</span> }
+      <button class="btn btn-outline btn-sm" (click)="load()">Refresh</button>
+      <a class="btn btn-primary btn-sm" routerLink="/admin/access-analytics">Access Analytics →</a>
+    </div>
+  </div>
+
+  @if (error()) { <div class="error-state">{{ error() }}</div> }
+
+  @if (loading() && !data()) {
+  <div class="empty-state">Loading access data…</div>
+  }
+
+  @if (data(); as d) {
+  <!-- Status strip -->
+  <div class="status-strip">
+    <div class="status-item">
+      <span class="status-label">System</span>
+      @if (offlineDevices().length === 0) {
+      <span class="badge badge-ok">All machines online</span>
+      } @else {
+      <span class="badge badge-bad">{{ offlineDevices().length }} machine(s) offline</span>
+      }
+    </div>
+    <div class="status-item">
+      <span class="status-label">People on-site today</span>
+      <strong>{{ d.stats.uniqueToday }}</strong>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Peak arrival window</span>
+      <strong>{{ d.peakHourLabel }}</strong>
+    </div>
+    <div class="status-item grow">
+      <span class="status-label">Latest entry</span>
+      @if (d.lastEvent; as e) {
+      <span><strong>{{ e.name }}</strong> at {{ e.device }} · {{ formatTime12(e.time) }}
+        <span class="badge" [class.badge-ok]="!e.isDenied" [class.badge-bad]="e.isDenied">{{ e.isDenied ? 'Denied' : 'Granted' }}</span></span>
+      } @else {
+      <span class="text-muted">No member entries recorded today</span>
+      }
+    </div>
+  </div>
+
+  @if (offlineDevices().length) {
+  <div class="offline-banner">
+    Offline: {{ offlineDevices().map(x => x.name).join(', ') }}. Enrollments for these machines are queued and applied when they reconnect.
+  </div>
+  }
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi" [class.good]="d.stats.devicesOnline === d.stats.devices" [class.warn]="d.stats.devicesOnline < d.stats.devices">
+      <div class="kpi-label">Machines</div>
+      <div class="kpi-value">{{ d.stats.devicesOnline }} / {{ d.stats.devices }}</div>
+      <div class="kpi-hint">online</div>
+    </div>
+    <div class="kpi good">
+      <div class="kpi-label">Active Members</div>
+      <div class="kpi-value">{{ d.stats.activeMembers }}</div>
+      <div class="kpi-hint">{{ d.stats.cards }} cards registered</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Today's Scans</div>
+      <div class="kpi-value">{{ d.stats.todayScans }}</div>
+      <div class="kpi-hint">
+        <span [class.trend-up]="d.stats.trendPct >= 0" [class.trend-down]="d.stats.trendPct < 0">
+          {{ d.stats.trendPct >= 0 ? '↑' : '↓' }} {{ d.stats.trendPct < 0 ? -d.stats.trendPct : d.stats.trendPct }}%
+        </span> vs yesterday ({{ d.stats.yesterdayScans }})
+      </div>
+    </div>
+    <div class="kpi" [class.bad]="d.stats.deniedToday > 0">
+      <div class="kpi-label">Denied Today</div>
+      <div class="kpi-value">{{ d.stats.deniedToday }}</div>
+      <div class="kpi-hint">rejected at the door</div>
+    </div>
+    <div class="kpi" [class.warn]="d.stats.expiredMembers > 0">
+      <div class="kpi-label">Expired</div>
+      <div class="kpi-value">{{ d.stats.expiredMembers }}</div>
+      <div class="kpi-hint">members past access date</div>
+    </div>
+    <div class="kpi" [class.bad]="d.stats.pendingSync > 0">
+      <div class="kpi-label">Pending Sync</div>
+      <div class="kpi-value">{{ d.stats.pendingSync }}</div>
+      <div class="kpi-hint">grants waiting for a machine</div>
+    </div>
+  </div>
+  }
+
+  <!-- Hourly inflow + machines (canvas stays mounted so the chart can be created once) -->
+  <div class="grid-2" [hidden]="!data()">
+    <div class="card">
+      <div class="card-header-row">
+        <div>
+          <h3 class="card-title">Hourly Inflow — Today</h3>
+          <span class="card-sub">Click a point to see who scanned in that hour</span>
+        </div>
+        @if (data()?.peakHourCount) { <span class="badge badge-muted">Peak {{ data()?.peakHourCount }} scans</span> }
+      </div>
+      <div class="chart-box"><canvas #inflowCanvas></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header-row">
+        <h3 class="card-title">Machines</h3>
+        <a class="btn btn-outline btn-sm" routerLink="/admin/biometric-users">Access Users →</a>
+      </div>
+      <div class="scroll-list">
+        @for (m of data()?.devices || []; track m.id) {
+        <div class="list-row">
+          <span class="dot" [class.dot-on]="m.online" [class.dot-off]="!m.online"></span>
+          <div class="list-main">
+            <div class="list-title">{{ m.name }}</div>
+            <div class="list-sub">{{ m.grp || 'Ungrouped' }}{{ m.code ? ' · Room ' + m.code : '' }}{{ m.last_seen ? ' · seen ' + relStamp(m.last_seen) : '' }}</div>
+          </div>
+          <span class="badge" [class.badge-ok]="m.online" [class.badge-bad]="!m.online">{{ m.online ? 'Online' : 'Offline' }}</span>
+        </div>
+        } @empty {
+        <div class="empty-state">No machines registered.</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (data(); as d) {
+  <div class="grid-2 even">
+    <div class="card">
+      <div class="card-header-row">
+        <h3 class="card-title">Latest Entries</h3>
+        <a class="btn btn-outline btn-sm" routerLink="/admin/access-activity-log">View all →</a>
+      </div>
+      @for (e of d.recentEvents; track e.id) {
+      <div class="list-row">
+        <span class="avatar" [class.muted]="!e.name">{{ initials(e.name) }}</span>
+        <div class="list-main">
+          <div class="list-title">{{ e.name || (e.employeeNo ? 'User #' + e.employeeNo : e.label) }}</div>
+          <div class="list-sub">{{ e.device }} · {{ relStamp(e.time) }} · <span class="method" [class]="'method-' + e.method">{{ methodLabels[e.method] }}</span></div>
+        </div>
+        <span class="badge" [class.badge-ok]="!e.isDenied" [class.badge-bad]="e.isDenied">{{ e.isDenied ? 'Denied' : 'Granted' }}</span>
+      </div>
+      } @empty {
+      <div class="empty-state">No entries recorded today.</div>
+      }
+    </div>
+
+    <div class="card">
+      <div class="card-header-row">
+        <h3 class="card-title">Expiring Soon</h3>
+        <span class="card-sub">next {{ d.expiringHorizonDays }} days</span>
+      </div>
+      <div class="scroll-list">
+        @for (x of d.expiring; track (x.employeeNo || '') + (x.name || '')) {
+        <div class="list-row">
+          <span class="avatar" [class.muted]="x.status === 'expired'">{{ initials(x.name) }}</span>
+          <div class="list-main">
+            <div class="list-title">{{ x.name }} <span class="text-muted">#{{ x.employeeNo }}</span></div>
+            <div class="list-sub">{{ x.devices.join(', ') }}</div>
+          </div>
+          @if (x.status === 'expired') {
+          <span class="badge badge-bad">Expired</span>
+          } @else {
+          <span class="badge badge-warn">Ends {{ relStamp(x.validEnd) }}</span>
+          }
+        </div>
+        } @empty {
+        <div class="empty-state">Nobody expires in the next {{ d.expiringHorizonDays }} days.</div>
+        }
+      </div>
+    </div>
+  </div>
+  }
+</div>
+
+<!-- Hourly drill-down -->
+@if (showHourModal()) {
+<div class="modal-backdrop" (click)="closeHour()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <div>
+        <h3>{{ hourRangeLabel(hourModalHour()) }}</h3>
+        <span class="card-sub">Today's scans in this hour</span>
+      </div>
+      <button class="close-btn" (click)="closeHour()" aria-label="Close">×</button>
+    </div>
+
+    @if (hourLoading()) {
+    <div class="empty-state">Loading scans…</div>
+    } @else {
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Total Scans</div><div class="kpi-value">{{ hourSummary().total }}</div></div>
+      <div class="kpi"><div class="kpi-label">Unique People</div><div class="kpi-value">{{ hourSummary().people }}</div></div>
+      <div class="kpi">
+        <div class="kpi-label">Top Machine</div>
+        <div class="kpi-value small">{{ hourSummary().topDevice }}</div>
+        <div class="kpi-hint">{{ hourSummary().topDeviceCount }} scans</div>
+      </div>
+      <div class="kpi" [class.bad]="hourSummary().denied > 0">
+        <div class="kpi-label">Methods</div>
+        <div class="kpi-hint">Face {{ hourSummary().face }} · FP {{ hourSummary().fingerprint }} · Card {{ hourSummary().card }}</div>
+        <div class="kpi-hint">{{ hourSummary().denied ? hourSummary().denied + ' denied' : 'All authorized' }}</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="form-control search" placeholder="Search name, #, machine, card…" [ngModel]="hourSearch()" (ngModelChange)="hourSearch.set($event)">
+      <span class="card-sub">{{ filteredHourEvents().length }} of {{ hourEvents().length }} events</span>
+      <button class="btn btn-outline btn-sm" (click)="exportHour()" [disabled]="!filteredHourEvents().length">Export CSV</button>
+    </div>
+    <div class="pill-row">
+      <button class="pill" [class.active]="hourFilter() === 'all'" (click)="hourFilter.set('all')">All</button>
+      @if (hourSummary().fingerprint) { <button class="pill" [class.active]="hourFilter() === 'fingerprint'" (click)="hourFilter.set('fingerprint')">Fingerprint</button> }
+      @if (hourSummary().face) { <button class="pill" [class.active]="hourFilter() === 'face'" (click)="hourFilter.set('face')">Face</button> }
+      @if (hourSummary().card) { <button class="pill" [class.active]="hourFilter() === 'card'" (click)="hourFilter.set('card')">Card</button> }
+      @if (hourSummary().door) { <button class="pill" [class.active]="hourFilter() === 'door'" (click)="hourFilter.set('door')">Door sensors</button> }
+      @if (hourSummary().denied) { <button class="pill" [class.active]="hourFilter() === 'denied'" (click)="hourFilter.set('denied')">Denied</button> }
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Time</th><th>Person</th><th>Machine</th><th>Method</th><th>Event</th></tr>
+        </thead>
+        <tbody>
+          @for (e of filteredHourEvents(); track e.id) {
+          <tr>
+            <td>{{ formatTime12(e.time, true) }}</td>
+            <td>
+              <div class="person">
+                <span class="avatar" [class.muted]="!e.name">{{ initials(e.name) }}</span>
+                <div>
+                  <div class="person-name">{{ e.name || (e.method === 'door' ? 'Door sensor' : 'Unregistered') }}</div>
+                  <div class="person-sub">{{ e.employeeNo ? '#' + e.employeeNo : '' }}{{ e.cardNo ? ' · card ' + e.cardNo : '' }}</div>
+                </div>
+              </div>
+            </td>
+            <td>{{ e.device }}</td>
+            <td><span class="method" [class]="'method-' + e.method">{{ methodLabels[e.method] }}</span></td>
+            <td><span class="badge" [class.badge-ok]="!e.isDenied" [class.badge-bad]="e.isDenied">{{ e.label }}</span></td>
+          </tr>
+          } @empty {
+          <tr><td colspan="5"><div class="empty-state">No scans match.</div></td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </div>
+</div>
+}

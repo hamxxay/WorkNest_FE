@@ -1,0 +1,7 @@
+.status-strip { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.9rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); font-size: 0.88rem; }
+.status-item { display: flex; flex-direction: column; gap: 0.2rem; }
+.status-item.grow { flex: 1; min-width: 240px; }
+.status-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+.offline-banner { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; }
+.kpi-value.small { font-size: 1rem; }
+.text-muted { color: #64748b; font-weight: 400; }

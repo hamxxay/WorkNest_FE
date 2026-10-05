@@ -1,60 +1,53 @@
 <!-- Hero -->
-<section class="page-hero">
-  <div class="container text-center">
-    <h1>About WorkNest</h1>
-    <p class="hero-sub">We are on a mission to transform how professionals work by providing flexible, inspiring workspaces that foster productivity, collaboration, and growth.</p>
+<section class="about-hero">
+  <img class="about-hero-img" src="images/slideshow/Slideshow2.jpg" alt="" aria-hidden="true" />
+  <div class="about-hero-shade" aria-hidden="true"></div>
+  <div class="container about-hero-content">
+    <span class="kicker kicker-light">About WorkNest</span>
+    <h1>Workspaces that help<br /><span class="text-accent-light">professionals grow</span></h1>
+    <p>We are on a mission to transform how professionals work by providing flexible, inspiring workspaces that foster productivity, collaboration, and growth.</p>
   </div>
 </section>
 
-<!-- Our Story + Stats -->
-<section class="section">
-  <div class="container">
-    <div class="story-centered">
-      <div class="story-content">
-        <h2 class="section-title">Our Story</h2>
-        <p>Founded in 2026, WorkNest began with a simple idea: work should happen in spaces that inspire. What started as a single shared office space has grown into a network of premium workspaces across major cities.</p>
-        <p>We noticed that traditional office spaces were no longer meeting the needs of modern professionals. Freelancers, startups, and remote workers needed flexibility, community, and environments designed for focus and creativity.</p>
+<!-- Our Story -->
+<section class="section story-section">
+  <div class="container story-grid">
+    <div class="story-text">
+      <span class="kicker">Our Story</span>
+      <h2>Work should happen in <span class="text-accent">spaces that inspire</span></h2>
+      <p>Founded in 2026, WorkNest began with a simple idea: work should happen in spaces that inspire. What started as a single shared office space has grown into a network of premium workspaces across major cities.</p>
+      <p>We noticed that traditional office spaces were no longer meeting the needs of modern professionals. Freelancers, startups, and remote workers needed flexibility, community, and environments designed for focus and creativity.</p>
+    </div>
+    <div class="story-media">
+      <img src="images/spaces/collaborative.jpg" alt="WorkNest collaborative workspace" loading="lazy" />
+      <img class="story-media-small" src="images/spaces/meeting-room.jpg" alt="WorkNest meeting room" loading="lazy" />
+      <div class="story-badge">
+        <span class="story-badge-year">2026</span>
+        <span class="story-badge-label">Founded</span>
       </div>
     </div>
-    <!-- Stats cards hidden
-    <div class="stats-grid">
-      @for (stat of stats; track stat.label) {
-        <div class="stat-item">
-          <div class="stat-icon">
-            @if (stat.icon === 'location') {
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
-            } @else if (stat.icon === 'members') {
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            } @else if (stat.icon === 'globe') {
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-            } @else {
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
-            }
-          </div>
-          <span class="stat-value">{{ stat.value }}</span>
-          <span class="stat-label">{{ stat.label }}</span>
-        </div>
-      }
-    </div>
-    -->
   </div>
 </section>
 
 <!-- Values -->
 <section class="section values-section">
   <div class="container">
-    <h2 class="section-title text-center">Our Values</h2>
-    <p class="section-subtitle text-center">These core principles guide everything we do at WorkNest.</p>
+    <div class="section-head">
+      <span class="kicker">Our Values</span>
+      <h2>What we <span class="text-accent">stand for</span></h2>
+      <p>These core principles guide everything we do at WorkNest.</p>
+    </div>
     <div class="values-grid">
-      @for (value of values; track value.title) {
-        <div class="card value-card">
+      @for (value of values; track value.title; let i = $index) {
+        <div class="value-card">
+          <span class="value-num">0{{ i + 1 }}</span>
           <div class="value-icon">
             @if (value.icon === 'star') {
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             } @else if (value.icon === 'users') {
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             } @else {
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
             }
           </div>
           <h3>{{ value.title }}</h3>
@@ -66,20 +59,36 @@
 </section>
 
 <!-- Team -->
-<section class="section">
+<section class="section team-section">
   <div class="container">
-    <h2 class="section-title text-center">Leadership Team</h2>
-    <p class="section-subtitle text-center">Meet the people driving our vision forward.</p>
+    <div class="section-head">
+      <span class="kicker">Leadership</span>
+      <h2>Meet the <span class="text-accent">team</span></h2>
+      <p>Meet the people driving our vision forward.</p>
+    </div>
     <div class="team-grid">
       @for (member of team; track member.name) {
-        <div class="card team-card text-center">
-          <div class="team-avatar">
-            <span>{{ member.initials }}</span>
-          </div>
+        <div class="team-card">
+          <div class="team-avatar"><span>{{ member.initials }}</span></div>
           <h3>{{ member.name }}</h3>
           <p>{{ member.role }}</p>
         </div>
       }
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="about-cta">
+  <div class="about-cta-bg" aria-hidden="true"></div>
+  <div class="container about-cta-inner">
+    <div>
+      <h2>Ready to find your <span class="text-accent-light">perfect workspace?</span></h2>
+      <p>Come see the space in person, or browse what is available right now.</p>
+    </div>
+    <div class="about-cta-actions">
+      <a routerLink="/book-a-tour" class="btn btn-primary btn-lg">Book a Tour</a>
+      <a routerLink="/booking" class="btn btn-lg about-btn-ghost">Explore Spaces</a>
     </div>
   </div>
 </section>

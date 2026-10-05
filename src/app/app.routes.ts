@@ -40,6 +40,10 @@ export const routes: Routes = [
       { path: 'attendants', loadComponent: () => import('./pages/admin/attendant-management/attendant-management').then(m => m.AttendantManagement), canActivate: [adminGuard] },
       { path: 'biometric-users', loadComponent: () => import('./pages/admin/biometric-users/biometric-users').then(m => m.BiometricUsers), canActivate: [adminGuard] },
       { path: 'machine-users', redirectTo: 'biometric-users' },
+      { path: 'staff-access', loadComponent: () => import('./pages/admin/staff-access/staff-access').then(m => m.StaffAccess), canActivate: [adminGuard] },
+      { path: 'access-dashboard', loadComponent: () => import('./pages/admin/access/access-dashboard/access-dashboard').then(m => m.AccessDashboard), canActivate: [adminGuard] },
+      { path: 'access-activity-log', loadComponent: () => import('./pages/admin/access/access-activity-log/access-activity-log').then(m => m.AccessActivityLog), canActivate: [adminGuard] },
+      { path: 'access-analytics', loadComponent: () => import('./pages/admin/access/access-analytics/access-analytics').then(m => m.AccessAnalytics), canActivate: [adminGuard] },
             { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]

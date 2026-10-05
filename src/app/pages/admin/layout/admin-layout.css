@@ -69,6 +69,13 @@
   gap: 2px;
 }
 
+/* Thin dark scrollbar so a long menu doesn't show a light browser scrollbar on the dark sidebar */
+.sidebar-nav { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: #475569; }
+
 .nav-label {
   font-size: 0.65rem;
   font-weight: 600;
@@ -258,3 +265,17 @@
   overflow-y: auto;
   background: #f8fafc;
 }
+
+/* Sidebar user block: one tidy row — avatar, name + role, logout icon */
+.sidebar-footer { padding: 12px 10px; }
+.sidebar-user { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.04); gap: 10px; }
+.sidebar-avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #0d9488, #115e59); font-size: 0.78rem; }
+.sidebar-user-info { flex: 1; min-width: 0; }
+.sidebar-user-role { color: #94a3b8; }
+.sidebar-user .sidebar-logout { width: 32px; height: 32px; padding: 0; justify-content: center; flex-shrink: 0; border-radius: 8px; }
+.admin-shell.collapsed .sidebar-user { flex-direction: column; background: none; padding: 4px 0; }
+
+/* Section headings in the sidebar */
+.sidebar-nav .nav-label { display: block; text-transform: uppercase; color: #64748b; padding: 16px 12px 6px; }
+.sidebar-nav .nav-label:first-child { padding-top: 6px; }
+.admin-shell.collapsed .sidebar-nav .nav-label { display: block; height: 1px; padding: 0; margin: 10px 14px; background: rgba(255,255,255,0.08); color: transparent; overflow: hidden; }

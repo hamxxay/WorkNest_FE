@@ -1,4 +1,4 @@
-﻿import { Component, inject } from '@angular/core';
+﻿import { Component, HostListener, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
@@ -13,10 +13,11 @@ export class AdminLayout {
   get boundLocationId(): number | null {
     return this.auth.getUser()?.locationId ?? null;
   }
-  sidebarCollapsed = false;
+  sidebarCollapsed = typeof window !== 'undefined' && window.innerWidth < 1280;
   userRole = '';
 
   isSuperAdmin = false;
+  isAdmin = false;
   isSalesExecutive = false;
 
   public toastService = inject(ToastService);
@@ -24,28 +25,32 @@ export class AdminLayout {
   private router = inject(Router);
 
   menuItems = [
-    { route: '/admin',                label: 'Dashboard',         icon: 'dashboard'       },
-    { route: '/admin/customers',      label: 'Customers',         icon: 'customers'       },
-    { route: '/admin/kyc',            label: 'KYC Portal',        icon: 'kyc'             },
-    { route: '/admin/users',          label: 'Users',             icon: 'users'           },
-    { route: '/admin/locations',      label: 'Locations',         icon: 'location'        },
-    { route: '/admin/spacetypes',     label: 'Space Types',       icon: 'spacetype'       },
-    { route: '/admin/spaces',         label: 'Spaces',            icon: 'spaces'          },
-    { route: '/admin/bookings',       label: 'Bookings',          icon: 'bookings'        },
-    { route: '/admin/pricing',        label: 'Pricing',           icon: 'pricing'         },
-    { route: '/admin/quotations',     label: 'Quotations',        icon: 'pricing'         },
-    { route: '/admin/payments',       label: 'Payments',          icon: 'payments'        },
-    { route: '/admin/agreements',     label: 'Agreements',        icon: 'challan'         },
-    { route: '/admin/lease-templates', label: 'Lease Templates',  icon: 'challan'         },
-    { route: '/admin/invoices',       label: 'Invoices & Billing', icon: 'payments'        },
-    { route: '/admin/contacts',       label: 'Contacts',          icon: 'contacts'        },
-    { route: '/admin/gallery',        label: 'Gallery',           icon: 'gallery'         },
-    { route: '/admin/space-configuration', label: 'Space Config', icon: 'spaceconfig',  superAdminOnly: true },
-    { route: '/admin/manage-spaces',  label: 'Manage Spaces',     icon: 'managespaces'    },
-    { route: '/admin/attendants',     label: 'Attendants & Access', icon: 'users'         },
-    { route: '/admin/biometric-users', label: 'Biometric Users',  icon: 'biometrics'      },
-        { route: '/admin/challan-validity', label: 'Challan Validity', icon: 'challan'        },
-    { route: '/admin/reports/security-deposits', label: 'Security Deposit Report', icon: 'reports' },
+    { route: '/admin', group: '',                label: 'Dashboard',         icon: 'dashboard'       },
+    { route: '/admin/customers', group: 'Sales',      label: 'Customers',         icon: 'customers'       },
+    { route: '/admin/kyc', group: 'Sales',            label: 'KYC Portal',        icon: 'kyc'             },
+    { route: '/admin/users', group: 'Administration',          label: 'Users',             icon: 'users'           },
+    { route: '/admin/locations', group: 'Spaces',      label: 'Locations',         icon: 'location'        },
+    { route: '/admin/spacetypes', group: 'Spaces',     label: 'Space Types',       icon: 'spacetype'       },
+    { route: '/admin/spaces', group: 'Spaces',         label: 'Spaces',            icon: 'spaces'          },
+    { route: '/admin/bookings', group: 'Sales',       label: 'Bookings',          icon: 'bookings'        },
+    { route: '/admin/pricing', group: 'Finance',        label: 'Pricing',           icon: 'pricing'         },
+    { route: '/admin/quotations', group: 'Sales',     label: 'Quotations',        icon: 'pricing'         },
+    { route: '/admin/payments', group: 'Finance',       label: 'Payments',          icon: 'payments'        },
+    { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
+    { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },
+    { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
+    { route: '/admin/contacts', group: 'Sales',       label: 'Contacts',          icon: 'contacts'        },
+    { route: '/admin/gallery', group: 'Spaces',        label: 'Gallery',           icon: 'gallery'         },
+    { route: '/admin/space-configuration', group: 'Spaces', label: 'Space Config', icon: 'spaceconfig',  superAdminOnly: true },
+    { route: '/admin/manage-spaces', group: 'Spaces',  label: 'Manage Spaces',     icon: 'managespaces'    },
+    { route: '/admin/attendants', group: 'Access Control',     label: 'Attendants & Access', icon: 'users'         },
+    { route: '/admin/biometric-users', group: 'Access Control', label: 'Access Users',     icon: 'biometrics'      },
+    { route: '/admin/staff-access', group: 'Access Control',        label: 'Staff Access',        icon: 'users' },
+    { route: '/admin/access-dashboard', group: 'Access Control',    label: 'Access Dashboard',    icon: 'access-dashboard', adminOnly: true },
+    { route: '/admin/access-activity-log', group: 'Access Control', label: 'Access Activity Log', icon: 'access-activity',  adminOnly: true },
+    { route: '/admin/access-analytics', group: 'Access Control',    label: 'Access Analytics',    icon: 'access-analytics', adminOnly: true },
+        { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan'        },
+    { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
 
   constructor() {
@@ -53,10 +58,11 @@ export class AdminLayout {
     this.userRole = u?.roles?.[0] ?? 'Admin';
     this.isSuperAdmin = this.auth.hasRole('super_admin');
     const isAdmin = this.auth.hasRole('admin');
+    this.isAdmin = isAdmin || this.isSuperAdmin;
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
+      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/staff-access', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
       this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
       if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
         this.router.navigate(['/admin/quotations']);
@@ -64,7 +70,37 @@ export class AdminLayout {
     }
   }
 
+  // Sidebar sections, in this order; items keep their order inside a section.
+  private static readonly GROUP_ORDER = ['', 'Sales', 'Finance', 'Spaces', 'Access Control', 'Administration'];
+
+  /** Visible menu items (role rules applied), grouped under section headings. */
+  get menuGroups(): { name: string; items: any[] }[] {
+    const visible = this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin));
+    return AdminLayout.GROUP_ORDER
+      .map(name => ({ name, items: visible.filter((i: any) => (i.group ?? '') === name) }))
+      .filter(g => g.items.length > 0);
+  }
+
   toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; }
+
+  // Icon-only sidebar on smaller screens; the toggle still works, and the sidebar
+  // only auto-changes when the window crosses the breakpoint.
+  private static readonly COMPACT_WIDTH = 1280;
+  private wasCompact = typeof window !== 'undefined' && window.innerWidth < AdminLayout.COMPACT_WIDTH;
+
+  @HostListener('window:resize')
+  onResize() {
+    const compact = window.innerWidth < AdminLayout.COMPACT_WIDTH;
+    if (compact !== this.wasCompact) {
+      this.sidebarCollapsed = compact;
+      this.wasCompact = compact;
+    }
+  }
+
+  /** "super_admin" -> "Super Admin" */
+  get roleLabel(): string {
+    return (this.userRole || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
 
   getUserName(): string {
     return this.auth.getUser()?.email?.split('@')[0] ?? 'Admin';

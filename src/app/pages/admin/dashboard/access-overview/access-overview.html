@@ -1,0 +1,146 @@
+<div class="access-card">
+  <div class="ac-head">
+    <div>
+      <div class="ac-badge">Door Access</div>
+      <h3>Access Status</h3>
+      <p class="ac-sub">Machines, operations waiting for offline machines, and bookings suspended for unpaid challans.</p>
+    </div>
+    <div class="ac-head-actions">
+      @if (lastUpdated()) { <span class="ac-updated">Updated {{ lastUpdated() | date:'h:mm a' }}</span> }
+      <button class="ac-btn ac-btn-outline" (click)="load()" [disabled]="loading()">Refresh</button>
+    </div>
+  </div>
+
+  @if (loading() && !overview()) {
+    <div class="ac-empty">Loading access status…</div>
+  } @else if (failed() && !overview()) {
+    <div class="ac-empty ac-error">Could not load access status. <button class="ac-link" (click)="load()">Try again</button></div>
+  } @else if (overview(); as o) {
+    <div class="ac-stats">
+      <a class="ac-stat" routerLink="/admin/access-dashboard" [class.warn]="o.devicesOffline > 0">
+        <span class="ac-stat-label">Machines</span>
+        <span class="ac-stat-value">{{ o.devicesOnline }}<small>/{{ o.devices }} online</small></span>
+        <span class="ac-stat-foot">
+          @if (o.devicesOffline > 0) { <span class="dot off"></span>{{ o.devicesOffline }} offline }
+          @else { <span class="dot on"></span>All online }
+        </span>
+      </a>
+
+      <a class="ac-stat" routerLink="/admin/biometric-users" [class.warn]="o.pendingOps > 0">
+        <span class="ac-stat-label">Queued operations</span>
+        <span class="ac-stat-value">{{ o.pendingOps }}</span>
+        <span class="ac-stat-foot">
+          @if (o.pendingOps > 0) { Waiting on {{ o.pendingOpsDevices }} offline machine(s) }
+          @else { Nothing waiting }
+        </span>
+      </a>
+
+      <button type="button" class="ac-stat" [class.danger]="o.suspended > 0" [class.active]="filter() === 'suspended'" (click)="showList('suspended')">
+        <span class="ac-stat-label">Suspended now</span>
+        <span class="ac-stat-value">{{ o.suspended }}</span>
+        <span class="ac-stat-foot">Bookings blocked for unpaid challans</span>
+      </button>
+
+      <button type="button" class="ac-stat" [class.warn]="o.endingSoon > 0" [class.active]="filter() === 'ending'" (click)="showList('ending')">
+        <span class="ac-stat-label">Temporary access ending</span>
+        <span class="ac-stat-value">{{ o.endingSoon }}</span>
+        <span class="ac-stat-foot">Within {{ o.endingSoonDays }} days · {{ o.extended }} on temporary access</span>
+      </button>
+    </div>
+
+    <div class="ac-list" id="suspended-bookings">
+      <div class="ac-list-head">
+        <h4>Suspended bookings</h4>
+        <div class="ac-tabs">
+          <button [class.active]="filter() === 'all'" (click)="filter.set('all')">All ({{ o.items.length }})</button>
+          <button [class.active]="filter() === 'suspended'" (click)="filter.set('suspended')">Suspended ({{ o.suspended }})</button>
+          <button [class.active]="filter() === 'extended'" (click)="filter.set('extended')">Temporary access ({{ o.extended }})</button>
+          <button [class.active]="filter() === 'ending'" (click)="filter.set('ending')">Ending soon ({{ o.endingSoon }})</button>
+        </div>
+      </div>
+
+      @if (items().length === 0) {
+        <div class="ac-empty small">
+          @if (o.items.length === 0) { No running booking is suspended. } @else { Nothing in this view. }
+        </div>
+      } @else {
+        <div class="ac-table-wrap">
+          <table class="ac-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Space</th>
+                <th>Reason</th>
+                <th>People</th>
+                <th>Status</th>
+                <th class="right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of items(); track i.suspensionId) {
+                <tr>
+                  <td>
+                    <strong>{{ i.customer || '—' }}</strong>
+                    <span class="muted">Booking #{{ i.bookingId }}</span>
+                  </td>
+                  <td>
+                    {{ i.space || '—' }}
+                    @if (i.spaceCount > 1) { <span class="muted">+{{ i.spaceCount - 1 }} more</span> }
+                  </td>
+                  <td class="reason">
+                    {{ i.reason }}
+                    @if (i.suspendedAt) { <span class="muted">Since {{ i.suspendedAt | date:'d MMM y' }}</span> }
+                  </td>
+                  <td>{{ i.enrolledPeople }}</td>
+                  <td>
+                    @if (i.extended) {
+                      <span class="pill" [class.warn]="i.endingSoon" [class.ok]="!i.endingSoon">Until {{ i.overrideUntil | date:'d MMM' }}</span>
+                      @if (i.overrideByEmail) { <span class="muted" [title]="i.overrideReason || ''">by {{ i.overrideByEmail }}</span> }
+                    } @else {
+                      <span class="pill danger">Suspended</span>
+                    }
+                  </td>
+                  <td class="right">
+                    <button class="ac-btn" [class.ac-btn-outline]="i.extended" (click)="openExtend(i)">
+                      {{ i.extended ? 'Change date' : 'Give temporary access' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (target(); as t) {
+  <div class="ac-modal-backdrop" (click)="closeExtend()">
+    <div class="ac-modal" (click)="$event.stopPropagation()">
+      <h3>Give temporary access</h3>
+      <p class="ac-modal-text">
+        <strong>{{ t.customer || 'Booking #' + t.bookingId }}</strong> · {{ t.space }}<br>
+        {{ t.reason }}
+      </p>
+      <p class="ac-modal-text muted">
+        Unblocks the booking's {{ t.enrolledPeople }} enrolled people on their room and entrance machines until the end of the chosen day.
+        If the challan is still unpaid after that, access is suspended again automatically.
+      </p>
+      <label class="ac-field">
+        <span>Access allowed until</span>
+        <input type="date" [(ngModel)]="extendUntil" [min]="todayIso">
+      </label>
+      <label class="ac-field">
+        <span>Reason</span>
+        <textarea rows="3" [(ngModel)]="extendReason" maxlength="500" placeholder="e.g. Customer promised payment by Friday"></textarea>
+      </label>
+      <div class="ac-modal-actions">
+        <button class="ac-btn ac-btn-outline" (click)="closeExtend()" [disabled]="extending()">Cancel</button>
+        <button class="ac-btn" (click)="confirmExtend()" [disabled]="extending()">
+          {{ extending() ? 'Updating machines…' : 'Give access' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

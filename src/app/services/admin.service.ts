@@ -521,6 +521,31 @@ export class AdminService {
   getHikvisionExport(): Observable<any[]> {
     return this.http.get<any[]>(`${this.api}/access-status/export`);
   }
+  // Long-running: the terminal waits for the finger / card / face before the request returns.
+  // Challans (invoices) of the booking behind a booked space.
+  getBookingChallans(bookingDetailId: number): Observable<any> {
+    return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/challans`);
+  }
+  // Challan-based access suspension for the booking behind a booked space.
+  getAccessSuspension(bookingDetailId: number): Observable<any> {
+    return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
+  }
+  // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month'): Observable<any> {
+    const params: any = { period };
+    if (locationId) params.locationId = locationId;
+    return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
+  }
+  // Admin dashboard "Door access" card: machines, queued operations, suspended bookings.
+  getAccessOverview(): Observable<any> {
+    return this.http.get<any>(`${this.api}/access-suspensions/overview`);
+  }
+  extendAccessSuspension(bookingDetailId: number, data: { overrideUntil: string; reason: string }): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension/extend`, data);
+  }
+  enrollAttendantCredential(bookingDetailId: number, personId: number, type: 'fingerprint' | 'card' | 'face', data: any): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/attendants/${personId}/hik/${type}`, data);
+  }
   sendAgreement(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/agreements/send`, data);
   }

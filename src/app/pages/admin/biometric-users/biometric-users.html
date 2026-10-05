@@ -3,13 +3,13 @@
   <div class="bio-header">
     <div class="bio-header-text">
       <div class="bio-title-row">
-        <h1>Biometric Machine Users</h1>
+        <h1>Access Users</h1>
         <span class="bio-live-badge">
-          <span class="bio-pulse-dot"></span> Live Biometric Roster
+          <span class="bio-pulse-dot"></span> Live Machine Roster
         </span>
       </div>
       <p class="bio-subtitle">
-        Members and access credentials across all biometric machines & access control units.
+        Everyone enrolled on the access machines, with their booked room — attendants, staff and members.
       </p>
     </div>
 
@@ -73,6 +73,7 @@
       </div>
     </div>
 
+    @if (canSeeMachineAdmins) {
     <div class="bio-kpi-card">
       <div class="bio-kpi-icon admin">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -85,6 +86,7 @@
         <div class="bio-kpi-value">{{ adminMembersCount() }}</div>
       </div>
     </div>
+    }
 
     <div class="bio-kpi-card">
       <div class="bio-kpi-icon warning">
@@ -158,20 +160,25 @@
           (ngModelChange)="selectedStatus.set($event); onFilterChange()">
           <option value="all">All Statuses</option>
           <option value="active">Active Only</option>
-          <option value="admin">Admins Only</option>
+          @if (canSeeMachineAdmins) { <option value="admin">Admins Only</option> }
           <option value="expired">Expired / Blocked</option>
         </select>
 
         <!-- Room filter -->
-        @if (distinctRooms().length > 0) {
         <select class="bio-select" [ngModel]="selectedRoom()"
           (ngModelChange)="selectedRoom.set($event); onFilterChange()">
           <option value="all">All Rooms</option>
           @for (r of distinctRooms(); track r) {
-          <option [value]="r">Room {{ r }}</option>
+          <option [value]="r">{{ r }}</option>
           }
+          @if (distinctTags().length) {
+          <option value="staff">All Staff</option>
+          @for (t of distinctTags(); track t) {
+          <option [value]="'tag:' + t">Staff — {{ t }}</option>
+          }
+          }
+          <option value="none">No booking / staff tag</option>
         </select>
-        }
       </div>
 
       <!-- Count Summary -->
@@ -211,7 +218,7 @@
             <th style="width: 100px;">Emp #</th>
             <th>Member Name</th>
             <th style="width: 160px;">CNIC</th>
-            <th style="width: 150px;">Room</th>
+            <th style="width: 190px;">Booked Room</th>
             <th style="width: 100px;">Role</th>
             <th style="width: 170px;">Machines</th>
             <th style="width: 150px;">Valid Until</th>
@@ -253,9 +260,20 @@
               }
             </td>
 
-            <!-- Room -->
+            <!-- Booked room (attendants) → staff tag → machine rooms -->
             <td>
-              @if (m.rooms.length === 0) {
+              @if (m.bookedRooms.length) {
+              <div class="bio-booked">
+                @for (b of m.bookedRooms; track b.space + (b.customer || '')) {
+                <div>
+                  <span class="bio-badge room">{{ b.space }}</span>
+                  @if (b.customer) { <div class="bio-booked-customer" [title]="b.customer">{{ b.customer }}</div> }
+                </div>
+                }
+              </div>
+              } @else if (m.tag) {
+              <span class="bio-badge badge-user" title="Building staff">{{ m.tag }}</span>
+              } @else if (m.rooms.length === 0) {
               <span class="bio-dash">—</span>
               } @else if (m.rooms.length <= 2) { <div class="bio-badge-row">
                 @for (r of m.rooms; track r) {
