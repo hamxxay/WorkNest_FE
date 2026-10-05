@@ -88,7 +88,7 @@
           } @else {
             <div class="term-box">
               <span class="term-label">Monthly Rent</span>
-              <span class="term-value">PKR {{ activeQuotation().monthlyRent | number:'1.0-2' }}</span>
+              <span class="term-value">PKR {{ activeQuotation().monthlyRent | number:'1.0-0' }}</span>
             </div>
 
             <div class="term-box">
@@ -104,14 +104,14 @@
             @if (isPrivateRoom(activeQuotation())) {
               <div class="term-box">
                 <span class="term-label">Security Deposit</span>
-                <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-2' }}</span>
+                <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-0' }}</span>
               </div>
             }
           }
 
           <div class="term-box">
             <span class="term-label">Total Amount</span>
-            <span class="term-valueTotal">PKR {{ (activeQuotation().totalPayable || activeQuotation().totalAmount) | number:'1.0-2' }}</span>
+            <span class="term-valueTotal">PKR {{ (activeQuotation().totalPayable || activeQuotation().totalAmount) | number:'1.0-0' }}</span>
           </div>
         </div>
 

@@ -89,7 +89,7 @@
             </svg>
             <div>
               <span class="detail-label">Total Amount</span>
-              <span class="detail-value amount">Rs {{ b.totalAmount?.toFixed(2) }}</span>
+              <span class="detail-value amount">Rs {{ (b.totalAmount ?? 0) | number:'1.0-0' }}</span>
             </div>
           </div>
           @if (b.notes) {
@@ -257,7 +257,7 @@
           <span style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance
             Left</span>
           <strong style="color:#b45309;font-size:.95rem">PKR {{ (selectedChallan()!.balanceLeft ??
-            selectedChallan()!.contract?.balanceLeft ?? 0) | number:'1.2-2' }}</strong>
+            selectedChallan()!.contract?.balanceLeft ?? 0) | number:'1.0-0' }}</strong>
         </div>
       </div>
 
@@ -283,7 +283,7 @@
                   }
                 </td>
                 <td style="text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName || '—' }}</td>
-                <td style="text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.2-2' }}</td>
+                <td style="text-align:right;font-weight:600">Rs {{ line.lineTotal | number:'1.0-0' }}</td>
               </tr>
               }
               @if (!selectedChallan()!.details || selectedChallan()!.details.length === 0) {
@@ -292,7 +292,7 @@
                 <td style="text-align:right;color:#64748b;font-size:.8rem">—</td>
                 <td style="text-align:right;font-weight:600">Rs {{ (selectedChallan()!.currentCycleAmount ||
                   selectedChallan()!.monthlyRent || selectedChallan()!.amount || selectedChallan()!.roomPrice) |
-                  number:'1.2-2' }}</td>
+                  number:'1.0-0' }}</td>
               </tr>
               }
               @if ((selectedChallan()!.taxAmount ?? selectedChallan()!.contract?.taxAmount ??
@@ -302,13 +302,13 @@
                 <td style="text-align:right;color:#64748b;font-size:.8rem">Tax</td>
                 <td style="text-align:right;font-weight:600">Rs {{ (selectedChallan()!.taxAmount ??
                   selectedChallan()!.contract?.taxAmount ?? ((selectedChallan()!.currentCycleAmount * 0.10) * 0.16)) |
-                  number:'1.2-2' }}</td>
+                  number:'1.0-0' }}</td>
               </tr>
               }
               <tr class="total-row">
                 <td colspan="2">TOTAL PAYABLE</td>
                 <td style="text-align:right">Rs {{ (selectedChallan()!.totalPayable || selectedChallan()!.amount ||
-                  selectedChallan()!.roomPrice) | number:'1.2-2' }}</td>
+                  selectedChallan()!.roomPrice) | number:'1.0-0' }}</td>
               </tr>
             </tbody>
           </table>

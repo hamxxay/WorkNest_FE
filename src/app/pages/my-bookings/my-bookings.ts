@@ -59,7 +59,7 @@ export class MyBookings implements OnInit {
       id:            b.bookingId     ?? b.id            ?? b.Id,
       spaceName:     b.spaceName     ?? b.workspaceName ?? b.space?.name ?? `Space #${b.spaceId}`,
       bookingStatus: b.bookingStatusLabel ?? b.bookingStatus ?? b.status ?? 'Pending',
-      totalAmount:   b.totalAmount   ?? b.TotalAmount   ?? this.calcAmount(b),
+      totalAmount:   b.totalPayable  ?? b.currentCycleAmount ?? b.firstCycleRent ?? b.totalAmount ?? b.TotalAmount ?? this.calcAmount(b),
       startDateTime: b.startOn       ?? b.startDateTime ?? b.startDate,
       endDateTime:   b.endOn         ?? b.endDateTime   ?? b.endDate,
       challanNumber: b.challanNumber ?? null,
@@ -84,15 +84,16 @@ export class MyBookings implements OnInit {
       return seatPrice * hours;
     }
     
-    // Monthly billing
-    const months = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+    // Monthly billing — charge initial billing cycle
+    const contractMonths = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+    const billingMonths = Math.min(contractMonths, +(b.billingPeriodMonths || 3));
     const typeName = (b.spaceTypeName ?? b.spaceName ?? '').toLowerCase();
     const isPrivate = typeName.includes('private') || typeName.includes('room') || typeName.includes('office');
     
     if (isPrivate) {
-      return seatPrice * capacity * months;
+      return seatPrice * capacity * billingMonths;
     } else {
-      return seatPrice * months;
+      return seatPrice * billingMonths;
     }
   }
 

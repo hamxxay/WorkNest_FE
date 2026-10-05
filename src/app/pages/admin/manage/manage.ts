@@ -59,7 +59,18 @@ export class Manage implements OnInit {
     this.searchTimer = setTimeout(() => {
       this.page.set(1);
       this.load();
-    }, 400);
+    }, 150);
+  }
+
+  onSearchImmediate() {
+    clearTimeout(this.searchTimer);
+    this.page.set(1);
+    this.load();
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    this.onSearchImmediate();
   }
 
   get filtered() {
@@ -421,6 +432,7 @@ export class Manage implements OnInit {
   quotationOfferingType = '24/7';
   quotationWithholdingTaxRate: number = 15;
   quotationDiscountError = '';
+  quotationBasePriceError = '';
 
   loadOfferingTypes() {
     this.quotationSvc.getOfferingTypes().subscribe({
@@ -596,6 +608,29 @@ export class Manage implements OnInit {
   onQuotationDiscountChange() {
     this.recalcQuotationAmount();
     this.validateQuotationDiscount();
+  }
+
+  validateQuotationBasePrice(): void {
+    if (!this.quotationFormData?.spaceId) {
+      this.quotationBasePriceError = '';
+      return;
+    }
+    const currentPrice = Number(this.quotationPerSeatBasePrice || 0);
+    const minPrice = Number(this.quotationMinPerSeatBasePrice || 0);
+    if (minPrice > 0 && currentPrice < minPrice) {
+      this.quotationBasePriceError = `Base price cannot be decreased below original base price of PKR ${minPrice.toLocaleString()}. Only increases are allowed.`;
+      return;
+    }
+    if (currentPrice <= 0) {
+      this.quotationBasePriceError = 'Base price must be greater than 0.';
+      return;
+    }
+    this.quotationBasePriceError = '';
+  }
+
+  onQuotationBasePriceChange(): void {
+    this.validateQuotationBasePrice();
+    this.recalcQuotationAmount();
   }
 
   get quotationMonthlyRent(): number {
@@ -1562,6 +1597,26 @@ export class Manage implements OnInit {
     this.applyBookingSpaceFilter();
   }
 
+  isLocationI8(locationIdOrValue: any): boolean {
+    if (!locationIdOrValue) return false;
+    const opt = this.locationOptions.find(l => String(l.v) === String(locationIdOrValue));
+    const name = (opt?.l || String(locationIdOrValue)).toLowerCase();
+    const isI8 = name.includes('i-8') || name.includes('i8') || name.includes('i 8');
+    const isF7 = name.includes('f-7') || name.includes('f7') || name.includes('f 7');
+    return isI8 && !isF7;
+  }
+
+  findThirdFloorId(floors: { v: any; l: string; raw?: any }[]): any {
+    if (!floors || !floors.length) return null;
+    const match = floors.find(f => {
+      const rawNum = f.raw?.floorNumber ?? f.raw?.FloorNumber ?? f.raw?.floor_number;
+      if (rawNum != null && Number(rawNum) === 3) return true;
+      const str = (f.l || '').toLowerCase();
+      return str.includes('3rd') || str.includes('third') || str.includes('floor 3') || str.includes('floor #3') || str.trim() === '3';
+    });
+    return match ? match.v : null;
+  }
+
   loadBookingFloors(locationId: any) {
     const locInt = parseInt(String(locationId), 10);
     if (!locInt) return;
@@ -1570,8 +1625,15 @@ export class Manage implements OnInit {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
         this.bookingFloorOptions = items.map((f: any) => ({
           v: f.id ?? f.Id,
-          l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
+          l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`),
+          raw: f
         }));
+        if (!this.editingBookingId && this.isLocationI8(locationId)) {
+          const thirdFloor = this.findThirdFloorId(this.bookingFloorOptions);
+          if (thirdFloor != null) {
+            this.bookingFloorId = thirdFloor;
+          }
+        }
       }
     });
   }
@@ -1774,7 +1836,14 @@ export class Manage implements OnInit {
     }
 
     if (!query) {
-      this.customerSearchResults = [];
+      this.admin.getCustomers(1, 20, '').subscribe({
+        next: (res: any) => {
+          this.customerSearchResults = res?.data ?? (Array.isArray(res) ? res : []);
+        },
+        error: () => {
+          this.customerSearchResults = [];
+        }
+      });
       return;
     }
 
@@ -1792,7 +1861,7 @@ export class Manage implements OnInit {
           this.fallbackCustomerSearch(query);
         }
       });
-    }, 250);
+    }, 100);
   }
 
   private fallbackCustomerSearch(query: string) {
@@ -2747,6 +2816,10 @@ export class Manage implements OnInit {
         return this.formatChallanDisplay(item);
       }
       if (col.key === 'totalAmount') {
+        const payable = this.getChallanInitialPayable(item);
+        if (payable > 0) return payable;
+        const billedVal = item.totalPayable ?? item.currentCycleAmount ?? item.CurrentCycleAmount ?? item.firstCycleRent ?? item.FirstCycleRent;
+        if (billedVal != null && Number(billedVal) > 0) return Number(billedVal);
         const directVal = item.totalAmount ?? item.TotalAmount ?? item.rentAmount ?? item.RentAmount ?? item.amount ?? item.Amount;
         if (directVal != null && directVal > 0) return Number(directVal);
 
@@ -2764,11 +2837,6 @@ export class Manage implements OnInit {
         if (roomPrice > 0) {
           return (isPrivate ? roomPrice : (roomPrice / (capacity || 1))) + secDeposit;
         }
-
-        if (isPrivate) return 0;
-        if (cat.includes('shared') || cat.includes('co-working')) return 0;
-        if (cat.includes('conference')) return 0;
-        if (cat.includes('meeting')) return 0;
 
         return 0;
       }
@@ -4438,6 +4506,9 @@ export class Manage implements OnInit {
     this.quotationDiscountValue = 0;
     this.quotationDiscountPercentage = 0;
     this.quotationDiscountError = '';
+    this.quotationPerSeatBasePrice = 0;
+    this.quotationMinPerSeatBasePrice = 0;
+    this.quotationBasePriceError = '';
     this.quotationOfferingTypeId = 1;
     this.quotationOfferingType = '24/7';
     this.quotationWithholdingTaxRate = 15;
@@ -4510,6 +4581,9 @@ export class Manage implements OnInit {
     this.quotationFormData.spaceId = '';
     this.quotationFloorId = null;
     this.quotationFloorOptions = [];
+    this.quotationPerSeatBasePrice = 0;
+    this.quotationMinPerSeatBasePrice = 0;
+    this.quotationBasePriceError = '';
     if (this.selectedQuotationLocationId) {
       const locInt = parseInt(String(this.selectedQuotationLocationId), 10);
       if (locInt) {
@@ -4518,12 +4592,20 @@ export class Manage implements OnInit {
             const items = res?.data ?? (Array.isArray(res) ? res : []);
             this.quotationFloorOptions = items.map((f: any) => ({
               v: f.id ?? f.Id,
-              l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
+              l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`),
+              raw: f
             }));
+            if (!this.isCreatingNewVersion && this.isLocationI8(this.selectedQuotationLocationId)) {
+              const thirdFloor = this.findThirdFloorId(this.quotationFloorOptions);
+              if (thirdFloor != null) {
+                this.quotationFloorId = thirdFloor;
+              }
+            }
           }
         });
       }
     }
+    this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
 
@@ -4534,6 +4616,9 @@ export class Manage implements OnInit {
     this.quotationSelectedSlots = new Set();
     this.quotationMeetingRoomMode = 'slot';
     this.quotationMeetingDayEnd = '';
+    this.quotationPerSeatBasePrice = 0;
+    this.quotationMinPerSeatBasePrice = 0;
+    this.quotationBasePriceError = '';
     if (this.selectedQuotationSpaceTypeId === 'shared' || this.selectedQuotationSpaceTypeId === 'private') {
       this.quotationMonths = 12;
     }
@@ -4541,6 +4626,7 @@ export class Manage implements OnInit {
     const isShared = this.isQuotationSharedSpace;
     this.quotationBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
     this.quotationSecurityDepositMonths = isPrivate ? 2 : 0;
+    this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
 
@@ -4554,6 +4640,10 @@ export class Manage implements OnInit {
 
   onQuotationCapacityChange() {
     this.quotationFormData.spaceId = '';
+    this.quotationPerSeatBasePrice = 0;
+    this.quotationMinPerSeatBasePrice = 0;
+    this.quotationBasePriceError = '';
+    this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
 
@@ -4661,7 +4751,10 @@ export class Manage implements OnInit {
       if (space) {
         this.quotationCapacity = Number(space.capacity || space.Capacity || 1);
         const { monthly } = this.getSpacePrice(space);
-        this.quotationPerSeatBasePrice = monthly > 0 ? monthly : Number(space.price || space.Price || 35000);
+        const baseMonthly = monthly > 0 ? monthly : Number(space.price || space.Price || 35000);
+        this.quotationPerSeatBasePrice = baseMonthly;
+        this.quotationMinPerSeatBasePrice = baseMonthly;
+        this.quotationBasePriceError = '';
         const name = String(space.name || space.Name || '').toLowerCase();
         const { hourly, daily } = this.getSpacePrice(space);
         if (name.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
@@ -4670,7 +4763,12 @@ export class Manage implements OnInit {
           this.quotationMeetingRoomMode = 'slot';
         }
       }
+    } else {
+      this.quotationMinPerSeatBasePrice = 0;
+      this.quotationPerSeatBasePrice = 0;
+      this.quotationBasePriceError = '';
     }
+    this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
 
@@ -4775,6 +4873,15 @@ export class Manage implements OnInit {
       this.quotationFormError = this.quotationDiscountError;
       this.showError(this.quotationDiscountError);
       this.scrollToTopAndHighlight('discount');
+      this.quotationFormSaving.set(false);
+      return;
+    }
+    this.validateQuotationBasePrice();
+    if (this.quotationBasePriceError) {
+      this.quotationFormErrorField = 'basePrice';
+      this.quotationFormError = this.quotationBasePriceError;
+      this.showError(this.quotationBasePriceError);
+      this.scrollToTopAndHighlight('basePrice');
       this.quotationFormSaving.set(false);
       return;
     }
@@ -4932,6 +5039,11 @@ export class Manage implements OnInit {
         this.selectedQuotationCapacity = space.capacity || sourceVersion.capacity || null;
         this.quotationFloorId = space.floorId || sourceVersion.floorId || null;
         this.quotationFormData.spaceId = space.id || sourceVersion.spaceId;
+        this.quotationCapacity = Number(space.capacity || space.Capacity || sourceVersion.capacity || 1);
+        const { monthly } = this.getSpacePrice(space);
+        const baseMonthly = monthly > 0 ? monthly : Number(space.price || space.Price || 35000);
+        this.quotationMinPerSeatBasePrice = baseMonthly;
+        this.quotationPerSeatBasePrice = Number(sourceVersion.perSeatBasePrice ?? sourceVersion.PerSeatBasePrice ?? baseMonthly);
       } else {
         if (sourceVersion.locationId) {
           this.selectedQuotationLocationId = sourceVersion.locationId;
@@ -4941,7 +5053,13 @@ export class Manage implements OnInit {
         if (sourceVersion.capacity) this.selectedQuotationCapacity = sourceVersion.capacity;
         if (sourceVersion.floorId) this.quotationFloorId = sourceVersion.floorId;
         if (sourceVersion.spaceId) this.quotationFormData.spaceId = sourceVersion.spaceId;
+        if (sourceVersion.perSeatBasePrice != null || sourceVersion.PerSeatBasePrice != null) {
+          const p = Number(sourceVersion.perSeatBasePrice ?? sourceVersion.PerSeatBasePrice);
+          this.quotationMinPerSeatBasePrice = p;
+          this.quotationPerSeatBasePrice = p;
+        }
       }
+      this.validateQuotationBasePrice();
       this.recalcQuotationAmount();
     };
 

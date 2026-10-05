@@ -38,3 +38,4 @@ screenshots/
 # OS Files
 .DS_Store
 Thumbs.db
+update_backend.ps1

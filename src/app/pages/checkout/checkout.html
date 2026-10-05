@@ -66,7 +66,7 @@
             <span class="detail-fee-right">
               <span class="detail-status-badge" [class]="detailStatusClass(d.status ?? 0)">{{ detailStatusLabel(d.status
                 ?? 0) }}</span>
-              <strong>Rs {{ (d.amount ?? 0).toFixed(2) }}</strong>
+              <strong>Rs {{ (d.amount ?? 0) | number:'1.0-0' }}</strong>
             </span>
           </div>
           }
@@ -74,23 +74,23 @@
           <!-- Fallback breakdown when no details loaded -->
           @if (isPrivateBooking()) {
           <div class="summary-row"><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
-          <div class="summary-row"><span>Monthly Rent</span><strong>Rs {{ monthlyRent().toFixed(2) }}</strong></div>
+          <div class="summary-row"><span>Monthly Rent</span><strong>Rs {{ monthlyRent() | number:'1.0-0' }}</strong></div>
           @if (pending()!.securityDeposit > 0) {
           <div class="summary-row">
             <span>Security Deposit <span class="refundable-tag">refundable</span></span>
-            <strong>Rs {{ pending()!.securityDeposit.toFixed(2) }}</strong>
+            <strong>Rs {{ pending()!.securityDeposit | number:'1.0-0' }}</strong>
           </div>
           }
           } @else {
           <div class="summary-row"><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
-          <div class="summary-row"><span>Base Amount</span><strong>Rs {{ baseAmount().toFixed(2) }}</strong></div>
+          <div class="summary-row"><span>Base Amount</span><strong>Rs {{ baseAmount() | number:'1.0-0' }}</strong></div>
           }
           }
 
           <div class="summary-divider"></div>
           <div class="summary-row total-row">
             <span>Grand Total</span>
-            <strong class="total-amount">Rs {{ grandTotal().toFixed(2) }}</strong>
+            <strong class="total-amount">Rs {{ grandTotal() | number:'1.0-0' }}</strong>
           </div>
         </div>
         <div class="summary-status">
@@ -260,7 +260,7 @@
                 <rect width="20" height="14" x="2" y="5" rx="2" />
                 <line x1="2" x2="22" y1="10" y2="10" />
               </svg>
-              Pay Rs {{ grandTotal().toFixed(2) }}
+              Pay Rs {{ grandTotal() | number:'1.0-0' }}
               }
             </button>
 
@@ -373,7 +373,7 @@
               </div>
               <div class="voucher-meta-row">
                 <span>Amount Due</span>
-                <strong class="total-amount">Rs {{ voucher()!.amount.toFixed(2) }}</strong>
+                <strong class="total-amount">Rs {{ voucher()!.amount | number:'1.0-0' }}</strong>
               </div>
               <div class="voucher-meta-row">
                 <span>Booking ID</span>
@@ -488,7 +488,7 @@
                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                Amount due: Rs {{ grandTotal().toFixed(2) }}
+                Amount due: Rs {{ grandTotal() | number:'1.0-0' }}
               </div>
             </div>
             <button class="btn-pay" (click)="submitCounter()" [disabled]="submitting()">
@@ -585,7 +585,7 @@
                   <span
                     style="color:#64748b;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Balance
                     Left</span>
-                  <strong style="color:#b45309;font-size:.95rem">PKR {{ (challan()!.balanceLeft ?? 0) | number:'1.2-2'
+                  <strong style="color:#b45309;font-size:.95rem">PKR {{ (challan()!.balanceLeft ?? 0) | number:'1.0-0'
                     }}</strong>
                 </div>
               </div>
@@ -617,7 +617,7 @@
                       <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">{{ line.accountName ||
                         '—' }}</td>
                       <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ (line.amount ?? line.Amount) |
-                        number:'1.2-2' }}</td>
+                        number:'1.0-0' }}</td>
                     </tr>
                     }
                     @if (!challan()!.bookingDetails || challan()!.bookingDetails.length === 0) {
@@ -625,7 +625,7 @@
                       <td style="padding:10px 0">Workspace Fee (Room Rent / Space Booking)</td>
                       <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">—</td>
                       <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ (challan()!.currentCycleAmount
-                        || challan()!.rentAmount || challan()!.totalAmount) | number:'1.2-2' }}</td>
+                        || challan()!.rentAmount || challan()!.totalAmount) | number:'1.0-0' }}</td>
                     </tr>
                     }
                     @if ((challan()!.taxAmount ?? ((challan()!.currentCycleAmount * 0.10) * 0.16)) > 0) {
@@ -633,13 +633,13 @@
                       <td style="padding:10px 0">Sales Tax / PST (16% on 10% Support Services)</td>
                       <td style="padding:10px 0;text-align:right;color:#64748b;font-size:.8rem">Tax</td>
                       <td style="padding:10px 0;text-align:right;font-weight:600">Rs {{ (challan()!.taxAmount ??
-                        ((challan()!.currentCycleAmount * 0.10) * 0.16)) | number:'1.2-2' }}</td>
+                        ((challan()!.currentCycleAmount * 0.10) * 0.16)) | number:'1.0-0' }}</td>
                     </tr>
                     }
                     <tr style="font-size:1rem;color:#1e3a5f;font-weight:800;border-top:2px solid #1e3a5f">
                       <td style="padding:14px 0" colspan="2">TOTAL PAYABLE</td>
                       <td style="padding:14px 0;text-align:right">Rs {{ (challan()!.totalPayable ||
-                        challan()!.totalAmount) | number:'1.2-2' }}</td>
+                        challan()!.totalAmount) | number:'1.0-0' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -777,7 +777,7 @@
                 <polyline points="15 3 21 3 21 9" />
                 <line x1="10" x2="21" y1="14" y2="3" />
               </svg>
-              Pay Rs {{ grandTotal().toFixed(2) }} via PayFast
+              Pay Rs {{ grandTotal() | number:'1.0-0' }} via PayFast
               }
             </button>
             <p class="payment-note">
