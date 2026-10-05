@@ -1717,10 +1717,29 @@
             }
           </select>
         </div>
-        <div class="form-group-admin">
-          <label>Base Price (per seat) *</label>
-          <input class="form-input-admin" type="number" [min]="quotationMinPerSeatBasePrice || 0"
-            [(ngModel)]="quotationPerSeatBasePrice" name="qPerSeatPrice" (input)="recalcQuotationAmount()" required />
+        <div class="form-group-admin" data-field="basePrice"
+          [class.has-error]="quotationFormErrorField === 'basePrice' || !!quotationBasePriceError">
+          <label>Base Price (per seat) *
+            @if (quotationMinPerSeatBasePrice > 0) {
+            <small style="color:#64748b;font-weight:500">(Min: PKR {{ quotationMinPerSeatBasePrice | number:'1.0-0' }})</small>
+            }
+          </label>
+          <input class="form-input-admin" [class.is-invalid]="quotationBasePriceError" type="number"
+            [min]="quotationMinPerSeatBasePrice || 0" [(ngModel)]="quotationPerSeatBasePrice" name="qPerSeatPrice"
+            (ngModelChange)="onQuotationBasePriceChange()" (input)="onQuotationBasePriceChange()"
+            placeholder="0" [style.border-color]="quotationBasePriceError ? '#ef4444' : null" required />
+          @if (quotationBasePriceError) {
+          <div
+            style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ quotationBasePriceError }}</span>
+          </div>
+          }
         </div>
         <div class="form-group-admin">
           <label>Capacity (Seats)</label>
