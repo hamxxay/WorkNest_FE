@@ -3900,7 +3900,7 @@
 <!-- Agreement Details & Signed Copy Modal -->
 @if (signAgreementItem(); as ag) {
 <div class="modal-overlay" (click)="closeSignAgreement()">
-  <div class="modal-card" style="max-width:520px" (click)="$event.stopPropagation()">
+  <div class="modal-content" style="max-width:520px;width:100%;padding:0;overflow:hidden;border-radius:12px" (click)="$event.stopPropagation()">
     <div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <div>
         <h3 style="margin:0;font-size:1.05rem;font-weight:700">Signed agreement received</h3>
