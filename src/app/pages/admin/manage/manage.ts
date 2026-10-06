@@ -2661,7 +2661,17 @@ export class Manage implements OnInit {
         });
 
         if (this.entity === 'contacts') {
-          // Also fetch customer quotation decline responses to present alongside contact & tour messages
+          // Show contact & tour messages straight away; quotation declines (a slower request) are
+          // merged in when they arrive. A failure there must never hide the contacts.
+          const contactsOnly = data.map((c: any) => ({
+            ...c,
+            subject: c.subject || c.type || 'Book Tour Request',
+            message: c.message || c.notes || c.body || '-'
+          }));
+          this.items.set(contactsOnly);
+          this.totalCount.set(res?.total ?? res?.totalCount ?? res?.data?.total ?? res?.data?.totalCount ?? contactsOnly.length);
+          this.loading.set(false);
+          if (cb) cb();
           this.quotationSvc.getQuotations(1, 1000, '').subscribe({
             next: (qRes: any) => {
               const qList = Array.isArray(qRes) ? qRes
@@ -2701,15 +2711,11 @@ export class Manage implements OnInit {
                 return dB - dA;
               });
 
+              if (this.entity !== 'contacts') return; // user moved to another page meanwhile
               this.items.set(mergedContacts);
               this.totalCount.set(mergedContacts.length);
-              this.loading.set(false);
-              if (cb) cb();
             },
-            error: () => {
-              this.loading.set(false);
-              if (cb) cb();
-            }
+            error: () => { /* contacts are already shown; declines are optional extras */ }
           });
           return;
         }
