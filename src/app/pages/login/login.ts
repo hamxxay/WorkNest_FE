@@ -82,7 +82,10 @@ export class Login {
 
   continueAsGuest() {
     this.authService.continueAsGuest();
-    this.router.navigateByUrl(this.getRedirectUrl());
+    // Guests can't open protected pages (my-*, checkout, admin), so don't send them
+    // back to one; that would just bounce them to this login page again.
+    const redirect = this.getRedirectUrl();
+    this.router.navigateByUrl(this.authService.isProtectedUrl(redirect) ? '/' : redirect);
   }
 
   openForgotPassword() {

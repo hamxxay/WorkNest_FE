@@ -27,8 +27,8 @@ export class ManageSpaces implements OnInit {
   filterSpaceTypeId = '';
   filterCapacity = '';
 
-  locationOptions:  { v: number; l: string; branchId?: number }[] = [];
-  spaceTypeOptions: { v: number; l: string }[] = [];
+  readonly locationOptions = signal<{ v: number; l: string; branchId?: number }[]>([]);
+  readonly spaceTypeOptions = signal<{ v: number; l: string }[]>([]);
 
   // Config for selected filters
   configs = signal<any[]>([]);
@@ -44,14 +44,14 @@ export class ManageSpaces implements OnInit {
   // Operation state
   generating = signal(false);
   deleting   = signal(false);
-  error   = '';
-  success = '';
+  readonly error = signal('');
+  readonly success = signal('');
 
   // Blocked spaces from last delete attempt
-  blockedSpaces: any[] = [];
+  readonly blockedSpaces = signal<any[]>([]);
 
-  allSpacesList: any[] = [];
-  spaceTypesList: any[] = [];
+  readonly allSpacesList = signal<any[]>([]);
+  readonly spaceTypesList = signal<any[]>([]);
 
   ngOnInit() {
     this.admin.getLocations(1, 1000, '').subscribe({
@@ -63,19 +63,21 @@ export class ManageSpaces implements OnInit {
           list = list.filter((l: any) => l.v === this.userLocationId);
           this.filterLocationId = String(this.userLocationId);
         }
-        this.locationOptions = list;
-      }
+        this.locationOptions.set(list);
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load locations.')
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         const rawTypes = res?.data ?? [];
-        this.spaceTypesList = rawTypes;
-        this.spaceTypeOptions = rawTypes.map((s: any) => ({
+        this.spaceTypesList.set(rawTypes);
+        this.spaceTypeOptions.set(rawTypes.map((s: any) => ({
           v: s.id,
           l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || '',
           capacity: s.capacity
-        }));
-      }
+        })));
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space types.')
     });
     if (!this.isSuperAdmin && this.userLocationId) {
       this.filterLocationId = String(this.userLocationId);
@@ -87,8 +89,9 @@ export class ManageSpaces implements OnInit {
   private loadAllSpaces() {
     this.admin.getSpaces(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.allSpacesList = res?.data ?? (Array.isArray(res) ? res : []);
-      }
+        this.allSpacesList.set(res?.data ?? (Array.isArray(res) ? res : []));
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load spaces.')
     });
   }
 
@@ -96,9 +99,9 @@ export class ManageSpaces implements OnInit {
     this.selectedConfig.set(null);
     this.spaces.set([]);
     this.selectedGuids.clear();
-    this.error = '';
-    this.success = '';
-    this.blockedSpaces = [];
+    this.error.set('');
+    this.success.set('');
+    this.blockedSpaces.set([]);
 
     const locId = this.filterLocationId ? +this.filterLocationId : undefined;
     const stId  = this.filterSpaceTypeId ? +this.filterSpaceTypeId : undefined;
@@ -121,10 +124,12 @@ export class ManageSpaces implements OnInit {
               if (cap)  legacy = legacy.filter((c: any) => String(c.defaultCapacities || c.capacity || '').toLowerCase().includes(cap));
               this.configs.set(legacy);
               if (legacy.length === 1) this.selectConfig(legacy[0]);
-            }
+            },
+            error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space config.')
           });
         }
-      }
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space configurations.')
     });
   }
 
@@ -140,20 +145,20 @@ export class ManageSpaces implements OnInit {
   selectConfig(cfg: any) {
     this.selectedConfig.set(cfg);
     this.selectedGuids.clear();
-    this.blockedSpaces = [];
+    this.blockedSpaces.set([]);
     this.loadSpaces(cfg.id);
   }
 
   private loadSpaces(configId: number) {
     this.spacesLoading.set(true);
     const cfg = this.selectedConfig();
-    const typeMatch = this.spaceTypesList.find((t: any) => t.id === cfg?.spaceTypeId);
+    const typeMatch = this.spaceTypesList().find((t: any) => t.id === cfg?.spaceTypeId);
     const fallbackCapacity = cfg?.defaultCapacities || cfg?.capacity || typeMatch?.capacity || '—';
     this.admin.getSpaceStatusForConfig(configId).subscribe({
       next: (res: any) => {
         const rawSpaces = res?.data ?? [];
         const enriched = rawSpaces.map((s: any) => {
-          const match = this.allSpacesList.find((sp: any) =>
+          const match = this.allSpacesList().find((sp: any) =>
             (sp.id && sp.id === s.id) ||
             (sp.code && String(sp.code) === String(s.code)) ||
             (sp.idGuid && sp.idGuid === s.idGuid)
@@ -178,19 +183,19 @@ export class ManageSpaces implements OnInit {
     const cfg = this.selectedConfig();
     if (!cfg) return;
     this.generating.set(true);
-    this.error = '';
-    this.success = '';
+    this.error.set('');
+    this.success.set('');
     this.admin.generateSpacesFromConfig(cfg.id).subscribe({
       next: (res: any) => {
         this.generating.set(false);
         const d = res?.data ?? {};
-        this.success = `Generated ${d.created ?? 0} space(s). ${d.skipped ?? 0} already existed.`;
-        setTimeout(() => this.success = '', 5000);
+        this.success.set(`Generated ${d.created ?? 0} space(s). ${d.skipped ?? 0} already existed.`);
+        setTimeout(() => this.success.set(''), 5000);
         this.loadSpaces(cfg.id);
       },
       error: (e: any) => {
         this.generating.set(false);
-        this.error = e?.error?.message ?? 'Failed to generate spaces.';
+        this.error.set(e?.error?.message ?? 'Failed to generate spaces.');
       }
     });
   }
@@ -220,7 +225,7 @@ export class ManageSpaces implements OnInit {
   }
 
   deleteSelected() {
-    if (!this.selectedGuids.size) { this.error = 'No spaces selected.'; return; }
+    if (!this.selectedGuids.size) { this.error.set('No spaces selected.'); return; }
     if (!confirm(`Delete ${this.selectedGuids.size} selected space(s)?`)) return;
     this.doDelete(Array.from(this.selectedGuids).join(','));
   }
@@ -237,8 +242,8 @@ export class ManageSpaces implements OnInit {
     const id = space.idGuid || space.publicId || space.id;
     this.admin.deleteSpace(id).subscribe({
       next: () => {
-        this.success = `Space "${space.code}" deleted successfully.`;
-        setTimeout(() => this.success = '', 3000);
+        this.success.set(`Space "${space.code}" deleted successfully.`);
+        setTimeout(() => this.success.set(''), 3000);
         if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
       },
       error: () => {
@@ -260,8 +265,8 @@ export class ManageSpaces implements OnInit {
         const doCancel = (bookingList: any[]) => {
           if (!bookingList.length) {
             space.hasBookings = 0;
-            this.success = `Bookings cleared for ${space.code || space.name}.`;
-            setTimeout(() => this.success = '', 3000);
+            this.success.set(`Bookings cleared for ${space.code || space.name}.`);
+            setTimeout(() => this.success.set(''), 3000);
             return;
           }
           let count = 0;
@@ -272,8 +277,8 @@ export class ManageSpaces implements OnInit {
                 count++;
                 if (count === bookingList.length) {
                   space.hasBookings = 0;
-                  this.success = `Successfully cancelled ${count} booking(s) for ${space.code || space.name}.`;
-                  setTimeout(() => this.success = '', 4000);
+                  this.success.set(`Successfully cancelled ${count} booking(s) for ${space.code || space.name}.`);
+                  setTimeout(() => this.success.set(''), 4000);
                   if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
                 }
               },
@@ -314,8 +319,8 @@ export class ManageSpaces implements OnInit {
             );
             if (!matches.length) {
               space.hasBookings = 0;
-              this.success = `Bookings cleared for ${space.code || space.name}.`;
-              setTimeout(() => this.success = '', 3000);
+              this.success.set(`Bookings cleared for ${space.code || space.name}.`);
+              setTimeout(() => this.success.set(''), 3000);
             } else {
               let count = 0;
               matches.forEach((b: any) => {
@@ -325,8 +330,8 @@ export class ManageSpaces implements OnInit {
                     count++;
                     if (count === matches.length) {
                       space.hasBookings = 0;
-                      this.success = `Cancelled ${count} booking(s) for ${space.code || space.name}.`;
-                      setTimeout(() => this.success = '', 4000);
+                      this.success.set(`Cancelled ${count} booking(s) for ${space.code || space.name}.`);
+                      setTimeout(() => this.success.set(''), 4000);
                       if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
                     }
                   },
@@ -342,7 +347,7 @@ export class ManageSpaces implements OnInit {
             }
           },
           error: (e: any) => {
-            this.error = e?.error?.message ?? 'Failed to fetch bookings.';
+            this.error.set(e?.error?.message ?? 'Failed to fetch bookings.');
           }
         });
       }
@@ -353,21 +358,21 @@ export class ManageSpaces implements OnInit {
     const cfg = this.selectedConfig();
     if (!cfg) return;
     this.deleting.set(true);
-    this.error = '';
-    this.success = '';
-    this.blockedSpaces = [];
+    this.error.set('');
+    this.success.set('');
+    this.blockedSpaces.set([]);
     this.admin.deleteSpacesFromConfig(cfg.id, guids ?? undefined).subscribe({
       next: (res: any) => {
         this.deleting.set(false);
         const blocked: any[] = res?.data?.blocked ?? [];
-        this.blockedSpaces = blocked;
+        this.blockedSpaces.set(blocked);
         if (blocked.length) {
           const msg = `${blocked.length} space(s) could not be deleted — they have active bookings.`;
           alert(msg);
-          this.error = msg;
+          this.error.set(msg);
         } else {
-          this.success = 'Spaces deleted successfully.';
-          setTimeout(() => this.success = '', 4000);
+          this.success.set('Spaces deleted successfully.');
+          setTimeout(() => this.success.set(''), 4000);
         }
         this.selectedGuids.clear();
         this.loadSpaces(cfg.id);
@@ -376,7 +381,7 @@ export class ManageSpaces implements OnInit {
         this.deleting.set(false);
         const msg = e?.error?.message ?? 'Failed to delete spaces.';
         alert(msg);
-        this.error = msg;
+        this.error.set(msg);
       }
     });
   }

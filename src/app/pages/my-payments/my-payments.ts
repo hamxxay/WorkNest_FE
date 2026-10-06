@@ -171,7 +171,7 @@ export class MyPayments implements OnInit {
         a.href = url;
         a.download = `Challan-${p?.challanNumber || bookingId}.pdf`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: () => {
         alert('Failed to download Challan PDF.');

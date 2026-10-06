@@ -1,4 +1,4 @@
-﻿<!-- KYC Module Main View -->
+<!-- KYC Module Main View -->
 <div class="kyc-container">
 
   <!-- ================= LIST MODE ================= -->
@@ -344,12 +344,12 @@
                     </td>
                     <td style="text-align: right; white-space: nowrap;">
                       <div class="action-btn-group">
-                        <a [href]="getDownloadUrl(doc.id, false)" class="btn btn-outline btn-sm" title="Download Document">
+                        <button type="button" (click)="openDocument(doc.id, false, doc.originalFileName)" class="btn btn-outline btn-sm" title="Download Document">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                        </a>
-                        <a [href]="getDownloadUrl(doc.id, true)" target="_blank" class="btn btn-outline btn-sm" title="View Document in Tab">
+                        </button>
+                        <button type="button" (click)="openDocument(doc.id, true)" class="btn btn-outline btn-sm" title="View Document in Tab">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                        </a>
+                        </button>
                         <button class="btn btn-outline btn-sm" (click)="openHistoryModal(doc)" title="Version History">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
                         </button>
@@ -445,9 +445,9 @@
                       }
                     </td>
                     <td style="text-align: right;">
-                      <a [href]="getDownloadUrl(h.id, false)" class="btn btn-outline btn-sm" title="Download version file">
+                      <button type="button" (click)="openDocument(h.id, false, h.originalFileName)" class="btn btn-outline btn-sm" title="Download version file">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 }

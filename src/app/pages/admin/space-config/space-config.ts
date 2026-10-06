@@ -28,8 +28,8 @@ export class SpaceConfig implements OnInit {
   configs = signal<any[]>([]);
   loading = signal(false);
   saving  = signal(false);
-  error   = '';
-  success = '';
+  readonly error = signal('');
+  readonly success = signal('');
 
   // Filters
   filterCompanyId  = signal<number | null>(null);
@@ -37,17 +37,17 @@ export class SpaceConfig implements OnInit {
   filterLocationId = signal<number | null>(null);
 
   // Dropdowns
-  companyOptions:   { v: number; l: string }[] = [];
-  branchOptions:    { v: number; l: string }[] = [];
-  locationOptions:  { v: number; l: string; branchId?: number; companyId?: number }[] = [];
-  spaceTypeOptions: { v: number; l: string }[] = [];
-  floorOptions:     { v: number; l: string }[] = [];
-  accountOptions:   { v: number; l: string }[] = [];
-  amenityOptions:   { id: number; name: string }[] = [];
+  readonly companyOptions = signal<{ v: number; l: string }[]>([]);
+  readonly branchOptions = signal<{ v: number; l: string }[]>([]);
+  readonly locationOptions = signal<{ v: number; l: string; branchId?: number; companyId?: number }[]>([]);
+  readonly spaceTypeOptions = signal<{ v: number; l: string }[]>([]);
+  readonly floorOptions = signal<{ v: number; l: string }[]>([]);
+  readonly accountOptions = signal<{ v: number; l: string }[]>([]);
+  readonly amenityOptions = signal<{ id: number; name: string }[]>([]);
   selectedAmenityIds: number[] = [];
 
   // Modal
-  showModal  = false;
+  readonly showModal = signal(false);
   editItem: any = null;
   form: any = {};
 
@@ -57,14 +57,14 @@ export class SpaceConfig implements OnInit {
 
   filteredBranches = computed(() => {
     const cid = this.filterCompanyId();
-    return cid ? this.branchOptions : this.branchOptions;
+    return cid ? this.branchOptions() : this.branchOptions();
   });
 
   filteredLocations = computed(() => {
     const bid = this.filterBranchId();
     return bid
-      ? this.locationOptions.filter(l => l.branchId === bid)
-      : this.locationOptions;
+      ? this.locationOptions().filter(l => l.branchId === bid)
+      : this.locationOptions();
   });
 
   ngOnInit() {
@@ -87,26 +87,30 @@ export class SpaceConfig implements OnInit {
           mapped = mapped.filter((l: any) => l.v === this.userLocationId);
           this.filterLocationId.set(this.userLocationId);
         }
-        this.locationOptions = mapped;
-      }
+        this.locationOptions.set(mapped);
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load locations.')
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.spaceTypeOptions = (res?.data ?? []).map((s: any) => ({
+        this.spaceTypeOptions.set((res?.data ?? []).map((s: any) => ({
           v: s.id,
           l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
-        }));
-      }
+        })));
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space types.')
     });
     this.accountCoa.getAll().subscribe({
       next: (accounts) => {
-        this.accountOptions = accounts.map(a => ({ v: a.accountId, l: a.description }));
-      }
+        this.accountOptions.set(accounts.map(a => ({ v: a.accountId, l: a.description })));
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load accounts.')
     });
     this.admin.getAmenities().subscribe({
       next: (res: any) => {
-        this.amenityOptions = (res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name }));
-      }
+        this.amenityOptions.set((res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name })));
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load amenities.')
     });
   }
 
@@ -161,10 +165,10 @@ export class SpaceConfig implements OnInit {
     if (!this.isSuperAdmin && this.userLocationId) {
       this.loadFloorsForLocation(this.userLocationId);
     }
-    this.floorOptions = [];
+    this.floorOptions.set([]);
     this.selectedAmenityIds = [];
-    this.error = '';
-    this.showModal = true;
+    this.error.set('');
+    this.showModal.set(true);
   }
 
   openEdit(cfg: any) {
@@ -196,12 +200,12 @@ export class SpaceConfig implements OnInit {
       ? cfg.amenities.split(',').map((s: string) => +s.trim()).filter((n: number) => !isNaN(n))
       : [];
     this.loadFloorsForLocation(cfg.locationId);
-    this.error = '';
-    this.showModal = true;
+    this.error.set('');
+    this.showModal.set(true);
   }
 
   onLocationChange() {
-    this.floorOptions = [];
+    this.floorOptions.set([]);
     this.form.floorId = null;
     if (this.form.locationId) this.loadFloorsForLocation(+this.form.locationId);
   }
@@ -211,11 +215,12 @@ export class SpaceConfig implements OnInit {
     this.admin.getFloors(locationId).subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.floorOptions = items.map((f: any) => ({
+        this.floorOptions.set(items.map((f: any) => ({
           v: f.id ?? f.Id,
           l: f.name || f.floorName || f.Name || f.FloorName || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
-        }));
-      }
+        })));
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load floors.')
     });
   }
 
@@ -240,7 +245,7 @@ export class SpaceConfig implements OnInit {
 
   save() {
     const err = this.validate();
-    if (err) { this.error = err; return; }
+    if (err) { this.error.set(err); return; }
 
     const payload = {
       ...this.form,
@@ -265,7 +270,7 @@ export class SpaceConfig implements OnInit {
     };
 
     this.saving.set(true);
-    this.error = '';
+    this.error.set('');
 
     const obs = this.editItem
       ? this.admin.updateSpaceConfigV2(this.editItem.id, payload)
@@ -274,14 +279,14 @@ export class SpaceConfig implements OnInit {
     obs.subscribe({
       next: () => {
         this.saving.set(false);
-        this.showModal = false;
-        this.success = this.editItem ? 'Configuration updated.' : 'Configuration created.';
-        setTimeout(() => this.success = '', 3000);
+        this.showModal.set(false);
+        this.success.set(this.editItem ? 'Configuration updated.' : 'Configuration created.');
+        setTimeout(() => this.success.set(''), 3000);
         this.load();
       },
       error: (e: any) => {
         this.saving.set(false);
-        this.error = e?.error?.message ?? e?.error?.detail ?? 'Failed to save.';
+        this.error.set(e?.error?.message ?? e?.error?.detail ?? 'Failed to save.');
       }
     });
   }
@@ -290,16 +295,16 @@ export class SpaceConfig implements OnInit {
     if (!confirm(`Delete configuration for "${cfg.spaceCategory}" at ${cfg.locationName}? This will not delete generated spaces.`)) return;
     this.admin.deleteSpaceConfigV2(cfg.id).subscribe({
       next: () => {
-        this.success = 'Configuration deleted.';
-        setTimeout(() => this.success = '', 3000);
+        this.success.set('Configuration deleted.');
+        setTimeout(() => this.success.set(''), 3000);
         this.load();
       },
-      error: (e: any) => { this.error = e?.error?.message ?? 'Failed to delete.'; }
+      error: (e: any) => { this.error.set(e?.error?.message ?? 'Failed to delete.'); }
     });
   }
 
   // Discard Confirmation Modal
-  showDiscardConfirm = false;
+  readonly showDiscardConfirm = signal(false);
 
   isFormDirty(): boolean {
     if (!this.form) return false;
@@ -325,26 +330,26 @@ export class SpaceConfig implements OnInit {
 
   closeModal() {
     if (this.isFormDirty()) {
-      this.showDiscardConfirm = true;
+      this.showDiscardConfirm.set(true);
     } else {
       this.forceCloseModal();
     }
   }
 
   confirmDiscard() {
-    this.showDiscardConfirm = false;
+    this.showDiscardConfirm.set(false);
     this.forceCloseModal();
   }
 
   cancelDiscard() {
-    this.showDiscardConfirm = false;
+    this.showDiscardConfirm.set(false);
   }
 
   forceCloseModal() {
-    this.showModal = false;
+    this.showModal.set(false);
     this.form = {};
     this.editItem = null;
-    this.error = '';
+    this.error.set('');
     this.selectedAmenityIds = [];
   }
 }

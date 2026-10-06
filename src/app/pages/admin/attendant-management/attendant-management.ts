@@ -29,7 +29,7 @@ export class AttendantManagement implements OnInit, OnDestroy {
 
   capacityInfo = signal<any>(null);
   attendants = signal<any[]>([]);
-  loadingAttendants = false;
+  readonly loadingAttendants = signal(false);
 
   // Add Attendant Modal
   showAddModal = false;
@@ -45,15 +45,15 @@ export class AttendantManagement implements OnInit, OnDestroy {
   newIdNumber = '';
 
   // Warning Modal
-  showWarningModal = false;
+  readonly showWarningModal = signal(false);
   pendingAssignmentPayload: any = null;
-  warningModalText = '';
-  estimatedSurcharge = 0;
+  readonly warningModalText = signal('');
+  readonly estimatedSurcharge = signal(0);
   seatPrice = 0;
 
   // Export Modal
-  showExportModal = false;
-  exportDataJson = '';
+  readonly showExportModal = signal(false);
+  readonly exportDataJson = signal('');
 
   // Enroll Credential Modal (fingerprint / card / face on Hikvision terminals)
   devices = signal<HikDevice[]>([]);
@@ -131,7 +131,7 @@ export class AttendantManagement implements OnInit, OnDestroy {
         const raw = res?.data ?? res?.rows ?? res?.items ?? (Array.isArray(res) ? res : []);
         this.customers.set(raw);
       },
-      error: (err) => console.error('Failed to load customers', err)
+      error: (err) => this.toast.error(err?.error?.message ?? err?.message ?? 'Failed to load customers.')
     });
   }
 
@@ -157,7 +157,8 @@ export class AttendantManagement implements OnInit, OnDestroy {
     this.admin.getCustomerAttendants(cid).subscribe({
       next: (res: any) => {
         this.existingCompanyAttendants.set(res || []);
-      }
+      },
+      error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to load customer attendants.')
     });
   }
 
@@ -234,18 +235,22 @@ export class AttendantManagement implements OnInit, OnDestroy {
 
   loadAttendantsForSpace() {
     if (!this.selectedBookingDetailId) return;
-    this.loadingAttendants = true;
+    this.loadingAttendants.set(true);
 
     this.admin.checkAttendantCapacity(this.selectedBookingDetailId).subscribe({
-      next: (cap: any) => this.capacityInfo.set(cap)
+      next: (cap: any) => this.capacityInfo.set(cap),
+      error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to check attendant capacity.')
     });
 
     this.admin.getBookingAttendants(this.selectedBookingDetailId).subscribe({
       next: (res: any) => {
         this.attendants.set(res || []);
-        this.loadingAttendants = false;
+        this.loadingAttendants.set(false);
       },
-      error: () => this.loadingAttendants = false
+      error: (e: any) => {
+        this.loadingAttendants.set(false);
+        this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to load attendants.');
+      }
     });
   }
 
@@ -318,19 +323,20 @@ export class AttendantManagement implements OnInit, OnDestroy {
             return;
           }
 
-          this.estimatedSurcharge = cap.estimatedSurcharge;
+          this.estimatedSurcharge.set(cap.estimatedSurcharge);
           this.seatPrice = cap.seatPrice;
-          this.warningModalText = `Adding this attendant to ${cap.spaceName} exceeds the seat capacity (${cap.roomCapacity} seats). An over-capacity surcharge of PKR ${cap.estimatedSurcharge} will be applied.`;
-          this.showWarningModal = true;
+          this.warningModalText.set(`Adding this attendant to ${cap.spaceName} exceeds the seat capacity (${cap.roomCapacity} seats). An over-capacity surcharge of PKR ${cap.estimatedSurcharge} will be applied.`);
+          this.showWarningModal.set(true);
         } else {
           this.executeAssignment();
         }
-      }
+      },
+      error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to check attendant capacity.')
     });
   }
 
   confirmOverCapacityAssignment() {
-    this.showWarningModal = false;
+    this.showWarningModal.set(false);
     this.executeAssignment();
   }
 
@@ -402,8 +408,8 @@ export class AttendantManagement implements OnInit, OnDestroy {
   openExportModal() {
     this.admin.getHikvisionExport().subscribe({
       next: (res: any) => {
-        this.exportDataJson = JSON.stringify(res, null, 2);
-        this.showExportModal = true;
+        this.exportDataJson.set(JSON.stringify(res, null, 2));
+        this.showExportModal.set(true);
       },
       error: (err) => this.toast.error('Failed to fetch export: ' + (err.error?.message || err.message))
     });

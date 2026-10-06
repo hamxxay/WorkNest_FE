@@ -1,8 +1,8 @@
 <div class="admin-page">
   <div class="page-header">
     <div>
-      <h1>{{ config.title }}</h1>
-      <p>Manage all {{ config.title.toLowerCase() }}</p>
+      <h1>{{ config().title }}</h1>
+      <p>Manage all {{ config().title.toLowerCase() }}</p>
     </div>
     <div class="header-actions">
       @if (entity === 'quotations') {
@@ -66,7 +66,7 @@
       </button>
       }
       }
-      @if (config.createFn) {
+      @if (config().createFn) {
       <button class="btn-admin btn-primary-admin" (click)="openCreate()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -79,8 +79,8 @@
     </div>
   </div>
 
-  @if (success) {
-  <div class="alert-admin alert-success-admin">{{ success }}</div>
+  @if (success()) {
+  <div class="alert-admin alert-success-admin">{{ success() }}</div>
   }
 
   <div class="admin-card">
@@ -102,7 +102,7 @@
       <div class="toolbar-right">
         <label class="page-size-wrap">
           <span>Show</span>
-          <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+          <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
             @for (size of pageSizeOptions; track size) {
             <option [value]="size">{{ size }}</option>
             }
@@ -138,7 +138,7 @@
       <table class="admin-table">
         <thead>
           <tr>
-            @for (col of config.columns; track col.key) {
+            @for (col of config().columns; track col.key) {
             <th>{{ col.label }}</th>
             }
             <th class="actions-col">Actions</th>
@@ -147,7 +147,7 @@
         <tbody>
           @for (item of filtered; track item.bookingId || item.id || item.idGuid || $index) {
           <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
-            @for (col of config.columns; track col.key) {
+            @for (col of config().columns; track col.key) {
             <td>
               @if (col.type === 'image') {
               <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
@@ -213,7 +213,7 @@
               </button>
               @if (!item.initialInvoiceSent && !sentInitialInvoices.has(item.id ?? item.bookingId)) {
               <button class="action-btn" (click)="sendInitialInvoice(item)"
-                [disabled]="sendingInitialInvoiceId() === (item.id ?? item.bookingId)"
+                [disabled]="sendingInitialInvoiceId() !== null"
                 title="Send Initial Payment Invoice (Advance Rent + Security Deposit)"
                 style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -464,16 +464,16 @@
                 </svg>
               </button>
               }
-              @if (config.statusFn && config.statusOptions) {
+              @if (config().statusFn && config().statusOptions) {
 
               <select class="status-select" (change)="changeStatus(item, $any($event.target).value)">
                 <option value="" disabled selected>Status</option>
-                @for (s of config.statusOptions; track s) {
+                @for (s of config().statusOptions; track s) {
                 <option [value]="s">{{ s }}</option>
                 }
               </select>
               }
-              @if (config.updateFn && config.fields) {
+              @if (config().updateFn && config().fields) {
               <button class="action-btn edit" (click)="openEdit(item)" title="Edit">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -509,7 +509,7 @@
                 }
               </button>
               }
-              @if (config.deleteFn) {
+              @if (config().deleteFn) {
               <button class="action-btn delete" (click)="deleteItem(item)" title="Delete">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -534,7 +534,7 @@
   </div>
 </div>
 
-@if (showModal && config.fields) {
+@if (showModal() && config().fields) {
 <div class="modal-overlay" (click)="closeModal()">
   <div class="modal-content" [class.booking-modal]="entity === 'bookings'" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeModal()">
@@ -544,8 +544,8 @@
         <path d="m6 6 12 12" />
       </svg>
     </button>
-    <h2>{{ editItem ? 'Edit' : 'Create' }} {{ config.title }}</h2>
-    @if (error) { <div class="alert-admin alert-error-admin">{{ error }}</div> }
+    <h2>{{ editItem ? 'Edit' : 'Create' }} {{ config().title }}</h2>
+    @if (error()) { <div class="alert-admin alert-error-admin">{{ error() }}</div> }
     <form (ngSubmit)="save()">
       @if (entity === 'customers') {
       <div class="form-group-admin full-width">
@@ -570,7 +570,7 @@
           <h4>Availability Calendar</h4>
           <div class="booking-calendar-nav">
             <button type="button" class="btn-admin btn-outline-admin" (click)="prevBookingMonth()">Prev</button>
-            <span>{{ bookingMonthTitle }}</span>
+            <span>{{ bookingMonthTitle() }}</span>
             <button type="button" class="btn-admin btn-outline-admin" (click)="nextBookingMonth()">Next</button>
           </div>
         </div>
@@ -581,7 +581,7 @@
           @for (w of weekDays; track w) { <div class="weekday">{{ w }}</div> }
         </div>
         <div class="calendar-grid">
-          @for (day of bookingMonthCells; track day.date || ('blank-' + $index)) {
+          @for (day of bookingMonthCells(); track day.date || ('blank-' + $index)) {
           <button type="button" class="day-cell" [class.placeholder]="day.placeholder" [class.booked]="day.isBooked"
             [class.available]="!day.placeholder && !day.isBooked"
             [class.selected]="formData.startDateTime === day.date || formData.endDateTime === day.date"
@@ -595,7 +595,7 @@
         }
       </div>
       }
-      @for (field of config.fields; track field.key) {
+      @for (field of config().fields; track field.key) {
       @if (entity !== 'customers' || field.key !== 'company' || formData.customerType === 'Company') {
       <div class="form-group-admin">
         <label>
@@ -628,8 +628,8 @@
             <input class="form-input-admin" type="number" [(ngModel)]="formData['priceValue']" name="priceValue"
               placeholder="e.g. 35000" min="1" step="any" required style="width:100%"
               (input)="onPriceValueOrUnitChange()" />
-            @if (priceError) {
-            <small style="color:#ef4444;font-size:0.75rem;margin-top:2px;display:block">{{ priceError }}</small>
+            @if (priceError()) {
+            <small style="color:#ef4444;font-size:0.75rem;margin-top:2px;display:block">{{ priceError() }}</small>
             }
           </div>
           <div style="width:180px;flex-shrink:0">
@@ -651,22 +651,22 @@
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
           [disabled]="!isSuperAdmin && field.key === 'locationId'">
           <option value="">Select Floor...</option>
-          @for (opt of floorOptions; track opt.v) {
+          @for (opt of floorOptions(); track opt.v) {
           <option [value]="opt.v">{{ opt.l }}</option>
           }
         </select>
-        @if (!floorOptions.length) {
+        @if (!floorOptions().length) {
         <small style="color:var(--warning,#f59e0b)">Select a location first to load floors.</small>
         }
         } @else if (field.type === 'amenities-multicheck') {
         <div class="amenities-check-grid">
-          @for (a of amenityOptions; track a.id) {
+          @for (a of amenityOptions(); track a.id) {
           <label class="checkbox-label">
             <input type="checkbox" [checked]="isAmenitySelected(a.id)" (change)="toggleAmenity(a.id)" />
             {{ a.name }}
           </label>
           }
-          @if (!amenityOptions.length) {
+          @if (!amenityOptions().length) {
           <small style="color:var(--warning,#f59e0b)">No amenities found in database.</small>
           }
         </div>
@@ -674,7 +674,7 @@
         @if (isPrivateOfficeSelected) {
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
           <option value="">Select Account...</option>
-          @for (a of accountOptions; track a.v) {
+          @for (a of accountOptions(); track a.v) {
           <option [value]="a.v">{{ a.l }}</option>
           }
         </select>
@@ -686,7 +686,7 @@
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
           [disabled]="!isSuperAdmin && !!userLocationId">
           <option [ngValue]="null">Select Location (Required for Admin/Sales)...</option>
-          @for (loc of locationOptions; track loc.v) {
+          @for (loc of locationOptions(); track loc.v) {
           <option [value]="loc.v">{{ loc.l }}</option>
           }
         </select>
@@ -704,14 +704,14 @@
         @if (field.key === 'branchId' && branchesLoading()) {
         <small style="color:#64748b">Loading branches...</small>
         }
-        @if (field.key === 'branchId' && branchesError) {
-        <small style="color:#ef4444">{{ branchesError }}</small>
+        @if (field.key === 'branchId' && branchesError()) {
+        <small style="color:#ef4444">{{ branchesError() }}</small>
         }
         @if (field.key === 'cityId' && citiesLoading()) {
         <small style="color:#64748b">Loading cities...</small>
         }
-        @if (field.key === 'cityId' && citiesError) {
-        <small style="color:#ef4444">{{ citiesError }}</small>
+        @if (field.key === 'cityId' && citiesError()) {
+        <small style="color:#ef4444">{{ citiesError() }}</small>
         }
         } @else if (field.type === 'checkbox') {
         <label class="checkbox-label">
@@ -726,8 +726,8 @@
       }
       <div class="modal-actions">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeModal()">Cancel</button>
-        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="saving">
-          {{ saving ? 'Saving...' : (editItem ? 'Update' : 'Create') }}
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : (editItem ? 'Update' : 'Create') }}
         </button>
       </div>
     </form>
@@ -735,7 +735,7 @@
 </div>
 }
 
-@if (showSpaceModal) {
+@if (showSpaceModal()) {
 <div class="modal-overlay" (click)="closeSpaceModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeSpaceModal()">
@@ -751,8 +751,8 @@
       <div class="spinner"></div>
       <p>Loading...</p>
     </div>
-    } @else if (spaceSummaryError) {
-    <div class="alert-admin alert-error-admin">{{ spaceSummaryError }}</div>
+    } @else if (spaceSummaryError()) {
+    <div class="alert-admin alert-error-admin">{{ spaceSummaryError() }}</div>
     } @else if (spaceSummary(); as s) {
     <div class="user-detail-grid">
       <div class="user-line"><span>Space</span><strong>{{ s.space?.name }} ({{ s.space?.code }})</strong></div>
@@ -792,7 +792,7 @@
 </div>
 }
 
-@if (showPlanModal) {
+@if (showPlanModal()) {
 <div class="modal-overlay" (click)="closePlanModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closePlanModal()">
@@ -808,8 +808,8 @@
       <div class="spinner"></div>
       <p>Loading...</p>
     </div>
-    } @else if (planSummaryError) {
-    <div class="alert-admin alert-error-admin">{{ planSummaryError }}</div>
+    } @else if (planSummaryError()) {
+    <div class="alert-admin alert-error-admin">{{ planSummaryError() }}</div>
     } @else if (planSummary(); as s) {
     <div class="user-detail-grid">
       <div class="user-line"><span>Plan</span><strong>{{ s.plan?.name }}</strong></div>
@@ -831,7 +831,7 @@
 </div>
 }
 
-@if (showPaymentModal) {
+@if (showPaymentModal()) {
 <div class="modal-overlay" (click)="closePaymentModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closePaymentModal()">
@@ -847,8 +847,8 @@
       <div class="spinner"></div>
       <p>Loading...</p>
     </div>
-    } @else if (paymentSummaryError) {
-    <div class="alert-admin alert-error-admin">{{ paymentSummaryError }}</div>
+    } @else if (paymentSummaryError()) {
+    <div class="alert-admin alert-error-admin">{{ paymentSummaryError() }}</div>
     } @else if (paymentSummary(); as s) {
     <div class="user-detail-grid">
       <div class="user-line"><span>User</span><strong>{{ s.payment?.userEmail }}</strong></div>
@@ -893,7 +893,7 @@
 </div>
 }
 
-@if (showUserModal) {
+@if (showUserModal()) {
 <div class="modal-overlay" (click)="closeUserModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeUserModal()">
@@ -910,10 +910,10 @@
       <p>Loading...</p>
     </div>
     } @else {
-    @if (userDetailsError) { <div class="alert-admin alert-error-admin">{{ userDetailsError }}</div> }
+    @if (userDetailsError()) { <div class="alert-admin alert-error-admin">{{ userDetailsError() }}</div> }
     @if (selectedUser(); as user) {
     <div class="user-detail-grid">
-      <div class="user-line"><span>Name</span><strong>{{ userDisplayName }}</strong></div>
+      <div class="user-line"><span>Name</span><strong>{{ userDisplayName() }}</strong></div>
       <div class="user-line"><span>Phone</span><strong>{{ user.phoneNumber || 'N/A' }}</strong></div>
       <div class="user-line"><span>Active</span><strong>{{ (user.isActive ?? user.status == 1) ? 'Yes' : 'No'
           }}</strong></div>
@@ -1013,10 +1013,10 @@
       Add Space
     </button>
   </div>
-  @if (spaceConfigSuccess) { <div class="alert-admin alert-success-admin">{{ spaceConfigSuccess }}</div> }
-  @if (spaceConfigError) { <div class="alert-admin alert-error-admin">{{ spaceConfigError }}</div> }
-  @if (generateSuccess) { <div class="alert-admin alert-success-admin">{{ generateSuccess }}</div> }
-  @if (generateError) { <div class="alert-admin alert-error-admin">{{ generateError }}</div> }
+  @if (spaceConfigSuccess()) { <div class="alert-admin alert-success-admin">{{ spaceConfigSuccess() }}</div> }
+  @if (spaceConfigError()) { <div class="alert-admin alert-error-admin">{{ spaceConfigError() }}</div> }
+  @if (generateSuccess()) { <div class="alert-admin alert-success-admin">{{ generateSuccess() }}</div> }
+  @if (generateError()) { <div class="alert-admin alert-error-admin">{{ generateError() }}</div> }
   <div class="admin-card">
     <div class="table-wrap">
       <table class="admin-table">
@@ -1065,7 +1065,7 @@
     <select class="form-input-admin" style="min-width:180px;font-size:.85rem" [ngModel]="vacantBranchId"
       (ngModelChange)="vacantBranchId = $event; onVacantBranchChange()">
       <option [ngValue]="null">All Branches</option>
-      @for (b of vacantBranchOptions; track b.id) {
+      @for (b of vacantBranchOptions(); track b.id) {
       <option [ngValue]="b.id">{{ b.name }}</option>
       }
     </select>
@@ -1131,7 +1131,7 @@
 
 
 <!-- Space Config Edit Modal -->
-@if (showConfigModal && editingConfig) {
+@if (showConfigModal() && editingConfig) {
 <div class="modal-overlay" (click)="cancelEditConfig()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px">
     <button class="modal-close" (click)="cancelEditConfig()">
@@ -1142,7 +1142,7 @@
       </svg>
     </button>
     <h2>Edit Config &mdash; {{ editingConfig.spaceCategory }}</h2>
-    @if (spaceConfigError) { <div class="alert-admin alert-error-admin">{{ spaceConfigError }}</div> }
+    @if (spaceConfigError()) { <div class="alert-admin alert-error-admin">{{ spaceConfigError() }}</div> }
     <form (ngSubmit)="saveConfig()">
       <div class="form-row-admin">
         <div class="form-group-admin">
@@ -1195,7 +1195,7 @@
 }
 
 <!-- Add Space Modal -->
-@if (showAddSpaceModal) {
+@if (showAddSpaceModal()) {
 <div class="modal-overlay" (click)="closeAddSpaceModal()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:420px">
     <button class="modal-close" (click)="closeAddSpaceModal()">
@@ -1206,14 +1206,14 @@
       </svg>
     </button>
     <h2>Add Space</h2>
-    @if (addSpaceError) { <div class="alert-admin alert-error-admin">{{ addSpaceError }}</div> }
+    @if (addSpaceError()) { <div class="alert-admin alert-error-admin">{{ addSpaceError() }}</div> }
     <form (ngSubmit)="submitAddSpace()">
       <div class="form-group-admin">
         <label>Space Type *</label>
         <select class="form-input-admin" [(ngModel)]="addSpaceTypeId" name="addSpaceType" required
           (change)="onAddSpaceSelectionChange()">
           <option value="">Select Space Type...</option>
-          @for (st of spaceTypeOptions; track st.v) {
+          @for (st of spaceTypeOptions(); track st.v) {
           <option [value]="st.v">{{ st.l }}</option>
           }
         </select>
@@ -1223,7 +1223,7 @@
         <select class="form-input-admin" [(ngModel)]="addSpaceLocationId" name="addSpaceLocation" required
           (change)="onAddSpaceSelectionChange()" [disabled]="!isSuperAdmin">
           <option value="">Select Location...</option>
-          @for (loc of locationOptions; track loc.v) {
+          @for (loc of locationOptions(); track loc.v) {
           <option [value]="loc.v">{{ loc.l }}</option>
           }
         </select>
@@ -1248,7 +1248,7 @@
 }
 
 <!-- Reassign Booking Modal -->
-@if (showReassignModal && reassignBooking) {
+@if (showReassignModal() && reassignBooking) {
 <div class="modal-overlay" (click)="closeReassignModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeReassignModal()">
@@ -1266,8 +1266,8 @@
       <div class="user-line"><span>Time</span><strong>{{ reassignBooking.startDateTime | date:'medium' }} - {{
           reassignBooking.endDateTime | date:'medium' }}</strong></div>
     </div>
-    @if (reassignError) {
-    <div class="alert-admin alert-error-admin">{{ reassignError }}</div>
+    @if (reassignError()) {
+    <div class="alert-admin alert-error-admin">{{ reassignError() }}</div>
     }
     @if (reassignLoading()) {
     <div class="loading-spinner">
@@ -1303,8 +1303,8 @@
 }
 
 <!-- Admin Booking Challan Modal -->
-@if (showChallanModal && challanData(); as c) {
-<div class="modal-overlay receipt-overlay" (click)="showChallanModal = false">
+@if (showChallanModal() && challanData(); as c) {
+<div class="modal-overlay receipt-overlay" (click)="showChallanModal.set(false)">
   <div class="modal-content receipt-modal" (click)="$event.stopPropagation()" id="admin-receipt-printable"
     style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,850px);max-height:min(92dvh,850px);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
 
@@ -1535,10 +1535,10 @@
     <div
       style="padding:14px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0"
       data-challan-actions>
-      <button class="btn-admin btn-outline-admin" (click)="showChallanModal = false">Close</button>
+      <button class="btn-admin btn-outline-admin" (click)="showChallanModal.set(false)">Close</button>
       <div style="display:flex;gap:10px">
         <button class="btn-admin" (click)="sendInitialInvoice(c)"
-          [disabled]="sendingInitialInvoiceId() === (c.bookingId || c.id)"
+          [disabled]="sendingInitialInvoiceId() !== null"
           style="background:#1d4ed8;color:#fff;border:none;display:flex;align-items:center;gap:6px">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1579,7 +1579,7 @@
 </div>
 }
 
-@if (showQuotationForm) {
+@if (showQuotationForm()) {
 <div class="modal-overlay" style="align-items:flex-start;padding:0" (click)="closeAdminQuotationForm()">
   <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0"
     (click)="$event.stopPropagation()">
@@ -1591,14 +1591,14 @@
       </svg>
     </button>
     <h2>Create Quotation</h2>
-    @if (quotationSuccessMessage) {
+    @if (quotationSuccessMessage()) {
     <div class="alert-admin alert-success-admin"
       style="background:#dcfce7;color:#15803d;padding:10px 14px;border-radius:6px;margin-bottom:1rem;border:1px solid #bbf7d0;font-weight:600">
-      {{ quotationSuccessMessage }}
+      {{ quotationSuccessMessage() }}
     </div>
     }
-    @if (quotationFormError) {
-    <div class="alert-admin alert-error-admin">{{ quotationFormError }}</div>
+    @if (quotationFormError()) {
+    <div class="alert-admin alert-error-admin">{{ quotationFormError() }}</div>
     }
     <form (ngSubmit)="submitAdminQuotation(false)">
 
@@ -1614,9 +1614,9 @@
             title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create
             Customer</button>
         </div>
-        @if (customerSearchResults.length) {
+        @if (customerSearchResults().length) {
         <div class="customer-dropdown">
-          @for (u of customerSearchResults; track u.id) {
+          @for (u of customerSearchResults(); track u.id) {
           <div class="customer-option" (click)="selectCustomer(u)">
             <strong>{{ (u.fullName) || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.name || u.email
               }}</strong>
@@ -1650,7 +1650,7 @@
           <label>Location</label>
           <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId"
             (change)="onQuotationLocationChange()">
-            @for (loc of locationOptions; track loc.v) {
+            @for (loc of locationOptions(); track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
             }
           </select>
@@ -1659,12 +1659,12 @@
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="quotationOfferingType" name="qOfferingType"
             (change)="onQuotationOfferingTypeChange()" (ngModelChange)="validateQuotationDiscount()">
-            @if (offeringTypes.length === 0) {
+            @if (offeringTypes().length === 0) {
             <option value="24/7">24/7</option>
             <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
             <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
             } @else {
-            @for (ot of offeringTypes; track ot.id) {
+            @for (ot of offeringTypes(); track ot.id) {
             <option [value]="ot.description">{{ ot.description }}</option>
             }
             }
@@ -1676,7 +1676,7 @@
           <select class="form-input-admin" [(ngModel)]="selectedQuotationSpaceTypeId" name="qSpaceTypeId" required
             (change)="onQuotationSpaceTypeChange()">
             <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptions; track st.v) {
+            @for (st of spaceTypeOptions(); track st.v) {
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
@@ -1713,18 +1713,18 @@
           </select>
         </div>
         <div class="form-group-admin" data-field="basePrice"
-          [class.has-error]="quotationFormErrorField === 'basePrice' || !!quotationBasePriceError">
+          [class.has-error]="quotationFormErrorField === 'basePrice' || !!quotationBasePriceError()">
           <label>Base Price (per seat) *
             @if (quotationMinPerSeatBasePrice > 0) {
             <small style="color:#64748b;font-weight:500">(Min: PKR {{ quotationMinPerSeatBasePrice | number:'1.0-0'
               }})</small>
             }
           </label>
-          <input class="form-input-admin" [class.is-invalid]="quotationBasePriceError" type="number"
+          <input class="form-input-admin" [class.is-invalid]="quotationBasePriceError()" type="number"
             [min]="quotationMinPerSeatBasePrice || 0" [(ngModel)]="quotationPerSeatBasePrice" name="qPerSeatPrice"
             (ngModelChange)="onQuotationBasePriceChange()" (input)="onQuotationBasePriceChange()" placeholder="0"
-            [style.border-color]="quotationBasePriceError ? '#ef4444' : null" required />
-          @if (quotationBasePriceError) {
+            [style.border-color]="quotationBasePriceError() ? '#ef4444' : null" required />
+          @if (quotationBasePriceError()) {
           <div
             style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -1733,7 +1733,7 @@
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span>{{ quotationBasePriceError }}</span>
+            <span>{{ quotationBasePriceError() }}</span>
           </div>
           }
         </div>
@@ -1742,12 +1742,12 @@
           <input class="form-input-admin" type="number" [ngModel]="quotationCapacity" name="qCapacityReadonly" readonly
             style="background:#f1f5f9;color:#64748b" />
         </div>
-        @if (quotationFloorOptions.length) {
+        @if (quotationFloorOptions().length) {
         <div class="form-group-admin">
           <label>Floor</label>
           <select class="form-input-admin" [(ngModel)]="quotationFloorId" name="qFloorId">
             <option [ngValue]="null">Select Floor (optional)...</option>
-            @for (f of quotationFloorOptions; track f.v) {
+            @for (f of quotationFloorOptions(); track f.v) {
             <option [ngValue]="f.v">{{ f.l }}</option>
             }
           </select>
@@ -1779,11 +1779,11 @@
             quotationSelectedSlots.size }} selected)</span></label>
         @if (!quotationStartDate) {
         <p style="font-size:.82rem;color:#94a3b8">Pick a date to see available slots.</p>
-        } @else if (quotationMeetingSlots.length === 0) {
+        } @else if (quotationMeetingSlots().length === 0) {
         <p style="font-size:.82rem;color:#94a3b8">No slots available.</p>
         } @else {
         <div class="admin-slot-grid">
-          @for (slot of quotationMeetingSlots; track slot.start) {
+          @for (slot of quotationMeetingSlots(); track slot.start) {
           <button type="button" class="admin-slot-btn" [class.admin-slot-selected]="isQuotationSlotSelected(slot)"
             (click)="toggleQuotationSlot(slot)">
             {{ slot.label }}
@@ -1841,7 +1841,7 @@
           </select>
         </div>
         <div class="form-group-admin" data-field="discount"
-          [class.has-error]="quotationFormErrorField === 'discount' || !!quotationDiscountError">
+          [class.has-error]="quotationFormErrorField === 'discount' || !!quotationDiscountError()">
           <label>Discount Value
             @if (quotationDiscountType === 'Percentage') {
             <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%)</small>
@@ -1850,12 +1850,12 @@
               number:'1.0-0' }})</small>
             }
           </label>
-          <input class="form-input-admin" [class.is-invalid]="quotationDiscountError" type="number" min="0"
+          <input class="form-input-admin" [class.is-invalid]="quotationDiscountError()" type="number" min="0"
             [max]="quotationDiscountType === 'Percentage' ? quotationDynamicDiscountCap : quotationMaxAllowedDiscountFixed"
             step="1" [(ngModel)]="quotationDiscountValue" name="qDiscountValue"
             (ngModelChange)="onQuotationDiscountChange()" placeholder="0"
-            [style.border-color]="quotationDiscountError ? '#ef4444' : null" />
-          @if (quotationDiscountError) {
+            [style.border-color]="quotationDiscountError() ? '#ef4444' : null" />
+          @if (quotationDiscountError()) {
           <div
             style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -1864,7 +1864,7 @@
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span>{{ quotationDiscountError }}</span>
+            <span>{{ quotationDiscountError() }}</span>
           </div>
           }
         </div>
@@ -1959,7 +1959,7 @@
       <div class="modal-actions">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminQuotationForm()">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin"
-          [disabled]="quotationFormSaving() || !selectedCustomer || !!quotationDiscountError">
+          [disabled]="quotationFormSaving() || !selectedCustomer || !!quotationDiscountError()">
           {{ quotationFormSaving() ? 'Saving...' : 'Save and Quote' }}
         </button>
       </div>
@@ -1968,7 +1968,7 @@
 </div>
 }
 
-@if (showBookingForm) {
+@if (showBookingForm()) {
 <div class="modal-overlay" style="align-items:flex-start;padding:0" (click)="closeAdminBookingForm()">
   <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0"
     (click)="$event.stopPropagation()">
@@ -1980,8 +1980,8 @@
       </svg>
     </button>
     <h2>{{ editingBookingId ? 'Edit Booking #' + editingBookingId : 'Create Booking' }}</h2>
-    @if (bookingFormError) {
-    <div class="alert-admin alert-error-admin">{{ bookingFormError }}</div>
+    @if (bookingFormError()) {
+    <div class="alert-admin alert-error-admin">{{ bookingFormError() }}</div>
     }
     <form (ngSubmit)="submitAdminBooking()">
 
@@ -1998,9 +1998,9 @@
             title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create
             Customer</button>
         </div>
-        @if (customerSearchResults.length) {
+        @if (customerSearchResults().length) {
         <div class="customer-dropdown">
-          @for (u of customerSearchResults; track u.id) {
+          @for (u of customerSearchResults(); track u.id) {
           <div class="customer-option" (click)="selectCustomer(u)">
             <strong>{{ (u.fullName) || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.name || u.email
               }}</strong>
@@ -2058,7 +2058,7 @@
           <select class="form-input-admin" [(ngModel)]="bookingFormData.cityId" name="cityId"
             [disabled]="!isCustomerFieldEmpty('cityId')">
             <option value="">Select City...</option>
-            @for (c of cityOptions; track c.v) {
+            @for (c of cityOptions(); track c.v) {
             <option [value]="c.v">{{ c.l }}</option>
             }
           </select>
@@ -2080,7 +2080,7 @@
           <label>Location</label>
           <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId"
             (change)="onBookingLocationChange()">
-            @for (loc of locationOptions; track loc.v) {
+            @for (loc of locationOptions(); track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
             }
           </select>
@@ -2089,12 +2089,12 @@
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="bookingOfferingType" name="bookingOfferingType"
             (change)="onBookingOfferingTypeChange()" (ngModelChange)="validateBookingDiscount()">
-            @if (offeringTypes.length === 0) {
+            @if (offeringTypes().length === 0) {
             <option value="24/7">24/7</option>
             <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
             <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
             } @else {
-            @for (ot of offeringTypes; track ot.id) {
+            @for (ot of offeringTypes(); track ot.id) {
             <option [value]="ot.description">{{ ot.description }}</option>
             }
             }
@@ -2105,7 +2105,7 @@
           <select class="form-input-admin" [(ngModel)]="selectedSpaceTypeId" name="spaceTypeId" required
             (change)="onSpaceTypeChange()">
             <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptions; track st.v) {
+            @for (st of spaceTypeOptions(); track st.v) {
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
@@ -2116,7 +2116,7 @@
           <select class="form-input-admin" [(ngModel)]="selectedAdminCapacity" name="adminCapacity" required
             (change)="onAdminCapacityChange()">
             <option value="">Select Capacity...</option>
-            @for (cap of availableAdminCapacities; track cap) {
+            @for (cap of availableAdminCapacities(); track cap) {
             <option [value]="cap">{{ cap }} person{{ cap > 1 ? 's' : '' }}</option>
             }
           </select>
@@ -2130,22 +2130,22 @@
             <option value="">Select Space Type first...</option>
             } @else if (isAdminPrivateRoom && !selectedAdminCapacity) {
             <option value="">Select Capacity first...</option>
-            } @else if (filteredSpaceOptions.length === 0) {
+            } @else if (filteredSpaceOptions().length === 0) {
             <option value="">No available spaces found</option>
             } @else {
             <option value="">Select Space...</option>
-            @for (sp of filteredSpaceOptions; track sp.v) {
+            @for (sp of filteredSpaceOptions(); track sp.v) {
             <option [value]="sp.v">{{ sp.l }}</option>
             }
             }
           </select>
         </div>
-        @if (bookingFloorOptions.length) {
+        @if (bookingFloorOptions().length) {
         <div class="form-group-admin">
           <label>Floor</label>
           <select class="form-input-admin" [(ngModel)]="bookingFloorId" name="bookingFloorId">
             <option [ngValue]="null">Select Floor (optional)...</option>
-            @for (f of bookingFloorOptions; track f.v) {
+            @for (f of bookingFloorOptions(); track f.v) {
             <option [ngValue]="f.v">{{ f.l }}</option>
             }
           </select>
@@ -2178,11 +2178,11 @@
             adminSelectedSlots.size }} selected)</span></label>
         @if (!adminMeetingDate) {
         <p style="font-size:.82rem;color:#94a3b8">Pick a date to see available slots.</p>
-        } @else if (adminMeetingSlots.length === 0) {
+        } @else if (adminMeetingSlots().length === 0) {
         <p style="font-size:.82rem;color:#94a3b8">No slots available.</p>
         } @else {
         <div class="admin-slot-grid">
-          @for (slot of adminMeetingSlots; track slot.start) {
+          @for (slot of adminMeetingSlots(); track slot.start) {
           <button type="button" class="admin-slot-btn" [class.admin-slot-selected]="isAdminSlotSelected(slot)"
             (click)="toggleAdminSlot(slot)">
             {{ slot.label }}
@@ -2238,7 +2238,7 @@
           </select>
         </div>
         <div class="form-group-admin" data-field="discount"
-          [class.has-error]="bookingFormErrorField === 'discount' || !!bookingDiscountError">
+          [class.has-error]="bookingFormErrorField === 'discount' || !!bookingDiscountError()">
           <label>Discount Value
             @if (bookingDiscountType === 'Percentage') {
             <small style="color:#64748b;font-weight:500">(Max cap: {{ bookingDynamicDiscountCap }}%)</small>
@@ -2247,12 +2247,12 @@
               number:'1.0-0' }})</small>
             }
           </label>
-          <input class="form-input-admin" [class.is-invalid]="bookingDiscountError" type="number" min="0"
+          <input class="form-input-admin" [class.is-invalid]="bookingDiscountError()" type="number" min="0"
             [max]="bookingDiscountType === 'Percentage' ? bookingDynamicDiscountCap : bookingMaxAllowedDiscountFixed"
             step="1" [(ngModel)]="bookingDiscountValue" name="bookingDiscountValue"
             (ngModelChange)="onBookingDiscountChange()" placeholder="0"
-            [style.border-color]="bookingDiscountError ? '#ef4444' : null" />
-          @if (bookingDiscountError) {
+            [style.border-color]="bookingDiscountError() ? '#ef4444' : null" />
+          @if (bookingDiscountError()) {
           <div
             style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -2261,7 +2261,7 @@
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span>{{ bookingDiscountError }}</span>
+            <span>{{ bookingDiscountError() }}</span>
           </div>
           }
         </div>
@@ -2356,7 +2356,7 @@
       <div class="modal-actions" style="display:flex;flex-wrap:wrap;gap:8px">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminBookingForm()">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin"
-          [disabled]="bookingFormSaving() || !selectedCustomer || !!bookingDiscountError">
+          [disabled]="bookingFormSaving() || !selectedCustomer || !!bookingDiscountError()">
           {{ bookingFormSaving() ? (editingBookingId ? 'Updating...' : 'Creating...') : (editingBookingId ? 'Update
           Booking' : 'Create Booking') }}
         </button>
@@ -2366,7 +2366,7 @@
 </div>
 }
 
-@if (showQuickCreateCustomer) {
+@if (showQuickCreateCustomer()) {
 <div class="modal-overlay" (click)="requestCloseQuickCreateCustomer()">
   <div class="modal-content" style="max-width:480px" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="requestCloseQuickCreateCustomer()">
@@ -2377,8 +2377,8 @@
       </svg>
     </button>
     <h2>Create Customer</h2>
-    @if (quickCustomerError) {
-    <div class="alert-admin alert-error-admin">{{ quickCustomerError }}</div>
+    @if (quickCustomerError()) {
+    <div class="alert-admin alert-error-admin">{{ quickCustomerError() }}</div>
     }
     <form (ngSubmit)="submitQuickCreateCustomer()">
       <div class="form-group-admin full-width">
@@ -2453,7 +2453,7 @@
         <label>City</label>
         <select class="form-input-admin" [(ngModel)]="quickCustomerForm.cityId" name="qcCity">
           <option value="">Select City...</option>
-          @for (c of cityOptions; track c.v) {
+          @for (c of cityOptions(); track c.v) {
           <option [value]="c.v">{{ c.l }}</option>
           }
         </select>
@@ -2471,7 +2471,7 @@
 }
 
 
-@if (showDiscardConfirm) {
+@if (showDiscardConfirm()) {
 <div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscard()">
   <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;"
     (click)="$event.stopPropagation()">
@@ -2502,8 +2502,8 @@
 }
 
 <!-- Booking Details Modal -->
-@if (showBookingDetailsModal && selectedBookingDetails(); as booking) {
-<div class="modal-overlay" (click)="showBookingDetailsModal = false">
+@if (showBookingDetailsModal() && selectedBookingDetails(); as booking) {
+<div class="modal-overlay" (click)="showBookingDetailsModal.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()"
     style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
     <div
@@ -2514,7 +2514,7 @@
         <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{
           booking.spaceName || 'Workspace' }}</span>
       </div>
-      <button (click)="showBookingDetailsModal = false"
+      <button (click)="showBookingDetailsModal.set(false)"
         style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -2700,20 +2700,20 @@
           View Current Billing Challan
         </button>
         <button class="btn-admin btn-primary-admin"
-          (click)="showBookingDetailsModal = false; openAdminBookingForm(booking)"
+          (click)="showBookingDetailsModal.set(false); openAdminBookingForm(booking)"
           style="background:#2563eb;color:#fff">
           Edit Booking
         </button>
       </div>
-      <button class="btn-admin btn-outline-admin" (click)="showBookingDetailsModal = false">Close</button>
+      <button class="btn-admin btn-outline-admin" (click)="showBookingDetailsModal.set(false)">Close</button>
     </div>
   </div>
 </div>
 }
 
 <!-- Admin Invoice Details Modal -->
-@if (showInvoiceDetailsModal && selectedInvoiceDetails(); as inv) {
-<div class="modal-overlay receipt-overlay" (click)="showInvoiceDetailsModal = false">
+@if (showInvoiceDetailsModal() && selectedInvoiceDetails(); as inv) {
+<div class="modal-overlay receipt-overlay" (click)="showInvoiceDetailsModal.set(false)">
   <div class="modal-content receipt-modal" (click)="$event.stopPropagation()"
     style="max-width:640px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,850px);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
 
@@ -2827,7 +2827,7 @@
     <!-- Actions -->
     <div
       style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn-admin btn-outline-admin" (click)="showInvoiceDetailsModal = false">Close</button>
+      <button class="btn-admin btn-outline-admin" (click)="showInvoiceDetailsModal.set(false)">Close</button>
       <button class="btn-admin" (click)="sendInvoiceEmail(inv)"
         [disabled]="sendingInvoiceEmailId() === (inv.id || inv.Id)"
         style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px">
@@ -2853,7 +2853,7 @@
 }
 
 <!-- Quotation Preview & Version History Modal -->
-@if (showQuotationPreviewModal && selectedQuotation(); as q) {
+@if (showQuotationPreviewModal() && selectedQuotation(); as q) {
 <div class="modal-overlay" (click)="closeQuotationPreviewModal()">
   <div class="modal-content" (click)="$event.stopPropagation()"
     style="max-width:840px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px)">
@@ -3205,7 +3205,7 @@
 </div>
 }
 <!-- Quotation Conversion to Booking Preview Modal -->
-@if (showConversionPreviewModal && selectedConversionQuotation(); as q) {
+@if (showConversionPreviewModal() && selectedConversionQuotation(); as q) {
 <div class="modal-overlay" (click)="closeConversionPreviewModal()">
   <div class="modal-content" (click)="$event.stopPropagation()"
     style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(90vh,850px)">
@@ -3371,8 +3371,8 @@
 </div>
 }
 <!-- Initial Payment Invoice Sending Preview Modal -->
-@if (showInitialInvoicePreviewModal && selectedInitialInvoiceItem(); as item) {
-<div class="modal-overlay" (click)="showInitialInvoicePreviewModal = false">
+@if (showInitialInvoicePreviewModal() && selectedInitialInvoiceItem(); as item) {
+<div class="modal-overlay" (click)="showInitialInvoicePreviewModal.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()"
     style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(90vh,850px)">
 
@@ -3391,7 +3391,7 @@
           Review initial invoice details and payment procedure before sending to customer email.
         </div>
       </div>
-      <button (click)="showInitialInvoicePreviewModal = false"
+      <button (click)="showInitialInvoicePreviewModal.set(false)"
         style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -3532,7 +3532,7 @@
     <!-- Modal Footer Actions -->
     <div
       style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
-      <button class="btn-admin btn-outline-admin" (click)="showInitialInvoicePreviewModal = false"
+      <button class="btn-admin btn-outline-admin" (click)="showInitialInvoicePreviewModal.set(false)"
         [disabled]="sendingInitialInvoiceId() !== null">
         Cancel
       </button>
@@ -3554,7 +3554,7 @@
 }
 
 <!-- Create Custom Invoice Modal -->
-@if (showCreateCustomInvoiceModal) {
+@if (showCreateCustomInvoiceModal()) {
 <div class="modal-overlay" (click)="closeCreateCustomInvoiceModal()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:760px">
     <button class="modal-close" (click)="closeCreateCustomInvoiceModal()">
@@ -3714,7 +3714,7 @@
 </div>
 }
 <!-- Send Agreement Modal -->
-@if (showSendAgreementModal) {
+@if (showSendAgreementModal()) {
 <div class="modal-overlay" (click)="closeSendAgreementModal()">
   <div class="modal-content" style="max-width:650px;width:100%" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeSendAgreementModal()">
@@ -3771,8 +3771,8 @@
       </button>
     </div>
 
-    @if (sendAgreementError) {
-    <div class="alert-admin alert-error-admin">{{ sendAgreementError }}</div>
+    @if (sendAgreementError()) {
+    <div class="alert-admin alert-error-admin">{{ sendAgreementError() }}</div>
     }
 
     <form (ngSubmit)="submitSendAgreement()">
@@ -3867,12 +3867,12 @@
         <div class="form-group-admin">
           <label>Operating Hours / Offering *</label>
           <select class="form-input-admin" [(ngModel)]="sendAgreementData.operatingHours" name="agOpHours">
-            @if (offeringTypes.length === 0) {
+            @if (offeringTypes().length === 0) {
             <option value="24/7">24/7</option>
             <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
             <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
             } @else {
-            @for (ot of offeringTypes; track ot.id) {
+            @for (ot of offeringTypes(); track ot.id) {
             <option [value]="ot.description">{{ ot.description }}</option>
             }
             }
@@ -3963,8 +3963,8 @@
 </div>
 }
 
-@if (showAgreementDetailsModal && selectedAgreementDetails(); as agreement) {
-<div class="modal-overlay" (click)="showAgreementDetailsModal = false">
+@if (showAgreementDetailsModal() && selectedAgreementDetails(); as agreement) {
+<div class="modal-overlay" (click)="showAgreementDetailsModal.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()"
     style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
     <div
@@ -3975,7 +3975,7 @@
         <span style="font-size:0.78rem;color:#94a3b8">{{ agreement.customerName || 'Signatory' }} — Quotation #{{
           agreement.quotationNumber || agreement.quotationId }}</span>
       </div>
-      <button (click)="showAgreementDetailsModal = false"
+      <button (click)="showAgreementDetailsModal.set(false)"
         style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -4125,7 +4125,7 @@
 
     <div
       style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
-      <button class="btn-admin btn-outline-admin" (click)="showAgreementDetailsModal = false">
+      <button class="btn-admin btn-outline-admin" (click)="showAgreementDetailsModal.set(false)">
         Close
       </button>
     </div>
@@ -4134,7 +4134,7 @@
 }
 
 
-@if (showQuickUploadModal) {
+@if (showQuickUploadModal()) {
 <div class="modal-backdrop" (click)="closeQuickUploadModal()">
   <div class="modal-content" (click)="$event.stopPropagation()"
     style="max-width:520px;border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)">
@@ -4172,7 +4172,7 @@
         <label style="display:block;font-size:0.85rem;font-weight:600;color:#334155;margin-bottom:8px">Choose Signed PDF
           File (.pdf):</label>
         <input type="file" accept="application/pdf" [disabled]="uploadingSignedAgreementId() === quickUploadAgreementId"
-          (change)="onSignedAgreementFileSelected(quickUploadAgreementId, $event); showQuickUploadModal = false"
+          (change)="onSignedAgreementFileSelected(quickUploadAgreementId, $event); showQuickUploadModal.set(false)"
           style="font-size:0.88rem;color:#334155;width:100%" />
         <span style="font-size:0.75rem;color:#94a3b8;display:block;margin-top:6px">Max file size: 10MB (.pdf
           only)</span>

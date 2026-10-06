@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 interface PolicySection {
@@ -89,16 +89,16 @@ const POLICIES: Record<string, Policy> = {
   template: `
     <section class="page-hero">
       <div class="container text-center">
-        <h1>{{ policy?.title }}</h1>
-        <p class="hero-sub">Last updated: {{ policy?.lastUpdated }}</p>
+        <h1>{{ policy()?.title }}</h1>
+        <p class="hero-sub">Last updated: {{ policy()?.lastUpdated }}</p>
       </div>
     </section>
 
     <section class="section">
       <div class="container policy-container">
-        @if (policy) {
-          <p class="policy-intro">{{ policy.intro }}</p>
-          @for (s of policy.sections; track s.heading) {
+        @if (policy(); as p) {
+          <p class="policy-intro">{{ p.intro }}</p>
+          @for (s of p.sections; track s.heading) {
             <div class="policy-section">
               <h3>{{ s.heading }}</h3>
               <p>{{ s.content }}</p>
@@ -126,13 +126,13 @@ const POLICIES: Record<string, Policy> = {
   `]
 })
 export class PoliciesComponent implements OnInit {
-  policy: Policy | null = null;
+  readonly policy = signal<Policy | null>(null);
 
   constructor(private route: ActivatedRoute) {}
 
   ngOnInit() {
     this.route.params.subscribe(params => {
-      this.policy = POLICIES[params['slug']] ?? null;
+      this.policy.set(POLICIES[params['slug']] ?? null);
     });
   }
 }

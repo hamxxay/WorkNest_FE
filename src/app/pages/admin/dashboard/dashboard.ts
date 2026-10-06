@@ -1,4 +1,5 @@
 import { Component, signal, OnInit, OnDestroy, computed, inject, viewChild } from '@angular/core';
+import { ToastService } from '../../../services/toast.service';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -131,6 +132,7 @@ export class Dashboard implements OnInit, OnDestroy {
   private quotationService = inject(QuotationService);
   private router = inject(Router);
   protected auth = inject(AuthService);
+  private toast = inject(ToastService);
 
   protected readonly Math = Math;
 
@@ -1147,7 +1149,8 @@ export class Dashboard implements OnInit, OnDestroy {
         if (res.data) {
           this.selectedAnnouncement.set(res.data);
         }
-      }
+      },
+      error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to load announcement details.')
     });
   }
 

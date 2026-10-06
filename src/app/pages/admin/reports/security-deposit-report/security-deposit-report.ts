@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit, inject, signal } from '@angular/core';
+import { ToastService } from '../../../../services/toast.service';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -7,6 +8,7 @@ import {
   SecurityDepositDetail,
   CustomerLookup
 } from '../../../../services/security-deposit-report.service';
+import { localDateIso } from '../../../../utils/dates';
 
 @Component({
   selector: 'app-security-deposit-report',
@@ -17,6 +19,7 @@ import {
 })
 export class SecurityDepositReportComponent implements OnInit {
   private reportService = inject(SecurityDepositReportService);
+  private toast = inject(ToastService);
 
   selectedCustomerId: number | null = null;
   fromDate: string = '';
@@ -47,7 +50,8 @@ export class SecurityDepositReportComponent implements OnInit {
         if (res.isSuccessful || res.success) {
           this.customers.set(res.data || []);
         }
-      }
+      },
+      error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to load customer lookup.')
     });
   }
 
@@ -113,9 +117,9 @@ export class SecurityDepositReportComponent implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Security_Deposit_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `Security_Deposit_Report_${localDateIso()}.xlsx`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: () => {
         this.exporting.set(false);
@@ -138,9 +142,9 @@ export class SecurityDepositReportComponent implements OnInit {
         const a = document.createElement('a');
         a.href = url;
         const code = this.selectedCustomerCode || `Customer_${this.selectedCustomerIdForDetail}`;
-        a.download = `Deposit_History_${code}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `Deposit_History_${code}_${localDateIso()}.xlsx`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: () => {
         this.exportingDetail.set(false);

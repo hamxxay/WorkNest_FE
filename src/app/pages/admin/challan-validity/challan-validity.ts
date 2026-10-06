@@ -1,6 +1,7 @@
 import { Component, signal, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
+import { localDateIso } from '../../../utils/dates';
 
 @Component({
   selector: 'app-challan-validity',
@@ -11,7 +12,7 @@ import { AdminService } from '../../../services/admin.service';
 export class ChallanValidity {
   searchQuery = '';
   searching = signal(false);
-  searchError = '';
+  readonly searchError = signal('');
 
   // Only allow alphanumeric, hyphens, spaces — covers booking IDs and challan numbers like WN-20250729-000001
   private readonly SAFE_PATTERN = /^[a-zA-Z0-9\-\s]{1,50}$/;
@@ -27,11 +28,11 @@ export class ChallanValidity {
 
   result = signal<any>(null);
 
-  newExpiryDate = '';
-  remarks = '';
+  readonly newExpiryDate = signal('');
+  readonly remarks = signal('');
   saving = signal(false);
-  saveError = '';
-  saveSuccess = '';
+  readonly saveError = signal('');
+  readonly saveSuccess = signal('');
 
   private admin = inject(AdminService);
 
@@ -60,11 +61,11 @@ export class ChallanValidity {
     if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
     // ISO or native-parseable (e.g. "2025-07-29T00:00:00")
     const d = new Date(val);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    if (!isNaN(d.getTime())) return localDateIso(d);
     // Truncated style-107 "29 Jul 202" — pad 3-digit year with current century
     const fixed = val.replace(/(\b\d{3}\b)$/, (y) => y + String(new Date().getFullYear()).slice(3));
     const d2 = new Date(fixed);
-    if (!isNaN(d2.getTime())) return d2.toISOString().split('T')[0];
+    if (!isNaN(d2.getTime())) return localDateIso(d2);
     return val;
   }
 
@@ -77,10 +78,10 @@ export class ChallanValidity {
 
   get minNewExpiry(): string {
     const r = this.result();
-    if (!r?.currentExpiryDate) return new Date().toISOString().split('T')[0];
+    if (!r?.currentExpiryDate) return localDateIso();
     const d = new Date(this.toIso(r.currentExpiryDate));
     d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
+    return localDateIso(d);
   }
 
   search() {
@@ -88,16 +89,16 @@ export class ChallanValidity {
     if (!this.searchValid) {
       const msg = 'Invalid search input. Use booking number or challan number only.';
       alert(msg);
-      this.searchError = msg;
+      this.searchError.set(msg);
       return;
     }
     this.searching.set(true);
-    this.searchError = '';
+    this.searchError.set('');
     this.result.set(null);
-    this.newExpiryDate = '';
-    this.remarks = '';
-    this.saveError = '';
-    this.saveSuccess = '';
+    this.newExpiryDate.set('');
+    this.remarks.set('');
+    this.saveError.set('');
+    this.saveSuccess.set('');
 
     this.admin.searchChallan(this.searchQuery.trim()).subscribe({
       next: (res: any) => {
@@ -106,7 +107,7 @@ export class ChallanValidity {
         if (!data || (!data.bookingId && !data.challanNumber)) {
           const msg = 'No challan found for the given search term.';
           alert(msg);
-          this.searchError = msg;
+          this.searchError.set(msg);
         } else {
           this.result.set(data);
         }
@@ -115,50 +116,50 @@ export class ChallanValidity {
         this.searching.set(false);
         const msg = e?.error?.message ?? 'Search failed. Please try again.';
         alert(msg);
-        this.searchError = msg;
+        this.searchError.set(msg);
       }
     });
   }
 
   extend() {
     const r = this.result();
-    if (!r || !this.newExpiryDate) {
+    if (!r || !this.newExpiryDate()) {
       const msg = !r ? 'No booking loaded.' : 'Please select a new expiry date.';
       alert(msg);
-      this.saveError = msg;
+      this.saveError.set(msg);
       return;
     }
 
     const currentIso = this.toIso(r.currentExpiryDate ?? '');
-    if (currentIso && this.newExpiryDate <= currentIso) {
+    if (currentIso && this.newExpiryDate() <= currentIso) {
       const msg = 'New expiry date must be after the current expiry date.';
       alert(msg);
-      this.saveError = msg;
+      this.saveError.set(msg);
       return;
     }
 
     this.saving.set(true);
-    this.saveError = '';
-    this.saveSuccess = '';
+    this.saveError.set('');
+    this.saveSuccess.set('');
 
     this.admin.extendChallanValidity({
       bookingId: r.bookingId,
-      newExpiryDate: this.newExpiryDate,
-      remarks: this.remarks || undefined,
+      newExpiryDate: this.newExpiryDate(),
+      remarks: this.remarks() || undefined,
     }).subscribe({
       next: (res: any) => {
         this.saving.set(false);
-        this.saveSuccess = res?.message ?? 'Challan validity extended successfully.';
-        this.result.update(prev => ({ ...prev, currentExpiryDate: this.newExpiryDate }));
-        this.newExpiryDate = '';
-        this.remarks = '';
-        setTimeout(() => this.saveSuccess = '', 5000);
+        this.saveSuccess.set(res?.message ?? 'Challan validity extended successfully.');
+        this.result.update(prev => ({ ...prev, currentExpiryDate: this.newExpiryDate() }));
+        this.newExpiryDate.set('');
+        this.remarks.set('');
+        setTimeout(() => this.saveSuccess.set(''), 5000);
       },
       error: (e: any) => {
         this.saving.set(false);
         const msg = e?.error?.message ?? 'Failed to extend validity. Please try again.';
         alert(msg);
-        this.saveError = msg;
+        this.saveError.set(msg);
       }
     });
   }

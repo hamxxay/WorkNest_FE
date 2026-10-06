@@ -239,8 +239,18 @@ export class AuthService {
     return of(this.getToken());
   }
 
+  /**
+   * A real sign-in: the API token is present and the session is not a guest one.
+   * Guests (continueAsGuest) can browse public pages but every protected API call
+   * needs the token, so they must not pass the route guards.
+   */
+  /** Pages that need a real sign-in (route guards send guests/anonymous visitors to /login). */
+  isProtectedUrl(url: string): boolean {
+    return /^\/(my-|checkout|payment-result|admin)/.test(url || '');
+  }
+
   isAuthenticated(): boolean {
-    return !!this.user() || !!this.getToken();
+    return !!this.getToken() && !this.isGuest();
   }
 
   getUser(): UserInfo | null {
@@ -458,17 +468,28 @@ export class AuthService {
     }));
   }
 
-  private syncRegisterToApi$(email: string, password: string, firstName?: string, lastName?: string): Observable<any> {
+  /**
+   * Firebase ID token of the user who just signed in. The API verifies it, so a sign-in request can't
+   * claim someone else's email. Passwords are never sent to the API (Firebase owns them).
+   */
+  private firebaseIdToken$(): Observable<string | null> {
+    const user = firebaseAuth?.currentUser;
+    return from(user ? user.getIdToken() : Promise.resolve(null));
+  }
+
+  private syncRegisterToApi$(email: string, _password: string, firstName?: string, lastName?: string): Observable<any> {
     const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
-    const payload = {
+    const basePayload = {
       email,
-      password,
       firstName,
       lastName,
       name: fullName || email.split('@')[0]
     };
 
-    return this.http.post<any>(`${environment.apiUrl}/auth/register`, payload).pipe(
+    return this.firebaseIdToken$().pipe(
+      switchMap(firebaseIdToken => {
+        const payload = { ...basePayload, firebaseIdToken };
+        return this.http.post<any>(`${environment.apiUrl}/auth/register`, payload).pipe(
       catchError(error => {
         if (this.requiresRequestWrapper(error)) {
           return this.http.post<any>(`${environment.apiUrl}/auth/register`, {
@@ -477,6 +498,7 @@ export class AuthService {
         }
 
         return throwError(() => error);
+      }));
       }),
       catchError(error => {
         const message = String(error?.error?.message ?? '').toLowerCase();
@@ -499,48 +521,55 @@ export class AuthService {
     const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
     const lastName = rest.join(' ') || undefined;
     const fullName = firebaseUser.displayName || [firstName, lastName].filter(Boolean).join(' ').trim();
-    const payload = {
-      idToken,
-      email: firebaseUser.email ?? undefined,
-      firstName: firstName || undefined,
-      lastName,
-      name: fullName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User')
-    };
+    return from(firebaseUser.getIdToken()).pipe(
+      switchMap(firebaseIdToken => {
+        const payload = {
+          idToken,
+          firebaseIdToken,
+          email: firebaseUser.email ?? undefined,
+          firstName: firstName || undefined,
+          lastName,
+          name: fullName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User')
+        };
+        return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, payload).pipe(
+          catchError(error => {
+            if (this.requiresRequestWrapper(error)) {
+              return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, {
+                request: payload
+              });
+            }
 
-    return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, payload).pipe(
-      catchError(error => {
-        if (this.requiresRequestWrapper(error)) {
-          return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, {
-            request: payload
-          });
-        }
-
-        return throwError(() => error);
+            return throwError(() => error);
+          })
+        );
       })
     );
   }
 
-  private syncLoginToApi$(email: string, password: string, firebaseUser?: User | null): Observable<any> {
+  private syncLoginToApi$(email: string, _password: string, firebaseUser?: User | null): Observable<any> {
     const [firstName, ...rest] = (firebaseUser?.displayName || '').trim().split(/\s+/).filter(Boolean);
     const lastName = rest.join(' ') || undefined;
     const fullName = firebaseUser?.displayName || [firstName, lastName].filter(Boolean).join(' ').trim();
-    const payload = {
-      email,
-      password,
-      firstName: firstName || undefined,
-      lastName: lastName || undefined,
-      name: fullName || email.split('@')[0]
-    };
+    return from(firebaseUser ? firebaseUser.getIdToken() : Promise.resolve(null)).pipe(
+      switchMap(firebaseIdToken => {
+        const payload = {
+          email,
+          firebaseIdToken,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          name: fullName || email.split('@')[0]
+        };
+        return this.http.post<any>(`${environment.apiUrl}/auth/login`, payload).pipe(
+          catchError(error => {
+            if (this.requiresRequestWrapper(error)) {
+              return this.http.post<any>(`${environment.apiUrl}/auth/login`, {
+                request: payload
+              });
+            }
 
-    return this.http.post<any>(`${environment.apiUrl}/auth/login`, payload).pipe(
-      catchError(error => {
-        if (this.requiresRequestWrapper(error)) {
-          return this.http.post<any>(`${environment.apiUrl}/auth/login`, {
-            request: payload
-          });
-        }
-
-        return throwError(() => error);
+            return throwError(() => error);
+          })
+        );
       })
     );
   }

@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ContactService } from '../../services/contact.service';
+import { localDateIso } from '../../utils/dates';
 
 @Component({
   selector: 'app-book-a-tour',
@@ -34,7 +35,7 @@ export class BookATour {
   ];
 
   get minDate(): string {
-    return new Date().toISOString().split('T')[0];
+    return localDateIso();
   }
 
   constructor(private contactService: ContactService) {}

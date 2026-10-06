@@ -15,7 +15,7 @@
           @if (isSuperAdmin || !userLocationId) {
             <option value="">All Locations</option>
           }
-          @for (l of locationOptions; track l.v) {
+          @for (l of locationOptions(); track l.v) {
             <option [value]="l.v.toString()">{{ l.l }}</option>
           }
         </select>
@@ -24,7 +24,7 @@
         <label>Space Type</label>
         <select class="form-input-admin" [(ngModel)]="filterSpaceTypeId" (ngModelChange)="onFilterChange()">
           <option value="">All Types</option>
-          @for (st of spaceTypeOptions; track st.v) {
+          @for (st of spaceTypeOptions(); track st.v) {
             <option [value]="st.v.toString()">{{ st.l }}</option>
           }
         </select>
@@ -36,8 +36,8 @@
     </div>
   </div>
 
-  @if (error)   { <div class="alert-admin alert-error-admin">{{ error }}</div> }
-  @if (success) { <div class="alert-admin alert-success-admin">{{ success }}</div> }
+  @if (error())   { <div class="alert-admin alert-error-admin">{{ error() }}</div> }
+  @if (success()) { <div class="alert-admin alert-success-admin">{{ success() }}</div> }
 
   <!-- Config selector when multiple configs match -->
   @if (configs().length > 1 && !selectedConfig()) {
@@ -127,13 +127,13 @@
     </div>
 
     <!-- Blocked spaces warning -->
-    @if (blockedSpaces.length) {
+    @if (blockedSpaces().length) {
       <div class="admin-card ms-blocked-card">
         <div class="ms-blocked-title">
           The following spaces could not be deleted (active bookings):
         </div>
         <div class="ms-blocked-list">
-          @for (s of blockedSpaces; track s.idGuid) {
+          @for (s of blockedSpaces(); track s.idGuid) {
             <span class="ms-blocked-badge">{{ s.code }} — {{ s.name }}</span>
           }
         </div>

@@ -265,7 +265,7 @@ export class Booking implements OnInit {
   private loadSpaceConfig() {
     this.bookingService.getSpaceConfig().subscribe({
       next: (res) => this.spaceConfig.set(res?.data ?? []),
-      error: () => {}
+      error: (e: any) => alert(e?.error?.message || 'Failed to load space opening hours. Default hours are shown.')
     });
   }
 
@@ -382,7 +382,7 @@ export class Booking implements OnInit {
               this.checkLockedSlots(this.bookingForm.get('startDate')?.value);
             }
           },
-          error: () => {}
+          error: (e: any) => alert(e?.error?.message || 'Failed to load existing bookings; slot availability may be incomplete.')
         });
       }
     });

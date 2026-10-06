@@ -77,8 +77,8 @@ export class StaffAccess implements OnInit {
 
   ngOnInit() {
     this.load();
-    this.hik.getStaffTags().subscribe({ next: (t) => this.tags.set(t || []) });
-    this.hik.getDevices().subscribe({ next: (d) => this.devices.set(d || []) });
+    this.hik.getStaffTags().subscribe({ next: (t) => this.tags.set(t || []), error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to load staff tags.') });
+    this.hik.getDevices().subscribe({ next: (d) => this.devices.set(d || []), error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to load devices.') });
   }
 
   load() {

@@ -326,7 +326,27 @@ export class KycComponent implements OnInit {
     this.historyDocs.set([]);
   }
 
-  getDownloadUrl(docId: number, inline: boolean = false): string {
-    return this.kycService.getDocumentDownloadUrl(docId, inline);
+  /** Download (or open in a new tab) a KYC document through the logged-in connection. */
+  openDocument(docId: number, inline: boolean = false, fileName?: string) {
+    // Open the tab now (inside the click) so pop-up blockers allow it; fill it once the file arrives.
+    const tab = inline ? window.open('', '_blank') : null;
+    this.kycService.getDocumentBlob(docId, inline).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        if (tab) {
+          tab.location.href = url;
+        } else {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName || `kyc-document-${docId}`;
+          a.click();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: (err) => {
+        tab?.close();
+        this.toast.error(err?.status === 404 ? 'Document not found or not available for your location.' : 'Could not open the document.');
+      }
+    });
   }
 }

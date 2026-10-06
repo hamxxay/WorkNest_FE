@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -169,7 +169,8 @@ export class KycService {
     return this.http.get<CustomerKycDocument[]>(`${this.apiUrl}/history/${customerId}/${documentTypeId}/${slotNo}`);
   }
 
-  getDocumentDownloadUrl(documentId: number, inline: boolean = false): string {
-    return `${this.apiUrl}/document/${documentId}/${inline ? 'view?inline=true' : 'download'}`;
+  /** Document file, fetched with the login token (a plain link can't send it, and the endpoint needs a login). */
+  getDocumentBlob(documentId: number, inline: boolean = false): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/document/${documentId}/${inline ? 'view?inline=true' : 'download'}`, { responseType: 'blob' });
   }
 }

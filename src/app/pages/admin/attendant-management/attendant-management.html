@@ -448,17 +448,17 @@
 }
 
 <!-- Modal: Over Capacity Warning -->
-@if (showWarningModal) {
+@if (showWarningModal()) {
 <div class="modal-backdrop">
   <div class="modal-card">
     <h3 style="color: #f59e0b;">Room Capacity Reached</h3>
     <div class="warning-alert">
-      <p>{{ warningModalText }}</p>
+      <p>{{ warningModalText() }}</p>
     </div>
     <p><small class="text-muted">Surcharge calculation: ExcessSeatCount 0.5 SeatPrice. Surcharges remain
         snapshot-billed for the active cycle once applied.</small></p>
     <div class="modal-actions">
-      <button class="btn btn-outline" (click)="showWarningModal = false">Cancel</button>
+      <button class="btn btn-outline" (click)="showWarningModal.set(false)">Cancel</button>
       <button class="btn btn-warning" (click)="confirmOverCapacityAssignment()">Confirm & Apply Surcharge</button>
     </div>
   </div>
@@ -466,13 +466,13 @@
 }
 
 <!-- Modal: Hikvision Export Preview -->
-@if (showExportModal) {
+@if (showExportModal()) {
 <div class="modal-backdrop">
   <div class="modal-card" style="max-width: 650px;">
     <h3>Hikvision Export Preview</h3>
-    <pre class="json-code">{{ exportDataJson }}</pre>
+    <pre class="json-code">{{ exportDataJson() }}</pre>
     <div class="modal-actions">
-      <button class="btn btn-outline" (click)="showExportModal = false">Close</button>
+      <button class="btn btn-outline" (click)="showExportModal.set(false)">Close</button>
     </div>
   </div>
 </div>

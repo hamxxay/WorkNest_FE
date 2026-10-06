@@ -14,6 +14,7 @@ export const routes: Routes = [
     path: 'admin',
     loadComponent: () => import('./pages/admin/layout/admin-layout').then(m => m.AdminLayout),
     canActivate: [adminGuard],
+    canActivateChild: [adminGuard],
     data: { layout: 'admin' },
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -50,7 +51,7 @@ export const routes: Routes = [
       { path: 'network/device/:mac', loadComponent: () => import('./pages/admin/network/network-device/network-device').then(m => m.NetworkDevice), canActivate: [adminGuard] },
       { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
       { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
-            { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
+      { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]
   },

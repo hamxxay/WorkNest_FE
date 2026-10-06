@@ -2,6 +2,7 @@
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
+import { SALES_EXECUTIVE_ROUTES, isSalesExecutiveUrl } from '../../../guards/admin.guard';
 
 @Component({
   selector: 'app-admin-layout',
@@ -54,7 +55,7 @@ export class AdminLayout {
     { route: '/admin/network/devices', group: 'Network',  label: 'Devices',          icon: 'net-devices'     },
     { route: '/admin/network/internet', group: 'Network', label: 'Internet',         icon: 'net-internet'    },
     { route: '/admin/network/wifi', group: 'Network',     label: 'Wi-Fi',            icon: 'net-wifi'        },
-        { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan'        },
+    { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan', superAdminOnly: true },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
 
@@ -67,9 +68,9 @@ export class AdminLayout {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/staff-access', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity', '/admin/network', '/admin/network/clients', '/admin/network/devices', '/admin/network/internet', '/admin/network/wifi'];
-      this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
-      if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
+      // Same allow-list as adminGuard (challan-validity is super-admin only, so not listed).
+      this.menuItems = this.menuItems.filter(item => SALES_EXECUTIVE_ROUTES.includes(item.route));
+      if (!isSalesExecutiveUrl(this.router.url)) {
         this.router.navigate(['/admin/quotations']);
       }
     }

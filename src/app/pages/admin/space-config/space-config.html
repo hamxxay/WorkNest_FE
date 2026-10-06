@@ -14,8 +14,8 @@
     </button>
   </div>
 
-  @if (success) { <div class="alert-admin alert-success-admin">{{ success }}</div> }
-  @if (error && !showModal) { <div class="alert-admin alert-error-admin">{{ error }}</div> }
+  @if (success()) { <div class="alert-admin alert-success-admin">{{ success() }}</div> }
+  @if (error() && !showModal()) { <div class="alert-admin alert-error-admin">{{ error() }}</div> }
 
   <!-- Filters -->
   <div class="admin-card" style="padding:16px 20px;margin-bottom:16px">
@@ -27,7 +27,7 @@
           @if (isSuperAdmin || !userLocationId) {
             <option [ngValue]="null">All Locations</option>
           }
-          @for (l of locationOptions; track l.v) {
+          @for (l of locationOptions(); track l.v) {
           <option [value]="l.v">{{ l.l }}</option>
           }
         </select>
@@ -106,7 +106,7 @@
   </div>
 </div>
 
-@if (showModal) {
+@if (showModal()) {
 <div class="modal-overlay" (click)="closeModal()">
   <div class="modal-content sc-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeModal()">
@@ -117,7 +117,7 @@
       </svg>
     </button>
     <h2>{{ editItem ? 'Edit' : 'Add' }} Configuration</h2>
-    @if (error) { <div class="alert-admin alert-error-admin" style="margin-bottom:14px">{{ error }}</div> }
+    @if (error()) { <div class="alert-admin alert-error-admin" style="margin-bottom:14px">{{ error() }}</div> }
 
     <form (ngSubmit)="save()">
       <p class="form-section-label">Location & Type</p>
@@ -127,7 +127,7 @@
           <select class="form-input-admin" [(ngModel)]="form.locationId" name="locationId" required
             (change)="onLocationChange()" [disabled]="!isSuperAdmin && !!userLocationId">
             <option value="">Select Location...</option>
-            @for (l of locationOptions; track l.v) {
+            @for (l of locationOptions(); track l.v) {
             <option [value]="l.v">{{ l.l }}</option>
             }
           </select>
@@ -136,7 +136,7 @@
           <label>Space Type *</label>
           <select class="form-input-admin" [(ngModel)]="form.spaceTypeId" name="spaceTypeId" required>
             <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptions; track st.v) {
+            @for (st of spaceTypeOptions(); track st.v) {
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
@@ -152,7 +152,7 @@
           <label>Floor</label>
           <select class="form-input-admin" [(ngModel)]="form.name" name="floorId">
             <option [ngValue]=" null">No Floor</option>
-            @for (f of floorOptions; track f.v) {
+            @for (f of floorOptions(); track f.v) {
             <option [value]="f.v">{{ f.l }}</option>
             }
           </select>
@@ -213,7 +213,7 @@
           <label>Accounts Receivable</label>
           <select class="form-input-admin" [(ngModel)]="form.accountReceivableId" name="accountReceivableId">
             <option [ngValue]="null">Select Account...</option>
-            @for (a of accountOptions; track a.v) {
+            @for (a of accountOptions(); track a.v) {
             <option [value]="a.v">{{ a.l }}</option>
             }
           </select>
@@ -222,7 +222,7 @@
           <label>Rent Account</label>
           <select class="form-input-admin" [(ngModel)]="form.rentAccountId" name="rentAccountId">
             <option [ngValue]="null">Select Account...</option>
-            @for (a of accountOptions; track a.v) {
+            @for (a of accountOptions(); track a.v) {
             <option [value]="a.v">{{ a.l }}</option>
             }
           </select>
@@ -233,7 +233,7 @@
           <label>Services Income</label>
           <select class="form-input-admin" [(ngModel)]="form.servicesIncomeId" name="servicesIncomeId">
             <option [ngValue]="null">Select Account...</option>
-            @for (a of accountOptions; track a.v) {
+            @for (a of accountOptions(); track a.v) {
             <option [value]="a.v">{{ a.l }}</option>
             }
           </select>
@@ -242,7 +242,7 @@
           <label>Sales Tax Account</label>
           <select class="form-input-admin" [(ngModel)]="form.salesTaxId" name="salesTaxId">
             <option [ngValue]="null">Select Account...</option>
-            @for (a of accountOptions; track a.v) {
+            @for (a of accountOptions(); track a.v) {
             <option [value]="a.v">{{ a.l }}</option>
             }
           </select>
@@ -254,7 +254,7 @@
           @if (isPrivate) {
           <select class="form-input-admin" [(ngModel)]="form.depositAccountId" name="depositAccountId">
             <option [ngValue]="null">Select Account...</option>
-            @for (a of accountOptions; track a.v) {
+            @for (a of accountOptions(); track a.v) {
             <option [value]="a.v">{{ a.l }}</option>
             }
           </select>
@@ -272,13 +272,13 @@
 
       <p class="form-section-label">Amenities</p>
       <div class="amenities-check-grid">
-        @for (a of amenityOptions; track a.id) {
+        @for (a of amenityOptions(); track a.id) {
         <label class="checkbox-label">
           <input type="checkbox" [checked]="isAmenitySelected(a.id)" (change)="toggleAmenity(a.id)" />
           {{ a.name }}
         </label>
         }
-        @if (!amenityOptions.length) {
+        @if (!amenityOptions().length) {
         <small style="color:var(--warning,#f59e0b)">No amenities found.</small>
         }
       </div>
@@ -294,7 +294,7 @@
 </div>
 }
 
-@if (showDiscardConfirm) {
+@if (showDiscardConfirm()) {
 <div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscard()">
   <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;" (click)="$event.stopPropagation()">
     <div style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">

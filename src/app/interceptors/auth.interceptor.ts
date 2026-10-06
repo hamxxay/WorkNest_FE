@@ -32,9 +32,16 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
       return next(requestWithAuth).pipe(
         catchError((error: HttpErrorResponse) => {
-          if (error.status === 401 && !authService.isGuest()) {
-            authService.clearSession();
-            if (!isAuthRequest(req.url)) {
+          if (error.status === 401) {
+            const guest = authService.isGuest();
+            // Guests keep their guest session (public pages still work) but are sent to sign in
+            // when an action needs an account (non-GET) or they are on a protected page, instead
+            // of being left on a broken page. A background GET on a public page just fails.
+            const sendGuestToLogin = guest && (req.method !== 'GET' || authService.isProtectedUrl(router.url));
+            if (!guest) {
+              authService.clearSession();
+            }
+            if ((!guest || sendGuestToLogin) && !isAuthRequest(req.url) && !router.url.startsWith('/login')) {
               void router.navigate(['/login'], {
                 queryParams: { redirect: router.url }
               });

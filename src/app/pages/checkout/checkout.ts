@@ -33,21 +33,21 @@ export class Checkout implements OnInit {
   activeTab = signal<PaymentTab>('card');
 
   // ── Card ───────────────────────────────────────────────────
-  cardHolderName = '';
-  cardNumber     = '';
-  expiryMonth    = '';
-  expiryYear     = '';
-  cvv            = '';
-  showCvv        = false;
+  readonly cardHolderName = signal('');
+  readonly cardNumber = signal('');
+  readonly expiryMonth = signal('');
+  readonly expiryYear = signal('');
+  readonly cvv = signal('');
+  readonly showCvv = signal(false);
 
-  cardNumberDisplay = computed(() => this.cardNumber || '•••• •••• •••• ••••');
-  cardHolderDisplay = computed(() => this.cardHolderName.toUpperCase() || 'FULL NAME');
+  cardNumberDisplay = computed(() => this.cardNumber() || '•••• •••• •••• ••••');
+  cardHolderDisplay = computed(() => this.cardHolderName().toUpperCase() || 'FULL NAME');
   expiryDisplay     = computed(() => {
-    const m = this.expiryMonth.padStart(2, '0');
-    return m ? `${m}/${this.expiryYear || 'YY'}` : 'MM/YY';
+    const m = this.expiryMonth();
+    return m ? `${m.padStart(2, '0')}/${this.expiryYear() || 'YY'}` : 'MM/YY';
   });
   cardBrand = computed(() => {
-    const n = this.cardNumber.replace(/\s/g, '');
+    const n = this.cardNumber().replace(/\s/g, '');
     if (/^4/.test(n))      return 'visa';
     if (/^5[1-5]/.test(n)) return 'mastercard';
     if (/^3[47]/.test(n))  return 'amex';
@@ -226,7 +226,6 @@ export class Checkout implements OnInit {
 
     createCall.subscribe({
       next: (res) => {
-        console.log('[createBookingWith] raw response:', res);
         if (res.isSuccessful || res.success) {
           const bookingId = res.data?.id ?? (typeof res.data?.bookingId === 'number' ? res.data.bookingId : null) ?? res.id;
           const assignedSpace = res.data?.assignedSpaceName
@@ -254,38 +253,38 @@ export class Checkout implements OnInit {
   onCardNumberInput(event: Event) {
     const input  = event.target as HTMLInputElement;
     const digits = input.value.replace(/\D/g, '').slice(0, 16);
-    this.cardNumber = digits.replace(/(.{4})/g, '$1 ').trim();
-    input.value = this.cardNumber;
+    this.cardNumber.set(digits.replace(/(.{4})/g, '$1 ').trim());
+    input.value = this.cardNumber();
   }
 
   onExpiryInput(event: Event) {
     const input  = event.target as HTMLInputElement;
     const digits = input.value.replace(/\D/g, '').slice(0, 4);
-    this.expiryMonth = digits.slice(0, 2);
-    this.expiryYear  = digits.slice(2, 4);
-    input.value = digits.length > 2 ? `${this.expiryMonth}/${this.expiryYear}` : this.expiryMonth;
+    this.expiryMonth.set(digits.slice(0, 2));
+    this.expiryYear.set(digits.slice(2, 4));
+    input.value = digits.length > 2 ? `${this.expiryMonth()}/${this.expiryYear()}` : this.expiryMonth();
   }
 
   onCvvInput(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.cvv    = input.value.replace(/\D/g, '').slice(0, 4);
-    input.value = this.cvv;
+    this.cvv.set(input.value.replace(/\D/g, '').slice(0, 4));
+    input.value = this.cvv();
   }
 
   // ── Card validation ────────────────────────────────────────
   private validateCard(): string | null {
-    if (!this.cardHolderName.trim()) return 'Card holder name is required.';
-    const digits = this.cardNumber.replace(/\s/g, '');
+    if (!this.cardHolderName().trim()) return 'Card holder name is required.';
+    const digits = this.cardNumber().replace(/\s/g, '');
     if (digits.length < 13 || digits.length > 19) return 'Enter a valid card number.';
     if (!this.luhnCheck(digits))                  return 'Card number is invalid.';
-    const month = Number(this.expiryMonth);
-    const year  = Number('20' + this.expiryYear);
-    if (!this.expiryMonth || !this.expiryYear || month < 1 || month > 12)
+    const month = Number(this.expiryMonth());
+    const year  = Number('20' + this.expiryYear());
+    if (!this.expiryMonth() || !this.expiryYear() || month < 1 || month > 12)
       return 'Enter a valid expiry date.';
     const now = new Date();
     if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1))
       return 'This card has expired.';
-    if (this.cvv.length < 3) return 'Enter a valid CVV.';
+    if (this.cvv().length < 3) return 'Enter a valid CVV.';
     return null;
   }
 
@@ -309,11 +308,11 @@ export class Checkout implements OnInit {
       const idempotencyKey = `${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.cardService.initiateCardPayment({
         bookingId,
-        cardHolderName: this.cardHolderName.trim(),
-        cardNumber:     this.cardNumber.replace(/\s/g, ''),
-        expiryMonth:    this.expiryMonth,
-        expiryYear:     this.expiryYear,
-        cvv:            this.cvv,
+        cardHolderName: this.cardHolderName().trim(),
+        cardNumber:     this.cardNumber().replace(/\s/g, ''),
+        expiryMonth:    this.expiryMonth(),
+        expiryYear:     this.expiryYear(),
+        cvv:            this.cvv(),
         idempotencyKey,
       }).subscribe({
         next: (res) => {
@@ -343,12 +342,12 @@ export class Checkout implements OnInit {
   }
 
   private clearCardFields() {
-    this.cardHolderName = '';
-    this.cardNumber     = '';
-    this.expiryMonth    = '';
-    this.expiryYear     = '';
-    this.cvv            = '';
-    this.showCvv        = false;
+    this.cardHolderName.set('');
+    this.cardNumber.set('');
+    this.expiryMonth.set('');
+    this.expiryYear.set('');
+    this.cvv.set('');
+    this.showCvv.set(false);
   }
 
   // ── 1Bill voucher ──────────────────────────────────────────

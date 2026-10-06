@@ -76,7 +76,7 @@ export class AccessActivityLog implements OnInit, OnDestroy {
   hasFilters = computed(() => this.method() !== 'all' || this.result() !== 'all' || !!this.search().trim() || !!this.deviceId());
 
   ngOnInit() {
-    this.hik.getDevices().subscribe({ next: (d) => this.devices.set(d || []) });
+    this.hik.getDevices().subscribe({ next: (d) => this.devices.set(d || []), error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load devices.') });
     this.load();
     // Live refresh every 15s while the selected range includes today.
     this.refreshTimer = setInterval(() => {

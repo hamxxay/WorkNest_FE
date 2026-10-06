@@ -200,7 +200,7 @@ export class MyBookings implements OnInit {
         a.href = url;
         a.download = `Challan-${c?.challanNumber || bookingId}.pdf`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: () => {
         alert('Failed to download Challan PDF.');

@@ -97,5 +97,5 @@ export function downloadCsv(filename: string, headers: string[], rows: (string |
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }

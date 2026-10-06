@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, computed, inject, HostListener } from '@angular/core';
+import { Component, signal, OnInit, computed, inject, HostListener, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,6 +13,8 @@ import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService } from '../../../services/agreement.service';
 import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { localDateIso, localDateTimeIso } from '../../../utils/dates';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -38,16 +40,16 @@ interface EntityConfig {
 export class Manage implements OnInit {
   billingPeriods: any[] = [];
   entity = '';
-  config: EntityConfig = { title: '', columns: [], getFn: () => of({ data: [], total: 0 }) };
+  readonly config = signal<EntityConfig>({ title: '', columns: [], getFn: () => of({ data: [], total: 0 }) });
 
   loading = signal(true);
   items = signal<any[]>([]);
   totalCount = signal(0);
 
   page = signal(1);
-  pageSize = 10;
+  readonly pageSize = signal(10);
   pageSizeOptions = [10, 25, 50];
-  totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize)));
+  totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
   canPrev = computed(() => this.page() > 1);
   canNext = computed(() => this.page() < this.totalPages());
 
@@ -76,81 +78,83 @@ export class Manage implements OnInit {
   get filtered() {
     let list = this.items();
     if (this.entity === 'spaces') return this.displayedItems;
-    if (list.length > this.pageSize) {
-      const start = (this.page() - 1) * this.pageSize;
-      return list.slice(start, start + this.pageSize);
+    // Bookings are paged on the server: the list already is the current page.
+    if (this.entity === 'bookings') return list;
+    if (list.length > this.pageSize()) {
+      const start = (this.page() - 1) * this.pageSize();
+      return list.slice(start, start + this.pageSize());
     }
     return list;
   }
 
-  showModal = false;
+  readonly showModal = signal(false);
   editItem: any = null;
   formData: any = {};
-  saving = false;
-  error = '';
-  success = '';
+  readonly saving = signal(false);
+  readonly error = signal('');
+  readonly success = signal('');
 
-  showUserModal = false;
+  readonly showUserModal = signal(false);
   selectedUser = signal<any>(null);
   userHistory = signal<any>(null);
   userDetailsLoading = signal(false);
-  userDetailsError = '';
-  userDisplayName = '';
+  readonly userDetailsError = signal('');
+  readonly userDisplayName = signal('');
 
-  showSpaceModal = false;
+  readonly showSpaceModal = signal(false);
   spaceSummary = signal<any>(null);
   spaceSummaryLoading = signal(false);
-  spaceSummaryError = '';
+  readonly spaceSummaryError = signal('');
 
-  showPlanModal = false;
+  readonly showPlanModal = signal(false);
   planSummary = signal<any>(null);
   planSummaryLoading = signal(false);
-  planSummaryError = '';
+  readonly planSummaryError = signal('');
 
-  showPaymentModal = false;
+  readonly showPaymentModal = signal(false);
   paymentSummary = signal<any>(null);
   paymentSummaryLoading = signal(false);
-  paymentSummaryError = '';
+  readonly paymentSummaryError = signal('');
   approvingPaymentId = signal<any>(null);
 
   // Invoice Details & Record Payment Modals
-  showInvoiceDetailsModal = false;
+  readonly showInvoiceDetailsModal = signal(false);
   selectedInvoiceDetails = signal<any>(null);
-  showRecordPaymentModal = false;
+  readonly showRecordPaymentModal = signal(false);
   recordPaymentFormData: any = { paidAmount: 0, paymentMethod: 'Bank Transfer', transactionRef: '', notes: '' };
   recordPaymentSaving = signal(false);
 
-  showReassignModal = false;
+  readonly showReassignModal = signal(false);
   reassignBooking: any = null;
   availableSpacesForReassign = signal<any[]>([]);
   reassignLoading = signal(false);
-  reassignError = '';
+  readonly reassignError = signal('');
   selectedNewSpace = '';
 
   bookingCalendarLoading = signal(false);
-  bookingMonthCells: any[] = [];
-  bookingMonthTitle = '';
+  readonly bookingMonthCells = signal<any[]>([]);
+  readonly bookingMonthTitle = signal('');
   private bookingCalendarDate = new Date();
   weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  locationOptions: { v: any; l: string }[] = [];
-  spaceTypeOptions: { v: any; l: string }[] = [];
-  spaceOptions: { v: any; l: string }[] = [];
-  floorOptions: { v: any; l: string }[] = [];
-  amenityOptions: { id: number; name: string }[] = [];
+  readonly locationOptions = signal<{ v: any; l: string }[]>([]);
+  readonly spaceTypeOptions = signal<{ v: any; l: string }[]>([]);
+  readonly spaceOptions = signal<{ v: any; l: string }[]>([]);
+  readonly floorOptions = signal<{ v: any; l: string }[]>([]);
+  readonly amenityOptions = signal<{ id: number; name: string }[]>([]);
   selectedAmenityIds: number[] = [];
 
   // - Admin Booking Form -
   editingBookingId: number | null = null;
-  showBookingForm = false;
+  readonly showBookingForm = signal(false);
   bookingFormData: any = {};
   bookingFormSaving = signal(false);
-  bookingFormError = '';
+  readonly bookingFormError = signal('');
   bookingFormErrorField = '';
   quotationFormErrorField = '';
-  cityOptions: { v: any; l: string }[] = [];
-  allSpaces: any[] = [];
-  filteredSpaceOptions: { v: any; l: string }[] = [];
+  readonly cityOptions = signal<{ v: any; l: string }[]>([]);
+  readonly allSpaces = signal<any[]>([]);
+  readonly filteredSpaceOptions = signal<{ v: any; l: string }[]>([]);
   selectedSpaceTypeId = '';
   selectedLocationId = '';
   securityDeposit = 0;
@@ -160,19 +164,19 @@ export class Manage implements OnInit {
   bookingDiscountValue = 0;
   bookingOfferingTypeId: number = 1;
   bookingOfferingType = '24/7';
-  bookingDiscountError = '';
+  readonly bookingDiscountError = signal('');
   bookingChallanMode: 'initial' | 'full' = 'initial';
   bookingSubtotal = 0;
   bookingDiscountAmount = 0;
   bookingFloorId: number | null = null;
-  bookingFloorOptions: { v: any; l: string }[] = [];
+  readonly bookingFloorOptions = signal<{ v: any; l: string }[]>([]);
 
   bookingBillingPeriodMonths = 3;
   bookingSecurityDepositMonths = 2;
   readonly billingPeriodOptions = BILLING_PERIOD_OPTIONS;
 
   get bookingDynamicDiscountCap(): number {
-    const ot = this.offeringTypes.find(o =>
+    const ot = this.offeringTypes().find(o =>
       (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
       (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
     );
@@ -180,7 +184,7 @@ export class Manage implements OnInit {
       return Number(ot.discountCap);
     }
     const spaceId = this.bookingFormData?.spaceId;
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
     return Number(space?.maxDiscountPercent || space?.MaxDiscountPercent || 10);
   }
 
@@ -190,7 +194,7 @@ export class Manage implements OnInit {
   }
 
   get bookingOfferingTypeName(): string {
-    const ot = this.offeringTypes.find(o =>
+    const ot = this.offeringTypes().find(o =>
       (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
       (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
     );
@@ -200,11 +204,11 @@ export class Manage implements OnInit {
   validateBookingDiscount(): void {
     const val = Number(this.bookingDiscountValue || 0);
     if (val < 0) {
-      this.bookingDiscountError = 'Discount cannot be negative.';
+      this.bookingDiscountError.set('Discount cannot be negative.');
       return;
     }
     if (val === 0) {
-      this.bookingDiscountError = '';
+      this.bookingDiscountError.set('');
       return;
     }
     const capPct = this.bookingDynamicDiscountCap;
@@ -212,21 +216,21 @@ export class Manage implements OnInit {
 
     if (this.bookingDiscountType === 'Percentage') {
       if (val > capPct) {
-        this.bookingDiscountError = `Discount (${val}%) exceeds maximum allowed discount cap of ${capPct}% for ${offName}.`;
+        this.bookingDiscountError.set(`Discount (${val}%) exceeds maximum allowed discount cap of ${capPct}% for ${offName}.`);
         return;
       }
     } else {
       const maxFixed = this.bookingMaxAllowedDiscountFixed;
       if (maxFixed > 0 && val > maxFixed) {
-        this.bookingDiscountError = `Discount (PKR ${val.toLocaleString()}) exceeds maximum allowed cap of PKR ${maxFixed.toLocaleString()} (${capPct}%) for ${offName}.`;
+        this.bookingDiscountError.set(`Discount (PKR ${val.toLocaleString()}) exceeds maximum allowed cap of PKR ${maxFixed.toLocaleString()} (${capPct}%) for ${offName}.`);
         return;
       }
     }
-    this.bookingDiscountError = '';
+    this.bookingDiscountError.set('');
   }
 
   onBookingOfferingTypeChange() {
-    const ot = this.offeringTypes.find(o =>
+    const ot = this.offeringTypes().find(o =>
       String(o.id) === String(this.bookingOfferingType) ||
       o.description === this.bookingOfferingType
     );
@@ -241,7 +245,7 @@ export class Manage implements OnInit {
   onBookingDiscountTypeChange() {
     this.bookingDiscountValue = 0;
     this.bookingDiscountPercentage = 0;
-    this.bookingDiscountError = '';
+    this.bookingDiscountError.set('');
     this.recalcAmount();
     this.validateBookingDiscount();
   }
@@ -280,7 +284,7 @@ export class Manage implements OnInit {
   get bookingMonthlyRent(): number {
     if (this.isAdminMeetingRoom) return this.bookingSubtotal;
     const spaceId = this.bookingFormData?.spaceId;
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
     if (space) {
       return this.getSpaceMonthlyRent(space, this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null);
     }
@@ -316,23 +320,23 @@ export class Manage implements OnInit {
     return parseFloat(Math.max(0, subtotal - this.bookingFirstInvoiceDiscount).toFixed(2));
   }
 
-  accountOptions: { v: number; l: string }[] = [];
+  readonly accountOptions = signal<{ v: number; l: string }[]>([]);
 
   // Meeting room slots (admin booking)
   adminMeetingDate = '';
-  adminMeetingSlots: { label: string; start: string; end: string; isLocked?: boolean }[] = [];
+  readonly adminMeetingSlots = signal<{ label: string; start: string; end: string; isLocked?: boolean }[]>([]);
   adminSelectedSlots = new Set<string>();
   meetingRoomBookingMode: 'day' | 'slot' = 'day';
 
   // Private Room & Shared Space (admin booking)
   selectedAdminCapacity: number | string | null = null;
-  availableAdminCapacities: number[] = [];
+  readonly availableAdminCapacities = signal<number[]>([]);
   adminStartDate = '';
   adminMeetingDayEnd = '';
   adminMonths = 1;
   // customer search
   customerSearchQuery = '';
-  customerSearchResults: any[] = [];
+  readonly customerSearchResults = signal<any[]>([]);
   customerSearchTimer: any;
   selectedCustomer: any = null;
   // When opening customer-create from booking flow, set this to true so save() can inject created customer
@@ -359,16 +363,16 @@ export class Manage implements OnInit {
     { v: '+65', l: 'SG (+65)' },
   ];
   selectedCountryCode = '+92';
-  branchOptions: { v: any; l: string }[] = [];
+  readonly branchOptions = signal<{ v: any; l: string }[]>([]);
   branchesLoading = signal(false);
-  branchesError = '';
+  readonly branchesError = signal('');
   citiesLoading = signal(false);
-  citiesError = '';
+  readonly citiesError = signal('');
 
   // - Quick Create Customer (from booking form) -
-  showQuickCreateCustomer = false;
+  readonly showQuickCreateCustomer = signal(false);
   // - Global Discard Confirmation Modal -
-  showDiscardConfirm = false;
+  readonly showDiscardConfirm = signal(false);
   discardConfirmTitle = 'Discard Unsaved Changes?';
   discardConfirmMessage = 'You have unsaved changes in this form. Closing now will discard all entered details.';
   pendingDiscardAction: (() => void) | null = null;
@@ -385,20 +389,20 @@ export class Manage implements OnInit {
     cityId: ''
   };
   quickCustomerSaving = signal(false);
-  priceError: string = '';
-  quickCustomerError = '';
+  readonly priceError = signal<string>('');
+  readonly quickCustomerError = signal('');
 
   // - Admin Booking Receipt -
-  showReceiptModal = false;
+  readonly showReceiptModal = signal(false);
   adminBookingReceipt = signal<any>(null);
-  showChallanModal = false;
+  readonly showChallanModal = signal(false);
   challanData = signal<any>(null);
 
-  showQuotationForm = false;
+  readonly showQuotationForm = signal(false);
   quotationFormData: any = {};
   quotationFormSaving = signal(false);
-  quotationFormError = '';
-  showQuotationPreviewModal = false;
+  readonly quotationFormError = signal('');
+  readonly showQuotationPreviewModal = signal(false);
   selectedQuotation = signal<any>(null);
   quotationEmailSent = signal<string>('');
   quotationVersions = signal<any[]>([]);
@@ -412,7 +416,7 @@ export class Manage implements OnInit {
   quotationPerSeatBasePrice: number = 0;
   quotationMinPerSeatBasePrice: number = 0;
   quotationCapacity: number = 1;
-  quotationSuccessMessage = '';
+  readonly quotationSuccessMessage = signal('');
   quotationSubtotal = 0;
   quotationSecurityDeposit = 0;
   quotationSecurityDepositMonthsOverride: number | null = null;
@@ -426,32 +430,32 @@ export class Manage implements OnInit {
   quotationDiscountPercentage = 0;
   quotationDiscountValue = 0;
   quotationFloorId: number | null = null;
-  quotationFloorOptions: { v: any; l: string }[] = [];
+  readonly quotationFloorOptions = signal<{ v: any; l: string }[]>([]);
   quotationBillingPeriodMonths = 3;
   quotationSecurityDepositMonths = 2;
-  offeringTypes: { id: number; description: string; discountCap: number }[] = [];
+  readonly offeringTypes = signal<{ id: number; description: string; discountCap: number }[]>([]);
   quotationOfferingTypeId: number = 1;
   quotationOfferingType = '24/7';
   quotationWithholdingTaxRate: number = 15;
-  quotationDiscountError = '';
-  quotationBasePriceError = '';
+  readonly quotationDiscountError = signal('');
+  readonly quotationBasePriceError = signal('');
 
   loadOfferingTypes() {
     this.quotationSvc.getOfferingTypes().subscribe({
       next: (res: any) => {
         const list = res?.data ?? (Array.isArray(res) ? res : []);
         if (Array.isArray(list) && list.length > 0) {
-          this.offeringTypes = list.map((item: any) => ({
+          this.offeringTypes.set(list.map((item: any) => ({
             id: Number(item.id ?? item.Id ?? 0),
             description: String(item.description ?? item.Description ?? '').trim(),
             discountCap: Number(item.discountCap ?? item.DiscountCap ?? 10)
-          }));
-        } else if (!this.offeringTypes.length) {
-          this.offeringTypes = [
+          })));
+        } else if (!this.offeringTypes().length) {
+          this.offeringTypes.set([
             { id: 1, description: '24/7', discountCap: 10 },
             { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
             { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
-          ];
+          ]);
         }
         if (this.sendAgreementData?.operatingHours) {
           this.sendAgreementData.operatingHours = this.resolveOfferingTypeDescription(this.sendAgreementData.operatingHours);
@@ -464,19 +468,19 @@ export class Manage implements OnInit {
         }
       },
       error: () => {
-        if (!this.offeringTypes.length) {
-          this.offeringTypes = [
+        if (!this.offeringTypes().length) {
+          this.offeringTypes.set([
             { id: 1, description: '24/7', discountCap: 10 },
             { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
             { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
-          ];
+          ]);
         }
       }
     });
   }
 
   resolveOfferingTypeDescription(raw: any, rawId?: any): string {
-    const list = (this.offeringTypes && this.offeringTypes.length > 0) ? this.offeringTypes : [
+    const list = (this.offeringTypes() && this.offeringTypes().length > 0) ? this.offeringTypes() : [
       { id: 1, description: '24/7', discountCap: 10 },
       { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
       { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
@@ -519,7 +523,7 @@ export class Manage implements OnInit {
   }
 
   onQuotationOfferingTypeChange() {
-    const ot = this.offeringTypes.find(o =>
+    const ot = this.offeringTypes().find(o =>
       String(o.id) === String(this.quotationOfferingType) ||
       o.description === this.quotationOfferingType
     );
@@ -538,12 +542,12 @@ export class Manage implements OnInit {
   get quotationMaxDiscountPercent(): number {
     const spaceId = this.quotationFormData?.spaceId;
     if (!spaceId) return 20;
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
     return Number(space?.maxDiscountPercent || space?.MaxDiscountPercent || 20);
   }
 
   get quotationDynamicDiscountCap(): number {
-    const ot = this.offeringTypes.find(o =>
+    const ot = this.offeringTypes().find(o =>
       (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
       (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
     );
@@ -564,7 +568,7 @@ export class Manage implements OnInit {
   }
 
   get quotationOfferingTypeName(): string {
-    const ot = this.offeringTypes.find(o =>
+    const ot = this.offeringTypes().find(o =>
       (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
       (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
     );
@@ -574,11 +578,11 @@ export class Manage implements OnInit {
   validateQuotationDiscount(): void {
     const val = Number(this.quotationDiscountValue || 0);
     if (val < 0) {
-      this.quotationDiscountError = 'Discount cannot be negative.';
+      this.quotationDiscountError.set('Discount cannot be negative.');
       return;
     }
     if (val === 0) {
-      this.quotationDiscountError = '';
+      this.quotationDiscountError.set('');
       return;
     }
     const capPct = this.quotationDynamicDiscountCap;
@@ -586,23 +590,23 @@ export class Manage implements OnInit {
 
     if (this.quotationDiscountType === 'Percentage') {
       if (val > capPct) {
-        this.quotationDiscountError = "Discount (" + val + "%) exceeds maximum allowed discount cap of " + capPct + "% for " + offName + ".";
+        this.quotationDiscountError.set("Discount (" + val + "%) exceeds maximum allowed discount cap of " + capPct + "% for " + offName + ".");
         return;
       }
     } else {
       const maxFixed = this.quotationMaxAllowedDiscountFixed;
       if (maxFixed > 0 && val > maxFixed) {
-        this.quotationDiscountError = "Discount (PKR " + val + ") exceeds maximum allowed cap of PKR " + maxFixed + " (" + capPct + "%) for " + offName + ".";
+        this.quotationDiscountError.set("Discount (PKR " + val + ") exceeds maximum allowed cap of PKR " + maxFixed + " (" + capPct + "%) for " + offName + ".");
         return;
       }
     }
-    this.quotationDiscountError = '';
+    this.quotationDiscountError.set('');
   }
 
   onDiscountTypeChange() {
     this.quotationDiscountValue = 0;
     this.quotationDiscountPercentage = 0;
-    this.quotationDiscountError = '';
+    this.quotationDiscountError.set('');
     this.recalcQuotationAmount();
     this.validateQuotationDiscount();
   }
@@ -614,20 +618,20 @@ export class Manage implements OnInit {
 
   validateQuotationBasePrice(): void {
     if (!this.quotationFormData?.spaceId) {
-      this.quotationBasePriceError = '';
+      this.quotationBasePriceError.set('');
       return;
     }
     const currentPrice = Number(this.quotationPerSeatBasePrice || 0);
     const minPrice = Number(this.quotationMinPerSeatBasePrice || 0);
     if (minPrice > 0 && currentPrice < minPrice) {
-      this.quotationBasePriceError = `Base price cannot be decreased below original base price of PKR ${minPrice.toLocaleString()}. Only increases are allowed.`;
+      this.quotationBasePriceError.set(`Base price cannot be decreased below original base price of PKR ${minPrice.toLocaleString()}. Only increases are allowed.`);
       return;
     }
     if (currentPrice <= 0) {
-      this.quotationBasePriceError = 'Base price must be greater than 0.';
+      this.quotationBasePriceError.set('Base price must be greater than 0.');
       return;
     }
-    this.quotationBasePriceError = '';
+    this.quotationBasePriceError.set('');
   }
 
   onQuotationBasePriceChange(): void {
@@ -696,7 +700,7 @@ export class Manage implements OnInit {
   }
 
   // Meeting room slots for quotation
-  quotationMeetingSlots: { label: string; start: string; end: string }[] = [];
+  readonly quotationMeetingSlots = signal<{ label: string; start: string; end: string }[]>([]);
   quotationSelectedSlots = new Set<string>();
   quotationMeetingRoomMode: 'day' | 'slot' = 'slot';
   quotationMeetingDayEnd = '';
@@ -768,7 +772,7 @@ export class Manage implements OnInit {
     });
   }
 
-  readonly today = new Date().toISOString().split('T')[0];
+  readonly today = localDateIso();
   isSuperAdmin = false;
   get userLocationId(): number | null {
     return this.auth.user()?.locationId ?? null;
@@ -786,6 +790,7 @@ export class Manage implements OnInit {
   private quotationSvc = inject(QuotationService);
   private agreementSvc = inject(AgreementService);
   private toast = inject(ToastService);
+  private cdr = inject(ChangeDetectorRef);
 
   showError(msg: string, title: string = 'Error') {
     if (!msg) return;
@@ -795,6 +800,11 @@ export class Manage implements OnInit {
   showSuccess(msg: string, title: string = 'Success') {
     if (!msg) return;
     this.toast.success(msg, title);
+  }
+
+  /** Error callback for subscribe(): shows the API message (or the fallback) as a toast. */
+  private apiError(fallback: string) {
+    return (e: any) => this.showError(e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? fallback);
   }
 
   @HostListener('wheel', ['$event'])
@@ -831,7 +841,8 @@ export class Manage implements OnInit {
 
   ngOnInit() {
     this.loadOfferingTypes();
-    this.amountFieldSvc.getLabelMap().subscribe(map => {
+    // Labels are optional; if they fail to load the page must still load its data.
+    this.amountFieldSvc.getLabelMap().pipe(catchError(() => of({} as Record<string, string>))).subscribe(map => {
       this.amountLabels = map;
       this.route.data.subscribe(data => {
         const newEntity = data['entity'];
@@ -844,7 +855,7 @@ export class Manage implements OnInit {
           this.loading.set(true);
         }
         this.entity = newEntity;
-        this.config = this.buildConfig(this.entity);
+        this.config.set(this.buildConfig(this.entity));
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
         if (this.entity === 'bookings') this.loadSpacesForDropdown();
@@ -869,17 +880,17 @@ export class Manage implements OnInit {
 
   spaceConfigItems = signal<any[]>([]);
   spaceConfigSaving = signal(false);
-  spaceConfigError = '';
-  spaceConfigSuccess = '';
+  readonly spaceConfigError = signal('');
+  readonly spaceConfigSuccess = signal('');
   editingConfig: any = null;
   configFormData: any = {};
-  showConfigModal = false;
+  readonly showConfigModal = signal(false);
   vacantSpaces = signal<any[]>([]);
   vacantLoading = signal(false);
   vacantBranchId: any = null;
-  vacantBranchOptions: { id: any; name: string }[] = [];
-  generateError = '';
-  generateSuccess = '';
+  readonly vacantBranchOptions = signal<{ id: any; name: string }[]>([]);
+  readonly generateError = signal('');
+  readonly generateSuccess = signal('');
 
   private loadSpaceConfig() {
     this.admin.getSpaceConfig().subscribe({
@@ -887,19 +898,20 @@ export class Manage implements OnInit {
         this.spaceConfigItems.set(res?.data ?? []);
         this.loadSpaceInventoryForConfig();
       },
-      error: () => { }
+      error: this.apiError('Failed to load space config.')
     });
     this.loadVacantSpaces();
   }
 
   private loadSpaceInventoryForConfig() {
-    if (this.allSpaces.length) {
+    if (this.allSpaces().length) {
       return;
     }
     this.admin.getSpaces(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.allSpaces = res?.data ?? res ?? [];
-      }
+        this.allSpaces.set(res?.data ?? res ?? []);
+      },
+      error: this.apiError('Failed to load spaces.')
     });
   }
 
@@ -930,7 +942,7 @@ export class Manage implements OnInit {
     if (!cfg) return 0;
     const category = (cfg.spaceCategory || '').toLowerCase();
     const prefix = String(cfg.codePrefix || '').trim();
-    const matches = this.allSpaces.filter((s: any) => {
+    const matches = this.allSpaces().filter((s: any) => {
       const code = String(s.code ?? '');
       const typeName = String(s.spaceTypeName ?? '').toLowerCase();
       if (prefix && code.startsWith(prefix)) {
@@ -953,15 +965,15 @@ export class Manage implements OnInit {
       pricePerDay: cfg.pricePerDay ?? null,
       pricePerMonth: cfg.pricePerMonth ?? null,
     };
-    this.spaceConfigError = '';
-    this.spaceConfigSuccess = '';
-    this.showConfigModal = true;
+    this.spaceConfigError.set('');
+    this.spaceConfigSuccess.set('');
+    this.showConfigModal.set(true);
   }
 
   cancelEditConfig() {
     this.requestDiscardableClose(this.isConfigFormDirty(), () => {
       this.editingConfig = null;
-      this.showConfigModal = false;
+      this.showConfigModal.set(false);
     });
   }
 
@@ -970,15 +982,15 @@ export class Manage implements OnInit {
     this.spaceConfigSaving.set(true);
     this.admin.updateSpaceConfig(this.editingConfig.spaceCategory, this.configFormData).subscribe({
       next: () => {
-        this.spaceConfigSuccess = 'Configuration saved.';
+        this.spaceConfigSuccess.set('Configuration saved.');
         this.spaceConfigSaving.set(false);
         this.editingConfig = null;
-        this.showConfigModal = false;
+        this.showConfigModal.set(false);
         this.loadSpaceConfig();
-        setTimeout(() => this.spaceConfigSuccess = '', 3000);
+        setTimeout(() => this.spaceConfigSuccess.set(''), 3000);
       },
       error: (e: any) => {
-        this.spaceConfigError = e?.error?.detail || 'Failed to save config.';
+        this.spaceConfigError.set(e?.error?.detail || 'Failed to save config.');
         this.spaceConfigSaving.set(false);
       }
     });
@@ -989,26 +1001,26 @@ export class Manage implements OnInit {
   }
 
   // - Add / Remove Single Space -
-  showAddSpaceModal = false;
+  readonly showAddSpaceModal = signal(false);
   addSpaceTypeId = '';
   addSpaceLocationId = '';
   addSpacePreviewCode = '';
   addSpaceSaving = signal(false);
-  addSpaceError = '';
+  readonly addSpaceError = signal('');
 
   openAddSpaceModal() {
     this.addSpaceTypeId = '';
     this.addSpaceLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
     this.addSpacePreviewCode = '';
-    this.addSpaceError = '';
-    this.generateError = '';
-    this.generateSuccess = '';
-    this.showAddSpaceModal = true;
+    this.addSpaceError.set('');
+    this.generateError.set('');
+    this.generateSuccess.set('');
+    this.showAddSpaceModal.set(true);
   }
 
   closeAddSpaceModal() {
     this.requestDiscardableClose(this.isAddSpaceFormDirty(), () => {
-      this.showAddSpaceModal = false;
+      this.showAddSpaceModal.set(false);
       this.addSpaceTypeId = '';
       this.addSpacePreviewCode = '';
     });
@@ -1018,7 +1030,7 @@ export class Manage implements OnInit {
     this.addSpacePreviewCode = '';
     if (!this.addSpaceTypeId || !this.addSpaceLocationId) return;
     // Find the config for the selected space type to get codePrefix
-    const typeName = this.spaceTypeOptions.find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
+    const typeName = this.spaceTypeOptions().find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
     const cfg = this.spaceConfigItems().find((c: any) =>
       typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
       (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
@@ -1031,7 +1043,7 @@ export class Manage implements OnInit {
       (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
     );
     // Also count from allSpaces for a more accurate next code
-    const allOfType = this.allSpaces.filter((s: any) =>
+    const allOfType = this.allSpaces().filter((s: any) =>
       (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
         String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
       (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
@@ -1042,11 +1054,11 @@ export class Manage implements OnInit {
 
   submitAddSpace() {
     if (!this.addSpaceTypeId || !this.addSpaceLocationId) {
-      this.addSpaceError = 'Space type and location are required.';
+      this.addSpaceError.set('Space type and location are required.');
       return;
     }
-    const typeName = this.spaceTypeOptions.find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
-    const locName = this.locationOptions.find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
+    const typeName = this.spaceTypeOptions().find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
+    const locName = this.locationOptions().find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
     const cfg = this.spaceConfigItems().find((c: any) =>
       typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
       (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
@@ -1061,19 +1073,19 @@ export class Manage implements OnInit {
       status: 'Available',
     };
     this.addSpaceSaving.set(true);
-    this.addSpaceError = '';
+    this.addSpaceError.set('');
     this.admin.createSpace(payload).subscribe({
       next: () => {
         this.addSpaceSaving.set(false);
-        this.showAddSpaceModal = false;
-        this.generateSuccess = `Space "${payload['name']}" added at ${locName}.`;
-        setTimeout(() => this.generateSuccess = '', 4000);
+        this.showAddSpaceModal.set(false);
+        this.generateSuccess.set(`Space "${payload['name']}" added at ${locName}.`);
+        setTimeout(() => this.generateSuccess.set(''), 4000);
         this.loadVacantSpaces();
-        if (this.allSpaces.length) this.loadSpacesForDropdown();
+        if (this.allSpaces().length) this.loadSpacesForDropdown();
       },
       error: (e: any) => {
         this.addSpaceSaving.set(false);
-        this.addSpaceError = e?.error?.message ?? 'Failed to add space.';
+        this.addSpaceError.set(e?.error?.message ?? 'Failed to add space.');
       }
     });
   }
@@ -1083,52 +1095,55 @@ export class Manage implements OnInit {
     const id = space.idGuid ?? space.idGUID ?? space.id;
     this.admin.deleteSpace(id).subscribe({
       next: () => {
-        this.generateSuccess = `Space "${space.name}" removed.`;
-        setTimeout(() => this.generateSuccess = '', 4000);
+        this.generateSuccess.set(`Space "${space.name}" removed.`);
+        setTimeout(() => this.generateSuccess.set(''), 4000);
         this.loadVacantSpaces();
       },
       error: (e: any) => {
-        this.generateError = e?.error?.message ?? 'Failed to remove space.';
+        this.generateError.set(e?.error?.message ?? 'Failed to remove space.');
       }
     });
   }
 
   private refreshVacantBranchOptions() {
     const options = new Map<any, string>();
-    for (const opt of this.locationOptions) {
+    for (const opt of this.locationOptions()) {
       const branchId = (opt as any).branchId;
       const branchName = (opt as any).branchName ?? '';
       if (branchId != null && !options.has(branchId)) {
         options.set(branchId, branchName || String(branchId));
       }
     }
-    this.vacantBranchOptions = Array.from(options.entries()).map(([id, name]) => ({ id, name }));
+    this.vacantBranchOptions.set(Array.from(options.entries()).map(([id, name]) => ({ id, name })));
   }
 
   private loadSpaceDropdowns() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.locationOptions = items.map((l: any) => {
+        this.locationOptions.set(items.map((l: any) => {
           const opt: any = { v: l.idGuid ?? l.idGUID ?? l.id, l: l.name };
           if (l.branchId) { opt.branchId = l.branchId; opt.branchName = l.branchName ?? l.branchCode; }
           return opt;
-        });
+        }));
         this.refreshVacantBranchOptions();
-        this.config = this.buildConfig('spaces');
-      }
+        this.config.set(this.buildConfig('spaces'));
+      },
+      error: this.apiError('Failed to load locations.')
     });
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
         this.populateSpaceTypeOptions(items);
-        this.config = this.buildConfig('spaces');
-      }
+        this.config.set(this.buildConfig('spaces'));
+      },
+      error: this.apiError('Failed to load space types.')
     });
     this.admin.getAmenities().subscribe({
       next: (res: any) => {
-        this.amenityOptions = (res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name }));
-      }
+        this.amenityOptions.set((res?.data ?? []).map((a: any) => ({ id: a.id, name: a.name })));
+      },
+      error: this.apiError('Failed to load amenities.')
     });
   }
 
@@ -1136,20 +1151,22 @@ export class Manage implements OnInit {
     this.admin.getSpaces(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.allSpaces = items;
-        this.spaceOptions = items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) - ${s.locationName ?? ''}` }));
-        this.config = this.buildConfig('bookings');
-      }
+        this.allSpaces.set(items);
+        this.spaceOptions.set(items.map((s: any) => ({ v: s.idGuid, l: `${s.name} (${s.code ?? ''}) - ${s.locationName ?? ''}` })));
+        this.config.set(this.buildConfig('bookings'));
+      },
+      error: this.apiError('Failed to load spaces.')
     });
   }
 
   private loadAccountOptions() {
-    if (this.accountOptions.length) return;
+    if (this.accountOptions().length) return;
     this.accountCoa.getAll().subscribe({
       next: (accounts) => {
-        this.accountOptions = accounts.map(a => ({ v: a.accountId, l: a.description }));
-        this.config = this.buildConfig(this.entity);
-      }
+        this.accountOptions.set(accounts.map(a => ({ v: a.accountId, l: a.description })));
+        this.config.set(this.buildConfig(this.entity));
+      },
+      error: this.apiError('Failed to load accounts.')
     });
   }
 
@@ -1157,57 +1174,58 @@ export class Manage implements OnInit {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? res ?? [];
-        this.locationOptions = items.map((l: any) => ({
+        this.locationOptions.set(items.map((l: any) => ({
           v: l.id != null ? Number(l.id) : (l.idGuid ?? l.idGUID),
           l: l.name,
           branchId: l.branchId,
           branchName: l.branchName ?? l.branchCode
-        }));
+        })));
         if (this.entity === 'users') {
-          this.config = this.buildConfig(this.entity);
+          this.config.set(this.buildConfig(this.entity));
         }
-      }
+      },
+      error: this.apiError('Failed to load locations.')
     });
   }
 
   getBoundLocationName(locationId?: any): string {
     const targetId = locationId ?? this.formData['locationId'] ?? this.auth.user()?.locationId;
     if (!targetId) return 'Assigned Location';
-    const opt = this.locationOptions.find(l => String(l.v) === String(targetId));
+    const opt = this.locationOptions().find(l => String(l.v) === String(targetId));
     return opt ? opt.l : `Location #${targetId}`;
   }
 
   private loadCityOptions() {
-    if (this.cityOptions.length) return;
+    if (this.cityOptions().length) return;
     this.citiesLoading.set(true);
-    this.citiesError = '';
+    this.citiesError.set('');
     this.admin.getCities().subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.cityOptions = items.map((c: any) => ({ v: c.id, l: c.name }));
+        this.cityOptions.set(items.map((c: any) => ({ v: c.id, l: c.name })));
         this.citiesLoading.set(false);
         if (this.entity === 'customers' || this.entity === 'users' || this.entity === 'locations') {
-          this.config = this.buildConfig(this.entity);
+          this.config.set(this.buildConfig(this.entity));
         }
       },
       error: () => {
-        this.citiesError = 'Failed to load cities.';
+        this.citiesError.set('Failed to load cities.');
         this.citiesLoading.set(false);
       }
     });
   }
 
   private loadBranchOptions() {
-    if (this.branchOptions.length) return;
+    if (this.branchOptions().length) return;
     this.branchesLoading.set(true);
-    this.branchesError = '';
+    this.branchesError.set('');
     this.admin.getBranches().subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.branchOptions = items.map((b: any) => ({ v: b.id ?? b.branchId ?? b.v, l: b.name || b.branchName || b.l }));
+        this.branchOptions.set(items.map((b: any) => ({ v: b.id ?? b.branchId ?? b.v, l: b.name || b.branchName || b.l })));
         this.branchesLoading.set(false);
         if (this.entity === 'locations') {
-          this.config = this.buildConfig(this.entity);
+          this.config.set(this.buildConfig(this.entity));
         }
       },
       error: () => {
@@ -1224,14 +1242,14 @@ export class Manage implements OnInit {
             if (map.size === 0) {
               map.set(1, 'Main Branch');
             }
-            this.branchOptions = Array.from(map.entries()).map(([v, l]) => ({ v, l }));
+            this.branchOptions.set(Array.from(map.entries()).map(([v, l]) => ({ v, l })));
             this.branchesLoading.set(false);
             if (this.entity === 'locations') {
-              this.config = this.buildConfig(this.entity);
+              this.config.set(this.buildConfig(this.entity));
             }
           },
           error: () => {
-            this.branchesError = 'Failed to load branches.';
+            this.branchesError.set('Failed to load branches.');
             this.branchesLoading.set(false);
           }
         });
@@ -1241,63 +1259,65 @@ export class Manage implements OnInit {
 
   openAdminBookingForm(bookingToEdit?: any) {
     this.bookingFormData = {};
-    this.bookingFormError = '';
+    this.bookingFormError.set('');
     this.selectedSpaceTypeId = '';
     const userBookingLocId = this.auth.user()?.locationId;
     this.selectedLocationId = userBookingLocId ? String(userBookingLocId) : '';
     this.selectedAdminCapacity = null;
-    this.availableAdminCapacities = [];
+    this.availableAdminCapacities.set([]);
     this.adminStartDate = '';
     this.adminMonths = 12;
-    this.filteredSpaceOptions = [];
+    this.filteredSpaceOptions.set([]);
     this.customerSearchQuery = '';
-    this.customerSearchResults = [];
+    this.customerSearchResults.set([]);
     this.selectedCustomer = null;
     this.securityDeposit = 0;
     this.securityDepositMonthsOverride = null;
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
     this.bookingDiscountValue = 0;
-    this.bookingDiscountError = '';
+    this.bookingDiscountError.set('');
     this.bookingOfferingTypeId = 1;
     this.bookingOfferingType = '24/7';
     this.loadOfferingTypes();
     this.bookingSubtotal = 0;
     this.bookingDiscountAmount = 0;
     this.bookingFloorId = null;
-    this.bookingFloorOptions = [];
+    this.bookingFloorOptions.set([]);
     this.adminMeetingDate = '';
-    this.adminMeetingSlots = [];
+    this.adminMeetingSlots.set([]);
     this.adminSelectedSlots = new Set();
     this.meetingRoomBookingMode = 'day';
     this.editingBookingId = null;
-    this.showBookingForm = true;
+    this.showBookingForm.set(true);
 
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
-        next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
+        next: (res: any) => this.spaceConfigItems.set(res?.data ?? []),
+        error: this.apiError('Failed to load space config.')
       });
     }
     this.loadCityOptions();
-    if (!this.locationOptions.length) {
+    if (!this.locationOptions().length) {
       this.admin.getLocations(1, 1000, '').subscribe({
         next: (res: any) => {
-          this.locationOptions = (res?.data ?? []).map((l: any) => ({ v: String(l.id != null ? l.id : (l.idGuid ?? l.id)), l: l.name }));
-          if (!bookingToEdit && !this.selectedLocationId && this.locationOptions.length > 0) {
+          this.locationOptions.set((res?.data ?? []).map((l: any) => ({ v: String(l.id != null ? l.id : (l.idGuid ?? l.id)), l: l.name })));
+          if (!bookingToEdit && !this.selectedLocationId && this.locationOptions().length > 0) {
             const uLoc = this.auth.user()?.locationId;
-            const match = uLoc ? this.locationOptions.find(o => String(o.v) === String(uLoc)) : null;
-            this.selectedLocationId = match ? String(match.v) : String(this.locationOptions[0].v);
+            const match = uLoc ? this.locationOptions().find(o => String(o.v) === String(uLoc)) : null;
+            this.selectedLocationId = match ? String(match.v) : String(this.locationOptions()[0].v);
           }
           if (this.selectedLocationId) {
             this.onBookingLocationChange();
           }
-        }
+        },
+        error: this.apiError('Failed to load locations.')
       });
     } else {
-      if (!bookingToEdit && !this.selectedLocationId && this.locationOptions.length > 0) {
+      if (!bookingToEdit && !this.selectedLocationId && this.locationOptions().length > 0) {
         const uLoc = this.auth.user()?.locationId;
-        const match = uLoc ? this.locationOptions.find(o => String(o.v) === String(uLoc)) : null;
-        this.selectedLocationId = match ? String(match.v) : String(this.locationOptions[0].v);
+        const match = uLoc ? this.locationOptions().find(o => String(o.v) === String(uLoc)) : null;
+        this.selectedLocationId = match ? String(match.v) : String(this.locationOptions()[0].v);
       }
       if (this.selectedLocationId) {
         this.onBookingLocationChange();
@@ -1330,22 +1350,23 @@ export class Manage implements OnInit {
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
         this.populateSpaceTypeOptions(items);
-        if (this.allSpaces.length) {
+        if (this.allSpaces().length) {
           this.applyBookingSpaceFilter();
           onDataReady();
         } else {
           this.admin.getSpaces(1, 1000, '').subscribe({
             next: (sRes: any) => {
-              this.allSpaces = sRes?.data ?? [];
+              this.allSpaces.set(sRes?.data ?? []);
               this.applyBookingSpaceFilter();
               onDataReady();
-            }
+            },
+            error: this.apiError('Failed to load spaces.')
           });
         }
       },
       error: () => {
         this.populateSpaceTypeOptions([]);
-        if (this.allSpaces.length) {
+        if (this.allSpaces().length) {
           this.applyBookingSpaceFilter();
           onDataReady();
         }
@@ -1395,7 +1416,7 @@ export class Manage implements OnInit {
 
     // 2. Space Resolution & Filtering
     const spId = booking.spaceId || booking.SpaceId || booking.spaceIdGuid;
-    const targetSpace = (this.allSpaces || []).find((s: any) =>
+    const targetSpace = (this.allSpaces() || []).find((s: any) =>
       String(s.id) === String(spId) ||
       String(s.idGuid) === String(spId) ||
       (s.code && booking.spaceCode && String(s.code).toLowerCase() === String(booking.spaceCode).toLowerCase())
@@ -1424,7 +1445,7 @@ export class Manage implements OnInit {
 
     this.applyBookingSpaceFilter();
 
-    const matchedOption = (this.filteredSpaceOptions || []).find((opt: any) =>
+    const matchedOption = (this.filteredSpaceOptions() || []).find((opt: any) =>
       String(opt.v) === String(spId) ||
       (targetSpace && (String(opt.v) === String(targetSpace.idGuid) || String(opt.v) === String(targetSpace.id)))
     );
@@ -1527,7 +1548,7 @@ export class Manage implements OnInit {
     });
 
     // 3. From allSpaces items
-    (this.allSpaces || []).forEach((s: any) => {
+    (this.allSpaces() || []).forEach((s: any) => {
       const typeName = (s.spaceTypeName || s.SpaceTypeName || s.spaceType || '').trim();
       if (typeName) {
         let label = typeName.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
@@ -1558,13 +1579,13 @@ export class Manage implements OnInit {
       }
     });
 
-    this.spaceTypeOptions = Array.from(map.values());
+    this.spaceTypeOptions.set(Array.from(map.values()));
   }
 
   onBookingSpaceSelected() {
     const spaceId = this.bookingFormData.spaceId;
     if (spaceId) {
-      const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+      const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
       if (space) {
         const name = String(space.name || space.Name || '').toLowerCase();
         const { hourly, daily } = this.getSpacePrice(space);
@@ -1589,7 +1610,7 @@ export class Manage implements OnInit {
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
     this.bookingFloorId = null;
-    this.bookingFloorOptions = [];
+    this.bookingFloorOptions.set([]);
     if (this.selectedLocationId) {
       this.loadBookingFloors(this.selectedLocationId);
     }
@@ -1601,7 +1622,7 @@ export class Manage implements OnInit {
 
   isLocationI8(locationIdOrValue: any): boolean {
     if (!locationIdOrValue) return false;
-    const opt = this.locationOptions.find(l => String(l.v) === String(locationIdOrValue));
+    const opt = this.locationOptions().find(l => String(l.v) === String(locationIdOrValue));
     const name = (opt?.l || String(locationIdOrValue)).toLowerCase();
     const isI8 = name.includes('i-8') || name.includes('i8') || name.includes('i 8');
     const isF7 = name.includes('f-7') || name.includes('f7') || name.includes('f 7');
@@ -1625,18 +1646,19 @@ export class Manage implements OnInit {
     this.admin.getFloors(locInt).subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.bookingFloorOptions = items.map((f: any) => ({
+        this.bookingFloorOptions.set(items.map((f: any) => ({
           v: f.id ?? f.Id,
           l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`),
           raw: f
-        }));
+        })));
         if (!this.editingBookingId && this.isLocationI8(locationId)) {
-          const thirdFloor = this.findThirdFloorId(this.bookingFloorOptions);
+          const thirdFloor = this.findThirdFloorId(this.bookingFloorOptions());
           if (thirdFloor != null) {
             this.bookingFloorId = thirdFloor;
           }
         }
-      }
+      },
+      error: this.apiError('Failed to load floors.')
     });
   }
 
@@ -1653,7 +1675,7 @@ export class Manage implements OnInit {
   }
 
   updateAvailableAdminCapacities() {
-    let spaces = this.allSpaces;
+    let spaces = this.allSpaces();
     if (this.selectedLocationId) {
       spaces = spaces.filter((s: any) =>
         String(s.locationId ?? s.locationIdGuid ?? s.LocationId ?? '') === String(this.selectedLocationId) ||
@@ -1689,16 +1711,16 @@ export class Manage implements OnInit {
       [2, 4, 6, 8, 10, 12, 16, 20].forEach(c => capsSet.add(c));
     }
 
-    this.availableAdminCapacities = Array.from(capsSet).sort((a, b) => a - b);
+    this.availableAdminCapacities.set(Array.from(capsSet).sort((a, b) => a - b));
   }
 
   applyBookingSpaceFilter() {
     if (!this.selectedSpaceTypeId) {
-      this.filteredSpaceOptions = [];
+      this.filteredSpaceOptions.set([]);
       return;
     }
 
-    let spaces = this.allSpaces;
+    let spaces = this.allSpaces();
 
     // 1. Filter by location if selected
     if (this.selectedLocationId) {
@@ -1724,7 +1746,7 @@ export class Manage implements OnInit {
     // 3. For Private Room, filter by capacity if selected
     if (this.isAdminPrivateRoom) {
       if (!this.selectedAdminCapacity) {
-        this.filteredSpaceOptions = [];
+        this.filteredSpaceOptions.set([]);
         return;
       }
       const targetCap = Number(this.selectedAdminCapacity);
@@ -1745,7 +1767,7 @@ export class Manage implements OnInit {
     }
 
     // 4. Map space options with [Booked] or [Available] tag
-    this.filteredSpaceOptions = spaces
+    this.filteredSpaceOptions.set(spaces
       .filter((s: any) => s.idGuid || s.id)
       .map((s: any) => {
         const cap = this.getSpaceCapacity(s);
@@ -1773,16 +1795,16 @@ export class Manage implements OnInit {
           v: s.idGuid ?? s.id,
           l: `${s.name}${codeLabel}${capLabel}${locLabel}${tag}`
         };
-      });
+      }));
   }
 
   closeAdminBookingForm() {
     this.requestDiscardableClose(this.isBookingFormDirty(), () => {
-      this.showBookingForm = false;
+      this.showBookingForm.set(false);
       this.bookingDiscountType = 'Percentage';
       this.bookingDiscountPercentage = 0;
       this.bookingDiscountValue = 0;
-      this.bookingDiscountError = '';
+      this.bookingDiscountError.set('');
       this.bookingOfferingTypeId = 1;
       this.bookingOfferingType = '24/7';
       this.loadOfferingTypes();
@@ -1790,7 +1812,7 @@ export class Manage implements OnInit {
       this.bookingDiscountAmount = 0;
       this.securityDepositMonthsOverride = null;
       this.bookingFloorId = null;
-      this.bookingFloorOptions = [];
+      this.bookingFloorOptions.set([]);
       this.selectedCustomer = null;
       this.customerSearchQuery = '';
       this.bookingFormData = {};
@@ -1810,7 +1832,7 @@ export class Manage implements OnInit {
         a.href = url;
         a.download = `Challan-${challan?.challanNumber || bookingId}.pdf`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: () => {
         this.showError('Failed to download Challan PDF.');
@@ -1840,10 +1862,10 @@ export class Manage implements OnInit {
     if (!query) {
       this.admin.getCustomers(1, 20, '').subscribe({
         next: (res: any) => {
-          this.customerSearchResults = res?.data ?? (Array.isArray(res) ? res : []);
+          this.customerSearchResults.set(res?.data ?? (Array.isArray(res) ? res : []));
         },
         error: () => {
-          this.customerSearchResults = [];
+          this.customerSearchResults.set([]);
         }
       });
       return;
@@ -1854,7 +1876,7 @@ export class Manage implements OnInit {
         next: (res: any) => {
           const results = res?.data ?? (Array.isArray(res) ? res : []);
           if (results.length > 0) {
-            this.customerSearchResults = results;
+            this.customerSearchResults.set(results);
           } else {
             this.fallbackCustomerSearch(query);
           }
@@ -1877,10 +1899,10 @@ export class Manage implements OnInit {
           const phone = (u.phoneNumber || u.phone || '').toLowerCase();
           return name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
         });
-        this.customerSearchResults = filtered;
+        this.customerSearchResults.set(filtered);
       },
       error: () => {
-        this.customerSearchResults = [];
+        this.customerSearchResults.set([]);
       }
     });
   }
@@ -1910,7 +1932,7 @@ export class Manage implements OnInit {
     }
     const fullName = this.sanitizeCustomerFullName(rawFn || user.name || user.email || '');
     this.customerSearchQuery = fullName;
-    this.customerSearchResults = [];
+    this.customerSearchResults.set([]);
     this.bookingFormData.customerName = fullName;
     this.bookingFormData.customerEmail = user.email || '';
     this.bookingFormData.customerCode = user.code || '';
@@ -1964,22 +1986,23 @@ export class Manage implements OnInit {
     if (!this.bookingFormData.endDateTime) return '';
     const d = new Date(this.bookingFormData.endDateTime);
     if (isNaN(d.getTime())) return '';
-    return d.toISOString().split('T')[0];
+    return localDateIso(d);
   }
 
   generateAdminMeetingSlots() {
-    if (!this.adminMeetingDate) { this.adminMeetingSlots = []; return; }
+    if (!this.adminMeetingDate) { this.adminMeetingSlots.set([]); return; }
     const cfg = this.spaceConfigItems().find((c: any) =>
       (c.spaceCategory || '').toLowerCase() === 'meeting'
     );
     const openH = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
     const closeH = parseInt((cfg?.closingTime || '20:00').split(':')[0], 10);
-    this.adminMeetingSlots = [];
+    const slots: { label: string; start: string; end: string }[] = [];
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
       const end = `${String(h + 1).padStart(2, '0')}:00`;
-      this.adminMeetingSlots.push({ label: `${start} - ${end}`, start, end });
+      slots.push({ label: `${start} - ${end}`, start, end });
     }
+    this.adminMeetingSlots.set(slots);
     this.adminSelectedSlots = new Set();
     this.applyAdminSlotsToDates();
   }
@@ -2011,7 +2034,7 @@ export class Manage implements OnInit {
   onAdminMeetingModeChange() {
     this.adminMeetingDate = '';
     this.adminMeetingDayEnd = '';
-    this.adminMeetingSlots = [];
+    this.adminMeetingSlots.set([]);
     this.adminSelectedSlots = new Set();
     this.adminStartDate = '';
     this.bookingFormData.startDateTime = '';
@@ -2038,7 +2061,7 @@ export class Manage implements OnInit {
     this.selectedAdminCapacity = null;
     this.adminMeetingDate = '';
     this.adminMeetingDayEnd = '';
-    this.adminMeetingSlots = [];
+    this.adminMeetingSlots.set([]);
     this.adminSelectedSlots = new Set();
     this.meetingRoomBookingMode = 'day';
     this.adminStartDate = '';
@@ -2123,7 +2146,7 @@ export class Manage implements OnInit {
       this.bookingDiscountAmount = 0;
       return;
     }
-    const space = this.allSpaces.find((s: any) =>
+    const space = this.allSpaces().find((s: any) =>
       String(s.idGuid ?? '') === String(spaceId) ||
       String(s.id ?? '') === String(spaceId)
     );
@@ -2191,13 +2214,13 @@ export class Manage implements OnInit {
 
   submitAdminBooking() {
     this.bookingFormSaving.set(true);
-    this.bookingFormError = '';
+    this.bookingFormError.set('');
     this.bookingFormErrorField = '';
 
     if (!this.selectedCustomer) {
       const msg = 'Please select a customer.';
       this.bookingFormErrorField = 'customer';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('customer');
       this.bookingFormSaving.set(false);
@@ -2206,7 +2229,7 @@ export class Manage implements OnInit {
     if (!this.selectedSpaceTypeId) {
       const msg = 'Please select space type.';
       this.bookingFormErrorField = 'spaceType';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('spaceType');
       this.bookingFormSaving.set(false);
@@ -2215,7 +2238,7 @@ export class Manage implements OnInit {
     if (this.isAdminPrivateRoom && !this.selectedAdminCapacity) {
       const msg = 'Please select room capacity.';
       this.bookingFormErrorField = 'capacity';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('capacity');
       this.bookingFormSaving.set(false);
@@ -2224,7 +2247,7 @@ export class Manage implements OnInit {
     if (!this.bookingFormData.spaceId) {
       const msg = 'Please select a space.';
       this.bookingFormErrorField = 'space';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('space');
       this.bookingFormSaving.set(false);
@@ -2233,7 +2256,7 @@ export class Manage implements OnInit {
     if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot' && this.adminSelectedSlots.size === 0) {
       const msg = 'Please select at least one time slot.';
       this.bookingFormErrorField = 'slots';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('slots');
       this.bookingFormSaving.set(false);
@@ -2242,7 +2265,7 @@ export class Manage implements OnInit {
     if (!this.isAdminMeetingRoom && (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1)) {
       const msg = 'Please specify start date and number of months.';
       this.bookingFormErrorField = 'startDate';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('startDate');
       this.bookingFormSaving.set(false);
@@ -2251,17 +2274,17 @@ export class Manage implements OnInit {
     if (this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day' && (!this.adminStartDate || !this.adminMeetingDayEnd)) {
       const msg = 'Please specify start and end date for the meeting room booking.';
       this.bookingFormErrorField = 'meetingDayEnd';
-      this.bookingFormError = msg;
+      this.bookingFormError.set(msg);
       this.showError(msg);
       this.scrollToTopAndHighlight('meetingDayEnd');
       this.bookingFormSaving.set(false);
       return;
     }
     this.validateBookingDiscount();
-    if (this.bookingDiscountError) {
+    if (this.bookingDiscountError()) {
       this.bookingFormErrorField = 'discount';
-      this.bookingFormError = this.bookingDiscountError;
-      this.showError(this.bookingDiscountError);
+      this.bookingFormError.set(this.bookingDiscountError());
+      this.showError(this.bookingDiscountError());
       this.scrollToTopAndHighlight('discount');
       this.bookingFormSaving.set(false);
       return;
@@ -2273,7 +2296,7 @@ export class Manage implements OnInit {
 
     const u = this.selectedCustomer;
 
-    const targetSpace = this.allSpaces.find((s: any) =>
+    const targetSpace = this.allSpaces().find((s: any) =>
       String(s.idGuid ?? '') === String(this.bookingFormData.spaceId) ||
       String(s.id ?? '') === String(this.bookingFormData.spaceId)
     );
@@ -2333,7 +2356,6 @@ export class Manage implements OnInit {
       };
 
       if (this.editingBookingId) {
-        console.log('[BOOKING TEST] Updating admin booking #' + this.editingBookingId + ' with payload:', payload);
         this.admin.updateBooking(this.editingBookingId, payload).subscribe({
           next: (res: any) => {
             const d = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data ?? res ?? {}));
@@ -2341,7 +2363,7 @@ export class Manage implements OnInit {
 
             if (errorMsg) {
               this.bookingFormSaving.set(false);
-              this.bookingFormError = errorMsg;
+              this.bookingFormError.set(errorMsg);
               this.bookingFormErrorField = 'space';
               this.showError(errorMsg);
               this.scrollToTopAndHighlight('space');
@@ -2349,38 +2371,34 @@ export class Manage implements OnInit {
             }
 
             this.bookingFormSaving.set(false);
-            this.showBookingForm = false;
+            this.showBookingForm.set(false);
             const bId = this.editingBookingId;
             this.editingBookingId = null;
-            this.success = `Booking #${bId} updated successfully.`;
-            this.showSuccess(this.success);
-            setTimeout(() => this.success = '', 3500);
+            this.success.set(`Booking #${bId} updated successfully.`);
+            this.showSuccess(this.success());
+            setTimeout(() => this.success.set(''), 3500);
             this.load();
           },
           error: (err: any) => {
             this.bookingFormSaving.set(false);
-            this.bookingFormError = err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.';
+            this.bookingFormError.set(err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.');
             this.bookingFormErrorField = 'space';
-            this.showError(this.bookingFormError);
+            this.showError(this.bookingFormError());
             this.scrollToTopAndHighlight('space');
           }
         });
         return;
       }
 
-      console.log('[BOOKING TEST] Creating admin booking with payload:', payload);
-
       this.admin.createAdminBooking(payload).subscribe({
         next: (res: any) => {
-          console.log('[BOOKING TEST] Raw response from createAdminBooking:', res);
           const d = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data ?? res ?? {}));
-          console.log('[BOOKING TEST] Unwrapped response object d:', d);
           const errorMsg = d?.errorMessage || d?.ErrorMessage || res?.errorMessage || (res?.isSuccessful === false ? res?.message : null);
 
           if (errorMsg) {
             console.error('[BOOKING TEST] Creation returned error message:', errorMsg);
             this.bookingFormSaving.set(false);
-            this.bookingFormError = errorMsg;
+            this.bookingFormError.set(errorMsg);
             this.bookingFormErrorField = 'space';
             this.showError(errorMsg);
             this.scrollToTopAndHighlight('space');
@@ -2388,10 +2406,10 @@ export class Manage implements OnInit {
           }
 
           this.bookingFormSaving.set(false);
-          this.showBookingForm = false;
+          this.showBookingForm.set(false);
 
           const bookingId = d.bookingId ?? d.BookingId ?? d.id ?? d.Id ?? null;
-          const space = targetSpace || this.allSpaces.find((s: any) => String(s.id) === String(payload.spaceId) || String(s.idGuid) === String(payload.spaceIdGuid));
+          const space = targetSpace || this.allSpaces().find((s: any) => String(s.id) === String(payload.spaceId) || String(s.idGuid) === String(payload.spaceIdGuid));
 
           const challanNumber = d.challanNumber
             ?? d.ChallanNumber
@@ -2538,6 +2556,7 @@ export class Manage implements OnInit {
             };
           }
           const createdBookingObj = {
+            _localCreated: true,
             id: bookingId,
             bookingId: bookingId,
             bookingPublicId: d.bookingPublicId || d.publicId,
@@ -2563,7 +2582,7 @@ export class Manage implements OnInit {
 
           this.adminBookingReceipt.set(receipt);
           this.challanData.set(receipt);
-          this.showChallanModal = true;
+          this.showChallanModal.set(true);
           this.items.update(curr => [createdBookingObj, ...curr]);
           this.page.set(1);
           this.load(() => {
@@ -2578,7 +2597,7 @@ export class Manage implements OnInit {
         error: (err: any) => {
           this.bookingFormSaving.set(false);
           const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
-          this.bookingFormError = msg;
+          this.bookingFormError.set(msg);
           this.bookingFormErrorField = 'space';
           this.showError(msg);
           this.scrollToTopAndHighlight('space');
@@ -2605,11 +2624,8 @@ export class Manage implements OnInit {
 
   private load(cb?: () => void) {
     this.loading.set(true);
-    this.config.getFn(this.page(), this.pageSize, this.searchQuery).subscribe({
+    this.config().getFn(this.page(), this.pageSize(), this.searchQuery).subscribe({
       next: (res: any) => {
-        if (this.entity === 'bookings') {
-          console.log('[BOOKING TEST] getBookings raw response:', res);
-        }
         let data = Array.isArray(res) ? res
           : Array.isArray(res?.data) ? res.data
             : Array.isArray(res?.data?.items) ? res.data.items
@@ -2623,17 +2639,20 @@ export class Manage implements OnInit {
         // Merge API data with any locally created admin bookings or declined quotation messages
         this.items.update(currentItems => {
           if (this.entity === 'bookings') {
+            // Bookings are paged on the server, so only keep a just-created booking (flagged
+            // _localCreated) on the unfiltered first page until the API returns it.
             const backendIds = new Set(data.map((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '')));
-            const localOnly = currentItems.filter((x: any) => {
+            const keepLocal = this.page() === 1 && !this.searchQuery;
+            const localOnly = !keepLocal ? [] : currentItems.filter((x: any) => {
               const id = String(x.bookingId ?? x.id ?? x.BookingId ?? '');
-              return id && !backendIds.has(id);
+              return x._localCreated && id && !backendIds.has(id);
             });
             const merged = [...localOnly, ...data].sort((a: any, b: any) => {
               const idA = Number(a.id ?? a.bookingId ?? a.Id ?? a.BookingId ?? 0);
               const idB = Number(b.id ?? b.bookingId ?? b.Id ?? b.BookingId ?? 0);
               if (idA && idB) return idB - idA;
               const dateA = new Date(a.createdOn || a.createdAt || a.startDateTime || a.startOn || a.bookedOn || 0).getTime();
-              const dateB = new Date(b.createdOn || b.createdAt || b.startDateTime || a.startOn || a.bookedOn || 0).getTime();
+              const dateB = new Date(b.createdOn || b.createdAt || b.startDateTime || b.startOn || b.bookedOn || 0).getTime();
               return dateB - dateA;
             });
             return merged;
@@ -2707,7 +2726,7 @@ export class Manage implements OnInit {
   }
 
 
-  onPageSizeChange(size: number) { this.pageSize = +size; this.page.set(1); this.load(); }
+  onPageSizeChange(size: number) { this.pageSize.set(+size); this.page.set(1); this.load(); }
   prevPage() { if (this.canPrev()) { this.page.update(p => p - 1); this.load(); } }
   nextPage() { if (this.canNext()) { this.page.update(p => p + 1); this.load(); } }
 
@@ -2865,8 +2884,8 @@ export class Manage implements OnInit {
         if (directName && !directName.toLowerCase().startsWith('booking #')) return directName;
 
         const sId = item.spaceId || item.SpaceId;
-        if (sId && this.allSpaces?.length) {
-          const found = this.allSpaces.find((sp: any) => sp.id === sId || sp.Id === sId || sp.code == sId);
+        if (sId && this.allSpaces()?.length) {
+          const found = this.allSpaces().find((sp: any) => sp.id === sId || sp.Id === sId || sp.code == sId);
           if (found?.name || found?.Name) return found.name || found.Name;
         }
 
@@ -3021,7 +3040,7 @@ export class Manage implements OnInit {
 
 
   openCreate() {
-    this.editItem = null; this.formData = {}; this.error = ''; this.showModal = true;
+    this.editItem = null; this.formData = {}; this.error.set(''); this.showModal.set(true);
     this.selectedAmenityIds = [];
     const boundLoc = this.auth.user()?.locationId;
     if (!this.isSuperAdmin && boundLoc) {
@@ -3035,8 +3054,8 @@ export class Manage implements OnInit {
       if (!this.isSuperAdmin && boundLoc) {
         this.formData.locationId = boundLoc;
       }
-      if (!this.locationOptions.length) this.loadLocationOptions();
-      if (!this.cityOptions.length) this.loadCityOptions();
+      if (!this.locationOptions().length) this.loadLocationOptions();
+      if (!this.cityOptions().length) this.loadCityOptions();
     }
     if (this.entity === 'customers') {
       this.selectedCountryCode = '+92';
@@ -3051,11 +3070,11 @@ export class Manage implements OnInit {
       if (!this.isSuperAdmin && this.auth.user()?.locationId) {
         this.formData.locationId = this.auth.user()?.locationId;
       }
-      if (!this.locationOptions.length) this.loadLocationOptions();
-      if (!this.cityOptions.length) this.loadCityOptions();
+      if (!this.locationOptions().length) this.loadLocationOptions();
+      if (!this.cityOptions().length) this.loadCityOptions();
     }
     if (this.entity === 'quotations') {
-      this.showModal = false;
+      this.showModal.set(false);
       this.openAdminQuotationForm();
     }
   }
@@ -3079,14 +3098,14 @@ export class Manage implements OnInit {
       this.discardConfirmTitle = title || 'Discard Unsaved Changes?';
       this.discardConfirmMessage = message || 'You have unsaved changes in this form. Closing now will discard all entered details.';
       this.pendingDiscardAction = closeAction;
-      this.showDiscardConfirm = true;
+      this.showDiscardConfirm.set(true);
     } else {
       closeAction();
     }
   }
 
   confirmDiscard() {
-    this.showDiscardConfirm = false;
+    this.showDiscardConfirm.set(false);
     if (this.pendingDiscardAction) {
       const action = this.pendingDiscardAction;
       this.pendingDiscardAction = null;
@@ -3095,7 +3114,7 @@ export class Manage implements OnInit {
   }
 
   cancelDiscard() {
-    this.showDiscardConfirm = false;
+    this.showDiscardConfirm.set(false);
     this.pendingDiscardAction = null;
   }
 
@@ -3125,8 +3144,8 @@ export class Manage implements OnInit {
   }
 
   forceCloseQuickCreateCustomer() {
-    this.showQuickCreateCustomer = false;
-    this.quickCustomerError = '';
+    this.showQuickCreateCustomer.set(false);
+    this.quickCustomerError.set('');
     this.quickCustomerForm = {
       customerType: 'Individual',
       firstName: '',
@@ -3224,7 +3243,7 @@ export class Manage implements OnInit {
 
   openCreateCustomerFromBooking() {
     this.loadCityOptions();
-    this.showDiscardConfirm = false;
+    this.showDiscardConfirm.set(false);
     this.quickCustomerForm = {
       customerType: 'Individual',
       firstName: '',
@@ -3237,8 +3256,8 @@ export class Manage implements OnInit {
       addressLine2: '',
       cityId: ''
     };
-    this.quickCustomerError = '';
-    this.showQuickCreateCustomer = true;
+    this.quickCustomerError.set('');
+    this.showQuickCreateCustomer.set(true);
   }
 
   submitQuickCreateCustomer() {
@@ -3256,43 +3275,43 @@ export class Manage implements OnInit {
     if (custType === 'Company' && !compName) {
       const msg = 'Company / Business Name is required.';
       this.showError(msg);
-      this.quickCustomerError = msg;
+      this.quickCustomerError.set(msg);
       return;
     }
     if (!fn) {
       const msg = 'First Name is required.';
       this.showError(msg);
-      this.quickCustomerError = msg;
+      this.quickCustomerError.set(msg);
       return;
     }
     if (!em) {
       const msg = 'Email address is required.';
       this.showError(msg);
-      this.quickCustomerError = msg;
+      this.quickCustomerError.set(msg);
       return;
     }
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(em)) {
       const msg = 'Please enter a valid email address (e.g. user@example.com).';
       this.showError(msg);
-      this.quickCustomerError = msg;
+      this.quickCustomerError.set(msg);
       return;
     }
     if (!phoneDigits || phoneDigits.length !== 10) {
       const msg = 'Phone number must contain 10 digits (e.g. 3001234567).';
       this.showError(msg);
-      this.quickCustomerError = msg;
+      this.quickCustomerError.set(msg);
       return;
     }
     if (!addr1) {
       const msg = 'Address Line 1 is required.';
       alert(msg);
-      this.quickCustomerError = msg;
+      this.quickCustomerError.set(msg);
       return;
     }
 
     this.quickCustomerSaving.set(true);
-    this.quickCustomerError = '';
+    this.quickCustomerError.set('');
 
     const code = countryCode || '+92';
     const fullPhone = `${code}${phoneDigits}`;
@@ -3321,14 +3340,14 @@ export class Manage implements OnInit {
           this.quickCustomerSaving.set(false);
           const msg = res.message || res.errorMessage || res.ErrorMessage || res.error || 'Failed to create customer.';
           this.showError(msg);
-          this.quickCustomerError = msg;
+          this.quickCustomerError.set(msg);
           return;
         }
         this.quickCustomerSaving.set(false);
-        this.showQuickCreateCustomer = false;
+        this.showQuickCreateCustomer.set(false);
         const created = res?.data ?? res;
         if (created) {
-          if (!this.showQuotationForm) {
+          if (!this.showQuotationForm()) {
             this.openAdminQuotationForm();
           }
           this.selectCustomer(created);
@@ -3338,7 +3357,7 @@ export class Manage implements OnInit {
         this.quickCustomerSaving.set(false);
         const msg = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to create customer.';
         this.showError(msg);
-        this.quickCustomerError = msg;
+        this.quickCustomerError.set(msg);
       }
     });
   }
@@ -3353,8 +3372,8 @@ export class Manage implements OnInit {
     if (this.entity === 'users') {
       this.formData.role = this.normalizeRole(item.role ?? item.roleId ?? item.RoleId) || 'general';
       this.formData.locationId = item.locationId != null ? Number(item.locationId) : null;
-      if (!this.locationOptions.length) this.loadLocationOptions();
-      if (!this.cityOptions.length) this.loadCityOptions();
+      if (!this.locationOptions().length) this.loadLocationOptions();
+      if (!this.cityOptions().length) this.loadCityOptions();
     }
     this.selectedAmenityIds = [];
     if (this.entity === 'customers') {
@@ -3391,7 +3410,7 @@ export class Manage implements OnInit {
       }
     }
     if (this.entity === 'spaces') {
-      this.priceError = '';
+      this.priceError.set('');
       const name = String(item.name || item.Name || '').toLowerCase().trim();
       const locId = item.locationId ?? item.LocationId;
       const stId = item.spaceTypeId ?? item.SpaceTypeId;
@@ -3469,8 +3488,8 @@ export class Manage implements OnInit {
         this.formData['spaceId'] = item.spaceGuid;
       }
     }
-    this.error = '';
-    this.showModal = true;
+    this.error.set('');
+    this.showModal.set(true);
   }
 
   private toDatetimeLocal(val: any): string {
@@ -3478,22 +3497,22 @@ export class Manage implements OnInit {
     try {
       const d = new Date(val);
       if (isNaN(d.getTime())) return val;
-      return d.toISOString().slice(0, 16);
+      return localDateTimeIso(d);
     } catch { return val; }
   }
 
   closeModal() {
     this.requestDiscardableClose(this.isEntityFormDirty(), () => {
-      this.showModal = false;
+      this.showModal.set(false);
       this.formData = {};
       this.editItem = null;
-      this.error = '';
+      this.error.set('');
     });
   }
 
   save() {
-    this.saving = true;
-    this.error = '';
+    this.saving.set(true);
+    this.error.set('');
 
     if (this.entity === 'users') {
       const name = (this.formData.name || '').trim();
@@ -3505,28 +3524,28 @@ export class Manage implements OnInit {
         : null;
 
       if (!name) {
-        this.error = 'Full Name is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Full Name is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!email) {
-        this.error = 'Email address is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Email address is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(email)) {
-        this.error = 'Please enter a valid email address (e.g. user@example.com).';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Please enter a valid email address (e.g. user@example.com).');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!this.editItem && !password) {
-        this.error = 'Password is required for new users.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Password is required for new users.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
 
@@ -3537,9 +3556,9 @@ export class Manage implements OnInit {
           if (!this.isSuperAdmin && this.auth.user()?.locationId) {
             locationId = this.auth.user()!.locationId!;
           } else {
-            this.error = `Location is required for ${this.getRoleLabel(role)} role.`;
-            this.showError(this.error);
-            this.saving = false;
+            this.error.set(`Location is required for ${this.getRoleLabel(role)} role.`);
+            this.showError(this.error());
+            this.saving.set(false);
             return;
           }
         }
@@ -3572,49 +3591,49 @@ export class Manage implements OnInit {
       const addr1 = (this.formData.addressLine1 || '').trim();
 
       if (custType === 'Company' && !compName) {
-        this.error = 'Company / Business Name is required when Customer Type is Company.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Company / Business Name is required when Customer Type is Company.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!fn) {
-        this.error = 'First Name is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('First Name is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!em) {
-        this.error = 'Email address is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Email address is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(em)) {
-        this.error = 'Please enter a valid email address (e.g. user@example.com).';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Please enter a valid email address (e.g. user@example.com).');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!this.editItem && Array.isArray(this.items)) {
         const isDuplicate = this.items.some(c => (c.email || c.customerEmail || '').toLowerCase() === em.toLowerCase());
         if (isDuplicate) {
-          this.error = `A customer with email address '${em}' already exists.`;
-          this.showError(this.error);
-          this.saving = false;
+          this.error.set(`A customer with email address '${em}' already exists.`);
+          this.showError(this.error());
+          this.saving.set(false);
           return;
         }
       }
       if (!phoneDigits || phoneDigits.length !== 10) {
-        this.error = 'Phone number must contain 10 digits (e.g. 3001234567).';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Phone number must contain 10 digits (e.g. 3001234567).');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!addr1) {
-        this.error = 'Address Line 1 is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Address Line 1 is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
 
@@ -3647,27 +3666,27 @@ export class Manage implements OnInit {
       const address = (this.formData.address || '').trim();
 
       if (!name) {
-        this.error = 'Location name is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Location name is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!branchId) {
-        this.error = 'Please select a Branch.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Please select a Branch.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!cityId) {
-        this.error = 'Please select a City.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Please select a City.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
       if (!address) {
-        this.error = 'Address is required.';
-        this.showError(this.error);
-        this.saving = false;
+        this.error.set('Address is required.');
+        this.showError(this.error());
+        this.saving.set(false);
         return;
       }
 
@@ -3687,21 +3706,21 @@ export class Manage implements OnInit {
     }
 
     const obs = this.editItem
-      ? this.config.updateFn!(this.editItem.idGuid ?? this.editItem.idGUID ?? this.editItem.id, this.formData)
-      : this.config.createFn!(this.formData);
+      ? this.config().updateFn!(this.editItem.idGuid ?? this.editItem.idGUID ?? this.editItem.id, this.formData)
+      : this.config().createFn!(this.formData);
 
     obs.subscribe({
       next: (res: any) => {
         if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
-          this.saving = false;
-          this.error = res.message || res.errorMessage || res.ErrorMessage || res.error || 'An error occurred while saving.';
-          this.showError(this.error);
+          this.saving.set(false);
+          this.error.set(res.message || res.errorMessage || res.ErrorMessage || res.error || 'An error occurred while saving.');
+          this.showError(this.error());
           return;
         }
-        this.saving = false;
-        this.showModal = false;
-        this.success = this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.');
-        setTimeout(() => this.success = '', 3000);
+        this.saving.set(false);
+        this.showModal.set(false);
+        this.success.set(this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.'));
+        setTimeout(() => this.success.set(''), 3000);
 
         if (this.creatingCustomerFromBooking) {
           try {
@@ -3712,16 +3731,16 @@ export class Manage implements OnInit {
           } catch (e) {
             // ignore
           }
-          this.config = this.buildConfig(this.entity);
+          this.config.set(this.buildConfig(this.entity));
           this.creatingCustomerFromBooking = false;
         }
 
         this.load();
       },
       error: (e: any) => {
-        this.saving = false;
-        this.error = e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'An error occurred.';
-        this.showError(this.error);
+        this.saving.set(false);
+        this.error.set(e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'An error occurred.');
+        this.showError(this.error());
       }
     });
   }
@@ -3729,7 +3748,10 @@ export class Manage implements OnInit {
   deleteItem(item: any) {
     if (!confirm('Delete this item?')) return;
     const id = item.bookingId ?? item.idGuid ?? item.idGUID ?? item.id;
-    this.config.deleteFn!(id).subscribe({ next: () => this.load() });
+    this.config().deleteFn!(id).subscribe({
+      next: () => this.load(),
+      error: (e: any) => this.showError(e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to delete item.')
+    });
   }
 
   changeStatus(item: any, status: string) {
@@ -3783,8 +3805,9 @@ export class Manage implements OnInit {
     const sStr = String(status).trim().toLowerCase();
     const statusId = targetMap[sStr] ?? (isNaN(Number(status)) ? 1 : Number(status));
 
-    if (this.config.statusFn) {
-      this.config.statusFn(rawId, statusId).subscribe({
+    const statusFn = this.config().statusFn;
+    if (statusFn) {
+      statusFn(rawId, statusId).subscribe({
         next: (res: any) => {
           if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
             const err = res.message || res.errorMessage || res.error || 'Server rejected status update';
@@ -3797,8 +3820,8 @@ export class Manage implements OnInit {
             item.status = status;
             item.Status = status;
           }
-          this.success = 'Status updated successfully.';
-          setTimeout(() => this.success = '', 3000);
+          this.success.set('Status updated successfully.');
+          setTimeout(() => this.success.set(''), 3000);
           this.load();
         },
         error: (err: any) => {
@@ -3814,7 +3837,10 @@ export class Manage implements OnInit {
     if (!userId) return;
     const isActive = item.isActive ?? (item.status == 1);
     const obs = isActive ? this.admin.deactivateUser(userId) : this.admin.activateUser(userId);
-    obs.subscribe({ next: () => this.load() });
+    obs.subscribe({
+      next: () => this.load(),
+      error: (e: any) => this.showError(e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? `Failed to ${isActive ? 'deactivate' : 'activate'} user.`)
+    });
   }
 
   normalizeRole(roleValue: any): string {
@@ -3843,8 +3869,8 @@ export class Manage implements OnInit {
 
     this.admin.updateUserRole(userId, normalizedRole, locationId).subscribe({
       next: () => {
-        this.success = `Role updated to "${this.getRoleLabel(normalizedRole)}" successfully.`;
-        setTimeout(() => this.success = '', 3000);
+        this.success.set(`Role updated to "${this.getRoleLabel(normalizedRole)}" successfully.`);
+        setTimeout(() => this.success.set(''), 3000);
         this.load();
       },
       error: (err) => {
@@ -3868,9 +3894,9 @@ export class Manage implements OnInit {
   openUserFromUsers(item: any) { this.openUserModal(item.idGuid); }
 
   private openUserModal(idOrEmail: any) {
-    this.showUserModal = true;
+    this.showUserModal.set(true);
     this.userDetailsLoading.set(true);
-    this.userDetailsError = '';
+    this.userDetailsError.set('');
     this.selectedUser.set(null);
     this.userHistory.set(null);
     this.admin.getUserHistory(idOrEmail).subscribe({
@@ -3880,50 +3906,50 @@ export class Manage implements OnInit {
           next: (res: any) => {
             const u = res?.data ?? res;
             this.selectedUser.set(u);
-            this.userDisplayName = [u?.firstName, u?.lastName].filter(Boolean).join(' ') || u?.name || u?.email || 'N/A';
+            this.userDisplayName.set([u?.firstName, u?.lastName].filter(Boolean).join(' ') || u?.name || u?.email || 'N/A');
             this.userDetailsLoading.set(false);
           },
           error: () => this.userDetailsLoading.set(false)
         });
       },
       error: () => {
-        this.userDetailsError = 'Failed to load user history.';
+        this.userDetailsError.set('Failed to load user history.');
         this.userDetailsLoading.set(false);
       }
     });
   }
 
-  closeUserModal() { this.showUserModal = false; }
+  closeUserModal() { this.showUserModal.set(false); }
 
   openSpaceDetails(item: any) {
-    this.showSpaceModal = true; this.spaceSummaryLoading.set(true);
-    this.spaceSummaryError = ''; this.spaceSummary.set(null);
+    this.showSpaceModal.set(true); this.spaceSummaryLoading.set(true);
+    this.spaceSummaryError.set(''); this.spaceSummary.set(null);
     this.admin.getSpaceSummary(item.idGuid).subscribe({
       next: (res: any) => { this.spaceSummary.set(res?.data ?? res); this.spaceSummaryLoading.set(false); },
-      error: () => { this.spaceSummaryLoading.set(false); this.spaceSummaryError = 'Failed to load space summary.'; }
+      error: () => { this.spaceSummaryLoading.set(false); this.spaceSummaryError.set('Failed to load space summary.'); }
     });
   }
-  closeSpaceModal() { this.showSpaceModal = false; }
+  closeSpaceModal() { this.showSpaceModal.set(false); }
 
   openPricingPlanSummary(item: any) {
-    this.showPlanModal = true; this.planSummaryLoading.set(true);
-    this.planSummaryError = ''; this.planSummary.set(null);
+    this.showPlanModal.set(true); this.planSummaryLoading.set(true);
+    this.planSummaryError.set(''); this.planSummary.set(null);
     this.admin.getPricingPlanSummary(item.idGuid).subscribe({
       next: (res: any) => { this.planSummary.set(res?.data ?? res); this.planSummaryLoading.set(false); },
-      error: () => { this.planSummaryLoading.set(false); this.planSummaryError = 'Failed to load plan summary.'; }
+      error: () => { this.planSummaryLoading.set(false); this.planSummaryError.set('Failed to load plan summary.'); }
     });
   }
-  closePlanModal() { this.showPlanModal = false; }
+  closePlanModal() { this.showPlanModal.set(false); }
 
   openPaymentSummary(item: any) {
-    this.showPaymentModal = true; this.paymentSummaryLoading.set(true);
-    this.paymentSummaryError = ''; this.paymentSummary.set(null);
+    this.showPaymentModal.set(true); this.paymentSummaryLoading.set(true);
+    this.paymentSummaryError.set(''); this.paymentSummary.set(null);
     const paymentId = item.idGuid ?? item.publicId ?? item.id; this.admin.getPaymentSummary(paymentId).subscribe({
       next: (res: any) => { this.paymentSummary.set(res?.data ?? res); this.paymentSummaryLoading.set(false); },
-      error: () => { this.paymentSummaryLoading.set(false); this.paymentSummaryError = 'Failed to load payment summary.'; }
+      error: () => { this.paymentSummaryLoading.set(false); this.paymentSummaryError.set('Failed to load payment summary.'); }
     });
   }
-  closePaymentModal() { this.showPaymentModal = false; }
+  closePaymentModal() { this.showPaymentModal.set(false); }
 
   approvePayment(item: any) {
     if (item.paymentStatus !== 'Pending') return;
@@ -3933,14 +3959,14 @@ export class Manage implements OnInit {
     this.approvingPaymentId.set(itemId);
     this.admin.approvePayment(itemId).subscribe({
       next: () => {
-        this.success = 'Payment approved successfully.';
-        setTimeout(() => this.success = '', 3000);
+        this.success.set('Payment approved successfully.');
+        setTimeout(() => this.success.set(''), 3000);
         this.approvingPaymentId.set(null);
         this.load();
       },
       error: (e: any) => {
-        this.error = e?.error?.message ?? 'Failed to approve payment.';
-        this.showError(this.error);
+        this.error.set(e?.error?.message ?? 'Failed to approve payment.');
+        this.showError(this.error());
         this.approvingPaymentId.set(null);
       }
     });
@@ -3948,15 +3974,15 @@ export class Manage implements OnInit {
 
   openReassignModal(booking: any) {
     this.reassignBooking = booking;
-    this.showReassignModal = true;
-    this.reassignError = '';
+    this.showReassignModal.set(true);
+    this.reassignError.set('');
     this.selectedNewSpace = '';
     this.loadAvailableSpacesForReassign();
   }
 
   closeReassignModal() {
     this.requestDiscardableClose(this.isReassignFormDirty(), () => {
-      this.showReassignModal = false;
+      this.showReassignModal.set(false);
       this.reassignBooking = null;
       this.availableSpacesForReassign.set([]);
       this.selectedNewSpace = '';
@@ -3981,7 +4007,7 @@ export class Manage implements OnInit {
         this.reassignLoading.set(false);
       },
       error: () => {
-        this.reassignError = 'Failed to load available spaces';
+        this.reassignError.set('Failed to load available spaces');
         this.reassignLoading.set(false);
       }
     });
@@ -3989,7 +4015,7 @@ export class Manage implements OnInit {
 
   submitReassignment() {
     if (!this.selectedNewSpace || !this.reassignBooking) {
-      this.reassignError = 'Please select a space to reassign';
+      this.reassignError.set('Please select a space to reassign');
       return;
     }
 
@@ -3997,14 +4023,14 @@ export class Manage implements OnInit {
     const bookingId = this.reassignBooking.bookingPublicId ?? this.reassignBooking.idGuid;
     this.admin.reassignBooking(bookingId, Number(this.selectedNewSpace), 0).subscribe({
       next: () => {
-        this.success = 'Booking reassigned successfully';
-        setTimeout(() => this.success = '', 3000);
+        this.success.set('Booking reassigned successfully');
+        setTimeout(() => this.success.set(''), 3000);
         this.closeReassignModal();
         this.load();
       },
       error: (err: any) => {
-        this.reassignError = err?.error?.message || 'Failed to reassign booking';
-        this.showError(this.reassignError);
+        this.reassignError.set(err?.error?.message || 'Failed to reassign booking');
+        this.showError(this.reassignError());
         this.reassignLoading.set(false);
       }
     });
@@ -4016,12 +4042,12 @@ export class Manage implements OnInit {
 
   private buildBookingCalendar() {
     const d = this.bookingCalendarDate;
-    this.bookingMonthTitle = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+    this.bookingMonthTitle.set(d.toLocaleString('default', { month: 'long', year: 'numeric' }));
     const year = d.getFullYear(), month = d.getMonth() + 1;
     const first = new Date(year, month - 1, 1).getDay();
     const days = new Date(year, month, 0).getDate();
     const spaceId = this.formData['spaceId'];
-    this.bookingMonthCells = [];
+    this.bookingMonthCells.set([]);
     const fill = (bookedDates: string[]) => {
       const cells: any[] = [];
       for (let i = 0; i < first; i++) cells.push({ placeholder: true });
@@ -4029,7 +4055,7 @@ export class Manage implements OnInit {
         const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         cells.push({ day: d, date: dateStr, isBooked: bookedDates.includes(dateStr) });
       }
-      this.bookingMonthCells = cells;
+      this.bookingMonthCells.set(cells);
     };
     if (spaceId) {
       this.bookingCalendarLoading.set(true);
@@ -4057,19 +4083,20 @@ export class Manage implements OnInit {
     return s && e && date > s && date < e;
   }
 
-  isBookingPast(date: string): boolean { return !!date && date < new Date().toISOString().slice(0, 10); }
+  isBookingPast(date: string): boolean { return !!date && date < localDateIso(); }
 
   loadFloorsForLocation(locationId: number) {
-    this.floorOptions = [];
+    this.floorOptions.set([]);
     if (!locationId) return;
     this.admin.getFloors(locationId).subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.floorOptions = items.map((f: any) => ({
+        this.floorOptions.set(items.map((f: any) => ({
           v: f.id ?? f.Id,
           l: f.name || f.floorName || f.Name || f.FloorName || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`)
-        }));
-      }
+        })));
+      },
+      error: this.apiError('Failed to load floors.')
     });
   }
 
@@ -4100,7 +4127,7 @@ export class Manage implements OnInit {
     if (this.entity === 'spacetypes') {
       return (this.formData['name'] || '').toLowerCase().includes('private');
     }
-    const selected = this.spaceTypeOptions.find(t => String(t.v) === String(this.formData['spaceTypeId']));
+    const selected = this.spaceTypeOptions().find(t => String(t.v) === String(this.formData['spaceTypeId']));
     return selected ? selected.l.toLowerCase().includes('private') : false;
   }
 
@@ -4125,8 +4152,8 @@ export class Manage implements OnInit {
     );
     this.showDuplicatesOnly = this.duplicateCodes.size > 0;
     if (!this.duplicateCodes.size) {
-      this.success = 'No duplicate codes found.';
-      setTimeout(() => this.success = '', 3000);
+      this.success.set('No duplicate codes found.');
+      setTimeout(() => this.success.set(''), 3000);
     }
   }
 
@@ -4165,7 +4192,7 @@ export class Manage implements OnInit {
           { key: 'phoneNumber', label: 'Phone Number', type: 'phone-split', required: true },
           { key: 'addressLine1', label: 'Address Line 1', type: 'text', required: true },
           { key: 'addressLine2', label: 'Address Line 2', type: 'text' },
-          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions },
+          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions() },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
@@ -4194,7 +4221,7 @@ export class Manage implements OnInit {
           { key: 'locationId', label: 'Location', type: 'user-location-select' },
           { key: 'phone', label: 'Phone Number', type: 'text' },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
-          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions },
+          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions() },
           { key: 'address', label: 'Address', type: 'text' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
@@ -4217,8 +4244,8 @@ export class Manage implements OnInit {
         ],
         fields: [
           { key: 'name', label: 'Name', type: 'text', required: true },
-          { key: 'branchId', label: 'Branch', type: 'select', options: this.branchOptions, required: true },
-          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions, required: true },
+          { key: 'branchId', label: 'Branch', type: 'select', options: this.branchOptions(), required: true },
+          { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions(), required: true },
           { key: 'address', label: 'Address', type: 'text', required: true },
           { key: 'openingTime', label: 'Opening Time', type: 'time' },
           { key: 'closingTime', label: 'Closing Time', type: 'time' },
@@ -4242,11 +4269,11 @@ export class Manage implements OnInit {
           { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'hourlyAllowed', label: 'Hourly Allowed', type: 'checkbox' },
           { key: 'isActive', label: 'Active', type: 'checkbox' },
-          { key: 'accountReceivableId', label: 'Accounts Receivable (AccountsCOA)', type: 'select', options: this.accountOptions },
-          { key: 'rentAccountId', label: 'Rent Account (AccountsCOA)', type: 'select', options: this.accountOptions },
-          { key: 'servicesIncomeId', label: 'Services Income (AccountsCOA)', type: 'select', options: this.accountOptions },
-          { key: 'salesTaxId', label: 'Sales Tax (AccountsCOA)', type: 'select', options: this.accountOptions },
-          { key: 'securityReceivedId', label: 'Security Received / Deposit (AccountsCOA)', type: 'select', options: this.accountOptions },
+          { key: 'accountReceivableId', label: 'Accounts Receivable (AccountsCOA)', type: 'select', options: this.accountOptions() },
+          { key: 'rentAccountId', label: 'Rent Account (AccountsCOA)', type: 'select', options: this.accountOptions() },
+          { key: 'servicesIncomeId', label: 'Services Income (AccountsCOA)', type: 'select', options: this.accountOptions() },
+          { key: 'salesTaxId', label: 'Sales Tax (AccountsCOA)', type: 'select', options: this.accountOptions() },
+          { key: 'securityReceivedId', label: 'Security Received / Deposit (AccountsCOA)', type: 'select', options: this.accountOptions() },
         ],
         getFn: (p, l, s) => this.admin.getSpaceTypes(p, l, s),
         createFn: (d) => this.admin.createSpaceType(d),
@@ -4270,15 +4297,15 @@ export class Manage implements OnInit {
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'code', label: 'Code', type: 'text' },
           { key: 'capacity', label: 'Capacity', type: 'number' },
-          { key: 'locationId', label: 'Location', type: 'select', options: this.locationOptions },
-          { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions },
+          { key: 'locationId', label: 'Location', type: 'select', options: this.locationOptions() },
+          { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions() },
           { key: 'pricePerHour', label: this.lbl('Space', 'pricePerHour'), type: 'number' },
           { key: 'pricePerDay', label: this.lbl('Space', 'pricePerDay'), type: 'number' },
           { key: 'floorId', label: 'Floor', type: 'floor-select' },
           { key: 'description', label: 'Description', type: 'textarea' },
           { key: 'imageUrl', label: 'Image URL', type: 'text' },
           { key: 'amenities', label: 'Amenities', type: 'amenities-multicheck' },
-          { key: 'rentAccountId', label: 'Rent Account', type: 'select', options: this.accountOptions },
+          { key: 'rentAccountId', label: 'Rent Account', type: 'select', options: this.accountOptions() },
           {
             key: 'status', label: 'Status', type: 'select', options: [
               { v: 'Available', l: 'Available' },
@@ -4305,14 +4332,15 @@ export class Manage implements OnInit {
           { key: 'bookingStatusLabel', label: 'Status', type: 'booking-status' },
         ],
         fields: [
-          { key: 'spaceId', label: 'Space', type: 'select', options: this.spaceOptions },
+          { key: 'spaceId', label: 'Space', type: 'select', options: this.spaceOptions() },
           { key: 'startDateTime', label: 'Start Date & Time', type: 'datetime-local' },
           { key: 'endDateTime', label: 'End Date & Time', type: 'datetime-local' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
         getFn: (p, l, s) => {
           const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
-          return this.admin.getBookings(1, 1000, s, locId);
+          // Server-side paging + search (the API returns { data, total }).
+          return this.admin.getBookings(p, l, s, locId);
         },
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
@@ -4476,18 +4504,19 @@ export class Manage implements OnInit {
   }
 
   generateQuotationMeetingSlots() {
-    if (!this.quotationStartDate) { this.quotationMeetingSlots = []; return; }
+    if (!this.quotationStartDate) { this.quotationMeetingSlots.set([]); return; }
     const cfg = this.spaceConfigItems().find((c: any) =>
       (c.spaceCategory || '').toLowerCase() === 'meeting'
     );
     const openH = parseInt((cfg?.openingTime || '08:00').split(':')[0], 10);
     const closeH = parseInt((cfg?.closingTime || '20:00').split(':')[0], 10);
-    this.quotationMeetingSlots = [];
+    const slots: { label: string; start: string; end: string }[] = [];
     for (let h = openH; h < closeH; h++) {
       const start = `${String(h).padStart(2, '0')}:00`;
       const end = `${String(h + 1).padStart(2, '0')}:00`;
-      this.quotationMeetingSlots.push({ label: `${start} - ${end}`, start, end });
+      slots.push({ label: `${start} - ${end}`, start, end });
     }
+    this.quotationMeetingSlots.set(slots);
     this.quotationSelectedSlots = new Set();
     this.recalcQuotationAmount();
   }
@@ -4504,16 +4533,16 @@ export class Manage implements OnInit {
   }
 
   openAdminQuotationForm() {
-    this.showQuotationForm = true;
+    this.showQuotationForm.set(true);
     this.quotationFormData = {};
-    this.quotationFormError = '';
+    this.quotationFormError.set('');
     this.parentQuotationId = null;
     this.targetVersionNumber = 1;
     this.isCreatingNewVersion = false;
     this.selectedCustomer = null;
     this.customerSearchQuery = '';
 
-    this.customerSearchResults = [];
+    this.customerSearchResults.set([]);
     const userQuotLocId = this.auth.user()?.locationId;
     this.selectedQuotationLocationId = userQuotLocId ? String(userQuotLocId) : '';
     this.selectedQuotationSpaceTypeId = '';
@@ -4528,21 +4557,21 @@ export class Manage implements OnInit {
     this.quotationDiscountType = 'Percentage';
     this.quotationDiscountValue = 0;
     this.quotationDiscountPercentage = 0;
-    this.quotationDiscountError = '';
+    this.quotationDiscountError.set('');
     this.quotationPerSeatBasePrice = 0;
     this.quotationMinPerSeatBasePrice = 0;
-    this.quotationBasePriceError = '';
+    this.quotationBasePriceError.set('');
     this.quotationOfferingTypeId = 1;
     this.quotationOfferingType = '24/7';
     this.quotationWithholdingTaxRate = 15;
     this.loadOfferingTypes();
     this.quotationFloorId = null;
-    this.quotationFloorOptions = [];
+    this.quotationFloorOptions.set([]);
     this.quotationStartDate = this.today;
-    this.quotationValidUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    this.quotationValidUntil = localDateIso(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     this.quotationRemarks = '';
     this.quotationDiscountPercentage = 0;
-    this.quotationMeetingSlots = [];
+    this.quotationMeetingSlots.set([]);
     this.quotationSelectedSlots = new Set();
     this.quotationMeetingRoomMode = 'slot';
     this.quotationMeetingDayEnd = '';
@@ -4550,7 +4579,8 @@ export class Manage implements OnInit {
 
     if (!this.spaceConfigItems().length) {
       this.admin.getSpaceConfig().subscribe({
-        next: (res: any) => this.spaceConfigItems.set(res?.data ?? [])
+        next: (res: any) => this.spaceConfigItems.set(res?.data ?? []),
+        error: this.apiError('Failed to load space config.')
       });
     }
 
@@ -4559,38 +4589,41 @@ export class Manage implements OnInit {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
-        this.locationOptions = items.map((l: any) => ({
+        this.locationOptions.set(items.map((l: any) => ({
           v: String(l.id != null ? l.id : (l.idGuid ?? l.idGUID ?? l.Id ?? '')),
           l: l.name || l.Name
-        }));
-        if (!this.selectedQuotationLocationId && this.locationOptions.length > 0) {
+        })));
+        if (!this.selectedQuotationLocationId && this.locationOptions().length > 0) {
           const uLoc = this.auth.user()?.locationId;
-          const match = uLoc ? this.locationOptions.find(o => String(o.v) === String(uLoc)) : null;
-          this.selectedQuotationLocationId = match ? String(match.v) : String(this.locationOptions[0].v);
+          const match = uLoc ? this.locationOptions().find(o => String(o.v) === String(uLoc)) : null;
+          this.selectedQuotationLocationId = match ? String(match.v) : String(this.locationOptions()[0].v);
         }
         if (this.selectedQuotationLocationId) {
           this.onQuotationLocationChange();
         }
-      }
+      },
+      error: this.apiError('Failed to load locations.')
     });
 
     this.admin.getSpaceTypes(1, 1000, '').subscribe({
       next: (res: any) => {
         const items = res?.data ?? (Array.isArray(res) ? res : []);
         this.populateSpaceTypeOptions(items);
-      }
+      },
+      error: this.apiError('Failed to load space types.')
     });
 
     this.admin.getSpaces(1, 1000, '').subscribe({
       next: (res: any) => {
-        this.allSpaces = res?.data ?? [];
-      }
+        this.allSpaces.set(res?.data ?? []);
+      },
+      error: this.apiError('Failed to load spaces.')
     });
   }
 
   closeAdminQuotationForm() {
     this.requestDiscardableClose(this.isQuotationFormDirty(), () => {
-      this.showQuotationForm = false;
+      this.showQuotationForm.set(false);
       this.quotationFormData = {};
       this.selectedCustomer = null;
       this.customerSearchQuery = '';
@@ -4603,28 +4636,29 @@ export class Manage implements OnInit {
   onQuotationLocationChange() {
     this.quotationFormData.spaceId = '';
     this.quotationFloorId = null;
-    this.quotationFloorOptions = [];
+    this.quotationFloorOptions.set([]);
     this.quotationPerSeatBasePrice = 0;
     this.quotationMinPerSeatBasePrice = 0;
-    this.quotationBasePriceError = '';
+    this.quotationBasePriceError.set('');
     if (this.selectedQuotationLocationId) {
       const locInt = parseInt(String(this.selectedQuotationLocationId), 10);
       if (locInt) {
         this.admin.getFloors(locInt).subscribe({
           next: (res: any) => {
             const items = res?.data ?? (Array.isArray(res) ? res : []);
-            this.quotationFloorOptions = items.map((f: any) => ({
+            this.quotationFloorOptions.set(items.map((f: any) => ({
               v: f.id ?? f.Id,
               l: f.name || f.floorName || f.Name || (f.floorNumber != null ? `Floor ${f.floorNumber}` : `Floor #${f.id}`),
               raw: f
-            }));
+            })));
             if (!this.isCreatingNewVersion && this.isLocationI8(this.selectedQuotationLocationId)) {
-              const thirdFloor = this.findThirdFloorId(this.quotationFloorOptions);
+              const thirdFloor = this.findThirdFloorId(this.quotationFloorOptions());
               if (thirdFloor != null) {
                 this.quotationFloorId = thirdFloor;
               }
             }
-          }
+          },
+          error: this.apiError('Failed to load floors.')
         });
       }
     }
@@ -4635,13 +4669,13 @@ export class Manage implements OnInit {
   onQuotationSpaceTypeChange() {
     this.quotationFormData.spaceId = '';
     this.selectedQuotationCapacity = null;
-    this.quotationMeetingSlots = [];
+    this.quotationMeetingSlots.set([]);
     this.quotationSelectedSlots = new Set();
     this.quotationMeetingRoomMode = 'slot';
     this.quotationMeetingDayEnd = '';
     this.quotationPerSeatBasePrice = 0;
     this.quotationMinPerSeatBasePrice = 0;
-    this.quotationBasePriceError = '';
+    this.quotationBasePriceError.set('');
     if (this.selectedQuotationSpaceTypeId === 'shared' || this.selectedQuotationSpaceTypeId === 'private') {
       this.quotationMonths = 12;
     }
@@ -4654,7 +4688,7 @@ export class Manage implements OnInit {
   }
 
   onQuotationMeetingModeChange() {
-    this.quotationMeetingSlots = [];
+    this.quotationMeetingSlots.set([]);
     this.quotationSelectedSlots = new Set();
     this.quotationStartDate = this.today;
     this.quotationMeetingDayEnd = '';
@@ -4665,7 +4699,7 @@ export class Manage implements OnInit {
     this.quotationFormData.spaceId = '';
     this.quotationPerSeatBasePrice = 0;
     this.quotationMinPerSeatBasePrice = 0;
-    this.quotationBasePriceError = '';
+    this.quotationBasePriceError.set('');
     this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
@@ -4707,7 +4741,7 @@ export class Manage implements OnInit {
   get availableQuotationCapacities(): number[] {
     if (!this.isQuotationPrivateRoom) return [];
     const caps = new Set<number>();
-    this.allSpaces.forEach(s => {
+    this.allSpaces().forEach(s => {
       const isPrivate = (s.spaceTypeName ?? s.spaceType ?? '').toLowerCase().includes('private');
       if (isPrivate && s.capacity > 0) {
         if (!this.selectedQuotationLocationId || String(s.locationIdInt ?? s.locationId) === String(this.selectedQuotationLocationId)) {
@@ -4720,7 +4754,7 @@ export class Manage implements OnInit {
 
   get filteredQuotationSpaceOptions(): { v: any; l: string }[] {
     if (!this.selectedQuotationSpaceTypeId) return [];
-    let spaces = this.allSpaces;
+    let spaces = this.allSpaces();
 
     if (this.selectedQuotationLocationId) {
       spaces = spaces.filter(s =>
@@ -4770,14 +4804,14 @@ export class Manage implements OnInit {
   onQuotationSpaceSelected() {
     const spaceId = this.quotationFormData.spaceId;
     if (spaceId) {
-      const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+      const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
       if (space) {
         this.quotationCapacity = Number(space.capacity || space.Capacity || 1);
         const { monthly } = this.getSpacePrice(space);
         const baseMonthly = monthly > 0 ? monthly : Number(space.price || space.Price || 35000);
         this.quotationPerSeatBasePrice = baseMonthly;
         this.quotationMinPerSeatBasePrice = baseMonthly;
-        this.quotationBasePriceError = '';
+        this.quotationBasePriceError.set('');
         const name = String(space.name || space.Name || '').toLowerCase();
         const { hourly, daily } = this.getSpacePrice(space);
         if (name.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
@@ -4789,7 +4823,7 @@ export class Manage implements OnInit {
     } else {
       this.quotationMinPerSeatBasePrice = 0;
       this.quotationPerSeatBasePrice = 0;
-      this.quotationBasePriceError = '';
+      this.quotationBasePriceError.set('');
     }
     this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
@@ -4803,7 +4837,7 @@ export class Manage implements OnInit {
     const spaceId = this.quotationFormData.spaceId;
     if (!spaceId) return;
 
-    const space = this.allSpaces.find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
     if (!space) return;
 
     const { hourly, daily, monthly } = this.getSpacePrice(space);
@@ -4855,55 +4889,55 @@ export class Manage implements OnInit {
 
   submitAdminQuotation(sendEmail: boolean = false) {
     this.quotationFormSaving.set(true);
-    this.quotationFormError = '';
+    this.quotationFormError.set('');
     this.quotationFormErrorField = '';
 
     if (!this.selectedCustomer) {
       this.quotationFormErrorField = 'customer';
-      this.quotationFormError = 'Please select a customer.';
-      this.showError(this.quotationFormError);
+      this.quotationFormError.set('Please select a customer.');
+      this.showError(this.quotationFormError());
       this.scrollToTopAndHighlight('customer');
       this.quotationFormSaving.set(false);
       return;
     }
     if (!this.quotationFormData.spaceId) {
       this.quotationFormErrorField = 'space';
-      this.quotationFormError = 'Please select a space.';
-      this.showError(this.quotationFormError);
+      this.quotationFormError.set('Please select a space.');
+      this.showError(this.quotationFormError());
       this.scrollToTopAndHighlight('space');
       this.quotationFormSaving.set(false);
       return;
     }
     if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'slot' && this.quotationSelectedSlots.size === 0) {
       this.quotationFormErrorField = 'slots';
-      this.quotationFormError = 'Please select at least one time slot.';
-      this.showError(this.quotationFormError);
+      this.quotationFormError.set('Please select at least one time slot.');
+      this.showError(this.quotationFormError());
       this.scrollToTopAndHighlight('slots');
       this.quotationFormSaving.set(false);
       return;
     }
     if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'day' && (!this.quotationStartDate || !this.quotationMeetingDayEnd)) {
       this.quotationFormErrorField = 'startDate';
-      this.quotationFormError = 'Please specify start and end date for the meeting room booking.';
-      this.showError(this.quotationFormError);
+      this.quotationFormError.set('Please specify start and end date for the meeting room booking.');
+      this.showError(this.quotationFormError());
       this.scrollToTopAndHighlight('startDate');
       this.quotationFormSaving.set(false);
       return;
     }
     this.validateQuotationDiscount();
-    if (this.quotationDiscountError) {
+    if (this.quotationDiscountError()) {
       this.quotationFormErrorField = 'discount';
-      this.quotationFormError = this.quotationDiscountError;
-      this.showError(this.quotationDiscountError);
+      this.quotationFormError.set(this.quotationDiscountError());
+      this.showError(this.quotationDiscountError());
       this.scrollToTopAndHighlight('discount');
       this.quotationFormSaving.set(false);
       return;
     }
     this.validateQuotationBasePrice();
-    if (this.quotationBasePriceError) {
+    if (this.quotationBasePriceError()) {
       this.quotationFormErrorField = 'basePrice';
-      this.quotationFormError = this.quotationBasePriceError;
-      this.showError(this.quotationBasePriceError);
+      this.quotationFormError.set(this.quotationBasePriceError());
+      this.showError(this.quotationBasePriceError());
       this.scrollToTopAndHighlight('basePrice');
       this.quotationFormSaving.set(false);
       return;
@@ -4938,7 +4972,7 @@ export class Manage implements OnInit {
       OfferingType: this.quotationOfferingType || '24/7',
       StartDateTime: startDT,
       EndDateTime: endDT,
-      ValidUntil: new Date(this.quotationValidUntil).toISOString().split('T')[0],
+      ValidUntil: localDateIso(new Date(this.quotationValidUntil)),
       SubtotalAmount: this.quotationSubtotal,
       DiscountPercentage: this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || 0) : 0,
       DiscountType: this.quotationDiscountType,
@@ -4958,8 +4992,6 @@ export class Manage implements OnInit {
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
 
-    console.log('[QUOTATION] Sending payload (isNewVersion=' + this.isCreatingNewVersion + '):', JSON.stringify(payload));
-
     const obs = (this.isCreatingNewVersion && this.parentQuotationId)
       ? this.quotationSvc.createQuotationVersion(this.parentQuotationId, payload)
       : this.quotationSvc.createQuotation(payload);
@@ -4967,9 +4999,9 @@ export class Manage implements OnInit {
     obs.subscribe({
       next: (res: any) => {
         this.quotationFormSaving.set(false);
-        this.showQuotationForm = false; // Close quotation form modal on save & quoted
-        this.quotationSuccessMessage = this.isCreatingNewVersion ? "Version saved successfully!" : "Quotation saved successfully!";
-        this.showSuccess(this.quotationSuccessMessage);
+        this.showQuotationForm.set(false); // Close quotation form modal on save & quoted
+        this.quotationSuccessMessage.set(this.isCreatingNewVersion ? "Version saved successfully!" : "Quotation saved successfully!");
+        this.showSuccess(this.quotationSuccessMessage());
         this.load();
 
         const createdQ = res?.data ?? res;
@@ -4983,7 +5015,7 @@ export class Manage implements OnInit {
       error: (err: any) => {
         this.quotationFormSaving.set(false);
         const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to generate quotation.';
-        this.quotationFormError = msg;
+        this.quotationFormError.set(msg);
         this.quotationFormErrorField = 'space';
         this.showError(msg);
         this.scrollToTopAndHighlight('space');
@@ -5029,7 +5061,9 @@ export class Manage implements OnInit {
             };
             this.customerSearchQuery = custName || custEmail || '';
           }
-        }
+          this.cdr.markForCheck(); // plain fields changed in a callback (zoneless)
+        },
+        error: this.apiError('Failed to load customers.')
       });
     } else if (custName || custEmail) {
       this.selectedCustomer = {
@@ -5045,7 +5079,7 @@ export class Manage implements OnInit {
 
     // 3. Prefill Space & Location Details (fully editable)
     const prefillSpaceInfo = () => {
-      const space = this.allSpaces.find((s: any) => String(s.id) === String(sourceVersion.spaceId) || String(s.idGuid) === String(sourceVersion.spaceId));
+      const space = this.allSpaces().find((s: any) => String(s.id) === String(sourceVersion.spaceId) || String(s.idGuid) === String(sourceVersion.spaceId));
       if (space) {
         this.selectedQuotationLocationId = space.locationId || space.location?.id || sourceVersion.locationId || '';
         this.onQuotationLocationChange();
@@ -5086,12 +5120,13 @@ export class Manage implements OnInit {
       this.recalcQuotationAmount();
     };
 
-    if (!this.allSpaces.length) {
+    if (!this.allSpaces().length) {
       this.admin.getSpaces(1, 1000, '').subscribe({
         next: (res: any) => {
-          this.allSpaces = res?.data ?? [];
+          this.allSpaces.set(res?.data ?? []);
           prefillSpaceInfo();
-        }
+        },
+        error: this.apiError('Failed to load spaces.')
       });
     } else {
       prefillSpaceInfo();
@@ -5108,7 +5143,7 @@ export class Manage implements OnInit {
     const srcOt = sourceVersion.offeringTypeDescription || sourceVersion.OfferingTypeDescription || sourceVersion.offeringType || sourceVersion.OfferingType || sourceVersion.operatingHours;
     const srcOtId = sourceVersion.offeringTypeId || sourceVersion.OfferingTypeId;
     this.quotationOfferingType = this.resolveOfferingTypeDescription(srcOt, srcOtId);
-    const matched = this.offeringTypes.find(o => o.description === this.quotationOfferingType);
+    const matched = this.offeringTypes().find(o => o.description === this.quotationOfferingType);
     this.quotationOfferingTypeId = matched?.id || Number(srcOtId || 1);
     this.loadOfferingTypes();
 
@@ -5131,9 +5166,9 @@ export class Manage implements OnInit {
 
     this.quotationSvc.sendQuotationVersion(qId, vId).subscribe({
       next: () => {
-        this.success = `Quotation Version ${vId} sent to customer. Status updated to Sent.`;
-        this.showSuccess(this.success);
-        setTimeout(() => this.success = '', 4000);
+        this.success.set(`Quotation Version ${vId} sent to customer. Status updated to Sent.`);
+        this.showSuccess(this.success());
+        setTimeout(() => this.success.set(''), 4000);
         this.load();
       },
       error: (err: any) => {
@@ -5145,7 +5180,7 @@ export class Manage implements OnInit {
   previewQuotation(item: any) {
     this.selectedQuotation.set(null);
     this.quotationVersions.set([]);
-    this.showQuotationPreviewModal = true;
+    this.showQuotationPreviewModal.set(true);
     this.quotationEmailSent.set('');
 
     const id = item.id || item.quotationId || item.Id;
@@ -5177,7 +5212,7 @@ export class Manage implements OnInit {
   }
 
   closeQuotationPreviewModal() {
-    this.showQuotationPreviewModal = false;
+    this.showQuotationPreviewModal.set(false);
     this.selectedQuotation.set(null);
     this.quotationVersions.set([]);
   }
@@ -5291,7 +5326,7 @@ export class Manage implements OnInit {
 
 
   // Booking Details Modal
-  showBookingDetailsModal = false;
+  readonly showBookingDetailsModal = signal(false);
   selectedBookingDetails = signal<any>(null);
   bookingBillingSummaryData = signal<any>(null);
 
@@ -5300,7 +5335,7 @@ export class Manage implements OnInit {
     if (!item) return;
     this.selectedBookingDetails.set(null);
     this.bookingBillingSummaryData.set(null);
-    this.showBookingDetailsModal = true;
+    this.showBookingDetailsModal.set(true);
 
     // 1. Resolve actual Booking ID
     let realBookingId = item.bookingId || item.BookingId || item.booking?.id || item.Booking?.Id;
@@ -5476,7 +5511,7 @@ export class Manage implements OnInit {
           };
 
           this.challanData.set(challan);
-          this.showChallanModal = true;
+          this.showChallanModal.set(true);
         },
         error: () => {
           this.showError('Failed to load challan details.');
@@ -5489,7 +5524,7 @@ export class Manage implements OnInit {
   sendingInitialInvoiceId = signal<number | null>(null);
   sentInitialInvoices = new Set<number>();
 
-  showCreateCustomInvoiceModal = false;
+  readonly showCreateCustomInvoiceModal = signal(false);
   customInvoiceSelectedMonths = 3;
   customInvoiceMonthlyRate = 0;
   customInvoiceCurrentItem: any = null;
@@ -5513,8 +5548,8 @@ export class Manage implements OnInit {
   customInvoiceFormData = {
     bookingId: 0,
     userId: 0,
-    issuedOn: new Date().toISOString().substring(0, 10),
-    dueOn: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+    issuedOn: localDateIso(),
+    dueOn: localDateIso(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
     currencyCode: 'PKR',
     notes: ''
   };
@@ -5523,7 +5558,7 @@ export class Manage implements OnInit {
   ];
 
   // Initial Invoice Preview Modal State
-  showInitialInvoicePreviewModal = false;
+  readonly showInitialInvoicePreviewModal = signal(false);
   selectedInitialInvoiceItem = signal<any>(null);
   initialInvoiceRecipientEmail = signal<string>('');
 
@@ -5541,7 +5576,7 @@ export class Manage implements OnInit {
     this.loadInitialInvoicePreview(Number(bookingId), item.issuedOn ?? null);
     const targetEmail = item.customerEmail || item.userEmail || item.email || '';
     this.initialInvoiceRecipientEmail.set(targetEmail);
-    this.showInitialInvoicePreviewModal = true;
+    this.showInitialInvoicePreviewModal.set(true);
   }
 
   /** Server-calculated first invoice (see previewInitialInvoice); null while loading or if unavailable. */
@@ -5567,6 +5602,8 @@ export class Manage implements OnInit {
   }
 
   confirmSendInitialInvoice() {
+    // Double-click guard: a send is already in flight.
+    if (this.sendingInitialInvoiceId() !== null) return;
     const item = this.selectedInitialInvoiceItem();
     if (!item || !this.initialInvoicePreview()) return;
     const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
@@ -5578,7 +5615,7 @@ export class Manage implements OnInit {
       next: (res: any) => {
         this.sendingInitialInvoiceId.set(null);
         this.initialInvoiceIssuedOn.set(null);
-        this.showInitialInvoicePreviewModal = false;
+        this.showInitialInvoicePreviewModal.set(false);
         if (item) item.initialInvoiceSent = true;
         this.sentInitialInvoices.add(bookingId);
         this.showSuccess(res?.message || 'Initial payment invoice generated and emailed successfully to customer!');
@@ -5759,8 +5796,8 @@ export class Manage implements OnInit {
     this.customInvoiceFormData = {
       bookingId: bookingId || 0,
       userId: targetUserId,
-      issuedOn: issueDateStr ? new Date(issueDateStr).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10),
-      dueOn: dueDateStr ? new Date(dueDateStr).toISOString().substring(0, 10) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+      issuedOn: issueDateStr ? localDateIso(new Date(issueDateStr)) : localDateIso(),
+      dueOn: dueDateStr ? localDateIso(new Date(dueDateStr)) : localDateIso(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
       currencyCode: item?.currencyCode || item?.CurrencyCode || "PKR",
       notes: item?.notes || item?.Notes || (item ? `Invoice for ${item.spaceName || item.SpaceName || item.invoiceNumber || item.InvoiceNumber || ("Booking #" + (item.id || item.Id))}` : "")
     };
@@ -5785,6 +5822,7 @@ export class Manage implements OnInit {
         isNextInvoice,
         this.customInvoiceSelectedMonths
       );
+      this.cdr.markForCheck(); // runs from subscribe callbacks; these are plain fields (zoneless)
     };
 
     if (invoiceId > 0) {
@@ -5797,7 +5835,7 @@ export class Manage implements OnInit {
             this.customInvoiceFormData.bookingId = realBookingId;
             this.admin.getBookingBillingSummary(realBookingId).subscribe({
               next: (bRes: any) => updateModalData(bRes?.data || bRes),
-              error: () => { }
+              error: this.apiError('Failed to load booking billing summary.')
             });
           }
         },
@@ -5805,7 +5843,7 @@ export class Manage implements OnInit {
           if (bookingId > 0) {
             this.admin.getBookingBillingSummary(bookingId).subscribe({
               next: (bRes: any) => updateModalData(bRes?.data || bRes),
-              error: () => { }
+              error: this.apiError('Failed to load booking billing summary.')
             });
           }
         }
@@ -5813,7 +5851,7 @@ export class Manage implements OnInit {
     } else if (bookingId > 0) {
       this.admin.getBookingBillingSummary(bookingId).subscribe({
         next: (bRes: any) => updateModalData(bRes?.data || bRes),
-        error: () => { }
+        error: this.apiError('Failed to load booking billing summary.')
       });
     }
 
@@ -5831,19 +5869,20 @@ export class Manage implements OnInit {
         } else if (users.length > 0 && !this.customInvoiceFormData.userId) {
           this.customInvoiceFormData.userId = users[0].id || users[0].Id;
         }
-      }
+      },
+      error: this.apiError('Failed to load users.')
     });
-    this.showCreateCustomInvoiceModal = true;
+    this.showCreateCustomInvoiceModal.set(true);
   }
 
   closeCreateCustomInvoiceModal() {
     this.requestDiscardableClose(this.isCustomInvoiceFormDirty(), () => {
-      this.showCreateCustomInvoiceModal = false;
+      this.showCreateCustomInvoiceModal.set(false);
       this.customInvoiceFormData = {
         bookingId: 0,
         userId: 0,
-        issuedOn: new Date().toISOString().substring(0, 10),
-        dueOn: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+        issuedOn: localDateIso(),
+        dueOn: localDateIso(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
         currencyCode: 'PKR',
         notes: ''
       };
@@ -5852,7 +5891,7 @@ export class Manage implements OnInit {
   }
 
   closeQuickUploadModal() {
-    this.showQuickUploadModal = false;
+    this.showQuickUploadModal.set(false);
     this.quickUploadAgreementId = null;
   }
 
@@ -5931,7 +5970,7 @@ export class Manage implements OnInit {
     this.admin.createCustomInvoice(payload).subscribe({
       next: (res: any) => {
         this.submittingCustomInvoice.set(false);
-        this.showCreateCustomInvoiceModal = false;
+        this.showCreateCustomInvoiceModal.set(false);
         if (payload.bookingId > 0) {
           this.sentInitialInvoices.add(payload.bookingId);
         }
@@ -5973,7 +6012,7 @@ export class Manage implements OnInit {
         a.href = url;
         a.download = `Statement-Invoice-${invoice.invoiceNumber || invoice.InvoiceNumber || invoiceId}.pdf`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: (err) => console.error('Error downloading statement PDF:', err)
     });
@@ -5984,19 +6023,19 @@ export class Manage implements OnInit {
     const invId = invoice.id ?? invoice.Id ?? invoice.invoiceId ?? invoice.InvoiceId;
     if (!invId) {
       this.selectedInvoiceDetails.set(invoice);
-      this.showInvoiceDetailsModal = true;
+      this.showInvoiceDetailsModal.set(true);
       return;
     }
     this.admin.getInvoiceDetails(invId).subscribe({
       next: (res: any) => {
         const data = res?.data ?? res;
         this.selectedInvoiceDetails.set({ ...invoice, ...data });
-        this.showInvoiceDetailsModal = true;
+        this.showInvoiceDetailsModal.set(true);
       },
       error: () => {
         // Fallback display for client UI
         this.selectedInvoiceDetails.set(invoice);
-        this.showInvoiceDetailsModal = true;
+        this.showInvoiceDetailsModal.set(true);
       }
     });
   }
@@ -6010,7 +6049,7 @@ export class Manage implements OnInit {
       transactionRef: '',
       notes: ''
     };
-    this.showRecordPaymentModal = true;
+    this.showRecordPaymentModal.set(true);
   }
 
   submitRecordPayment() {
@@ -6022,11 +6061,11 @@ export class Manage implements OnInit {
     this.admin.recordInvoicePayment(this.recordPaymentFormData.invoiceId, this.recordPaymentFormData).subscribe({
       next: () => {
         this.recordPaymentSaving.set(false);
-        this.showRecordPaymentModal = false;
-        this.showInvoiceDetailsModal = false;
-        this.success = 'Payment recorded successfully! Associated periods marked as Prepaid.';
-        this.showSuccess(this.success);
-        setTimeout(() => this.success = '', 4000);
+        this.showRecordPaymentModal.set(false);
+        this.showInvoiceDetailsModal.set(false);
+        this.success.set('Payment recorded successfully! Associated periods marked as Prepaid.');
+        this.showSuccess(this.success());
+        setTimeout(() => this.success.set(''), 4000);
         this.load();
       },
       error: (err: any) => {
@@ -6108,7 +6147,7 @@ export class Manage implements OnInit {
   }
 
   onPriceValueOrUnitChange() {
-    this.priceError = '';
+    this.priceError.set('');
     const val = this.formData['priceValue'] !== null && this.formData['priceValue'] !== undefined && this.formData['priceValue'] !== ''
       ? Number(this.formData['priceValue'])
       : null;
@@ -6134,25 +6173,25 @@ export class Manage implements OnInit {
   }
 
   override_save_spaces(d: any): boolean {
-    this.priceError = '';
+    this.priceError.set('');
     const val = d.priceValue !== null && d.priceValue !== undefined && d.priceValue !== '' ? Number(d.priceValue) : null;
     const unit = (d.priceUnit || 'month').toString().trim().toLowerCase();
 
     if (val === null || isNaN(val)) {
-      this.error = 'Price is required.';
-      this.priceError = 'Price is required.';
-      this.saving = false;
+      this.error.set('Price is required.');
+      this.priceError.set('Price is required.');
+      this.saving.set(false);
       return false;
     }
     if (val <= 0) {
-      this.error = 'Price must be greater than 0.';
-      this.priceError = 'Price must be greater than 0.';
-      this.saving = false;
+      this.error.set('Price must be greater than 0.');
+      this.priceError.set('Price must be greater than 0.');
+      this.saving.set(false);
       return false;
     }
     if (!['month', 'day', 'hour'].includes(unit)) {
-      this.error = 'Price Type is required and must be Per Month, Per Day, or Per Hour.';
-      this.saving = false;
+      this.error.set('Price Type is required and must be Per Month, Per Day, or Per Hour.');
+      this.saving.set(false);
       return false;
     }
 
@@ -6607,17 +6646,17 @@ export class Manage implements OnInit {
     return this.getQuotationInitialPayable(q);
   }
 
-  showConversionPreviewModal = false;
+  readonly showConversionPreviewModal = signal(false);
   selectedConversionQuotation = signal<any>(null);
   conversionSubmitting = signal(false);
 
   openConversionPreviewModal(q: any) {
     this.selectedConversionQuotation.set(q);
-    this.showConversionPreviewModal = true;
+    this.showConversionPreviewModal.set(true);
   }
 
   closeConversionPreviewModal() {
-    this.showConversionPreviewModal = false;
+    this.showConversionPreviewModal.set(false);
     this.selectedConversionQuotation.set(null);
   }
 
@@ -6629,8 +6668,8 @@ export class Manage implements OnInit {
       next: (res: any) => {
         this.conversionSubmitting.set(false);
         this.closeConversionPreviewModal();
-        this.success = 'Quotation successfully converted to booking!';
-        setTimeout(() => this.success = '', 4000);
+        this.success.set('Quotation successfully converted to booking!');
+        setTimeout(() => this.success.set(''), 4000);
 
         const bookingData = res?.data ?? res ?? {};
         const bId = bookingData.bookingId || bookingData.BookingId || bookingData.id || bookingData.Id;
@@ -6647,7 +6686,7 @@ export class Manage implements OnInit {
         // Navigate cleanly to Bookings page and reload bookings list
         this.router.navigate(['/admin/bookings']).then(() => {
           this.entity = 'bookings';
-          this.config = this.buildConfig('bookings');
+          this.config.set(this.buildConfig('bookings'));
           this.page.set(1);
           this.searchQuery = '';
           this.load(() => {
@@ -6689,9 +6728,9 @@ export class Manage implements OnInit {
     return this.getSpaceType(item) === 'PrivateRoom';
   }
 
-  showSendAgreementModal = false;
+  readonly showSendAgreementModal = signal(false);
   sendAgreementTab: 'Individual' | 'Company' = 'Individual';
-  sendAgreementError = '';
+  readonly sendAgreementError = signal('');
   sendAgreementSaving = signal(false);
   sendAgreementData: any = {
     customerFullName: '',
@@ -6713,7 +6752,7 @@ export class Manage implements OnInit {
 
   openSendAgreement(item?: any) {
     this.selectedAgreementItem = item || null;
-    this.sendAgreementError = '';
+    this.sendAgreementError.set('');
     this.loadOfferingTypes();
 
     const compName = item?.companyName || item?.company || item?.organizationName || item?.CompanyName || item?.OrganizationName || '';
@@ -6723,7 +6762,7 @@ export class Manage implements OnInit {
     const startStr = this.today;
     const end = new Date(now);
     end.setFullYear(end.getFullYear() + 1);
-    const endStr = end.toISOString().split('T')[0];
+    const endStr = localDateIso(end);
 
     const rawCustName = item?.customerFullName || item?.customerName || item?.CustomerName || item?.fullName || item?.FullName || item?.userName || item?.UserName || item?.name || item?.Name || '';
     const customerName = this.sanitizeCustomerFullName(rawCustName);
@@ -6739,12 +6778,12 @@ export class Manage implements OnInit {
     const rawStart = item?.startDate || item?.startDateTime || item?.contractStartDate || item?.StartDate || item?.StartDateTime || item?.ContractStartDate;
     if (rawStart) {
       const d = new Date(rawStart);
-      if (!isNaN(d.getTime())) startVal = d.toISOString().split('T')[0];
+      if (!isNaN(d.getTime())) startVal = localDateIso(d);
     }
     const rawEnd = item?.endDate || item?.endDateTime || item?.contractEndDate || item?.EndDate || item?.EndDateTime || item?.ContractEndDate;
     if (rawEnd) {
       const d = new Date(rawEnd);
-      if (!isNaN(d.getTime())) endVal = d.toISOString().split('T')[0];
+      if (!isNaN(d.getTime())) endVal = localDateIso(d);
     }
 
     const bpm = Number(item?.billingPeriodMonths ?? item?.BillingPeriodMonths ?? (item?.billingPeriod === 'Bi-Monthly' ? 2 : (item?.billingPeriod === 'Quarterly' ? 3 : (item?.billingPeriod === 'Bi-Annual' ? 6 : (item?.billingPeriod === 'Annual' ? 12 : 1)))));
@@ -6831,6 +6870,8 @@ export class Manage implements OnInit {
       if (!this.sendAgreementData.overrideEmail && (c.email || c.userEmail || c.Email || c.UserEmail)) {
         this.sendAgreementData.overrideEmail = c.email || c.userEmail || c.Email || c.UserEmail;
       }
+      // Called from subscribe callbacks; sendAgreementData is a plain object (zoneless needs a nudge).
+      this.cdr.markForCheck();
     };
 
     const custId = item?.customerId || item?.CustomerId || item?.userId || item?.UserId;
@@ -6839,7 +6880,8 @@ export class Manage implements OnInit {
         next: (cRes: any) => {
           const c = cRes?.data ?? cRes;
           applyCustomerData(c);
-        }
+        },
+        error: this.apiError('Failed to load customer details.')
       });
     }
 
@@ -6904,11 +6946,11 @@ export class Manage implements OnInit {
 
             if (q.startDateTime || q.startDate || q.StartDateTime || q.StartDate) {
               const d = new Date(q.startDateTime || q.startDate || q.StartDateTime || q.StartDate);
-              if (!isNaN(d.getTime())) this.sendAgreementData.contractStartDate = d.toISOString().split('T')[0];
+              if (!isNaN(d.getTime())) this.sendAgreementData.contractStartDate = localDateIso(d);
             }
             if (q.endDateTime || q.endDate || q.EndDateTime || q.EndDate) {
               const d = new Date(q.endDateTime || q.endDate || q.EndDateTime || q.EndDate);
-              if (!isNaN(d.getTime())) this.sendAgreementData.contractEndDate = d.toISOString().split('T')[0];
+              if (!isNaN(d.getTime())) this.sendAgreementData.contractEndDate = localDateIso(d);
             }
             const qOpHours = q.offeringTypeDescription || q.OfferingTypeDescription || q.offeringType || q.OfferingType || q.offeringTypeName || q.OfferingTypeName || q.quotationOfferingType || q.operatingHours || q.OperatingHours;
             const qOtId = q.offeringTypeId || q.OfferingTypeId;
@@ -6922,7 +6964,8 @@ export class Manage implements OnInit {
                 next: (qcRes: any) => {
                   const qc = qcRes?.data ?? qcRes;
                   applyCustomerData(qc);
-                }
+                },
+                error: this.apiError('Failed to load customer details.')
               });
             }
           }
@@ -6936,10 +6979,13 @@ export class Manage implements OnInit {
                 if (match) {
                   applyCustomerData(match);
                 }
-              }
+              },
+              error: this.apiError('Failed to search customers.')
             });
           }
-        }
+          this.cdr.markForCheck();
+        },
+        error: this.apiError('Failed to load quotation details.')
       });
     } else {
       const emailToSearch = this.sendAgreementData.overrideEmail || customerEmail;
@@ -6951,24 +6997,25 @@ export class Manage implements OnInit {
             if (match) {
               applyCustomerData(match);
             }
-          }
+          },
+          error: this.apiError('Failed to search customers.')
         });
       }
     }
 
-    this.showSendAgreementModal = true;
+    this.showSendAgreementModal.set(true);
   }
 
   closeSendAgreementModal() {
     this.requestDiscardableClose(this.isSendAgreementFormDirty(), () => {
-      this.showSendAgreementModal = false;
+      this.showSendAgreementModal.set(false);
       this.selectedAgreementItem = null;
     });
   }
 
   submitSendAgreement() {
     this.sendAgreementSaving.set(true);
-    this.sendAgreementError = '';
+    this.sendAgreementError.set('');
     const qId = Number(this.selectedAgreementItem?.quotationId || this.selectedAgreementItem?.id || this.sendAgreementData.quotationId || 0);
     const payload: any = {
       QuotationId: qId,
@@ -7010,14 +7057,14 @@ export class Manage implements OnInit {
     obs.subscribe({
       next: () => {
         this.sendAgreementSaving.set(false);
-        this.showSendAgreementModal = false;
+        this.showSendAgreementModal.set(false);
         this.showSuccess('Agreement generated and sent to customer successfully!');
         this.load();
       },
       error: (err: any) => {
         this.sendAgreementSaving.set(false);
-        this.sendAgreementError = err?.error?.message || err?.message || 'Failed to send agreement.';
-        this.showError(this.sendAgreementError);
+        this.sendAgreementError.set(err?.error?.message || err?.message || 'Failed to send agreement.');
+        this.showError(this.sendAgreementError());
       }
     });
   }
@@ -7032,7 +7079,7 @@ export class Manage implements OnInit {
         a.href = url;
         a.download = `Agreement-${agreementId}.pdf`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: () => this.showError('Failed to download agreement PDF.')
     });
@@ -7142,13 +7189,13 @@ export class Manage implements OnInit {
     });
   }
 
-  showAgreementDetailsModal = false;
+  readonly showAgreementDetailsModal = signal(false);
   selectedAgreementDetails = signal<any>(null);
   uploadingSignedAgreementId = signal<number | null>(null);
 
   openAgreementDetailsModal(item: any) {
     this.selectedAgreementDetails.set(item);
-    this.showAgreementDetailsModal = true;
+    this.showAgreementDetailsModal.set(true);
   }
 
   onSignedAgreementFileSelected(agreementId: any, event: any) {
@@ -7208,7 +7255,7 @@ export class Manage implements OnInit {
         a.download = `signed-lease-${id}.pdf`;
         a.target = '_blank';
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
       },
       error: (err: any) => {
         const errMsg = err?.error?.message || 'Failed to download signed agreement PDF.';
@@ -7253,12 +7300,12 @@ export class Manage implements OnInit {
     });
   }
 
-  showQuickUploadModal = false;
+  readonly showQuickUploadModal = signal(false);
   quickUploadAgreementId: number | null = null;
 
   openQuickUploadModal(item?: any) {
     this.quickUploadAgreementId = item ? (item.id || item.agreementId) : (this.filtered.length > 0 ? (this.filtered[0].id || this.filtered[0].agreementId) : null);
-    this.showQuickUploadModal = true;
+    this.showQuickUploadModal.set(true);
   }
 
 }

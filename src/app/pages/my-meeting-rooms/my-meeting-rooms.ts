@@ -5,6 +5,7 @@ import { BookingService } from '../../services/booking.service';
 import { SpaceService } from '../../services/space.service';
 import { AuthService } from '../../services/auth.service';
 import { AdminService } from '../../services/admin.service';
+import { localDateIso } from '../../utils/dates';
 
 
 @Component({
@@ -43,7 +44,7 @@ export class MyMeetingRooms implements OnInit {
   availableSlots = signal<{ label: string; start: string; end: string; isLocked?: boolean }[]>([]);
   lockedSlots = signal<Set<string>>(new Set());
 
-  readonly todayStr = new Date().toISOString().split('T')[0];
+  readonly todayStr = localDateIso();
 
   constructor(
     private fb: FormBuilder,
@@ -111,7 +112,8 @@ export class MyMeetingRooms implements OnInit {
           return typeName.includes('meeting') || typeName.includes('conference');
         });
         this.meetingRooms.set(filtered);
-      }
+      },
+      error: (e: any) => this.errorMessage.set(e?.error?.message || 'Failed to load meeting rooms.')
     });
   }
 
