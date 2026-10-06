@@ -44,6 +44,12 @@ export const routes: Routes = [
       { path: 'access-dashboard', loadComponent: () => import('./pages/admin/access/access-dashboard/access-dashboard').then(m => m.AccessDashboard), canActivate: [adminGuard] },
       { path: 'access-activity-log', loadComponent: () => import('./pages/admin/access/access-activity-log/access-activity-log').then(m => m.AccessActivityLog), canActivate: [adminGuard] },
       { path: 'access-analytics', loadComponent: () => import('./pages/admin/access/access-analytics/access-analytics').then(m => m.AccessAnalytics), canActivate: [adminGuard] },
+      { path: 'network', loadComponent: () => import('./pages/admin/network/network-overview/network-overview').then(m => m.NetworkOverview), canActivate: [adminGuard] },
+      { path: 'network/clients', loadComponent: () => import('./pages/admin/network/network-clients/network-clients').then(m => m.NetworkClients), canActivate: [adminGuard] },
+      { path: 'network/devices', loadComponent: () => import('./pages/admin/network/network-devices/network-devices').then(m => m.NetworkDevices), canActivate: [adminGuard] },
+      { path: 'network/device/:mac', loadComponent: () => import('./pages/admin/network/network-device/network-device').then(m => m.NetworkDevice), canActivate: [adminGuard] },
+      { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
+      { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
             { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]

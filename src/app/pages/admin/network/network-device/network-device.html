@@ -1,0 +1,285 @@
+<div class="net-page" #page>
+  <a class="crumb no-print" routerLink="/admin/network/devices"><net-icon name="back" [size]="16" />All devices</a>
+
+  <div class="dash-header">
+    @if (data(); as d) {
+      <div class="hero">
+        <div class="hero-icon"><net-icon [name]="typeIcon(d.device.type)" [size]="26" /></div>
+        <div>
+          <h1>{{ d.device.name }} <span class="badge" [class.badge-ok]="d.device.status === 'online'" [class.badge-muted]="d.device.status === 'not installed'" [class.badge-bad]="d.device.status !== 'online' && d.device.status !== 'not installed'">{{ d.device.status }}</span></h1>
+          <p class="dash-meta">
+            <span>{{ d.device.model }} · {{ d.device.type }}</span><span class="dot-sep"></span>
+            <span class="mono">{{ d.device.ip || '–' }}</span><span class="dot-sep"></span>
+            <span class="mono">{{ d.device.macDisplay }}</span><span class="dot-sep"></span>
+            <span>Firmware {{ d.device.version || '–' }}@if (d.device.upgradeTo) { <span class="tag">Update {{ d.device.upgradeTo }}</span> }</span>
+          </p>
+        </div>
+      </div>
+    } @else if (loading()) {
+      <div class="hero"><div class="sk" style="width:52px;height:52px;border-radius:14px"></div><div style="flex:1"><div class="sk" style="height:24px;width:240px"></div><div class="sk sk-line" style="width:360px"></div></div></div>
+    } @else {
+      <div><h1>Device</h1><p class="dash-meta">{{ mac() ? 'This device could not be loaded.' : 'No device selected. Go back and pick a device.' }}</p></div>
+    }
+    <div class="dash-header-actions no-print">
+      <span class="updated">{{ updatedText() }}</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing() || !mac()" title="Refresh" aria-label="Refresh device"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (data(); as d) {
+    <section class="kpi-grid">
+      @if (tiles(); as t) {
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Clients</span>
+          <span class="kpi-value">{{ fmt(d.device.clients) }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">{{ t.wifiClients }} Wi-Fi · {{ t.wiredClients }} wired</span></div>
+          <net-sparkline [points]="t.clientSpark" [format]="clientFmt" />
+        </div>
+        <div class="kpi-card" [class.tone-ok]="(d.device.cpu ?? 0) < 75" [class.tone-warn]="(d.device.cpu ?? 0) >= 75 && (d.device.cpu ?? 0) < 90" [class.tone-danger]="(d.device.cpu ?? 0) >= 90">
+          <span class="kpi-label">CPU</span>
+          <span class="kpi-value">@if (d.device.cpu != null) { {{ fmt(d.device.cpu, 1) }}<small>%</small> } @else { – }</span>
+          @if (d.device.cpu != null) { <div class="gauge" [class]="gaugeClass(d.device.cpu)"><span [style.width.%]="d.device.cpu"></span></div> }
+          <net-sparkline [points]="t.cpuSpark" [format]="cpuFmt" />
+        </div>
+        <div class="kpi-card" [class.tone-ok]="(d.device.mem ?? 0) < 75" [class.tone-warn]="(d.device.mem ?? 0) >= 75 && (d.device.mem ?? 0) < 90" [class.tone-danger]="(d.device.mem ?? 0) >= 90">
+          <span class="kpi-label">Memory</span>
+          <span class="kpi-value">@if (d.device.mem != null) { {{ fmt(d.device.mem, 1) }}<small>%</small> } @else { – }</span>
+          @if (d.device.mem != null) { <div class="gauge" [class]="gaugeClass(d.device.mem)"><span [style.width.%]="d.device.mem"></span></div> }
+          <net-sparkline [points]="t.memSpark" color="#6366f1" [format]="memFmt" />
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Temperature</span>
+          <span class="kpi-value">@if (t.maxTemp != null) { {{ fmt(t.maxTemp) }}<small>°C</small> } @else { – }</span>
+          <div class="kpi-foot"><span class="kpi-sub" [title]="t.temps">{{ t.temps }}</span></div>
+        </div>
+        <div class="kpi-card" [class.tone-ok]="d.device.status === 'online'" [class.tone-danger]="d.device.status !== 'online'">
+          <span class="kpi-label">Uptime</span>
+          <span class="kpi-value">{{ d.device.status === 'online' ? dur(d.device.uptime) : '–' }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">{{ d.device.lastSeen ? 'Last seen ' + ago(d.device.lastSeen) : '' }}</span></div>
+        </div>
+        @switch (t.last) {
+          @case ('traffic') {
+            <div class="kpi-card tone-neutral">
+              <span class="kpi-label">Traffic now</span>
+              <span class="kpi-value">{{ rate((d.device.txRate || 0) + (d.device.rxRate || 0)) }}</span>
+              <div class="kpi-foot"><span class="kpi-sub">Down <b>{{ rate(d.device.txRate) }}</b> · Up <b>{{ rate(d.device.rxRate) }}</b></span></div>
+            </div>
+          }
+          @case ('ports') {
+            <div class="kpi-card tone-neutral">
+              <span class="kpi-label">Ports connected</span>
+              <span class="kpi-value">{{ t.portsUp }}<small>/ {{ d.device.ports.length }}</small></span>
+              <div class="kpi-foot"><span class="kpi-sub">@if (t.poe) { PoE draw <b>{{ fmt(t.poe, 1) }} W</b> } @else { No PoE in use }</span></div>
+            </div>
+          }
+          @default {
+            <div class="kpi-card" [class.tone-ok]="(d.device.satisfaction ?? 100) >= 80" [class.tone-warn]="(d.device.satisfaction ?? 100) < 80">
+              <span class="kpi-label">Wi-Fi experience</span>
+              <span class="kpi-value">@if (d.device.satisfaction != null) { {{ fmt(d.device.satisfaction) }}<small>%</small> } @else { – }</span>
+              @if (d.device.satisfaction != null) { <div class="gauge" [class]="gaugeClass(d.device.satisfaction, true)"><span [style.width.%]="d.device.satisfaction"></span></div> } @else { <div class="kpi-foot"><span class="kpi-sub">Not reported</span></div> }
+            </div>
+          }
+        }
+      }
+    </section>
+  } @else if (loading()) {
+    <section class="kpi-grid">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    </section>
+  }
+
+  <div [hidden]="!data()">
+    <div class="section-head">
+      <h3 class="section-title">Availability &amp; performance</h3>
+      <div class="seg no-print" role="group" aria-label="Time range">
+        <button [class.active]="range() === 24" (click)="setRange(24)">24H</button>
+        <button [class.active]="range() === 168" (click)="setRange(168)">7D</button>
+      </div>
+    </div>
+
+    <section class="dash-panel">
+      <div class="panel-head">
+        <div><h3>Online / offline history</h3>
+          <p class="panel-sub">Last {{ range() > 24 ? '7 days' : '24 hours' }}{{ availability()?.online ? '' : ' · currently offline' }} · hover the bar for exact times</p></div>
+        @if (availability(); as a) {
+          <div class="head-stats">
+            <div><span>Availability</span><strong [class.good]="a.st.availability >= 99.9" [class.bad]="a.st.availability < 99">{{ fmt(a.st.availability, a.st.availability === 100 ? 0 : 2) }}%</strong></div>
+            <div><span>Outages</span><strong>{{ fmt(a.st.outages) }}</strong></div>
+            <div><span>Longest outage</span><strong>{{ a.st.longest ? dur(a.st.longest / 1000) : '–' }}</strong></div>
+          </div>
+        }
+      </div>
+      @if (availability(); as a) {
+        <net-timeline [segs]="a.segs" [from]="a.from" [to]="a.to" [rangeHours]="range()" [markers]="a.markers" />
+        @if (a.st.outages) {
+          <div class="muted small" style="margin-top:16px">Outages</div>
+          <net-sessions [segs]="a.segs" [rangeHours]="168" [onlyDrops]="true" [limit]="10" />
+        } @else {
+          <p class="muted small" style="margin-top:12px">
+            {{ a.online ? 'No outages in this period' + (a.restartText ? ' · restarted ' + a.restartText : '') + '.' : 'Offline — no connection events recorded in this period.' }}
+          </p>
+        }
+      }
+    </section>
+
+    <section class="ins-grid">
+      <article class="dash-panel span-12">
+        <div class="panel-head">
+          <div><h3>{{ trafficInfo().title }}</h3><p class="panel-sub">{{ historyError() ? 'History unavailable: ' + historyError() : 'Mbps · ' + (range() > 24 ? 'hourly averages' : '5-minute averages') }}</p></div>
+          <div class="panel-tools">
+            @if (trafficInfo().stats; as s) {
+              <div class="head-stats">
+                <div><span>Avg down</span><strong>{{ fmt(s.avgDown, 1) }} Mbps</strong></div>
+                <div><span>Peak down</span><strong>{{ fmt(s.peakDown, 1) }} Mbps</strong></div>
+                <div><span>Avg up</span><strong>{{ fmt(s.avgUp, 1) }} Mbps</strong></div>
+              </div>
+            }
+            <net-export [chart]="true" label="Traffic" (picked)="exportChart($event, 'traffic', cTraffic)" />
+          </div>
+        </div>
+        <div class="chart-box h-lg">
+          @if (!history()) { <div class="sk chart-sk"></div> }
+          @else if (trafficInfo().empty) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="activity" [size]="18" /></span><strong>No data yet</strong><span>{{ historyError() ? 'History is unavailable right now.' : 'No traffic history for this period.' }}</span></div> }
+          <canvas #cTraffic role="img" aria-label="Line chart of traffic over time"></canvas>
+        </div>
+      </article>
+      <article class="dash-panel span-4" [hidden]="!trafficInfo().hasClients">
+        <div class="panel-head">
+          <div><h3>Connected clients</h3><p class="panel-sub">Over time</p></div>
+          <net-export [chart]="true" label="Connected clients" (picked)="exportChart($event, 'clients over time', cClients)" />
+        </div>
+        <div class="chart-box"><canvas #cClients role="img" aria-label="Line chart of connected clients"></canvas></div>
+      </article>
+      <article class="dash-panel" [class.span-8]="trafficInfo().hasClients" [class.span-12]="!trafficInfo().hasClients" [hidden]="!trafficInfo().hasSys">
+        <div class="panel-head">
+          <div><h3>CPU &amp; memory</h3><p class="panel-sub">Percent used</p></div>
+          <net-export [chart]="true" label="CPU and memory" (picked)="exportChart($event, 'cpu and memory', cSys)" />
+        </div>
+        <div class="chart-box"><canvas #cSys role="img" aria-label="Line chart of CPU and memory use"></canvas></div>
+      </article>
+    </section>
+
+    @if (data(); as d) {
+      @if (d.device.radios.length) {
+        <section class="dash-panel">
+          <div class="panel-head">
+            <div><h3>Radios</h3><p class="panel-sub">Live Wi-Fi radio status</p></div>
+            <net-export [table]="true" label="Radios" (picked)="exportTable($event, 'radios', radiosTable)" />
+          </div>
+          <div class="table-container">
+            <table class="clean-table" #radiosTable>
+              <thead><tr><th>Band</th><th class="num">Channel</th><th class="num">Width</th><th class="num">TX power</th><th class="num">Clients</th><th>Channel utilisation</th><th class="num">Retries</th></tr></thead>
+              <tbody>
+                @for (r of d.device.radios; track $index) {
+                  <tr>
+                    <td class="dev-name">{{ r.band }}</td>
+                    <td class="num">{{ r.channel ?? '–' }}</td>
+                    <td class="num">{{ r.width ? r.width + ' MHz' : '–' }}</td>
+                    <td class="num">{{ r.txPower != null ? r.txPower + ' dBm' : '–' }}</td>
+                    <td class="num">{{ fmt(r.clients) }}</td>
+                    <td>@if (r.utilization == null) { – } @else { <div class="mini-bar"><div class="gauge" [class]="gaugeClass(r.utilization)"><span [style.width.%]="r.utilization"></span></div><span>{{ fmt(r.utilization) }}%</span></div> }</td>
+                    <td class="num">{{ r.retries == null ? '–' : fmt(r.retries, 1) + '%' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
+      @if (d.device.ports.length) {
+        <section class="dash-panel">
+          <div class="panel-head">
+            <div><h3>Ports</h3><p class="panel-sub">{{ portsNote() }}</p></div>
+            <net-export [table]="true" label="Ports" (picked)="exportTable($event, 'ports', portsTable)" />
+          </div>
+          <div class="table-container">
+            <table class="clean-table" #portsTable>
+              <thead><tr><th class="num">#</th><th>Port</th><th>Status</th><th class="num">Speed</th><th class="num">PoE</th><th class="num">Rate down / up</th><th class="num">Total</th><th class="num">Errors</th><th>Connected</th></tr></thead>
+              <tbody>
+                @for (row of ports(); track row.p.idx) {
+                  <tr>
+                    <td class="num muted">{{ row.p.idx }}</td>
+                    <td class="dev-name">{{ row.p.name }}@if (row.p.uplink) { <span class="tag accent">Uplink</span> }</td>
+                    <td>@if (!row.p.enabled) { <span class="badge badge-muted">Disabled</span> } @else if (row.p.up) { <span class="badge badge-ok">Up</span> } @else { <span class="badge badge-muted">Down</span> }</td>
+                    <td class="num">{{ portSpeed(row.p) }}</td>
+                    <td class="num">{{ row.p.poe != null ? fmt(row.p.poe, 1) + ' W' : '–' }}</td>
+                    <td class="num">{{ row.p.up ? rate(row.p.txRate) + ' / ' + rate(row.p.rxRate) : '–' }}</td>
+                    <td class="num">{{ bytes((row.p.txBytes || 0) + (row.p.rxBytes || 0)) }}</td>
+                    <td class="num">@if (row.p.errors) { <span class="crit">{{ fmt(row.p.errors) }}</span> } @else { 0 }</td>
+                    <td class="muted">{{ row.connected }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
+      <section class="ins-grid">
+        <article class="dash-panel span-8">
+          <div class="panel-head">
+            <div><h3>Connected clients</h3><p class="panel-sub">{{ d.clients.length }} connected right now · {{ tiles()?.wifiClients }} Wi-Fi · {{ tiles()?.wiredClients }} wired</p></div>
+            <div class="panel-tools">
+              <div class="seg" role="group" aria-label="Client type">
+                <button [class.active]="ctype() === ''" (click)="ctype.set('')">All</button>
+                <button [class.active]="ctype() === 'wifi'" (click)="ctype.set('wifi')">Wi-Fi</button>
+                <button [class.active]="ctype() === 'wired'" (click)="ctype.set('wired')">Wired</button>
+              </div>
+              <a class="link-btn no-print" routerLink="/admin/network/clients" [queryParams]="{ uplink: mac() }">Open in Clients</a>
+              <net-export [table]="true" label="Connected clients" (picked)="exportTable($event, 'clients', clientsTable)" />
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="clean-table" #clientsTable>
+              <thead><tr><th>Client</th><th>IP address</th><th>Signal</th><th class="num">Data used</th><th class="num">Connected for</th></tr></thead>
+              <tbody>
+                @for (c of clients(); track c.mac) {
+                  <tr>
+                    <td><div class="dev"><span class="dev-icon" [title]="c.kindLabel"><net-icon [name]="clientIcon(c.kind)" [size]="16" /></span>
+                      <div><div class="dev-name">{{ c.name }}</div><div class="muted small">{{ c.wired ? 'Wired' + (c.port != null ? ' · Port ' + c.port : '') : c.ssid + ' · ' + c.band }}</div></div></div></td>
+                    <td class="mono">{{ c.ip || '–' }}</td>
+                    <td>@if (c.wired) { <span class="muted">–</span> } @else { <net-signal [dbm]="c.signal" /> }</td>
+                    <td class="num">{{ bytes(c.dataBytes) }}</td>
+                    <td class="num">{{ dur(c.uptime) }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="5" class="empty-state">No {{ ctype() === 'wired' ? 'wired' : ctype() === 'wifi' ? 'Wi-Fi' : '' }} clients connected directly to this device.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="dash-panel span-4">
+          <div class="panel-head"><h3>Details</h3></div>
+          <dl class="facts">
+            <div><dt>Model</dt><dd>{{ d.device.model }}</dd></div>
+            <div><dt>Serial number</dt><dd class="mono">{{ d.device.serial || '–' }}</dd></div>
+            <div><dt>Uplink</dt><dd>
+              @if (d.device.uplink?.name) {
+                @if (d.device.uplink?.mac) { <a [routerLink]="['/admin/network/device', d.device.uplink?.mac]">{{ d.device.uplink?.name }}</a> } @else { {{ d.device.uplink?.name }} }
+                {{ d.device.uplink?.port != null ? ' · Port ' + d.device.uplink?.port : '' }}{{ d.device.uplink?.speed ? ' · ' + linkText(d.device.uplink?.speed) : '' }}
+              } @else { {{ d.device.uplink?.type === 'wire' ? 'Wired' : '–' }} }
+            </dd></div>
+            <div><dt>Wi-Fi experience</dt><dd>{{ d.device.satisfaction == null ? '–' : fmt(d.device.satisfaction) + '%' }}</dd></div>
+            <div><dt>Firmware</dt><dd>{{ d.device.version || '–' }}{{ d.device.upgradeTo ? ' (update ' + d.device.upgradeTo + ')' : ' (up to date)' }}</dd></div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="dash-panel">
+        <div class="panel-head"><div><h3>Logs</h3><p class="panel-sub">Events for this device · last 24h (alerts: 30 days)</p></div></div>
+        <ul class="logs">
+          @for (l of d.logs.slice(0, 100); track l.id) {
+            <li><time>{{ logWhen(l.t) }}</time><div class="log-title">{{ l.title }}@if (l.severity && l.severity !== 'low') { <span class="sev" [class]="l.severity">{{ l.severity }}</span> }</div><div class="log-msg">{{ l.message }}</div></li>
+          } @empty {
+            <li class="empty-state" style="display:block">No events for this device in this period.</li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+</div>

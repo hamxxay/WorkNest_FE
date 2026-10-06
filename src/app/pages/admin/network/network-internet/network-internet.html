@@ -1,0 +1,137 @@
+<div class="net-page" #page>
+  <div class="dash-header">
+    <div>
+      <h1>Internet</h1>
+      <p class="dash-meta"><span>ISP comparison, speed tests and failover history</span><span class="dot-sep"></span><span>Auto-refresh every 5 min</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !isp()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !isp()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh internet data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  <section class="kpi-grid four">
+    @if (tiles(); as t) {
+      <div class="kpi-card" [class.tone-ok]="t.up === t.total" [class.tone-danger]="t.up !== t.total">
+        <span class="kpi-label">Lines up</span>
+        <span class="kpi-value">{{ t.up }}<small>/ {{ t.total }}</small></span>
+        <div class="kpi-foot">
+          @if (t.up === t.total) { <span class="trend good">All connected</span> } @else { <span class="trend bad">A line is down</span> }
+          @if (t.mode) { <span class="kpi-sub">{{ t.mode }}</span> }
+        </div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Primary line</span>
+        <span class="kpi-value" [title]="t.primaryIsp">{{ t.primaryIsp }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">Average <b>{{ fmt(t.primaryAvg) }} Mbps</b> down over {{ t.primaryCount }} tests</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="t.backup === 'None'" [class.tone-warn]="t.backup !== 'None'">
+        <span class="kpi-label">Time on backup</span>
+        <span class="kpi-value">{{ t.backup }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ t.gwDays != null ? 'Since the gateway started ' + t.gwDays + ' days ago' : 'Since the gateway started' }}</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="!t.failovers" [class.tone-warn]="t.failovers">
+        <span class="kpi-label">Failovers found</span>
+        <span class="kpi-value">{{ fmt(t.failovers) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub" [title]="t.lastEp">{{ t.lastEp }}</span></div>
+      </div>
+    } @else if (loading()) {
+      @for (i of [1, 2, 3, 4]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    }
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>ISP comparison</h3><p class="panel-sub">Side by side · best value in each row is highlighted</p></div>
+      <net-export [table]="true" label="ISP comparison" (picked)="exportCompare($event)" />
+    </div>
+    <div class="table-container">
+      <table class="clean-table" #compareTable>
+        @if (isp(); as d) {
+          <thead><tr>
+            <th style="width:26%">Measure</th>
+            @for (w of d.wans; track w.key) {
+              <th><span class="dot" [style.background]="wanColor(w.key)"></span>{{ w.key }} · {{ w.isp || '–' }}<div class="isp-org">{{ w.organization }}</div></th>
+            }
+          </tr></thead>
+          <tbody>
+            @for (r of compare(); track r.label) {
+              <tr>
+                <td class="muted">{{ r.label }}</td>
+                @for (c of r.cells; track $index) {
+                  <td [class.best]="c.best">
+                    @if (c.badge) { <span class="badge" [class.badge-ok]="c.badge === 'ok'" [class.badge-bad]="c.badge === 'bad'">{{ c.text }}</span> }
+                    @else { <span [class.muted]="c.muted">{{ c.text }}</span> }
+                    @if (c.sub) { <div class="muted small">{{ c.sub }}</div> }
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr><td class="empty-state" [attr.colspan]="d.wans.length + 1">No internet lines reported.</td></tr>
+            }
+          </tbody>
+        } @else {
+          <tbody>
+            @if (loading()) {
+              @for (r of [1, 2, 3, 4, 5, 6]; track r) { <tr>@for (c of [1, 2, 3]; track c) { <td><div class="sk sk-line"></div></td> }</tr> }
+            } @else {
+              <tr><td class="empty-state">Internet data is unavailable right now.</td></tr>
+            }
+          </tbody>
+        }
+      </table>
+    </div>
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>Speed test history</h3><p class="panel-sub">Every speed test in the last 90 days</p></div>
+      <div class="panel-tools">
+        <div class="seg" role="group" aria-label="Measure">
+          <button [class.active]="measure() === 'down'" (click)="measure.set('down')">Download</button>
+          <button [class.active]="measure() === 'up'" (click)="measure.set('up')">Upload</button>
+          <button [class.active]="measure() === 'ping'" (click)="measure.set('ping')">Ping</button>
+        </div>
+        <net-export [chart]="true" label="Speed test history" (picked)="exportChart($event, 'Speed test history', cTests)" />
+      </div>
+    </div>
+    <div class="chart-box h-lg">
+      @if (!isp()) { <div class="sk chart-sk"></div> }
+      @else if (!hasTests()) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="activity" [size]="18" /></span><strong>No speed tests yet</strong><span>Results appear here after a test runs.</span></div> }
+      <canvas #cTests role="img" aria-label="Speed test results over time per internet line"></canvas>
+    </div>
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>Failover history</h3>
+        <p class="panel-sub">{{ foDays() <= 7 ? 'Traffic per line, hourly averages · when the backup carries traffic, a failover happened' : 'Data per line per day · days where a backup carried most traffic are listed below' }}</p></div>
+      <div class="panel-tools">
+        <div class="seg" role="group" aria-label="Range">
+          <button [class.active]="foDays() === 7" (click)="foDays.set(7)">7 days</button>
+          <button [class.active]="foDays() === 60" (click)="foDays.set(60)">60 days</button>
+        </div>
+        <net-export [chart]="true" label="Failover history" (picked)="exportChart($event, 'Failover history', cFailover)" />
+      </div>
+    </div>
+    <div class="chart-box h-lg">
+      @if (!isp()) { <div class="sk chart-sk"></div> }
+      <canvas #cFailover role="img" aria-label="Stacked chart of traffic per internet line"></canvas>
+    </div>
+    @if (isp()) {
+      @if (episodes().length) {
+        <div class="muted small" style="margin-top:16px">Failovers detected</div>
+        <ol class="episodes">
+          @for (e of episodes(); track $index) {
+            <li><span class="dot bad"></span><span class="ep-label">On backup · {{ e.via }}</span><span class="muted">{{ e.when }}</span><span class="ep-len">{{ e.length }}</span></li>
+          }
+        </ol>
+      } @else {
+        <p class="muted small" style="margin-top:12px"><span class="dot good"></span>No failovers in the last {{ foDays() }} days — the primary line carried all traffic.</p>
+      }
+    }
+  </section>
+</div>

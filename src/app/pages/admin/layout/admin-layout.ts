@@ -49,6 +49,11 @@ export class AdminLayout {
     { route: '/admin/access-dashboard', group: 'Access Control',    label: 'Access Dashboard',    icon: 'access-dashboard', adminOnly: true },
     { route: '/admin/access-activity-log', group: 'Access Control', label: 'Access Activity Log', icon: 'access-activity',  adminOnly: true },
     { route: '/admin/access-analytics', group: 'Access Control',    label: 'Access Analytics',    icon: 'access-analytics', adminOnly: true },
+    { route: '/admin/network', group: 'Network',          label: 'Network Overview', icon: 'network'         },
+    { route: '/admin/network/clients', group: 'Network',  label: 'Clients',          icon: 'net-clients'     },
+    { route: '/admin/network/devices', group: 'Network',  label: 'Devices',          icon: 'net-devices'     },
+    { route: '/admin/network/internet', group: 'Network', label: 'Internet',         icon: 'net-internet'    },
+    { route: '/admin/network/wifi', group: 'Network',     label: 'Wi-Fi',            icon: 'net-wifi'        },
         { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan'        },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
@@ -62,7 +67,7 @@ export class AdminLayout {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
-      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/staff-access', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity'];
+      const allowedRoutes = ['/admin/kyc', '/admin/quotations', '/admin/agreements', '/admin/lease-templates', '/admin/invoices', '/admin/bookings', '/admin/attendants', '/admin/staff-access', '/admin/contacts', '/admin/biometric-users', '/admin/challan-validity', '/admin/network', '/admin/network/clients', '/admin/network/devices', '/admin/network/internet', '/admin/network/wifi'];
       this.menuItems = this.menuItems.filter(item => allowedRoutes.includes(item.route));
       if (!allowedRoutes.some(r => this.router.url.startsWith(r))) {
         this.router.navigate(['/admin/quotations']);
@@ -71,7 +76,7 @@ export class AdminLayout {
   }
 
   // Sidebar sections, in this order; items keep their order inside a section.
-  private static readonly GROUP_ORDER = ['', 'Sales', 'Finance', 'Spaces', 'Access Control', 'Administration'];
+  private static readonly GROUP_ORDER = ['', 'Sales', 'Finance', 'Spaces', 'Access Control', 'Network', 'Administration'];
 
   /** Visible menu items (role rules applied), grouped under section headings. */
   get menuGroups(): { name: string; items: any[] }[] {

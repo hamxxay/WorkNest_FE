@@ -1,0 +1,102 @@
+<div class="net-page" #page>
+  <div class="dash-header">
+    <div>
+      <h1>Network Devices</h1>
+      <p class="dash-meta"><span>Every UniFi gateway, switch and access point</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh devices"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+  @if (apiError()) { <div class="ov-error"><net-icon name="alert" [size]="16" />Couldn't reach the UniFi API: {{ apiError() }}</div> }
+
+  <section class="kpi-grid four">
+    @if (stats(); as s) {
+      <div class="kpi-card" [class.tone-ok]="s.online === s.total" [class.tone-danger]="s.online !== s.total">
+        <span class="kpi-label">Devices online</span>
+        <span class="kpi-value">{{ s.online }}<small>/ {{ s.total }}</small></span>
+        <div class="kpi-foot">
+          @if (s.online === s.total) { <span class="trend good">All online</span> } @else { <span class="trend bad">{{ s.total - s.online }} offline</span> }
+          @if (s.notInstalled) { <span class="kpi-sub">{{ s.notInstalled }} not installed</span> }
+        </div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Access points</span>
+        <span class="kpi-value">{{ s.apsOnline }}<small>/ {{ s.aps }}</small></span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ s.apClients != null ? fmt(s.apClients) + ' Wi-Fi clients' : 'Wireless' }}</span></div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Switches</span>
+        <span class="kpi-value">{{ s.swsOnline }}<small>/ {{ s.sws }}</small></span>
+        <div class="kpi-foot"><span class="kpi-sub">Wired</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="!s.updates" [class.tone-warn]="s.updates">
+        <span class="kpi-label">Firmware updates</span>
+        <span class="kpi-value">{{ fmt(s.updates) }}</span>
+        <div class="kpi-foot">
+          @if (s.updates) { <span class="trend warn">Pending on {{ s.updates }} device{{ s.updates > 1 ? 's' : '' }}</span> } @else { <span class="trend good">All up to date</span> }
+        </div>
+      </div>
+    } @else if (loading()) {
+      @for (i of [1, 2, 3, 4]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    }
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div>
+        <h3>Devices</h3>
+        <p class="panel-sub">{{ data() ? rows().length + ' of ' + data()!.devices.length + ' devices' : 'Loading…' }}</p>
+      </div>
+      <div class="panel-tools">
+        <input class="form-control search" type="search" placeholder="Search name, model, IP…" aria-label="Search devices" [ngModel]="search()" (ngModelChange)="search.set($event)">
+        <div class="seg" role="group" aria-label="Device type">
+          <button [class.active]="dtype() === ''" (click)="dtype.set('')">All</button>
+          <button [class.active]="dtype() === 'Access point'" (click)="dtype.set('Access point')">Wireless (APs)</button>
+          <button [class.active]="dtype() === 'Switch'" (click)="dtype.set('Switch')">Wired (switches)</button>
+          <button [class.active]="dtype() === 'Console / Gateway'" (click)="dtype.set('Console / Gateway')">Gateway</button>
+        </div>
+        <select class="form-control" aria-label="Status" [ngModel]="status()" (ngModelChange)="status.set($event)">
+          <option value="">All statuses</option>
+          <option value="online">Online</option>
+          <option value="offline">Not online</option>
+          <option value="update">Update available</option>
+        </select>
+        <net-export [table]="true" label="Devices" (picked)="onExport($event)" />
+      </div>
+    </div>
+    <div class="table-container">
+      <table class="clean-table" #devTable>
+        <thead><tr><th>Device</th><th>Status</th><th>Type</th><th class="num">Clients</th><th>IP address</th><th>Firmware</th><th class="num">Uptime</th></tr></thead>
+        <tbody>
+          @if (data()) {
+            @for (d of rows(); track d.id || d.mac) {
+              <tr class="clickable" (click)="open(d, $event)">
+                <td><div class="dev"><span class="dev-icon"><net-icon [name]="typeIcon(d.type)" [size]="16" /></span>
+                  <div><div class="dev-name"><a [routerLink]="link(d)">{{ d.name }}</a></div><div class="muted small">{{ d.model }}</div></div></div></td>
+                <td><span class="badge" [class.badge-ok]="d.status === 'online'" [class.badge-muted]="d.placeholder" [class.badge-bad]="d.status !== 'online' && !d.placeholder">{{ d.status }}</span></td>
+                <td>{{ d.type }}</td>
+                <td class="num">@if (clientsOf(d) == null) { <span class="muted">–</span> } @else { {{ fmt(clientsOf(d)) }} }</td>
+                <td class="mono">{{ d.ip || '–' }}</td>
+                <td>{{ d.version || '–' }}@if (d.updateAvailable) { <span class="tag" title="Update available">{{ updateLabel(d) }}</span> }</td>
+                <td class="num">{{ uptime(d) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="empty-state">No devices match.</td></tr>
+            }
+          } @else if (loading()) {
+            @for (r of [1, 2, 3, 4, 5, 6]; track r) {
+              <tr>@for (c of [1, 2, 3, 4, 5, 6, 7]; track c) { <td><div class="sk sk-line" [style.width.%]="c === 1 ? 80 : 60"></div></td> }</tr>
+            }
+          } @else {
+            <tr><td colspan="7" class="empty-state">No device data available.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

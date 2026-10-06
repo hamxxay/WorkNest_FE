@@ -1,0 +1,5 @@
+.hero { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.hero-icon { width: 52px; height: 52px; border-radius: 14px; background: #f0fdfa; color: #0d9488; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hero h1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hero h1 .badge { font-size: 0.75rem; letter-spacing: 0; }
+.kpi-card .gauge { margin-top: 4px; }

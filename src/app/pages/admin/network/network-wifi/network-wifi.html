@@ -1,0 +1,143 @@
+<div class="net-page" #page>
+  <div class="dash-header">
+    <div>
+      <h1>Wi-Fi</h1>
+      <p class="dash-meta"><span>Radio health, channel plan and experience per access point</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !wifi()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !wifi()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh Wi-Fi data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  <section class="kpi-grid four">
+    @if (tiles(); as t) {
+      <div class="kpi-card" [class.tone-ok]="t.online === t.total" [class.tone-danger]="t.online !== t.total">
+        <span class="kpi-label">Access points online</span>
+        <span class="kpi-value">{{ t.online }}<small>/ {{ t.total }}</small></span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ fmt(t.clients) }} Wi-Fi clients</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="(t.exp ?? 100) >= 80" [class.tone-warn]="(t.exp ?? 100) < 80">
+        <span class="kpi-label">Average experience</span>
+        <span class="kpi-value">@if (t.exp != null) { {{ fmt(t.exp) }}<small>%</small> } @else { – }</span>
+        <div class="kpi-foot"><span class="kpi-sub">UniFi Wi-Fi experience score</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-neutral]="(t.busiest?.r?.utilization ?? 0) < 60" [class.tone-warn]="(t.busiest?.r?.utilization ?? 0) >= 60">
+        <span class="kpi-label">Busiest radio</span>
+        <span class="kpi-value">@if (t.busiest) { {{ fmt(t.busiest.r.utilization) }}<small>%</small> } @else { – }</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ t.busiest ? t.busiest.ap.name + ' · ' + t.busiest.r.band + ' ch ' + t.busiest.r.channel : '' }}</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="!t.flagged" [class.tone-warn]="t.flagged">
+        <span class="kpi-label">Need attention</span>
+        <span class="kpi-value">{{ t.flagged }}<small>APs</small></span>
+        <div class="kpi-foot">@if (t.flagged) { <span class="trend warn">See flags in the table below</span> } @else { <span class="trend good">All radios healthy</span> }</div>
+      </div>
+    } @else if (loading()) {
+      @for (i of [1, 2, 3, 4]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    }
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>Access point health</h3><p class="panel-sub">Live, per radio · issues are flagged on the right</p></div>
+      <div class="panel-tools">
+        <div class="seg" role="group" aria-label="Band">
+          <button [class.active]="band() === ''" (click)="band.set('')">All bands</button>
+          <button [class.active]="band() === '2.4 GHz'" (click)="band.set('2.4 GHz')">2.4 GHz</button>
+          <button [class.active]="band() === '5 GHz'" (click)="band.set('5 GHz')">5 GHz</button>
+        </div>
+        <net-export [table]="true" label="Access point health" (picked)="exportRadios($event)" />
+      </div>
+    </div>
+    <div class="table-container">
+      <table class="clean-table" #radiosTable>
+        <thead><tr><th>Access point</th><th>Band · channel</th><th class="num">Clients</th><th>Channel busy</th><th>Interference</th><th class="num">Retries</th><th class="num">AP experience</th><th>Status</th></tr></thead>
+        <tbody>
+          @if (wifi()) {
+            @for (x of rows(); track x.ap.mac + x.r.band) {
+              <tr>
+                <td><div class="dev"><span class="dev-icon"><net-icon name="ap" [size]="16" /></span><div class="dev-name"><a [routerLink]="['/admin/network/device', x.ap.mac]">{{ x.ap.name }}</a></div></div></td>
+                <td>{{ x.r.band }} <span class="muted">· ch {{ x.r.channel ?? '–' }}{{ x.r.width ? ' · ' + x.r.width + ' MHz' : '' }}</span></td>
+                <td class="num">{{ fmt(x.r.clients) }}</td>
+                <td>@if (x.r.utilization == null) { <span class="muted">–</span> } @else { <div class="mini-bar"><div class="gauge" [class.hot]="x.r.utilization >= limits.busy"><span [style.width.%]="x.r.utilization"></span></div><span>{{ fmt(x.r.utilization) }}%</span></div> }</td>
+                <td>@if (x.r.interference == null) { <span class="muted">–</span> } @else { <div class="mini-bar"><div class="gauge" [class.hot]="x.r.interference >= limits.interference"><span [style.width.%]="x.r.interference"></span></div><span>{{ fmt(x.r.interference) }}%</span></div> }</td>
+                <td class="num" [class.crit]="(x.r.retries ?? 0) >= limits.retries">{{ x.r.retries == null ? '–' : fmt(x.r.retries, 1) + '%' }}</td>
+                <td class="num">@if (x.ap.satisfaction == null) { <span class="muted" title="Not enough Wi-Fi clients to score">–</span> } @else { <span [class.crit]="x.ap.satisfaction < limits.experience">{{ x.ap.satisfaction }}%</span> }</td>
+                <td class="flags">
+                  @for (f of x.issues; track f[0]) { <span class="badge badge-warn" [title]="f[1]">{{ f[0] }}</span> }
+                  @empty { <span class="badge badge-ok">Healthy</span> }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="empty-state">No radios.</td></tr>
+            }
+          } @else if (loading()) {
+            @for (r of [1, 2, 3, 4, 5, 6]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8]; track c) { <td><div class="sk sk-line"></div></td> }</tr> }
+          } @else {
+            <tr><td colspan="8" class="empty-state">Wi-Fi data is unavailable right now.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ins-grid">
+    <article class="dash-panel span-8">
+      <div class="panel-head">
+        <div><h3>Channel utilisation</h3><p class="panel-sub">How busy each radio's channel is · interference = busy from other networks</p></div>
+        <net-export [chart]="true" label="Channel utilisation" (picked)="exportUtil($event, cUtil)" />
+      </div>
+      <div class="chart-box util-box" [style.min-height.px]="utilHeight()">
+        @if (!wifi()) { <div class="sk chart-sk"></div> }
+        @else if (!rows().length) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="wifi" [size]="18" /></span><strong>No data yet</strong><span>No online radios to show.</span></div> }
+        <canvas #cUtil role="img" aria-label="Bar chart of channel utilisation per access point"></canvas>
+      </div>
+    </article>
+    <article class="dash-panel span-4">
+      <div class="panel-head"><div><h3>Channel plan</h3><p class="panel-sub">APs sharing a channel compete for airtime</p></div></div>
+      @if (wifi()) {
+        @for (b of channels(); track b.band) {
+          <div class="ch-band">
+            <div class="ch-title">{{ b.band }}</div>
+            @for (row of b.rows; track row.ch) {
+              <div class="ch-row" [class.crowded]="row.crowded" [title]="row.names.length + ' AP' + (row.names.length > 1 ? 's' : '') + ' on channel ' + row.ch">
+                <span class="ch-num">{{ row.ch ?? '–' }}</span>
+                <span class="ch-aps">@for (n of row.names; track $index) { <span class="ch-chip">{{ n }}</span> }</span>
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="empty-state">No radios.</div>
+        }
+      } @else if (loading()) {
+        <div class="sk" style="height:200px"></div>
+      }
+    </article>
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head"><div><h3>Wi-Fi experience · last 24 hours</h3><p class="panel-sub">Per access point, hourly · darker = worse experience</p></div></div>
+    @if (heatmap(); as hm) {
+      @if (hm.rows.length) {
+        <div class="heatmap">
+          <div class="hm-grid">
+            @for (row of hm.rows; track row.ap.mac) {
+              <a class="hm-label" [routerLink]="['/admin/network/device', row.ap.mac]">{{ row.ap.name }}</a>
+              @for (c of row.cells; track $index) { <span class="hm-cell" [class.empty]="c.empty" [style.background]="c.empty ? null : heat(c.alpha)" [title]="c.title"></span> }
+            }
+            <span></span>
+            @for (h of hm.hours; track $index) { <span class="hm-hour">{{ h }}</span> }
+          </div>
+        </div>
+        <div class="hm-legend"><span>Better</span><span class="hm-scale"></span><span>Worse</span><span class="hm-cell empty hm-key"></span><span>No data</span></div>
+      } @else {
+        <div class="empty-state">No access points online.</div>
+      }
+    } @else if (loading()) {
+      <div class="sk" style="height:220px"></div>
+    }
+  </section>
+</div>

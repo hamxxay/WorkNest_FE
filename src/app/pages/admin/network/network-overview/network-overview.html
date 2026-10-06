@@ -1,0 +1,362 @@
+<div class="net-page" #page>
+  <div class="dash-header">
+    <div>
+      <h1>Network Overview</h1>
+      <p class="dash-meta"><span>{{ subtitle() }}</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Ask UniFi for fresh data now" aria-label="Refresh network data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+  @if (data()?.error) { <div class="ov-error"><net-icon name="alert" [size]="16" />Couldn't reach the UniFi API: {{ data()?.error }}</div> }
+
+  <!-- Health -->
+  @if (health(); as h) {
+    <section class="health" [class]="h.worst">
+      <div class="health-head">
+        <div class="health-icon"><net-icon [name]="h.worst === 'ok' ? 'check' : 'alert'" [size]="20" /></div>
+        <div><div class="health-title">{{ h.title }}</div><div class="muted small">{{ h.sub }}</div></div>
+      </div>
+      @if (h.list.length) {
+        <div class="health-list">
+          @for (a of h.list; track $index) {
+            <div class="alert-row" [class]="'lvl-' + a.level">
+              <span class="badge">{{ a.level }}</span>
+              <span class="alert-text">{{ a.text }}</span>
+              <span class="where">{{ a.where }}</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  } @else if (loading()) {
+    <section class="health"><div class="sk" style="height:44px"></div></section>
+  }
+
+  <div class="section-head">
+    <h3 class="section-title">Key metrics</h3>
+    <div class="panel-tools no-print">
+      @if ((data()?.sites?.length || 0) > 1) {
+        <select class="form-control" aria-label="Site" [ngModel]="site()" (ngModelChange)="site.set($event)">
+          <option value="">All sites</option>
+          @for (s of data()!.sites; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+        </select>
+      }
+      <div class="seg" role="group" aria-label="Time range">
+        <button [class.active]="range() === 6" (click)="setRange(6)">6H</button>
+        <button [class.active]="range() === 24" (click)="setRange(24)">24H</button>
+        <button [class.active]="range() === 168" (click)="setRange(168)">7D</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI tiles -->
+  <section class="kpi-grid">
+    @if (tiles(); as t) {
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Clients</span>
+        <span class="kpi-value">{{ fmt(t.total) }}</span>
+        <div class="meter"><span [style.width.%]="t.wifiPct" style="background:#0d9488"></span><span [style.width.%]="t.wiredPct" style="background:#6366f1"></span><span [style.width.%]="t.guestPct" style="background:#99f6e4"></span></div>
+        <div class="legend-row"><span><span class="dot" style="background:#0d9488"></span>Wi-Fi<b>{{ fmt(t.wifi) }}</b></span><span><span class="dot" style="background:#6366f1"></span>Wired<b>{{ fmt(t.wired) }}</b></span>@if (t.guest) {<span><span class="dot" style="background:#99f6e4"></span>Guest<b>{{ fmt(t.guest) }}</b></span>}</div>
+        <net-sparkline [points]="t.clientSpark" [format]="clientFmt" />
+      </div>
+      <div class="kpi-card" [class.tone-ok]="t.devices === t.online" [class.tone-danger]="t.devices !== t.online">
+        <span class="kpi-label">UniFi devices</span>
+        <span class="kpi-value">{{ fmt(t.online) }}<small>/ {{ fmt(t.devices) }}</small></span>
+        <div class="kpi-foot">
+          @if (t.devices - t.online) { <span class="trend bad">{{ t.devices - t.online }} not online</span> } @else { <span class="trend good">All online</span> }
+          @if (t.placeholders) { <span class="kpi-sub">{{ t.placeholders }} not installed</span> }
+        </div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Internet traffic</span>
+        @if (t.lastWan) {
+          <span class="kpi-value">{{ fmt(t.lastWan.down, (t.lastWan.down ?? 0) < 10 ? 1 : 0) }}<small>Mbps down</small></span>
+          <div class="kpi-foot"><span class="kpi-sub">Up <b>{{ fmt(t.lastWan.up, 1) }} Mbps</b> · last 5 min</span></div>
+        } @else {
+          <span class="kpi-value">–</span>
+          <div class="kpi-foot"><span class="kpi-sub">{{ extrasLoaded() ? 'No traffic data' : 'Loading…' }}</span></div>
+        }
+        <net-sparkline [points]="t.wanSpark" [format]="mbpsFmt" />
+      </div>
+      <div class="kpi-card" [class.tone-ok]="t.wansUp === t.wans" [class.tone-danger]="t.wansUp !== t.wans">
+        <span class="kpi-label">Internet links</span>
+        <span class="kpi-value">{{ fmt(t.wansUp) }}<small>/ {{ fmt(t.wans) }} up</small></span>
+        <div class="kpi-foot"><span class="trend" [class.good]="(t.minUptime ?? 100) >= 99" [class.bad]="(t.minUptime ?? 100) < 99">WAN uptime {{ pct(t.minUptime) }}</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-neutral]="(t.latNow ?? 0) < 100" [class.tone-warn]="(t.latNow ?? 0) >= 100">
+        <span class="kpi-label">Latency</span>
+        <span class="kpi-value">@if (t.latNow != null) { {{ fmt(t.latNow) }}<small>ms</small> } @else { – }</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ range() > 24 ? '24h' : range() + 'h' }} average <b>{{ fmt(t.latAvg) }} ms</b></span></div>
+        <net-sparkline [points]="t.latSpark" color="#6366f1" [format]="msFmt" />
+      </div>
+      <div class="kpi-card" [class.tone-ok]="!t.updates" [class.tone-warn]="t.updates">
+        <span class="kpi-label">Firmware updates</span>
+        <span class="kpi-value">{{ fmt(t.updates) }}</span>
+        <div class="kpi-foot">@if (t.updates) { <span class="trend warn">Pending on {{ t.updates }} device{{ t.updates > 1 ? 's' : '' }}</span> } @else { <span class="trend good">All up to date</span> }</div>
+      </div>
+    } @else if (loading()) {
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    }
+  </section>
+
+  <!-- Internet connections -->
+  <div class="section-head">
+    <h3 class="section-title">Internet connections</h3>
+    <div class="panel-tools">
+      <span class="live-note"><span class="pulse"></span>Live · updates every 30 s</span>
+      @if (wanMode()) { <span class="badge badge-muted">{{ wanMode() }}</span> }
+    </div>
+  </div>
+  <section class="wans">
+    @for (c of wanCards(); track c.w.label + c.siteName) {
+      <article class="wan" [class.down]="!c.w.up">
+        <header class="wan-head">
+          <div class="wan-label"><span class="wan-name">{{ c.w.label }}</span>@if (c.role) { <span class="role" [class.backup]="c.w.priority !== 1">{{ c.role }}</span> }</div>
+          <span class="badge" [class.badge-ok]="c.w.up" [class.badge-bad]="!c.w.up">{{ c.w.up ? 'Connected' : 'Down' }}</span>
+        </header>
+        <div class="wan-isp">{{ c.w.isp || 'Unknown ISP' }}</div>
+        <div class="wan-org">{{ c.w.organization }}{{ c.siteName ? ' · ' + c.siteName : '' }}</div>
+
+        <div class="wan-metrics">
+          <div title="Internet traffic coming in on this line right now (everyone combined)">
+            <div class="wan-k">Download now</div>
+            @if (wanLive()) { <div class="wan-v">{{ c.down.value }}<small>{{ c.down.unit }}</small></div> } @else { <div class="sk sk-line" style="width:60px"></div> }
+            @if (c.downCap) { <div class="wan-cap">{{ c.downCap }}</div> }
+          </div>
+          <div title="Internet traffic going out on this line right now (everyone combined)">
+            <div class="wan-k">Upload now</div>
+            @if (wanLive()) { <div class="wan-v">{{ c.up.value }}<small>{{ c.up.unit }}</small></div> } @else { <div class="sk sk-line" style="width:60px"></div> }
+            @if (c.upCap) { <div class="wan-cap">{{ c.upCap }}</div> }
+          </div>
+          <div>
+            <div class="wan-k">Latency</div>
+            <div class="wan-v">@if (c.live?.latency != null) { {{ fmt(c.live?.latency) }}<small>ms</small> } @else { – }</div>
+          </div>
+        </div>
+        <div class="wan-chart">
+          <net-sparkline [points]="c.spark" [color]="c.w.up ? '#0d9488' : '#94a3b8'" [floor]="1" [format]="downFmt" />
+          <div class="wan-chart-cap"><span>24h download</span><span>Peak {{ c.peak }}</span></div>
+        </div>
+
+        <dl class="facts wan-rows">
+          <div><dt>Public IP</dt><dd class="mono">{{ c.w.externalIp || '–' }}</dd></div>
+          <div><dt>Port</dt><dd>{{ c.w.port != null ? 'Port ' + c.w.port : '–' }}{{ c.live?.linkSpeed ? ' · ' + linkText(c.live?.linkSpeed) : '' }}</dd></div>
+          <div><dt>Uptime (24h)</dt><dd>{{ pct(c.w.uptime) }}@if (c.w.issues) { · <span class="crit">{{ c.w.issues }} issue{{ c.w.issues > 1 ? 's' : '' }}</span> }</dd></div>
+        </dl>
+
+        <div class="wan-test">
+          <div>
+            <div class="wan-k">Last speed test</div>
+            <div class="st-line">
+              @if (c.live?.speedtest; as st) {
+                <span class="st-val">Down {{ fmt(st.down) }} / Up {{ fmt(st.up) }} <span class="muted">Mbps</span></span>
+                <span class="st-when">{{ testAge(st.at) }}</span>
+              } @else { <span class="muted">No test yet</span> }
+            </div>
+            @if (speedtestNote()[c.w.label]; as note) { <div class="st-note">{{ note }}</div> }
+          </div>
+          @if (isAdmin) {
+            @if (speedtest()?.wan === c.w.label) {
+              <button class="btn btn-outline btn-sm no-print" disabled><span class="spin"><net-icon name="refresh" [size]="13" /></span>Testing… {{ speedtest()?.elapsed || 0 }}s</button>
+            } @else {
+              <button class="btn btn-outline btn-sm no-print" [disabled]="!!speedtest() || !c.w.up" (click)="runSpeedtest(c.w)"><net-icon name="activity" [size]="13" />Run test</button>
+            }
+          }
+        </div>
+      </article>
+    } @empty {
+      @if (data()) { <div class="empty-state">No WAN information reported.</div> }
+      @else if (loading()) { @for (i of [1, 2]; track i) { <div class="wan"><div class="sk sk-big"></div><div class="sk sk-line"></div><div class="sk" style="height:90px;margin-top:1rem"></div></div> } }
+    }
+  </section>
+
+  @if (extrasError()) { <div class="ov-error"><net-icon name="alert" [size]="16" />Some console data could not be loaded. {{ extrasError() }}</div> }
+
+  <!-- Internet traffic -->
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>Internet traffic</h3><p class="panel-sub">All WAN links combined · Mbps · {{ range() > 24 ? 'hourly' : '5-minute' }} averages</p></div>
+      <div class="panel-tools">
+        @if (wanStats(); as s) {
+          <div class="head-stats">
+            <div><span>Avg down</span><strong>{{ fmt(s.avgDown, 1) }} Mbps</strong></div>
+            <div><span>Peak down</span><strong>{{ fmt(s.peakDown, 1) }} Mbps</strong></div>
+            <div><span>Avg up</span><strong>{{ fmt(s.avgUp, 1) }} Mbps</strong></div>
+            <div><span>Peak up</span><strong>{{ fmt(s.peakUp, 1) }} Mbps</strong></div>
+          </div>
+        }
+        <net-export [chart]="true" label="Internet traffic" (picked)="exportChart($event, 'Internet traffic', cWan)" />
+      </div>
+    </div>
+    <div class="chart-box h-lg">
+      @if (!wan() && !extrasLoaded()) { <div class="sk chart-sk"></div> }
+      @if (extrasLoaded() && !wan()) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="activity" [size]="18" /></span><strong>No traffic data</strong><span>Internet traffic is unavailable right now.</span></div> }
+      <canvas #cWan role="img" aria-label="Line chart of internet download and upload"></canvas>
+    </div>
+  </section>
+
+  <section class="ins-grid">
+    <article class="dash-panel span-12">
+      <div class="panel-head">
+        <div><h3>Connected clients</h3><p class="panel-sub">Wi-Fi, wired and guest clients over time</p></div>
+        <net-export [chart]="true" label="Connected clients" (picked)="exportChart($event, 'Connected clients', cClients)" />
+      </div>
+      <div class="chart-box h-lg">
+        @if (!data()) { <div class="sk chart-sk"></div> }
+        <canvas #cClients role="img" aria-label="Stacked area chart of connected clients over time"></canvas>
+      </div>
+    </article>
+    <article class="dash-panel span-8">
+      <div class="panel-head">
+        <div><h3>Internet latency</h3><p class="panel-sub">{{ latInfo().note }}</p></div>
+        <div class="panel-tools">
+          @if (latInfo().stats; as s) {
+            <div class="head-stats">
+              <div><span>Average</span><strong>{{ fmt(s.avg) }} ms</strong></div>
+              <div><span>Peak</span><strong>{{ fmt(s.peak) }} ms</strong></div>
+              <div><span>Packet loss</span><strong>{{ fmt(s.loss, 1) }}%</strong></div>
+            </div>
+          }
+          <net-export [chart]="true" label="Internet latency" (picked)="exportChart($event, 'Internet latency', cLatency)" />
+        </div>
+      </div>
+      <div class="chart-box">
+        @if (!data()) { <div class="sk chart-sk"></div> }
+        <canvas #cLatency role="img" aria-label="Line chart of internet latency"></canvas>
+      </div>
+    </article>
+    <article class="dash-panel span-4">
+      <div class="panel-head">
+        <div><h3>Devices by type</h3><p class="panel-sub">Online vs offline</p></div>
+        <net-export [chart]="true" label="Devices by type" (picked)="exportChart($event, 'Devices by type', cTypes)" />
+      </div>
+      <div class="chart-box">
+        @if (!data()) { <div class="sk chart-sk"></div> }
+        <canvas #cTypes role="img" aria-label="Bar chart of devices by type"></canvas>
+      </div>
+    </article>
+    @if ((data()?.sites?.length || 0) > 1) {
+      <article class="dash-panel span-12">
+        <div class="panel-head">
+          <h3>Sites</h3>
+          <net-export [table]="true" label="Sites" (picked)="exportSites($event)" />
+        </div>
+        <div class="table-container">
+          <table class="clean-table" #sitesTable>
+            <thead><tr><th>Site</th><th class="num">Clients</th><th class="num">Devices</th><th class="num">WAN uptime</th><th>Internet</th></tr></thead>
+            <tbody>
+              @for (s of data()!.sites; track s.id) {
+                <tr>
+                  <td><div class="dev-name">{{ s.name }}</div><div class="muted small">{{ s.console }}</div></td>
+                  <td class="num">{{ fmt(s.wifiClients + s.wiredClients + s.guestClients) }}</td>
+                  <td class="num">{{ fmt(s.totalDevices - s.offlineDevices) }} / {{ fmt(s.totalDevices) }}</td>
+                  <td class="num">{{ pct(s.wanUptime) }}</td>
+                  <td>@for (w of s.wans; track w.key; let last = $last) { {{ w.label }} {{ w.isp }}{{ last ? '' : ' · ' }} } @empty { – }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </article>
+    }
+  </section>
+
+  <!-- Network map -->
+  <section class="dash-panel" id="map-card">
+    <div class="panel-head">
+      <div><h3>Network map</h3><p class="panel-sub">How your UniFi devices connect · click a device for details</p></div>
+      <div class="map-legend"><span><span class="dot good"></span>Online</span><span><span class="dot bad"></span>Offline</span><span><span class="dot mute"></span>Not managed / not installed</span></div>
+    </div>
+    @if (mapRoot(); as m) {
+      <div class="map">
+        <div class="map-root"><ng-container [ngTemplateOutlet]="nodeTpl" [ngTemplateOutletContext]="{ $implicit: m.root, root: true }" /></div>
+        @if (m.branches.length) {
+          <div class="map-branches">
+            @for (b of m.branches; track b.node.mac) {
+              <div class="branch"><ng-container [ngTemplateOutlet]="subtreeTpl" [ngTemplateOutletContext]="{ $implicit: b }" /></div>
+            }
+          </div>
+        }
+      </div>
+    } @else if (topo()) {
+      <div class="empty-state">No topology reported.</div>
+    } @else if (extrasLoaded()) {
+      <div class="empty-state">The network map is unavailable right now.</div>
+    } @else {
+      <div class="sk" style="height:180px"></div>
+    }
+  </section>
+
+  <ng-template #subtreeTpl let-t>
+    <ng-container [ngTemplateOutlet]="nodeTpl" [ngTemplateOutletContext]="{ $implicit: t.node, root: false }" />
+    @if (t.children.length) {
+      <ul class="map-children">
+        @for (k of t.children; track k.node.mac) {
+          <li><ng-container [ngTemplateOutlet]="subtreeTpl" [ngTemplateOutletContext]="{ $implicit: k }" /></li>
+        }
+      </ul>
+    }
+  </ng-template>
+
+  <ng-template #nodeTpl let-n let-root="root">
+    @if (n.virtual) {
+      <div class="node virtual" title="A switch UniFi can see but doesn't manage">
+        <span class="n-icon"><net-icon [name]="typeIcon(n.type)" [size]="15" /></span>
+        <span class="n-body"><span class="n-name">{{ n.name }}</span><span class="n-meta">{{ nodeMeta(n) }}</span></span>
+      </div>
+    } @else {
+      <a class="node" [class.root]="root" [class.placeholder]="n.placeholder" [class.off]="nodeOff(n)" [routerLink]="['/admin/network/device', n.mac]">
+        <span class="n-icon"><net-icon [name]="typeIcon(n.type)" [size]="root ? 18 : 15" /></span>
+        <span class="n-body"><span class="n-name">{{ n.name }}</span><span class="n-meta">{{ nodeMeta(n) }}</span></span>
+      </a>
+    }
+  </ng-template>
+
+  <!-- Top lists -->
+  <section class="ins-grid">
+    <article class="dash-panel span-4">
+      <div class="panel-head"><div><h3>Top clients by data</h3><p class="panel-sub">Current session</p></div><a class="link-btn" routerLink="/admin/network/clients">All clients</a></div>
+      <ng-container [ngTemplateOutlet]="topTpl" [ngTemplateOutletContext]="{ $implicit: tops()?.data, empty: 'No clients' }" />
+    </article>
+    <article class="dash-panel span-4">
+      <div class="panel-head"><div><h3>Busiest access points</h3><p class="panel-sub">Wi-Fi clients right now</p></div></div>
+      <ng-container [ngTemplateOutlet]="topTpl" [ngTemplateOutletContext]="{ $implicit: tops()?.aps, empty: 'No Wi-Fi clients' }" />
+    </article>
+    <article class="dash-panel span-4">
+      <div class="panel-head"><div><h3>Weak Wi-Fi signal</h3><p class="panel-sub">Clients below -70 dBm</p></div></div>
+      <ng-container [ngTemplateOutlet]="topTpl" [ngTemplateOutletContext]="{ $implicit: tops()?.weak, empty: 'Every Wi-Fi client has a good signal.', good: true }" />
+    </article>
+  </section>
+
+  <ng-template #topTpl let-items let-empty="empty" let-good="good">
+    @if (items) {
+      <ol class="toplist">
+        @for (it of items; track $index) {
+          <li>
+            <span class="rank">{{ $index + 1 }}</span>
+            <span class="dev-icon"><net-icon [name]="it.icon" [size]="14" /></span>
+            <div class="t-main">
+              <div class="t-name">@if (it.link) { <a [routerLink]="it.link">{{ it.name }}</a> } @else { {{ it.name }} }</div>
+              <div class="t-sub">{{ it.sub }}</div>
+            </div>
+            <span class="t-val" [style.color]="it.color || null">{{ it.value }}</span>
+            <div class="t-bar"><span [style.width.%]="it.frac * 100 > 2 ? it.frac * 100 : 2"></span></div>
+          </li>
+        } @empty {
+          <li class="t-empty">@if (good) { <span class="dot good"></span> }{{ empty }}</li>
+        }
+      </ol>
+    } @else if (extrasLoaded()) {
+      <div class="empty-state">Client data is unavailable right now.</div>
+    } @else {
+      <div class="sk" style="height:140px"></div>
+    }
+  </ng-template>
+
+  <p class="foot muted small">Data from the UniFi Site Manager API · refreshes automatically</p>
+</div>

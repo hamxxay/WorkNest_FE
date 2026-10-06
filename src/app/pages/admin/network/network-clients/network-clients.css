@@ -1,0 +1,16 @@
+/* Client details drawer */
+.drawer-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: #fff; z-index: 1001; overflow-y: auto; padding: 24px 24px 32px;
+  box-shadow: -12px 0 32px rgba(15, 23, 42, 0.12); border-left: 1px solid #e2e8f0; box-sizing: border-box; animation: drawer-in 0.22s ease; }
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer-close { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; }
+.hero { display: flex; gap: 14px; align-items: flex-start; padding-right: 44px; }
+.hero-icon { width: 52px; height: 52px; border-radius: 14px; background: #f0fdfa; color: #0d9488; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hero-main { flex: 1; min-width: 0; }
+.hero-main h2 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.01em; word-break: break-word; }
+.hero-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 0.8rem; color: #64748b; }
+.rename { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.rename .form-control { flex: 1; min-width: 180px; height: 34px; }
+.drawer-h { margin: 24px 0 8px; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
+.usage-stats div, .head-stats.left div { align-items: flex-start; }
+.head-stats.left { margin-bottom: 4px; }

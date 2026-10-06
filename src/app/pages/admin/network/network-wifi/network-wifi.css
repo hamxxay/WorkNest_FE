@@ -1,0 +1,25 @@
+.flags { display: flex; gap: 6px; flex-wrap: wrap; }
+.ins-grid > .dash-panel > .chart-box.util-box { height: auto; }
+
+/* Channel plan */
+.ch-band { margin-bottom: 16px; }
+.ch-band:last-child { margin-bottom: 0; }
+.ch-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; }
+.ch-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 2px; border-bottom: 1px solid #f1f5f9; }
+.ch-row:last-child { border-bottom: none; }
+.ch-num { min-width: 34px; height: 26px; border-radius: 8px; background: #f0fdfa; color: #0f766e; font-weight: 800; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; }
+.ch-row.crowded .ch-num { background: #fef3c7; color: #b45309; }
+.ch-aps { display: flex; gap: 6px; flex-wrap: wrap; }
+.ch-chip { font-size: 0.74rem; font-weight: 600; background: #f1f5f9; color: #475569; border-radius: 999px; padding: 3px 9px; }
+
+/* Experience heatmap */
+.heatmap { overflow-x: auto; }
+.hm-grid { display: grid; grid-template-columns: minmax(140px, 220px) repeat(24, minmax(14px, 1fr)); gap: 3px; align-items: center; min-width: 560px; }
+.hm-label { font-size: 0.8rem; font-weight: 600; color: #0f172a; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
+.hm-label:hover { color: #0d9488; text-decoration: underline; }
+.hm-cell { height: 22px; border-radius: 4px; display: block; }
+.hm-cell.empty { background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 3px, #fff 3px, #fff 6px); border: 1px solid #eef2f6; box-sizing: border-box; }
+.hm-hour { font-size: 0.68rem; color: #94a3b8; text-align: center; }
+.hm-legend { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.75rem; color: #64748b; }
+.hm-scale { width: 120px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 1)); }
+.hm-key { width: 14px; height: 14px; margin-left: 16px; }

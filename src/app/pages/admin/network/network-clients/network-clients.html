@@ -1,0 +1,278 @@
+<div class="net-page" #page>
+  <div class="dash-header">
+    <div>
+      <h1>Network Clients</h1>
+      <p class="dash-meta"><span>Every device connected to the network right now</span><span class="dot-sep"></span><span>Auto-refresh every 30 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh clients"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  <section class="kpi-grid">
+    @if (stats(); as s) {
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Connected clients</span>
+        <span class="kpi-value">{{ fmt(s.total) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ s.guests }} guest</span></div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Wi-Fi</span>
+        <span class="kpi-value">{{ fmt(s.wifi) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub" [title]="s.ssids">{{ s.ssids }}</span></div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Wired</span>
+        <span class="kpi-value">{{ fmt(s.wired) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">Via switches and the gateway</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="(s.exp ?? 100) >= 80" [class.tone-warn]="(s.exp ?? 100) < 80">
+        <span class="kpi-label">Wi-Fi experience</span>
+        <span class="kpi-value">@if (s.exp != null) { {{ fmt(s.exp) }}<small>%</small> } @else { – }</span>
+        <div class="kpi-foot"><span class="kpi-sub">Average across wireless clients</span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="!s.weak" [class.tone-warn]="s.weak">
+        <span class="kpi-label">Weak signal</span>
+        <span class="kpi-value">{{ fmt(s.weak) }}</span>
+        <div class="kpi-foot">@if (s.weak) { <span class="trend warn">Below -75 dBm</span> } @else { <span class="trend good">All clients have good signal</span> }</div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Top data user</span>
+        <span class="kpi-value">{{ s.top ? bytes(s.top.dataBytes) : '–' }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ s.top?.name || '' }}</span></div>
+      </div>
+    } @else if (loading()) {
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    }
+  </section>
+
+  <section class="ins-grid">
+    <article class="dash-panel span-8">
+      <div class="panel-head">
+        <div><h3>Clients per device</h3><p class="panel-sub">Which access point or switch each client is connected to</p></div>
+        <net-export [chart]="true" label="Clients per device" (picked)="exportChart($event, 'Clients per device', cUplinks)" />
+      </div>
+      <div class="chart-box h-lg">
+        @if (!data()) { <div class="sk chart-sk"></div> }
+        @else if (!data()!.clients.length) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="users" [size]="18" /></span><strong>No data yet</strong><span>No clients are connected.</span></div> }
+        <canvas #cUplinks role="img" aria-label="Bar chart of clients per access point or switch"></canvas>
+      </div>
+    </article>
+    <article class="dash-panel span-4">
+      <div class="panel-head">
+        <div><h3>Wi-Fi signal quality</h3><p class="panel-sub">Poor &lt; -75 dBm · Excellent &gt; -55 dBm</p></div>
+        <net-export [chart]="true" label="Wi-Fi signal quality" (picked)="exportChart($event, 'Wi-Fi signal quality', cSignal)" />
+      </div>
+      <div class="chart-box h-lg">
+        @if (!data()) { <div class="sk chart-sk"></div> }
+        <canvas #cSignal role="img" aria-label="Bar chart of wireless clients by signal quality"></canvas>
+      </div>
+    </article>
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>Top data users</h3><p class="panel-sub">Total download + upload per device · {{ usageDays() === 1 ? 'today' : 'last ' + usageDays() + ' days' }}</p></div>
+      <div class="panel-tools">
+        <div class="seg" role="group" aria-label="Usage period">
+          <button [class.active]="usageDays() === 1" (click)="setUsageDays(1)">Today</button>
+          <button [class.active]="usageDays() === 7" (click)="setUsageDays(7)">7 days</button>
+          <button [class.active]="usageDays() === 30" (click)="setUsageDays(30)">30 days</button>
+        </div>
+        <net-export [table]="true" label="Top data users" (picked)="exportUsage($event)" />
+      </div>
+    </div>
+    @if (topUsageError()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ topUsageError() }}</div> }
+    <div class="table-container">
+      <table class="clean-table" #usageTable>
+        <thead><tr><th class="num" style="width:40px">#</th><th>Client</th><th>Type</th><th style="width:30%">Share</th><th class="num">Download</th><th class="num">Upload</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          @if (topRows(); as rows) {
+            @for (c of rows; track c.mac; let i = $index) {
+              <tr [class.clickable]="c.online" (click)="c.online && openClient(c.mac)">
+                <td class="num muted">{{ i + 1 }}</td>
+                <td><div class="dev"><span class="dev-icon"><net-icon [name]="clientIcon(c.kind)" [size]="16" /></span>
+                  <div><div class="dev-name">{{ c.name }}</div><div class="muted small">{{ c.online ? (c.wired ? 'Wired · online' : 'Wi-Fi · online') : 'Not connected now' }}</div></div></div></td>
+                <td>{{ c.kindLabel }}</td>
+                <td><div class="gauge" style="margin:0"><span [style.width.%]="c.share"></span></div></td>
+                <td class="num">{{ bytes(c.down) }}</td>
+                <td class="num">{{ bytes(c.up) }}</td>
+                <td class="num"><b>{{ bytes(c.total) }}</b></td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="empty-state">No usage recorded.</td></tr>
+            }
+          } @else if (topUsageLoading()) {
+            @for (r of [1, 2, 3, 4, 5]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7]; track c) { <td><div class="sk sk-line"></div></td> }</tr> }
+          } @else {
+            <tr><td colspan="7" class="empty-state">Usage data is unavailable right now.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>All clients</h3><p class="panel-sub">{{ data() ? rows().length + ' of ' + data()!.clients.length + ' clients' : 'Loading…' }}</p></div>
+      <div class="panel-tools">
+        <input class="form-control search" type="search" placeholder="Search name, IP, MAC, vendor…" aria-label="Search clients" [ngModel]="search()" (ngModelChange)="search.set($event)">
+        <div class="seg" role="group" aria-label="Connection type">
+          <button [class.active]="type() === ''" (click)="type.set('')">All</button>
+          <button [class.active]="type() === 'wifi'" (click)="type.set('wifi')">Wi-Fi</button>
+          <button [class.active]="type() === 'wired'" (click)="type.set('wired')">Wired</button>
+          <button [class.active]="type() === 'guest'" (click)="type.set('guest')">Guest</button>
+        </div>
+        <select class="form-control" aria-label="Device type" [ngModel]="kind()" (ngModelChange)="kind.set($event)">
+          <option value="">All types</option>
+          @for (k of kindOptions(); track k[0]) { <option [value]="k[0]">{{ k[1].label }} ({{ k[1].n }})</option> }
+        </select>
+        <select class="form-control" aria-label="Connected to" [ngModel]="uplink()" (ngModelChange)="uplink.set($event)">
+          <option value="">All devices</option>
+          @for (u of uplinkOptions(); track u[0]) { <option [value]="u[0]">{{ u[1] }}</option> }
+        </select>
+        <net-export [table]="true" label="All clients" (picked)="exportClients($event)" />
+      </div>
+    </div>
+    <div class="table-container scroll">
+      <table class="clean-table" #clientsTable>
+        <thead><tr>
+          <th class="sortable" [attr.aria-sort]="ariaSort('name')" (click)="setSort('name')">Client<span class="sort-icon">{{ sortMark('name') }}</span></th>
+          <th class="sortable" [attr.aria-sort]="ariaSort('conn')" (click)="setSort('conn')">Connection<span class="sort-icon">{{ sortMark('conn') }}</span></th>
+          <th class="sortable" [attr.aria-sort]="ariaSort('uplink')" (click)="setSort('uplink')">Connected to<span class="sort-icon">{{ sortMark('uplink') }}</span></th>
+          <th class="sortable" [attr.aria-sort]="ariaSort('signal')" (click)="setSort('signal')">Signal<span class="sort-icon">{{ sortMark('signal') }}</span></th>
+          <th class="sortable" [attr.aria-sort]="ariaSort('ip')" (click)="setSort('ip')">IP address<span class="sort-icon">{{ sortMark('ip') }}</span></th>
+          <th class="sortable" [attr.aria-sort]="ariaSort('exp')" (click)="setSort('exp')">Experience<span class="sort-icon">{{ sortMark('exp') }}</span></th>
+          <th class="sortable num" [attr.aria-sort]="ariaSort('data')" (click)="setSort('data')">Data used<span class="sort-icon">{{ sortMark('data') }}</span></th>
+          <th class="sortable num" [attr.aria-sort]="ariaSort('uptime')" (click)="setSort('uptime')">Connected for<span class="sort-icon">{{ sortMark('uptime') }}</span></th>
+        </tr></thead>
+        <tbody>
+          @if (data()) {
+            @for (c of rows(); track c.mac) {
+              <tr class="clickable" (click)="openClient(c.mac, $event)">
+                <td><div class="dev"><span class="dev-icon" [title]="c.kindLabel"><net-icon [name]="clientIcon(c.kind)" [size]="16" /></span>
+                  <div><div class="dev-name">{{ c.name }}</div><div class="muted small">{{ c.vendor ? c.kindLabel + ' · ' + c.vendor : c.kindLabel }}</div></div></div></td>
+                <td>
+                  @if (c.wired) { <span class="conn"><net-icon name="cable" [size]="14" />Wired{{ c.port != null ? ' · Port ' + c.port : '' }}</span> }
+                  @else { <span class="conn"><net-icon name="wifi" [size]="14" />{{ c.ssid || 'Wi-Fi' }}{{ c.band ? ' · ' + c.band : '' }}</span> }
+                </td>
+                <td>@if (c.uplinkMac) { <a [routerLink]="['/admin/network/device', c.uplinkMac]">{{ c.uplinkName || c.uplinkMac }}</a> } @else { {{ c.uplinkName || '–' }} }</td>
+                <td>@if (c.wired) { <span class="muted">–</span> } @else { <net-signal [dbm]="c.signal" /> }</td>
+                <td class="mono">{{ c.ip || '–' }}</td>
+                <td>@if (c.experience == null) { <span class="muted">–</span> } @else { <span class="exp"><span class="gauge"><span [style.width.%]="c.experience" [style.background]="expColor(c.experience)"></span></span>{{ fmt(c.experience) }}%</span> }</td>
+                <td class="num">{{ bytes(c.dataBytes) }}</td>
+                <td class="num">{{ dur(c.uptime) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="empty-state">No clients match.</td></tr>
+            }
+          } @else if (loading()) {
+            @for (r of [1, 2, 3, 4, 5, 6, 7, 8]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8]; track c) { <td><div class="sk sk-line" [style.width.%]="c === 1 ? 80 : 60"></div></td> }</tr> }
+          } @else {
+            <tr><td colspan="8" class="empty-state">Client data is unavailable right now.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- Client drawer -->
+@if (openMac()) {
+  <div class="drawer-bg" (click)="closeDrawer()"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="client-name">
+    <button class="icon-btn drawer-close" (click)="closeDrawer()" aria-label="Close"><net-icon name="close" [size]="16" /></button>
+    @if (client(); as c) {
+      <div class="hero">
+        <div class="hero-icon"><net-icon [name]="clientIcon(c.kind)" [size]="24" /></div>
+        <div class="hero-main">
+          <h2 id="client-name">{{ c.name }}</h2>
+          <div class="hero-meta">
+            <span>{{ c.kindLabel }}</span>
+            @if (c.wired) { <span class="conn"><net-icon name="cable" [size]="13" />Wired{{ c.port != null ? ' · Port ' + c.port : '' }}</span> }
+            @else { <span class="conn"><net-icon name="wifi" [size]="13" />{{ c.ssid || 'Wi-Fi' }}{{ c.band ? ' · ' + c.band : '' }}</span> }
+            @if (c.guest) { <span class="badge badge-muted">Guest</span> }
+          </div>
+          @if (canRename) {
+            @if (!renaming()) {
+              <button class="link-btn" style="margin-top:8px" (click)="startRename(c)"><net-icon name="edit" [size]="12" />Rename</button>
+            } @else {
+              <form class="rename" (submit)="$event.preventDefault(); saveRename(c)">
+                <input class="form-control" maxlength="60" aria-label="Client name" [ngModel]="renameValue()" (ngModelChange)="renameValue.set($event)" name="alias">
+                <button class="btn-sm btn-primary" type="submit" [disabled]="renameSaving()">{{ renameSaving() ? 'Saving…' : 'Save' }}</button>
+                <button class="btn-sm btn-outline" type="button" (click)="renaming.set(false)" [disabled]="renameSaving()">Cancel</button>
+              </form>
+              @if (renameError()) { <p class="crit small" style="margin:6px 0 0">{{ renameError() }}</p> }
+            }
+            @if (c.alias) { <p class="muted small" style="margin:6px 0 0">Custom name set in this dashboard. Save an empty name to reset.</p> }
+          }
+        </div>
+      </div>
+
+      <h4 class="drawer-h">Details</h4>
+      <dl class="facts">
+        @for (f of facts(); track f.k) { <div><dt>{{ f.k }}</dt><dd [class.mono]="f.mono">{{ f.v }}</dd></div> }
+        <div><dt>Connected to</dt><dd>@if (c.uplinkMac) { <a [routerLink]="['/admin/network/device', c.uplinkMac]">{{ c.uplinkName || c.uplinkMac }}</a> } @else { {{ c.uplinkName || '–' }} }{{ c.port != null ? ' · Port ' + c.port : '' }}</dd></div>
+        @if (!c.wired) { <div><dt>Signal</dt><dd><net-signal [dbm]="c.signal" /></dd></div> }
+        <div><dt>Experience</dt><dd>@if (c.experience == null) { – } @else { <span class="exp"><span class="gauge"><span [style.width.%]="c.experience" [style.background]="expColor(c.experience)"></span></span>{{ fmt(c.experience) }}%</span> }</dd></div>
+      </dl>
+
+      <h4 class="drawer-h">Data usage</h4>
+      @if (usageError()) {
+        <p class="muted small">Usage history unavailable: {{ usageError() }}</p>
+      } @else {
+        <div class="head-stats usage-stats">
+          <div><span>Today</span><strong>{{ usageStats()?.today ?? '…' }}</strong></div>
+          <div><span>Last 7 days</span><strong>{{ usageStats()?.week ?? '…' }}</strong></div>
+          <div><span>Last 30 days</span><strong>{{ usageStats()?.month ?? '…' }}</strong></div>
+        </div>
+        <div class="seg" role="group" aria-label="Usage range" style="margin:12px 0 8px">
+          <button [class.active]="usageRange() === 30" (click)="usageRange.set(30)">30 days</button>
+          <button [class.active]="usageRange() === 2" (click)="usageRange.set(2)">48 hours</button>
+        </div>
+        <div class="chart-box" style="height:190px">
+          @if (!usage()) { <div class="sk chart-sk"></div> }
+          <canvas #cUsage role="img" aria-label="Bar chart of this client's data usage"></canvas>
+        </div>
+      }
+
+      <h4 class="drawer-h">Connection history (today)</h4>
+      @if (history(); as h) {
+        <div class="head-stats left">
+          <div><span>Connected for</span><strong>{{ dur(h.stats.upMs / 1000) }}</strong></div>
+          <div><span>First connected</span><strong>{{ h.stats.firstUp && h.stats.firstUp > h.from ? clock(h.stats.firstUp) : 'Over 24h ago' }}</strong></div>
+          <div><span>Disconnections</span><strong>{{ fmt(h.stats.outages) }}</strong></div>
+          @if (!h.wired) { <div><span>Roams</span><strong>{{ fmt(h.roams) }}</strong></div> }
+        </div>
+        <net-timeline [segs]="h.segs" [from]="h.from" [to]="h.to" [rangeHours]="24" tone="client" [upLabel]="labels.upLabel" [downLabel]="labels.downLabel" [leadLabel]="labels.leadLabel" />
+        <net-sessions [segs]="h.segs" [rangeHours]="24" [limit]="10" tone="client" [labels]="labels" />
+        @if (!h.anyConn) { <p class="muted small">No connect or disconnect events logged in 24h; connected the whole time.</p> }
+      } @else if (logsError()) {
+        <p class="muted small">Couldn't load history. <button class="link-btn" (click)="loadLogs(c.mac)">Try again</button></p>
+      } @else {
+        <p class="muted small">{{ logsSlow() ? 'Still loading the event log from UniFi…' : 'Loading…' }}</p>
+      }
+
+      <h4 class="drawer-h">Recent activity (24h)</h4>
+      @if (logs(); as list) {
+        <ul class="logs">
+          @for (l of list.slice(0, 50); track l.id) {
+            <li><time>{{ logWhen(l.t) }}</time><div class="log-title">{{ l.title }}@if (l.severity && l.severity !== 'low') { <span class="sev" [class]="l.severity">{{ l.severity }}</span> }</div><div class="log-msg">{{ l.message }}</div></li>
+          } @empty {
+            <li class="muted small" style="display:block">No events for this client in the last 24 hours.</li>
+          }
+        </ul>
+      } @else if (logsError()) {
+        <p class="muted small">Couldn't load logs: {{ logsError() }}</p>
+      } @else {
+        <div class="sk sk-line"></div><div class="sk sk-line" style="width:70%"></div>
+      }
+    } @else {
+      <p class="muted">This client is no longer connected.</p>
+    }
+  </aside>
+}
