@@ -173,9 +173,32 @@ export class Manage implements OnInit {
 
   bookingBillingPeriodMonths = 3;
   bookingSecurityDepositMonths = 2;
+  // Per-seat monthly base price: starts at the space's standard rate and may only be raised (same rule as quotations).
+  bookingPerSeatBasePrice = 0;
+  bookingMinPerSeatBasePrice = 0;
+  readonly bookingBasePriceError = signal('');
+
+  /** True when the admin raised the base price above the standard rate. */
+  get bookingHasRaisedBasePrice(): boolean {
+    return !this.isAdminMeetingRoom && this.bookingMinPerSeatBasePrice > 0
+      && Number(this.bookingPerSeatBasePrice || 0) > this.bookingMinPerSeatBasePrice;
+  }
   readonly billingPeriodOptions = BILLING_PERIOD_OPTIONS;
 
+  /**
+   * Cap for this booking. As with quotations, the floor per seat is the standard rate minus the base cap;
+   * a raised base price may be discounted down to that floor (40,000 -> 21.25% at a 10% cap).
+   */
   get bookingDynamicDiscountCap(): number {
+    const cap = this.bookingBaseDiscountCap;
+    if (!this.bookingHasRaisedBasePrice) return cap;
+    const perSeat = Number(this.bookingPerSeatBasePrice);
+    const floorPerSeat = this.bookingMinPerSeatBasePrice * (1 - cap / 100);
+    return Math.floor(((perSeat - floorPerSeat) / perSeat) * 10000) / 100;
+  }
+
+  /** Offering type's discount cap at the standard rate. */
+  get bookingBaseDiscountCap(): number {
     const ot = this.offeringTypes().find(o =>
       (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
       (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
@@ -189,6 +212,12 @@ export class Manage implements OnInit {
   }
 
   get bookingMaxAllowedDiscountFixed(): number {
+    if (this.bookingHasRaisedBasePrice) {
+      // Same floor as the percentage cap: (base price - floor) per seat, per month
+      const floorPerSeat = this.bookingMinPerSeatBasePrice * (1 - this.bookingBaseDiscountCap / 100);
+      const seats = this.isAdminPrivateRoom ? Math.max(1, Number(this.selectedAdminCapacity || 1)) : 1;
+      return parseFloat(((Number(this.bookingPerSeatBasePrice) - floorPerSeat) * seats).toFixed(2));
+    }
     const base = this.isAdminMeetingRoom ? this.bookingSubtotal : this.bookingMonthlyRent;
     return parseFloat(((base * this.bookingDynamicDiscountCap) / 100).toFixed(2));
   }
@@ -227,6 +256,28 @@ export class Manage implements OnInit {
       }
     }
     this.bookingDiscountError.set('');
+  }
+
+  validateBookingBasePrice(): void {
+    if (this.isAdminMeetingRoom || !this.bookingFormData?.spaceId) {
+      this.bookingBasePriceError.set('');
+      return;
+    }
+    const price = Number(this.bookingPerSeatBasePrice || 0);
+    const min = Number(this.bookingMinPerSeatBasePrice || 0);
+    if (min > 0 && price < min) {
+      this.bookingBasePriceError.set(`Base price cannot be decreased below original base price of PKR ${min.toLocaleString()}. Only increases are allowed.`);
+    } else if (price <= 0) {
+      this.bookingBasePriceError.set('Base price must be greater than 0.');
+    } else {
+      this.bookingBasePriceError.set('');
+    }
+  }
+
+  onBookingBasePriceChange(): void {
+    this.validateBookingBasePrice();
+    this.recalcAmount();
+    this.validateBookingDiscount();
   }
 
   onBookingOfferingTypeChange() {
@@ -286,6 +337,10 @@ export class Manage implements OnInit {
     const spaceId = this.bookingFormData?.spaceId;
     const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
     if (space) {
+      if (this.bookingPerSeatBasePrice > 0) {
+        const seats = this.isAdminPrivateRoom ? Math.max(1, Number(this.selectedAdminCapacity || space.capacity || 1)) : 1;
+        return parseFloat((Number(this.bookingPerSeatBasePrice) * seats).toFixed(2));
+      }
       return this.getSpaceMonthlyRent(space, this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null);
     }
     const months = Number(this.adminMonths || 1);
@@ -546,7 +601,8 @@ export class Manage implements OnInit {
     return Number(space?.maxDiscountPercent || space?.MaxDiscountPercent || 20);
   }
 
-  get quotationDynamicDiscountCap(): number {
+  /** Offering type's discount cap at the standard rate (e.g. 10% for 24/7). */
+  get quotationBaseDiscountCap(): number {
     const ot = this.offeringTypes().find(o =>
       (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
       (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
@@ -557,7 +613,34 @@ export class Manage implements OnInit {
     return Number(this.quotationMaxDiscountPercent || 10);
   }
 
+  /**
+   * Cap for this quotation. The floor per seat is the standard rate minus the base cap
+   * (35,000 - 10% = 31,500); a raised base price may be discounted down to that floor
+   * (40,000 -> 21.25%). Same rule as QuotationService.CreateQuotationAsync.
+   */
+  get quotationDynamicDiscountCap(): number {
+    const cap = this.quotationBaseDiscountCap;
+    const standard = Number(this.quotationMinPerSeatBasePrice || 0);
+    const perSeat = Number(this.quotationPerSeatBasePrice || 0);
+    if (this.isQuotationMeetingRoom || standard <= 0 || perSeat <= standard) return cap;
+    const floorPerSeat = standard * (1 - cap / 100);
+    return Math.floor(((perSeat - floorPerSeat) / perSeat) * 10000) / 100;
+  }
+
+  /** Lowest allowed price per seat after discount (shown next to the cap). */
+  get quotationFloorPerSeat(): number {
+    const standard = Number(this.quotationMinPerSeatBasePrice || 0) || Number(this.quotationPerSeatBasePrice || 0);
+    return parseFloat((standard * (1 - this.quotationBaseDiscountCap / 100)).toFixed(2));
+  }
+
   get quotationMaxAllowedDiscountFixed(): number {
+    const standard = Number(this.quotationMinPerSeatBasePrice || 0);
+    const perSeat = Number(this.quotationPerSeatBasePrice || 0);
+    if (!this.isQuotationMeetingRoom && standard > 0 && perSeat > standard) {
+      // Same floor as the percentage cap: (base price - floor) per seat, e.g. (40,000 - 31,500) = 8,500
+      const seats = Math.max(1, Number(this.quotationCapacity || 1));
+      return parseFloat(((perSeat - this.quotationFloorPerSeat) * seats).toFixed(2));
+    }
     const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationMonthlyRent;
     return parseFloat(((base * this.quotationDynamicDiscountCap) / 100).toFixed(2));
   }
@@ -637,6 +720,7 @@ export class Manage implements OnInit {
   onQuotationBasePriceChange(): void {
     this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
+    this.validateQuotationDiscount(); // the cap depends on the base price
   }
 
   get quotationMonthlyRent(): number {
@@ -1275,6 +1359,9 @@ export class Manage implements OnInit {
     this.securityDepositMonthsOverride = null;
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
+    this.bookingPerSeatBasePrice = 0;
+    this.bookingMinPerSeatBasePrice = 0;
+    this.bookingBasePriceError.set('');
     this.bookingDiscountValue = 0;
     this.bookingDiscountError.set('');
     this.bookingOfferingTypeId = 1;
@@ -1587,6 +1674,10 @@ export class Manage implements OnInit {
     if (spaceId) {
       const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
       if (space) {
+        const { monthly: standardMonthly } = this.getSpacePrice(space);
+        const baseMonthly = standardMonthly > 0 ? standardMonthly : Number(space.price || space.Price || 0);
+        this.bookingPerSeatBasePrice = baseMonthly;
+        this.bookingMinPerSeatBasePrice = baseMonthly;
         const name = String(space.name || space.Name || '').toLowerCase();
         const { hourly, daily } = this.getSpacePrice(space);
         if (name.includes('meeting room 2') || (daily > 0 && hourly === 0)) {
@@ -1599,8 +1690,13 @@ export class Manage implements OnInit {
           this.generateAdminMeetingSlots();
         }
       }
+    } else {
+      this.bookingPerSeatBasePrice = 0;
+      this.bookingMinPerSeatBasePrice = 0;
     }
+    this.validateBookingBasePrice();
     this.recalcAmount();
+    this.validateBookingDiscount();
   }
 
 
@@ -2177,7 +2273,9 @@ export class Manage implements OnInit {
       }
     } else {
       if (!this.adminStartDate || !this.adminMonths || this.adminMonths < 1) return;
-      const rate = monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0));
+      const rate = this.bookingPerSeatBasePrice > 0
+        ? Number(this.bookingPerSeatBasePrice)
+        : (monthly > 0 ? monthly : (daily > 0 ? daily : (hourly > 0 ? hourly : 0)));
 
       if (this.isAdminPrivateRoom) {
         const capacity = this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : Number(space.capacity ?? 1);
@@ -2353,6 +2451,9 @@ export class Manage implements OnInit {
         securityDepositMonths: this.bookingSecurityDepositMonths,
         securityDepositOverride: this.effectiveSecurityDeposit,
         floorId: this.bookingFloorId ?? null,
+        capacity: this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null,
+        // Sent only when raised, so standard bookings keep working before the WN_Bookings_Insert update is applied.
+        perSeatBasePrice: this.bookingHasRaisedBasePrice ? Number(this.bookingPerSeatBasePrice) : null,
       };
 
       if (this.editingBookingId) {

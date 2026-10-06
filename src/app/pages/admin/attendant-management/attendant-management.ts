@@ -8,6 +8,9 @@ import { HikDevice } from '../../../models/hik-device.model';
 
 type EnrollType = 'fingerprint' | 'card' | 'face';
 
+/** Days after an invoice's due date before access is suspended (matches WN_HIK_AccessSuspension_Run). */
+const INVOICE_GRACE_DAYS = 7;
+
 @Component({
   selector: 'app-attendant-management',
   standalone: true,
@@ -78,19 +81,20 @@ export class AttendantManagement implements OnInit, OnDestroy {
    */
   upcomingSuspension = computed(() => {
     if (this.suspension()) return null; // already suspended / temporarily extended
-    const today = this.todayIso;
+    const todayMs = new Date(new Date().toDateString()).getTime();
+    // Invoices get INVOICE_GRACE_DAYS after the due date (same as WN_HIK_AccessSuspension_Run);
+    // booking challans are disabled the day after they expire.
     const next = (this.challans()?.challans || [])
-      .filter((c: any) => c.status === 'Unpaid' && c.dueOn && c.dueOn >= today)
-      .sort((a: any, b: any) => a.dueOn.localeCompare(b.dueOn))[0];
+      .filter((c: any) => c.dueOn && (c.status === 'Unpaid' || (c.status === 'Overdue' && c.type !== 'Booking challan')))
+      .map((c: any): { challan: any; payBy: Date; disableOn: Date } => {
+        const [y, m, d] = c.dueOn.split('-').map(Number);
+        const grace = c.type === 'Booking challan' ? 0 : INVOICE_GRACE_DAYS;
+        return { challan: c, payBy: new Date(y, m - 1, d + grace), disableOn: new Date(y, m - 1, d + grace + 1) };
+      })
+      .filter((x: { disableOn: Date }) => x.disableOn.getTime() > todayMs)
+      .sort((a: { disableOn: Date }, b: { disableOn: Date }) => a.disableOn.getTime() - b.disableOn.getTime())[0];
     if (!next) return null;
-    const [y, m, d] = next.dueOn.split('-').map(Number);
-    const disableOn = new Date(y, m - 1, d + 1);
-    return {
-      challan: next,
-      payBy: new Date(y, m - 1, d),
-      disableOn,
-      daysLeft: Math.round((disableOn.getTime() - new Date(new Date().toDateString()).getTime()) / 86400000)
-    };
+    return { ...next, daysLeft: Math.round((next.disableOn.getTime() - todayMs) / 86400000) };
   });
   showExtendModal = signal(false);
   extendUntil = '';

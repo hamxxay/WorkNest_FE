@@ -466,3 +466,45 @@
 }
 
 
+
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+.modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
+.modal-content h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 22px;padding:0 40px 16px 0;border-bottom:1px solid #f1f5f9}
+.modal-close{top:20px;right:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+@keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Large forms (Create Booking / Create Quotation): a centred sheet instead of full screen */
+/* No bottom padding here: a sticky footer stops at the scroller's padding edge, which left a gap under it */
+.modal-overlay.sheet-overlay{align-items:flex-start;padding:40px 20px 0;overflow-y:auto}
+.modal-content.sheet-modal{max-width:920px;max-height:none;overflow:visible;padding:32px 36px 0;border-radius:16px;margin:0 auto 40px}
+
+.form-section-label{display:flex;align-items:center;gap:8px;font-size:.72rem;letter-spacing:.08em;color:#0f766e;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid #f1f5f9}
+.form-section-label::before{content:'';width:4px;height:14px;border-radius:2px;background:#0d9488}
+.form-row-admin{gap:16px}
+.modal-content .form-group-admin{margin-bottom:16px}
+.modal-content .form-group-admin label{font-size:.8rem;font-weight:600;color:#334155;margin-bottom:6px}
+.modal-content .form-input-admin{height:42px;padding:0 14px;border:1px solid #dbe2ea;border-radius:10px;background:#fff;font-size:.9rem;transition:border-color .15s,box-shadow .15s}
+.modal-content textarea.form-input-admin{height:auto;min-height:84px;padding:10px 14px;line-height:1.5;resize:vertical}
+.modal-content select.form-input-admin{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center}
+.modal-content table .form-input-admin{height:34px}
+.modal-content .form-input-admin:hover:not(:focus):not(:disabled){border-color:#cbd5e1}
+.modal-content .form-input-admin:focus{border-color:#0d9488;box-shadow:0 0 0 4px rgba(13,148,136,.12)}
+.modal-content .form-input-admin:disabled,.modal-content .form-input-admin[readonly]{background:#f8fafc;color:#64748b}
+.modal-content .form-input-admin::placeholder{color:#94a3b8}
+.has-error .form-input-admin{border-color:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.1)}
+
+/* Buttons stay visible at the bottom of long forms */
+.modal-actions{position:sticky;bottom:0;z-index:2;background:#fff;margin:24px -28px -28px;padding:16px 28px;border-top:1px solid #f1f5f9;border-radius:0 0 16px 16px}
+.sheet-modal .modal-actions{margin:28px -36px 0;padding:16px 36px}
+.modal-actions .btn-admin{height:40px;padding:0 20px;border-radius:10px;font-weight:600}
+.modal-actions .btn-primary-admin{box-shadow:0 1px 2px rgba(13,148,136,.3)}
+
+@media (max-width:720px){
+  .form-row-admin{grid-template-columns:1fr}
+  .modal-overlay.sheet-overlay{padding:0}
+  .modal-content.sheet-modal{border-radius:0;padding:24px 16px 0;min-height:100vh;margin:0}
+  .sheet-modal .modal-actions{margin:24px -16px 0;padding:14px 16px;border-radius:0}
+}

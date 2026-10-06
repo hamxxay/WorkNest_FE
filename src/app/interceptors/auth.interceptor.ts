@@ -3,14 +3,24 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 
 function isAuthRequest(url: string): boolean {
   return /\/auth(?:\/|$)/i.test(url);
 }
 
+// Login, sign-up, contact and tour forms already show the API's message on the page.
+function showsOwnRateLimitMessage(url: string): boolean {
+  return isAuthRequest(url) || /\/api\/(contact|book-tour)(?:\?|$)/i.test(url);
+}
+
+// One toast per burst: a page that fires several requests at once should not stack copies.
+let lastRateLimitToastAt = 0;
+
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const authService = inject(AuthService);
+  const toastService = inject(ToastService);
   return authService.getAccessToken$().pipe(
     switchMap(token => {
       let requestWithAuth = req.clone();
@@ -45,6 +55,18 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
               void router.navigate(['/login'], {
                 queryParams: { redirect: router.url }
               });
+            }
+          }
+
+          if (error.status === 429 && !showsOwnRateLimitMessage(req.url)) {
+            // The API's message carries the wait time ("please wait 42 seconds and try again").
+            // Callers that show err.error.message inline (login, sign-up) get the same text.
+            const now = Date.now();
+            if (now - lastRateLimitToastAt > 5000) {
+              lastRateLimitToastAt = now;
+              toastService.show(
+                error.error?.message || 'Too many requests. Please wait a minute and try again.',
+                'warning', 'Too many attempts');
             }
           }
 

@@ -548,6 +548,15 @@ export class AdminService {
     if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }
+  // Admin sidebar badges: items waiting on staff, keyed by sidebar route ({ "/admin/bookings": 2, ... }).
+  // Role- and location-scoped by the API; only routes the user can open are returned.
+  getNavBadges(): Observable<Record<string, number>> {
+    return this.http.get<Record<string, number>>(`${this.api}/admin/nav-badges`);
+  }
+  // "Mark as read" for sidebar badges, remembered per login on the server. No routes = every badge.
+  markNavBadgesRead(routes?: string[]): Observable<any> {
+    return this.http.post(`${this.api}/admin/nav-badges/read`, { routes: routes ?? [] });
+  }
   // Admin dashboard "Door access" card: machines, queued operations, suspended bookings.
   getAccessOverview(): Observable<any> {
     return this.http.get<any>(`${this.api}/access-suspensions/overview`);
