@@ -7083,11 +7083,20 @@ export class Manage implements OnInit {
         const bookingId = res?.data?.bookingId ?? res?.data?.BookingId;
         this.load();
         if (bookingId) {
-          // Next step: first invoice, dated on the agreement
-          this.sendInitialInvoice({
-            bookingId,
-            issuedOn: date,
-            customerEmail: ag.customerEmail || ag.CustomerEmail || ag.email || res?.data?.customerEmail || ''
+          // Next step: first invoice, dated on the agreement. Load the full booking first so the
+          // invoice window shows the customer, space and amounts (as when opened from Bookings).
+          const fallbackEmail = ag.customerEmail || ag.CustomerEmail || ag.email || res?.data?.customerEmail || '';
+          this.admin.getBookingRow(Number(bookingId)).subscribe({
+            next: (rowRes: any) => {
+              const row = rowRes?.data ?? rowRes ?? {};
+              this.sendInitialInvoice({
+                ...row,
+                bookingId,
+                issuedOn: date,
+                customerEmail: row.customerEmail || row.CustomerEmail || row.userEmail || row.UserEmail || fallbackEmail
+              });
+            },
+            error: () => this.sendInitialInvoice({ bookingId, issuedOn: date, customerEmail: fallbackEmail })
           });
         }
       },
