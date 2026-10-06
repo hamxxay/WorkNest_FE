@@ -157,7 +157,9 @@
                 col) }}</span>
               } @else if (col.type === 'boolean') {
               <span class="bool-badge" [class.active]="item[col.key]">{{ item[col.key] ? 'Yes' : 'No' }}</span>
-              } @else if (col.type === 'date' || col.type === 'datetime') {
+              } @else if (col.type === 'date') {
+              {{ getCellValue(item, col) | date:'mediumDate' }}
+              } @else if (col.type === 'datetime') {
               {{ getCellValue(item, col) | date:'short' }}
               } @else if (col.type === 'currency') {
               PKR {{ (getCellValue(item, col) || 0) | number:'1.0-0' }}

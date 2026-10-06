@@ -4154,7 +4154,6 @@ export class Manage implements OnInit {
           { key: 'company', label: 'Company' },
           { key: 'email', label: 'Email' },
           { key: 'phoneNumber', label: 'Phone' },
-          { key: 'cityName', label: 'City' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
