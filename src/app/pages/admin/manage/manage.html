@@ -1580,8 +1580,8 @@
 }
 
 @if (showQuotationForm()) {
-<div class="modal-overlay" style="align-items:flex-start;padding:0" (click)="closeAdminQuotationForm()">
-  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0"
+<div class="modal-overlay sheet-overlay" (click)="closeAdminQuotationForm()">
+  <div class="modal-content booking-modal sheet-modal"
     (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeAdminQuotationForm()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -1844,10 +1844,10 @@
           [class.has-error]="quotationFormErrorField === 'discount' || !!quotationDiscountError()">
           <label>Discount Value
             @if (quotationDiscountType === 'Percentage') {
-            <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%)</small>
+            <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%@if (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{ quotationFloorPerSeat | number:'1.0-0' }}/seat})</small>
             } @else {
             <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ quotationMaxAllowedDiscountFixed |
-              number:'1.0-0' }})</small>
+              number:'1.0-0' }}@if (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{ quotationFloorPerSeat | number:'1.0-0' }}/seat})</small>
             }
           </label>
           <input class="form-input-admin" [class.is-invalid]="quotationDiscountError()" type="number" min="0"
@@ -1969,8 +1969,8 @@
 }
 
 @if (showBookingForm()) {
-<div class="modal-overlay" style="align-items:flex-start;padding:0" (click)="closeAdminBookingForm()">
-  <div class="modal-content booking-modal" style="max-width:100%;width:100%;min-height:100vh;border-radius:0;margin:0"
+<div class="modal-overlay sheet-overlay" (click)="closeAdminBookingForm()">
+  <div class="modal-content booking-modal sheet-modal"
     (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeAdminBookingForm()">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -2140,6 +2140,23 @@
             }
           </select>
         </div>
+        @if (!isAdminMeetingRoom && !editingBookingId) {
+        <div class="form-group-admin" data-field="basePrice" [class.has-error]="!!bookingBasePriceError()">
+          <label>Base Price (per seat) *
+            @if (bookingMinPerSeatBasePrice > 0) {
+            <small style="color:#64748b;font-weight:500">(Min: PKR {{ bookingMinPerSeatBasePrice | number:'1.0-0' }})</small>
+            }
+          </label>
+          <input class="form-input-admin" [class.is-invalid]="bookingBasePriceError()" type="number"
+            [min]="bookingMinPerSeatBasePrice || 0" [(ngModel)]="bookingPerSeatBasePrice" name="bookingPerSeatPrice"
+            (ngModelChange)="onBookingBasePriceChange()" required
+            [disabled]="!bookingFormData.spaceId"
+            [placeholder]="bookingFormData.spaceId ? '0' : 'Select a space first'" />
+          @if (bookingBasePriceError()) {
+          <div style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500">{{ bookingBasePriceError() }}</div>
+          }
+        </div>
+        }
         @if (bookingFloorOptions().length) {
         <div class="form-group-admin">
           <label>Floor</label>
@@ -2356,7 +2373,7 @@
       <div class="modal-actions" style="display:flex;flex-wrap:wrap;gap:8px">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminBookingForm()">Cancel</button>
         <button type="submit" class="btn-admin btn-primary-admin"
-          [disabled]="bookingFormSaving() || !selectedCustomer || !!bookingDiscountError()">
+          [disabled]="bookingFormSaving() || !selectedCustomer || !!bookingDiscountError() || !!bookingBasePriceError()">
           {{ bookingFormSaving() ? (editingBookingId ? 'Updating...' : 'Creating...') : (editingBookingId ? 'Update
           Booking' : 'Create Booking') }}
         </button>
@@ -2505,7 +2522,7 @@
 @if (showBookingDetailsModal() && selectedBookingDetails(); as booking) {
 <div class="modal-overlay" (click)="showBookingDetailsModal.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()"
-    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
+    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px);max-height:min(92dvh,900px)">
     <div
       style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -2518,7 +2535,7 @@
         style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
-    <div style="padding:24px;max-height:calc(85vh - 70px);overflow-y:auto">
+    <div style="padding:24px;flex:1 1 auto;min-height:0;overflow-y:auto">
       <!-- Status Badges -->
       <div
         style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
@@ -3915,7 +3932,7 @@
 <!-- Agreement Details & Signed Copy Modal -->
 @if (signAgreementItem(); as ag) {
 <div class="modal-overlay" (click)="closeSignAgreement()">
-  <div class="modal-content" style="max-width:520px;width:100%;padding:0;overflow:hidden;border-radius:12px" (click)="$event.stopPropagation()">
+  <div class="modal-content" style="max-width:520px;width:100%;padding:0;overflow-y:auto;border-radius:12px" (click)="$event.stopPropagation()">
     <div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <div>
         <h3 style="margin:0;font-size:1.05rem;font-weight:700">Signed agreement received</h3>
@@ -3966,7 +3983,7 @@
 @if (showAgreementDetailsModal() && selectedAgreementDetails(); as agreement) {
 <div class="modal-overlay" (click)="showAgreementDetailsModal.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()"
-    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden">
+    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px);max-height:min(92dvh,900px)">
     <div
       style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -3979,7 +3996,7 @@
         style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
-    <div style="padding:24px;max-height:calc(85vh - 70px);overflow-y:auto">
+    <div style="padding:24px;flex:1 1 auto;min-height:0;overflow-y:auto">
       <!-- Status & Info Card -->
       <div
         style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
@@ -4137,7 +4154,7 @@
 @if (showQuickUploadModal()) {
 <div class="modal-backdrop" (click)="closeQuickUploadModal()">
   <div class="modal-content" (click)="$event.stopPropagation()"
-    style="max-width:520px;border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)">
+    style="max-width:520px;border-radius:12px;overflow-y:auto;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)">
     <div
       style="padding:16px 20px;background:#4f46e5;color:#fff;display:flex;justify-content:space-between;align-items:center">
       <div style="display:flex;align-items:center;gap:8px">

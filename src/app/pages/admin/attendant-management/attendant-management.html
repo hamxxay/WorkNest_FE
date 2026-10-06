@@ -225,7 +225,7 @@
                 }
               </td>
               <td>{{ a.idType }}: {{ a.idNumber }}</td>
-              <td>{{ a.email }}<br><small class="text-muted">{{ a.phone }}</small></td>
+              <td><div>Email: {{ a.email || '—' }}</div><div>Phone: {{ a.phone || '—' }}</div></td>
               <td>
                 @if (a.isOverCapacity) {
                 <span class="badge-surcharge">+PKR{{ a.surchargeApplied || 0 }}</span>

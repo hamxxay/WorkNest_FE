@@ -4,10 +4,11 @@ import { filter, map } from 'rxjs/operators';
 import { Navbar } from './components/navbar/navbar';
 import { Footer } from './components/footer/footer';
 import { WhatsappFloatComponent } from './components/whatsapp-float/whatsapp-float.component';
+import { ToastHost } from './components/toast-host/toast-host';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Navbar, Footer, WhatsappFloatComponent],
+  imports: [RouterOutlet, Navbar, Footer, WhatsappFloatComponent, ToastHost],
   template: `
     @if (showChrome()) {
       <app-navbar />
@@ -19,6 +20,7 @@ import { WhatsappFloatComponent } from './components/whatsapp-float/whatsapp-flo
       <app-footer />
       <app-whatsapp-float />
     }
+    <app-toast-host />
   `,
   styles: [`
     main { min-height: 100vh; }
