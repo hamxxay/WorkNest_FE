@@ -326,6 +326,12 @@ export class AdminService {
   getBookingRow(bookingId: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/booking/${bookingId}/row`);
   }
+  /** Exactly what the first invoice will contain (same server calculation), without saving or emailing. */
+  previewInitialInvoice(bookingId: number, issuedOn?: string | null): Observable<ApiResponse<any>> {
+    const params: any = { preview: true };
+    if (issuedOn) params.issuedOn = issuedOn;
+    return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/send-initial-invoice`, {}, { params });
+  }
   sendInitialInvoice(bookingId: number, issuedOn?: string | null): Observable<ApiResponse<any>> {
     // issuedOn (yyyy-MM-dd): the signed agreement's date — the first invoice is dated on it
     const params: any = issuedOn ? { issuedOn } : {};

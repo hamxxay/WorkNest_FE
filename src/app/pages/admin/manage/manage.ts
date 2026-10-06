@@ -5538,14 +5538,38 @@ export class Manage implements OnInit {
     this.selectedInitialInvoiceItem.set(item);
     // Only the invoice opened right after a signed agreement is dated on that agreement; any other is dated today.
     this.initialInvoiceIssuedOn.set(item.issuedOn ?? null);
+    // Show the server's own figures (proration, discount, tax, deposit) — not a browser-side estimate.
+    this.loadInitialInvoicePreview(Number(bookingId), item.issuedOn ?? null);
     const targetEmail = item.customerEmail || item.userEmail || item.email || '';
     this.initialInvoiceRecipientEmail.set(targetEmail);
     this.showInitialInvoicePreviewModal = true;
   }
 
+  /** Server-calculated first invoice (see previewInitialInvoice); null while loading or if unavailable. */
+  // No local estimate is ever shown: only the server's figures, or a loading / error state.
+  initialInvoicePreview = signal<any | null>(null);
+  initialInvoicePreviewLoading = signal(false);
+  initialInvoicePreviewError = signal('');
+  loadInitialInvoicePreview(bookingId: number, issuedOn: string | null) {
+    this.initialInvoicePreview.set(null);
+    this.initialInvoicePreviewError.set('');
+    this.initialInvoicePreviewLoading.set(true);
+    this.admin.previewInitialInvoice(bookingId, issuedOn).subscribe({
+      next: (res: any) => {
+        this.initialInvoicePreviewLoading.set(false);
+        if (res?.data) this.initialInvoicePreview.set(res.data);
+        else this.initialInvoicePreviewError.set(res?.message || 'The invoice could not be calculated.');
+      },
+      error: (err: any) => {
+        this.initialInvoicePreviewLoading.set(false);
+        this.initialInvoicePreviewError.set(err?.error?.message || 'The invoice could not be calculated.');
+      }
+    });
+  }
+
   confirmSendInitialInvoice() {
     const item = this.selectedInitialInvoiceItem();
-    if (!item) return;
+    if (!item || !this.initialInvoicePreview()) return;
     const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
     if (!bookingId) return;
 
