@@ -7,14 +7,23 @@
 
   @if (enabled) {
   <div class="wht-rate" [class.has-error]="showErrors && !!error">
-    <label [for]="idPrefix + '-rate'">WHT Rate (%) *</label>
-    <input class="wht-input" type="number" [id]="idPrefix + '-rate'" [name]="idPrefix + 'Rate'"
-      min="0.01" max="99.99" step="0.01" placeholder="e.g. 10" required
-      [ngModel]="rate" (ngModelChange)="onRate($event)" />
+    <label [for]="idPrefix + '-rate'">WHT Rate *</label>
+    <select class="wht-input" [id]="idPrefix + '-rate'" [name]="idPrefix + 'Rate'" required
+      [ngModel]="legacyRate !== null && selected === null ? 'legacy' : selected" (ngModelChange)="onSelect($event)">
+      <option [ngValue]="null" disabled>{{ loaded ? (options.length ? 'Select WHT rate' : 'No WHT rates set up') : 'Loading…' }}</option>
+      @for (o of options; track $index) {
+      <option [ngValue]="$index">{{ o.description }} ({{ o.rate }}%)</option>
+      }
+      @if (legacyRate !== null) {
+      <option value="legacy">Current rate ({{ legacyRate }}%)</option>
+      }
+    </select>
     @if (showErrors && error) {
     <div class="wht-error">{{ error }}</div>
+    } @else if (rate) {
+    <small>WHT {{ rate }}% applies. Room rent (rent + support) is grossed up so the amount received after withholding is unchanged; support charges, their tax and the security deposit are not grossed up.</small>
     } @else {
-    <small>Rent, service charges and their tax are grossed up so the amount received after withholding is unchanged. The security deposit is not grossed up.</small>
+    <small>Room rent (rent + support) is grossed up so the amount received after withholding is unchanged; support charges, their tax and the security deposit are not grossed up.</small>
     }
   </div>
   }
