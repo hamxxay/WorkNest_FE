@@ -353,11 +353,21 @@ export class Manage implements OnInit {
     return Math.max(0, parseFloat((this.bookingBillingPeriodMonths * this.bookingMonthlyRent).toFixed(2)));
   }
 
+  /** Seats the support charge is billed on: the chosen capacity, else the space's own capacity (as the invoice does). */
+  get bookingSupportSeats(): number {
+    const spaceId = this.bookingFormData?.spaceId;
+    const space: any = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
+    return Math.max(1, Number(this.selectedAdminCapacity || space?.capacity || space?.Capacity || 1));
+  }
+
+  /** PST, same rule as the invoice: 16% of support. Support = 2,000 x seats x billing months (offices / shared seats),
+   *  or 10% of the discounted rent (meeting rooms). Was: seats defaulted to 1, and meeting rooms took 16% of the rent. */
   get bookingTaxAmount(): number {
     if (this.isAdminMeetingRoom) {
-      return parseFloat((this.bookingSubtotal * 0.16).toFixed(2));
+      const discounted = Math.max(0, (this.bookingSubtotal || 0) - (this.bookingDiscountAmount || 0));
+      return parseFloat((discounted * 0.10 * 0.16).toFixed(2));
     }
-    const supportCharge = 2000 * Math.max(1, Number(this.selectedAdminCapacity || 1)) * Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
+    const supportCharge = 2000 * this.bookingSupportSeats * Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
 
@@ -2642,6 +2652,7 @@ export class Manage implements OnInit {
               customerEmail: payload.customerEmail,
               customerCode: payload.customerCode,
               spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
+              spaceCapacity: this.bookingSupportSeats,   // seats the support / PST is billed on
               locationName: space?.locationName ?? '',
               spaceTypeName: space?.spaceTypeName ?? '',
               contractStartDateTime: payload.startDateTime,
@@ -2663,7 +2674,7 @@ export class Manage implements OnInit {
               securityDepositOverride: secDepositAmount,
               taxAmount: tax,
               taxAmountOnAdvanceRent: tax,
-              taxAmountOnContract: Math.round(2000 * (Number(this.selectedAdminCapacity) || 1) * Number(this.adminMonths || 12) * 0.16 * 100) / 100,
+              taxAmountOnContract: Math.round(2000 * this.bookingSupportSeats * Number(this.adminMonths || 12) * 0.16 * 100) / 100,
               bookingDetails: billingDetails,
               subtotalAmount: billingRentAmount,
               discountPercentage: Number(this.bookingDiscountPercentage || 0),
@@ -2696,6 +2707,7 @@ export class Manage implements OnInit {
               customerEmail: payload.customerEmail,
               customerCode: payload.customerCode,
               spaceName: space ? `${space.name} (${space.code ?? ''})` : `Space ${payload.spaceId}`,
+              spaceCapacity: this.bookingSupportSeats,   // seats the support / PST is billed on
               locationName: space?.locationName ?? '',
               spaceTypeName: space?.spaceTypeName ?? '',
               contractStartDateTime: payload.startDateTime,
@@ -5765,6 +5777,7 @@ export class Manage implements OnInit {
             customerEmail: c.customerEmail || booking.customerEmail || booking.userEmail || '',
             customerCode: c.customerCode || booking.customerCode || '',
             spaceName: c.spaceName || booking.spaceName || 'Workspace',
+            spaceCapacity: c.spaceCapacity ?? c.SpaceCapacity ?? booking.capacity ?? booking.spaceCapacity ?? null,   // seats for support / PST
             spaceTypeName: c.spaceTypeName || booking.spaceTypeName,
             locationName: c.locationName || booking.locationName,
             contractStartDateTime: c.contractStartDate || startIso,
@@ -6563,11 +6576,8 @@ export class Manage implements OnInit {
       return Number(dbSubtotal) / months;
     }
     const seatPrice = Number(c.seatPrice ?? c.SeatPrice ?? 0);
-    let capacity = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
-    if (!capacity && c.spaceName) {
-      const match = String(c.spaceName).match(/\((\d+)\)/);
-      if (match && match[1]) capacity = Number(match[1]);
-    }
+    // seats from the record only: the bracket in the space name is the room code, not seats
+    const capacity = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
     const typeName = String(c.spaceTypeName || c.SpaceTypeName || '').toLowerCase();
     const isPrivate = typeName.includes('private') || typeName.includes('office') || typeName.includes('room');
 
@@ -6632,22 +6642,25 @@ export class Manage implements OnInit {
   getChallanSupportCharges(c: any): number {
     if (!c || this.isMeetingRoom(c)) return 0;
     const rate = Number(c.perSeatSupportRate ?? c.PerSeatSupportRate ?? 2000);
-    let cap = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
-    if (!cap && c.spaceName) {
-      const match = String(c.spaceName).match(/\((\d+)\)/);
-      if (match && match[1]) cap = Number(match[1]);
-    }
-    const capacity = cap > 0 ? cap : 1;
+    const capacity = this.getChallanCapacity(c);
     const billingM = this.getChallanBillingMonths(c);
     const billingMonths = billingM > 0 ? billingM : 3;
     return rate * capacity * billingMonths;
   }
 
+  /** Seats on the booking (capacity sent with the booking / challan). The bracket in the space name is the room
+   *  code (e.g. "Office 303 (303)"), not seats, so it is no longer used. */
+  getChallanCapacity(c: any): number {
+    const cap = Number(c?.capacity ?? c?.Capacity ?? c?.spaceCapacity ?? c?.SpaceCapacity ?? 0);
+    return cap > 0 ? cap : 1;
+  }
+
   getChallanTaxAmount(c: any): number {
     if (!c) return 0;
     if (this.isMeetingRoom(c)) {
-      const cycleRent = this.getChallanFirstCycleRent(c);
-      return Math.round(cycleRent * 0.16 * 100) / 100;
+      // meeting rooms: support = 10% of the discounted rent, PST = 16% of that (same as the invoice)
+      const discounted = Math.max(0, this.getChallanFirstCycleRent(c) - this.getChallanFirstCycleDiscount(c));
+      return Math.round(discounted * 0.10 * 0.16 * 100) / 100;
     }
     const supportServices = this.getChallanSupportCharges(c);
     const taxRate = Number(c.appliedTaxPercentage ?? c.AppliedTaxPercentage ?? 16);
@@ -6657,12 +6670,7 @@ export class Manage implements OnInit {
   getChallanContractTaxAmount(c: any): number {
     if (!c || this.isMeetingRoom(c)) return 0;
     const rate = Number(c.perSeatSupportRate ?? c.PerSeatSupportRate ?? 2000);
-    let cap = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
-    if (!cap && c.spaceName) {
-      const match = String(c.spaceName).match(/\((\d+)\)/);
-      if (match && match[1]) cap = Number(match[1]);
-    }
-    const capacity = cap > 0 ? cap : 1;
+    const capacity = this.getChallanCapacity(c);
     const contractMonths = this.getChallanContractMonths(c);
     const totalMonths = contractMonths > 0 ? contractMonths : 12;
     const taxRate = Number(c.appliedTaxPercentage ?? c.AppliedTaxPercentage ?? 16);
@@ -6776,11 +6784,8 @@ export class Manage implements OnInit {
       return Number(dbSubtotal) / months;
     }
     const seatPrice = Number(q.seatPrice ?? q.SeatPrice ?? 0);
-    let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
-    if (!capacity && q.spaceName) {
-      const match = String(q.spaceName).match(/\((\d+)\)/);
-      if (match && match[1]) capacity = Number(match[1]);
-    }
+    // seats from the record only: the bracket in the space name is the room code, not seats
+    const capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
     const typeName = String(q.spaceTypeName || q.SpaceTypeName || '').toLowerCase();
     const isPrivate = typeName.includes('private') || typeName.includes('office') || typeName.includes('room');
 
@@ -6840,12 +6845,7 @@ export class Manage implements OnInit {
 
   getQuotationSupportCharges(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
-    if (!capacity && q.spaceName) {
-      const match = String(q.spaceName).match(/\((\d+)\)/);
-      if (match && match[1]) capacity = Number(match[1]);
-    }
-    if (!capacity || capacity <= 0) capacity = 1;
+    const capacity = this.getChallanCapacity(q);   // seats from the quotation, not the space-name bracket
     const bpm = this.getQuotationBillingMonths(q);
     const perSeatSupportRate = Number(q.perSeatSupportRate ?? q.PerSeatSupportRate ?? 2000);
     return perSeatSupportRate * capacity * bpm;
@@ -6854,8 +6854,10 @@ export class Manage implements OnInit {
   getQuotationTaxAmount(q: any): number {
     if (!q) return 0;
     if (this.isMeetingRoom(q)) {
+      // meeting rooms: support = 10% of the rent, PST = 16% of that (same as the invoice)
       const base = Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
-      return Math.round(base * 0.16 * 100) / 100;
+      const discounted = Math.max(0, base - this.getQuotationDiscountAmount(q));
+      return Math.round(discounted * 0.10 * 0.16 * 100) / 100;
     }
     const supportServices = this.getQuotationSupportCharges(q);
     const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
@@ -6864,12 +6866,7 @@ export class Manage implements OnInit {
 
   getQuotationContractTaxAmount(q: any): number {
     if (!q || this.isMeetingRoom(q)) return 0;
-    let capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
-    if (!capacity && q.spaceName) {
-      const match = String(q.spaceName).match(/\((\d+)\)/);
-      if (match && match[1]) capacity = Number(match[1]);
-    }
-    if (!capacity || capacity <= 0) capacity = 1;
+    const capacity = this.getChallanCapacity(q);   // seats from the quotation, not the space-name bracket
     const contractMonths = this.getQuotationContractMonths(q);
     const perSeatSupportRate = Number(q.perSeatSupportRate ?? q.PerSeatSupportRate ?? 2000);
     const totalSupport = perSeatSupportRate * capacity * contractMonths;
