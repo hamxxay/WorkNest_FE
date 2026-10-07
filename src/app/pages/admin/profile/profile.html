@@ -1,0 +1,84 @@
+<div class="profile-page">
+  <header class="page-head">
+    <h1>My Profile</h1>
+    <p>Your account details and sign-in settings.</p>
+  </header>
+
+  @if (loading()) {
+  <div class="card muted">Loading your profile…</div>
+  } @else if (loadError()) {
+  <div class="card error">{{ loadError() }}</div>
+  } @else {
+  <section class="card identity">
+    <div class="avatar">{{ initials }}</div>
+    <div>
+      <div class="identity-name">{{ name || email }}</div>
+      <div class="identity-meta">{{ email }}</div>
+      <div class="badges">
+        @if (role) { <span class="badge">{{ role }}</span> }
+        @if (locationName) { <span class="badge outline">{{ locationName }}</span> }
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Personal details</h2>
+    <form (ngSubmit)="saveProfile()">
+      <div class="grid">
+        <label class="field">
+          <span>Full name *</span>
+          <input type="text" name="name" [(ngModel)]="name" maxlength="200" autocomplete="name" required />
+        </label>
+        <label class="field">
+          <span>Phone</span>
+          <input type="tel" name="phone" [(ngModel)]="phone" maxlength="20" placeholder="+92 300 1234567" autocomplete="tel" />
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" [value]="email" disabled />
+          <small>Your sign-in email can't be changed here.</small>
+        </label>
+        <label class="field">
+          <span>Role</span>
+          <input type="text" [value]="role || '—'" disabled />
+          <small>Ask an administrator to change your role.</small>
+        </label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn ghost" (click)="resetProfile()" [disabled]="!hasChanges || saving()">Cancel</button>
+        <button type="submit" class="btn primary" [disabled]="!hasChanges || saving()">{{ saving() ? 'Saving…' : 'Save changes' }}</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Password</h2>
+    @if (passwordSignIn) {
+    <form (ngSubmit)="changePassword()">
+      <div class="grid">
+        <label class="field">
+          <span>Current password</span>
+          <input type="password" name="currentPassword" [(ngModel)]="currentPassword" autocomplete="current-password" />
+        </label>
+        <div></div>
+        <label class="field">
+          <span>New password</span>
+          <input type="password" name="newPassword" [(ngModel)]="newPassword" autocomplete="new-password" />
+          <small>At least 8 characters.</small>
+        </label>
+        <label class="field">
+          <span>Confirm new password</span>
+          <input type="password" name="confirmPassword" [(ngModel)]="confirmPassword" autocomplete="new-password" />
+        </label>
+      </div>
+      @if (passwordError()) { <div class="form-error">{{ passwordError() }}</div> }
+      <div class="actions">
+        <button type="submit" class="btn primary" [disabled]="changingPassword()">{{ changingPassword() ? 'Changing…' : 'Change password' }}</button>
+      </div>
+    </form>
+    } @else {
+    <p class="muted">You sign in with Google, so your password is managed in your Google account.</p>
+    }
+  </section>
+  }
+</div>

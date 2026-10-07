@@ -7,6 +7,7 @@ import { AuthService } from '../services/auth.service';
  * and the sidebar (admin-layout) so the two never drift apart.
  */
 export const SALES_EXECUTIVE_ROUTES: string[] = [
+  '/admin/profile',
   '/admin/kyc',
   '/admin/quotations',
   '/admin/agreements',
