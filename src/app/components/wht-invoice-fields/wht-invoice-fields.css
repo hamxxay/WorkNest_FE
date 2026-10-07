@@ -1,0 +1,10 @@
+.wht { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.wht-check { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 600; color: #334155; cursor: pointer; }
+.wht-check input { width: 16px; height: 16px; accent-color: #0d9488; margin: 0; }
+.wht-rate { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
+.wht-rate label { font-size: .8rem; font-weight: 600; color: #334155; }
+.wht-input { height: 42px; padding: 0 14px; border: 1px solid #dbe2ea; border-radius: 10px; font-size: .9rem; background: #fff; }
+.wht-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 4px rgba(13,148,136,.12); }
+.has-error .wht-input { border-color: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.1); }
+.wht-rate small { color: #94a3b8; font-size: .75rem; line-height: 1.4; }
+.wht-error { color: #ef4444; font-size: .78rem; font-weight: 500; }
