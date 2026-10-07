@@ -227,12 +227,13 @@ export class AdminLayout implements OnInit, OnDestroy {
   }
 
   getUserName(): string {
-    return this.auth.getUser()?.email?.split('@')[0] ?? 'Admin';
+    const user = this.auth.getUser();
+    return user?.displayName?.trim() || user?.email?.split('@')[0] || 'Admin';
   }
 
   getInitials(): string {
-    const name = this.getUserName();
-    return name.slice(0, 2).toUpperCase();
+    const parts = this.getUserName().split(/\s+/);
+    return (parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2)).toUpperCase();
   }
 
   logout() {
