@@ -1,10 +1,18 @@
-.wht { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-.wht-check { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 600; color: #334155; cursor: pointer; }
+/* Laid out like the form around it (.form-row-admin / .form-group-admin): the checkbox on its own line, then the
+   rate as a normal half-width field with the same select style as the other dropdowns. */
+:host { display: block; }
+.wht { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-bottom: 14px; }
+.wht-check { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 8px; width: fit-content;
+  font-size: .875rem; font-weight: 600; color: #334155; cursor: pointer; }
 .wht-check input { width: 16px; height: 16px; accent-color: #0d9488; margin: 0; }
-.wht-rate { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
-.wht-rate label { font-size: .8rem; font-weight: 600; color: #334155; }
-.wht-input { height: 42px; padding: 0 14px; border: 1px solid #dbe2ea; border-radius: 10px; font-size: .9rem; background: #fff; }
-.wht-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 4px rgba(13,148,136,.12); }
-.has-error .wht-input { border-color: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.1); }
-.wht-rate small { color: #94a3b8; font-size: .75rem; line-height: 1.4; }
-.wht-error { color: #ef4444; font-size: .78rem; font-weight: 500; }
+.wht-rate { grid-column: 1 / 2; display: flex; flex-direction: column; min-width: 0; }
+.wht-rate label { display: block; font-size: .82rem; font-weight: 500; color: #475569; margin-bottom: 5px; }
+.wht-input { width: 100%; box-sizing: border-box; height: 42px; padding: 0 38px 0 14px; border: 1px solid #dbe2ea;
+  border-radius: 10px; font-size: .9rem; color: #0f172a; cursor: pointer; appearance: none; -webkit-appearance: none;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+  transition: border-color .15s, box-shadow .15s; }
+.wht-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.08); }
+.has-error .wht-input { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.1); }
+.wht-rate small { margin-top: 5px; color: #94a3b8; font-size: .75rem; line-height: 1.4; }
+.wht-error { margin-top: 5px; color: #ef4444; font-size: .78rem; font-weight: 500; }
+@media (max-width: 640px) { .wht { grid-template-columns: 1fr; } .wht-rate { grid-column: 1 / -1; } }
