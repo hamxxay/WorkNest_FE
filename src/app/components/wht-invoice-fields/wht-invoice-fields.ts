@@ -4,8 +4,9 @@ import { WhtRateOption, WhtRateService } from '../../services/wht-rate.service';
 
 /**
  * "Generate Withholding Tax (WHT) invoice" checkbox + WHT rate dropdown, shared by Create Quotation and
- * Create Booking. The dropdown lists dbo.WN_WHTaxRate (Description shown); picking one applies its rate.
- * The rate is cleared when unticked. Same rule as the API validators and the DB CHECK: rate required, 0.01-99.99.
+ * Create Booking. The dropdown lists dbo.WN_WHTaxRate (Description + rate). The value bound to [(rate)] is the
+ * chosen row's Id (what WN_Bookings.WHTRate / WN_Quotations.WithholdingTaxRate store); the invoice looks the
+ * percentage up from WN_WHTaxRate. It is cleared when unticked.
  */
 @Component({
   selector: 'app-wht-invoice-fields',
@@ -16,6 +17,7 @@ import { WhtRateOption, WhtRateService } from '../../services/wht-rate.service';
 export class WhtInvoiceFields implements OnInit {
   @Input() enabled = false;
   @Output() enabledChange = new EventEmitter<boolean>();
+  /** The WN_WHTaxRate Id (older records may still hold a percentage, shown as "Current rate"). */
   @Input() rate: number | null = null;
   @Output() rateChange = new EventEmitter<number | null>();
   /** Unique prefix so the quotation and booking forms don't share element ids/names. */
@@ -25,25 +27,25 @@ export class WhtInvoiceFields implements OnInit {
 
   options: WhtRateOption[] = [];
   loaded = false;
-  /** Index of the chosen option (descriptions can share a rate, so the rate alone can't identify it). */
-  selected: number | null = null;
+  /** Ids the API accepts (active WN_WHTaxRate rows); empty until the list has loaded. */
+  private static validIds: number[] = [];
 
   constructor(private whtRates: WhtRateService) {}
 
   ngOnInit(): void {
     this.whtRates.getAll().subscribe(list => {
-      this.options = list;
+      this.options = list.filter(o => o.id !== null);
+      WhtInvoiceFields.validIds = this.options.map(o => Number(o.id));
       this.loaded = true;
-      this.syncSelection();
     });
   }
 
   /** '' when valid; otherwise the message to show. */
-  static validate(enabled: boolean, rate: number | null | undefined): string {
+  static validate(enabled: boolean, rateId: number | null | undefined): string {
     if (!enabled) return '';
-    if (rate === null || rate === undefined || String(rate).trim() === '') return 'Select a WHT rate.';
-    const value = Number(rate);
-    if (!Number.isFinite(value) || value < 0.01 || value > 99.99) return 'Select a WHT rate between 0.01 and 99.99.';
+    if (rateId === null || rateId === undefined || String(rateId).trim() === '') return 'Select a WHT rate.';
+    if (WhtInvoiceFields.validIds.length && !WhtInvoiceFields.validIds.includes(Number(rateId)))
+      return 'Select a WHT rate from the list.';
     return '';
   }
 
@@ -51,16 +53,15 @@ export class WhtInvoiceFields implements OnInit {
     return WhtInvoiceFields.validate(this.enabled, this.rate);
   }
 
-  /** A rate already on the form that is not in the list (e.g. set before the list existed) stays selectable. */
-  get legacyRate(): number | null {
-    if (this.rate === null || this.rate === undefined) return null;
-    return this.options.some(o => Number(o.rate) === Number(this.rate)) ? null : Number(this.rate);
+  /** The chosen option, when the bound value is one of the listed Ids. */
+  get selectedOption(): WhtRateOption | null {
+    return this.options.find(o => Number(o.id) === Number(this.rate)) ?? null;
   }
 
-  private syncSelection(): void {
-    if (this.selected !== null && this.options[this.selected] && Number(this.options[this.selected].rate) === Number(this.rate)) return;
-    const i = this.rate === null || this.rate === undefined ? -1 : this.options.findIndex(o => Number(o.rate) === Number(this.rate));
-    this.selected = i >= 0 ? i : null;
+  /** A value already on the form that is not a listed Id (an older record that stored the percentage). */
+  get legacyRate(): number | null {
+    if (this.rate === null || this.rate === undefined || !this.loaded) return null;
+    return this.selectedOption ? null : Number(this.rate);
   }
 
   onToggle(checked: boolean): void {
@@ -68,16 +69,13 @@ export class WhtInvoiceFields implements OnInit {
     this.enabledChange.emit(checked);
     if (!checked) {
       this.rate = null;
-      this.selected = null;
       this.rateChange.emit(null);
     }
   }
 
   onSelect(value: number | string | null): void {
-    if (value === 'legacy') return;   // keep the existing rate
-    const i = value === null || value === '' ? -1 : Number(value);
-    this.selected = i >= 0 ? i : null;
-    this.rate = i >= 0 && this.options[i] ? Number(this.options[i].rate) : null;
+    if (value === 'legacy') return;
+    this.rate = value === null || value === '' ? null : Number(value);
     this.rateChange.emit(this.rate);
   }
 }
