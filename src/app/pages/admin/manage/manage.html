@@ -1904,14 +1904,15 @@
           <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" [min]="today"
             required />
         </div>
-        <app-wht-invoice-fields idPrefix="qWht" [showErrors]="quotationWhtTouched"
-          [(enabled)]="quotationSendWht" [(rate)]="quotationWithholdingTaxRate" />
         <div class="form-group-admin">
           <label>Remarks</label>
           <input class="form-input-admin" type="text" [(ngModel)]="quotationRemarks" name="qRemarks"
             placeholder="Optional remarks" />
         </div>
       </div>
+
+      <app-wht-invoice-fields idPrefix="qWht" [showErrors]="quotationWhtTouched"
+        [(enabled)]="quotationSendWht" [(rate)]="quotationWithholdingTaxRate" />
 
       @if (quotationSubtotal > 0) {
       <div class="history-section"

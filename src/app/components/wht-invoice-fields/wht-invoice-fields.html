@@ -21,9 +21,9 @@
     @if (showErrors && error) {
     <div class="wht-error">{{ error }}</div>
     } @else if (selectedOption) {
-    <small>WHT {{ selectedOption.rate }}% ({{ selectedOption.description }}). Room rent (rent + support) is grossed up so the amount received after withholding is unchanged; support charges, their tax and the security deposit are not grossed up.</small>
+    <small>Rent + support grossed up at {{ selectedOption.rate }}%. Support, PST and deposit are not.</small>
     } @else {
-    <small>Room rent (rent + support) is grossed up so the amount received after withholding is unchanged; support charges, their tax and the security deposit are not grossed up.</small>
+    <small>Rent + support is grossed up; support, PST and deposit are not.</small>
     }
   </div>
   }
