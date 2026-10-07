@@ -114,11 +114,14 @@
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">
-        <span class="sidebar-avatar" [attr.title]="sidebarCollapsed ? getUserName() + ' · ' + roleLabel : null">{{ getInitials() }}</span>
-        <div class="sidebar-user-info">
-          <span class="sidebar-user-name">{{ getUserName() }}</span>
-          <span class="sidebar-user-role">{{ roleLabel }}</span>
-        </div>
+        <a routerLink="/admin/profile" routerLinkActive="active" class="sidebar-profile-link"
+          [attr.title]="sidebarCollapsed ? getUserName() + ' · ' + roleLabel + ' — My profile' : 'My profile'" aria-label="My profile">
+          <span class="sidebar-avatar">{{ getInitials() }}</span>
+          <div class="sidebar-user-info">
+            <span class="sidebar-user-name">{{ getUserName() }}</span>
+            <span class="sidebar-user-role">{{ roleLabel }}</span>
+          </div>
+        </a>
         <button class="sidebar-logout" (click)="logout()" title="Log out" aria-label="Log out">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
         </button>

@@ -5,6 +5,7 @@ import { catchError, map, switchMap } from 'rxjs/operators';
 import {
   AuthError,
   AuthProvider,
+  EmailAuthProvider,
   GoogleAuthProvider,
   User,
   UserCredential,
@@ -15,6 +16,8 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  reauthenticateWithCredential,
+  updatePassword,
   updateProfile,
 } from 'firebase/auth';
 import {
@@ -32,6 +35,8 @@ export interface UserInfo {
   displayName?: string;
   photoURL?: string;
   locationId?: number | null;
+  /** All locations an Admin / Sales Executive is assigned to; locationId is the active one. */
+  locationIds?: number[];
 }
 
 @Injectable({
@@ -301,7 +306,8 @@ export class AuthService {
           email: data.email || fallbackUser?.email || email,
           userId: data.id || data.userId || fallbackUser?.userId || '',
           roles: roles.length ? roles : (fallbackUser?.roles ?? []),
-          locationId: data.locationId ?? fallbackUser?.locationId ?? null
+          locationId: data.locationId ?? fallbackUser?.locationId ?? null,
+          locationIds: Array.isArray(data.locationIds) ? data.locationIds.map(Number) : (fallbackUser?.locationIds ?? [])
         };
         this.user.set(updated);
         localStorage.setItem(this.userKey, JSON.stringify(updated));
@@ -627,5 +633,56 @@ export class AuthService {
   private requiresRequestWrapper(error: any): boolean {
     const msg = typeof error?.error?.message === 'string' ? error.error.message.toLowerCase() : '';
     return error?.status === 400 && msg.includes('request field is required');
+  }
+
+  // ---- Signed-in user's own profile (admin portal Profile page) ----
+
+  /** Name, email, phone, role and location from the API (GET auth/me). */
+  getMyProfile(): Observable<any> {
+    return this.http.get<any>(`${environment.apiUrl}/auth/me`).pipe(map(res => res?.data ?? null));
+  }
+
+  /** Saves the user's own name and phone; the sidebar picks up the new name. */
+  updateMyProfile(name: string, phone: string): Observable<any> {
+    return this.http.put<any>(`${environment.apiUrl}/auth/me`, { name, phone }).pipe(
+      map(res => {
+        const data = res?.data ?? null;
+        const current = this.user();
+        if (current && data?.name) {
+          const updated: UserInfo = { ...current, displayName: data.name };
+          this.user.set(updated);
+          localStorage.setItem(this.userKey, JSON.stringify(updated));
+        }
+        if (firebaseAuth?.currentUser && data?.name) {
+          updateProfile(firebaseAuth.currentUser, { displayName: data.name }).catch(() => undefined);
+        }
+        return data;
+      })
+    );
+  }
+
+  /** True when the account signs in with email + password (Google accounts manage passwords at Google). */
+  hasPasswordSignIn(): boolean {
+    return !!firebaseAuth?.currentUser?.providerData?.some(p => p.providerId === 'password');
+  }
+
+  /** Changes the password after re-checking the current one (Firebase requires a recent sign-in). */
+  changePassword(currentPassword: string, newPassword: string): Observable<void> {
+    const fbUser = firebaseAuth?.currentUser;
+    if (!fbUser?.email) return throwError(() => new Error('Please sign in again to change your password.'));
+    const credential = EmailAuthProvider.credential(fbUser.email, currentPassword);
+    return from(reauthenticateWithCredential(fbUser, credential).then(() => updatePassword(fbUser, newPassword))).pipe(
+      map(() => undefined),
+      catchError((err: AuthError) => {
+        const code = err?.code ?? '';
+        const message =
+          code === 'auth/wrong-password' || code === 'auth/invalid-credential' ? 'Your current password is incorrect.'
+          : code === 'auth/weak-password' ? 'Choose a stronger password (at least 6 characters).'
+          : code === 'auth/too-many-requests' ? 'Too many attempts. Please wait a few minutes and try again.'
+          : code === 'auth/requires-recent-login' ? 'Please sign out and sign in again, then change your password.'
+          : 'Could not change the password. Please try again.';
+        return throwError(() => new Error(message));
+      })
+    );
   }
 }
