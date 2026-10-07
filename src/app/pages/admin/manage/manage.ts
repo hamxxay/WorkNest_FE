@@ -2428,6 +2428,21 @@ export class Manage implements OnInit {
       this.bookingFormSaving.set(false);
       return;
     }
+    // The request sends bookingFormData.startDateTime / endDateTime, which other handlers can clear while the date
+    // fields still show a date. Rebuild them from what is on screen, so the booking starts on the chosen date
+    // (without a start date the API would fall back to today).
+    if (!this.isAdminMeetingRoom) this.onAdminMonthPeriodChange();
+    else if (this.meetingRoomBookingMode === 'day') this.onAdminMeetingDayChange();
+    else this.applyAdminSlotsToDates();
+    if (!this.bookingFormData.startDateTime || !this.bookingFormData.endDateTime) {
+      const msg = 'Please choose the booking start date again.';
+      this.bookingFormErrorField = 'startDate';
+      this.bookingFormError.set(msg);
+      this.showError(msg);
+      this.scrollToTopAndHighlight('startDate');
+      this.bookingFormSaving.set(false);
+      return;
+    }
     this.validateBookingDiscount();
     if (this.bookingDiscountError()) {
       this.bookingFormErrorField = 'discount';
@@ -5210,8 +5225,10 @@ export class Manage implements OnInit {
       startDT = `${this.quotationStartDate}T00:00:00`;
       endDT = `${this.quotationMeetingDayEnd}T23:59:59`;
     } else {
-      startDT = new Date(this.quotationStartDate).toISOString();
-      endDT = new Date(this.quotationEndDateDisplay || this.quotationStartDate).toISOString();
+      // Rebuild the end from the start date + months on screen; send plain dates (no UTC conversion).
+      this.onQuotationMonthPeriodChange();
+      startDT = `${this.quotationStartDate}T00:00:00`;
+      endDT = `${this.quotationEndDateDisplay || this.quotationStartDate}T00:00:00`;
     }
 
     const u = this.selectedCustomer;
