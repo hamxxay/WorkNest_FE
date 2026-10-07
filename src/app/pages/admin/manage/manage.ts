@@ -5272,7 +5272,7 @@ export class Manage implements OnInit {
       Capacity: Number(this.quotationCapacity || 1),
       MonthlyBasePrice: Number(this.quotationMonthlyBasePrice || 0),
       MaxDiscountPercent: Number(this.quotationDynamicDiscountCap || 10),
-      WithholdingTaxRate: this.quotationSendWht ? Number(this.quotationWithholdingTaxRate) : 15,
+      WithholdingTaxRate: this.quotationSendWht ? Number(this.quotationWithholdingTaxRate) : null,   // WN_WHTaxRate Id; none when unticked
       SendWhtInvoice: this.quotationSendWht,
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
