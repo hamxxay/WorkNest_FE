@@ -2762,62 +2762,61 @@ export class Manage implements OnInit {
         });
 
         if (this.entity === 'contacts') {
-          // Show contact & tour messages straight away; quotation declines (a slower request) are
-          // merged in when they arrive. A failure there must never hide the contacts.
-          const contactsOnly = data.map((c: any) => ({
+          const contactsOnly = (data || []).map((c: any) => ({
             ...c,
-            subject: c.subject || c.type || 'Book Tour Request',
-            message: c.message || c.notes || c.body || '-'
+            fullName: c.fullName || c.FullName || c.name || c.Name || c.userName || c.customerName || c.CustomerName || '-',
+            email: c.email || c.Email || c.customerEmail || c.CustomerEmail || '-',
+            phone: c.phone || c.Phone || c.phoneNumber || c.PhoneNumber || c.customerPhone || '-',
+            company: c.company || c.Company || '-',
+            subject: c.subject || c.Subject || c.contactType || c.ContactType || c.type || c.Type || 'Book Tour Request',
+            message: c.message || c.Message || c.notes || c.Notes || c.body || c.Body || '-',
+            status: c.status || c.Status || (c.statusId === 1 ? 'New' : c.statusId === 2 ? 'InProgress' : c.statusId === 3 ? 'Resolved' : 'New'),
+            createdAt: c.createdAt || c.CreatedAt || c.createdDate || c.CreatedDate || c.createdOn || c.CreatedOn || ''
           }));
           this.items.set(contactsOnly);
-          this.totalCount.set(res?.total ?? res?.totalCount ?? res?.data?.total ?? res?.data?.totalCount ?? contactsOnly.length);
+          this.totalCount.set(res?.total ?? res?.Total ?? res?.totalCount ?? res?.TotalCount ?? res?.data?.total ?? contactsOnly.length);
           this.loading.set(false);
           if (cb) cb();
-          this.quotationSvc.getQuotations(1, 1000, '').subscribe({
-            next: (qRes: any) => {
-              const qList = Array.isArray(qRes) ? qRes
-                : Array.isArray(qRes?.data) ? qRes.data
-                  : Array.isArray(qRes?.quotations) ? qRes.quotations
-                    : (qRes?.data?.quotations ?? []);
+          return;
+        }
 
-              const declinedItems = qList
-                .filter((q: any) => {
-                  const st = (q.status || q.Status || '').toString().toLowerCase();
-                  return st === 'declined' || q.customerNote || q.responseNote || q.note;
-                })
-                .map((q: any) => ({
-                  id: `quote-dec-${q.id || q.quotationId}`,
-                  quotationId: q.id || q.quotationId,
-                  fullName: q.customerName || q.CustomerName || q.customerEmail || 'Customer',
-                  email: q.customerEmail || q.CustomerEmail || '-',
-                  phone: q.customerPhone || q.CustomerPhone || '-',
-                  subject: `Quotation Declined (${q.quotationNumber || ('#Q-' + q.id)} v${q.versionNumber || 1})`,
-                  message: q.customerNote || q.note || q.responseNote || 'Customer declined quotation',
-                  status: q.status || q.Status || 'Declined',
-                  createdAt: q.updatedDate || q.createdDate || q.createdAt || new Date().toISOString(),
-                  isQuotationDecline: true,
-                  quotationNumber: q.quotationNumber,
-                  rawQuotationItem: q
-                }));
+        if (this.entity === 'quotation-responses') {
+          const rawList = Array.isArray(res) ? res
+            : Array.isArray(res?.data) ? res.data
+              : Array.isArray(res?.Data) ? res.Data
+                : Array.isArray(res?.quotations) ? res.quotations
+                  : (res?.data ?? res?.Data ?? []);
 
-              const normalizedContacts = data.map((c: any) => ({
-                ...c,
-                subject: c.subject || c.type || 'Book Tour Request',
-                message: c.message || c.notes || c.body || '-'
-              }));
+          const responseItems = (rawList || [])
+            .filter((item: any) => {
+              if (item.responseType || item.ResponseType) return true;
+              const st = (item.status || item.Status || '').toString().toLowerCase();
+              return st === 'declined' || st === 'accepted' || item.customerNote || item.responseNote || item.note;
+            })
+            .map((item: any) => ({
+              id: item.id || item.Id || item.quotationId || item.QuotationId,
+              quotationId: item.quotationId || item.QuotationId || item.id || item.Id,
+              quotationNumber: item.quotationNumber || item.QuotationNumber || ('#Q-' + (item.quotationId || item.QuotationId || item.id || item.Id)),
+              version: item.version || item.Version || item.versionNumber || item.VersionNumber || 1,
+              fullName: item.customerName || item.CustomerName || item.fullName || item.FullName || item.customerEmail || item.CustomerEmail || 'Customer',
+              email: item.customerEmail || item.CustomerEmail || item.email || item.Email || '-',
+              phone: item.customerPhone || item.CustomerPhone || item.phone || item.Phone || item.phoneNumber || item.PhoneNumber || '-',
+              responseType: item.responseType || item.ResponseType || item.status || item.Status || (item.note || item.Note ? 'Responded' : 'Pending'),
+              note: item.note || item.Note || item.customerNote || item.CustomerNote || item.responseNote || item.ResponseNote || item.remarks || item.Remarks || '-',
+              respondedDate: item.respondedDate || item.RespondedDate || item.updatedDate || item.UpdatedDate || item.createdDate || item.CreatedDate || item.createdAt || item.CreatedAt || new Date().toISOString(),
+              isQuotationResponse: true,
+              rawQuotationItem: item
+            }))
+            .sort((a: any, b: any) => {
+              const dA = new Date(a.respondedDate || 0).getTime();
+              const dB = new Date(b.respondedDate || 0).getTime();
+              return dB - dA;
+            });
 
-              const mergedContacts = [...normalizedContacts, ...declinedItems].sort((a: any, b: any) => {
-                const dA = new Date(a.createdAt || a.createdDate || 0).getTime();
-                const dB = new Date(b.createdAt || b.createdDate || 0).getTime();
-                return dB - dA;
-              });
-
-              if (this.entity !== 'contacts') return; // user moved to another page meanwhile
-              this.items.set(mergedContacts);
-              this.totalCount.set(mergedContacts.length);
-            },
-            error: () => { /* contacts are already shown; declines are optional extras */ }
-          });
+          this.items.set(responseItems);
+          this.totalCount.set(res?.total ?? res?.Total ?? res?.totalCount ?? res?.TotalCount ?? responseItems.length);
+          this.loading.set(false);
+          if (cb) cb();
           return;
         }
 
@@ -2871,10 +2870,10 @@ export class Manage implements OnInit {
       if (col.key === 'status') {
         const st = String(item.status || item.Status || 'AgreementSent');
         const labels: Record<string, string> = {
-          agreementsent: 'Sent', sent: 'Sent', signeduploaded: 'Signed copy received — verify',
-          emailfailed: 'Email failed — resend', signed: 'Signed', converted: 'Signed'
+          agreementsent: 'Sent', sent: 'Sent', signeduploaded: 'Signed copy received â€” verify',
+          emailfailed: 'Email failed â€” resend', signed: 'Signed', converted: 'Signed'
         };
-        return (item.bookingId || item.BookingId) ? 'Signed · booking created' : (labels[st.toLowerCase()] ?? st);
+        return (item.bookingId || item.BookingId) ? 'Signed Â· booking created' : (labels[st.toLowerCase()] ?? st);
       }
       if (col.key === 'createdOn') {
         return item.sentDate || item.SentDate || item.createdOn || item.CreatedOn || item.createdAt || item.CreatedAt || '';
@@ -3032,7 +3031,7 @@ export class Manage implements OnInit {
         return Math.max(0, total - paid);
       }
       if (col.key === 'statusLabel') {
-        // The API resolves the label from dbo.OrderStatus (and legacy values) — show it, normalised.
+        // The API resolves the label from dbo.OrderStatus (and legacy values) â€” show it, normalised.
         const label = String(item.statusLabel ?? item.StatusLabel ?? item.status ?? '').trim().toLowerCase();
         const map: Record<string, string> = {
           'paid': 'Paid', 'partial': 'Partial', 'overdue': 'Overdue', 'challan expire': 'Overdue',
@@ -3096,9 +3095,6 @@ export class Manage implements OnInit {
         return item.phone || item.phoneNumber || item.customerPhone || item.CustomerPhone || '-';
       }
       if (col.key === 'subject') {
-        if (item.isQuotationDecline) {
-          return `Quotation Declined (${item.quotationNumber || ('#Q-' + (item.quotationId || item.id))})`;
-        }
         return item.subject || item.type || 'Book Tour Request';
       }
       if (col.key === 'message') {
@@ -3109,6 +3105,33 @@ export class Manage implements OnInit {
       }
       if (col.key === 'createdAt') {
         return item.createdAt || item.createdDate || item.updatedDate || item.CreatedDate || item.UpdatedDate || '';
+      }
+    }
+
+    if (this.entity === 'quotation-responses') {
+      if (col.key === 'quotationNumber') {
+        return item.quotationNumber || (`#Q-${item.quotationId || item.id}`);
+      }
+      if (col.key === 'version') {
+        return `v${item.version || item.versionNumber || 1}`;
+      }
+      if (col.key === 'fullName') {
+        return item.fullName || item.customerName || item.CustomerName || item.name || '-';
+      }
+      if (col.key === 'email') {
+        return item.email || item.customerEmail || item.CustomerEmail || '-';
+      }
+      if (col.key === 'phone') {
+        return item.phone || item.customerPhone || item.CustomerPhone || '-';
+      }
+      if (col.key === 'responseType') {
+        return item.responseType || item.status || item.Status || 'Responded';
+      }
+      if (col.key === 'note') {
+        return item.note || item.message || item.customerNote || item.responseNote || '-';
+      }
+      if (col.key === 'respondedDate') {
+        return item.respondedDate || item.createdAt || item.createdDate || item.updatedDate || '';
       }
     }
 
@@ -4520,8 +4543,23 @@ export class Manage implements OnInit {
         ],
         getFn: (p, l, s) => this.admin.getContacts(p, l, s),
         statusFn: (id, status) => this.admin.updateContactStatus(id, status),
-        statusOptions: ['New', 'InProgress', 'Resolved', 'Declined'],
+        statusOptions: ['New', 'InProgress', 'Resolved'],
         deleteFn: (id) => this.admin.deleteContact(id),
+      };
+
+      case 'quotation-responses': return {
+        title: 'Quotation Responses',
+        columns: [
+          { key: 'quotationNumber', label: 'Quotation #' },
+          { key: 'version', label: 'Ver' },
+          { key: 'fullName', label: 'Customer' },
+          { key: 'email', label: 'Email' },
+          { key: 'phone', label: 'Phone' },
+          { key: 'responseType', label: 'Response', type: 'status' },
+          { key: 'note', label: 'Note / Feedback' },
+          { key: 'respondedDate', label: 'Date', type: 'date' },
+        ],
+        getFn: (p, l, s) => this.quotationSvc.getQuotationResponses(p, l, s),
       };
 
 
@@ -5679,7 +5717,7 @@ export class Manage implements OnInit {
     this.selectedInitialInvoiceItem.set(item);
     // Only the invoice opened right after a signed agreement is dated on that agreement; any other is dated today.
     this.initialInvoiceIssuedOn.set(item.issuedOn ?? null);
-    // Show the server's own figures (proration, discount, tax, deposit) — not a browser-side estimate.
+    // Show the server's own figures (proration, discount, tax, deposit) â€” not a browser-side estimate.
     this.loadInitialInvoicePreview(Number(bookingId), item.issuedOn ?? null);
     const targetEmail = item.customerEmail || item.userEmail || item.email || '';
     this.initialInvoiceRecipientEmail.set(targetEmail);

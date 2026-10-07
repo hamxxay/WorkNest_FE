@@ -446,10 +446,10 @@
               </button>
               }
               }
-              @if (entity === 'contacts' && item.isQuotationDecline) {
+              @if (entity === 'quotation-responses' || item.isQuotationResponse || item.isQuotationDecline) {
 
               <button class="action-btn info" (click)="previewQuotation(item.rawQuotationItem || item)"
-                title="View Declined Quotation & Version History">
+                title="View Quotation & Version History">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />

@@ -18,6 +18,7 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/biometric-users',
   '/admin/machine-users',
   '/admin/contacts',
+  '/admin/quotation-responses',
   '/admin/network',
   '/admin/network/clients',
   '/admin/network/devices',

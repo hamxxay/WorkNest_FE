@@ -1,4 +1,4 @@
-﻿import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { Subscription, filter } from 'rxjs';
@@ -71,6 +71,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/bookings', group: 'Sales',       label: 'Bookings',          icon: 'bookings'        },
     { route: '/admin/pricing', group: 'Finance',        label: 'Pricing',           icon: 'pricing'         },
     { route: '/admin/quotations', group: 'Sales',     label: 'Quotations',        icon: 'pricing'         },
+    { route: '/admin/quotation-responses', group: 'Sales', label: 'Quotation Responses', icon: 'quotation-responses' },
     { route: '/admin/payments', group: 'Finance',       label: 'Payments',          icon: 'payments'        },
     { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
     { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },

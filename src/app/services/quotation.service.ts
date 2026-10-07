@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, catchError } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -132,6 +132,20 @@ export class QuotationService {
    */
   getQuotationActivities(limit: number = 20): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/activities?limit=${limit}`);
+  }
+
+  /**
+   * Get quotation responses from WN_QuotationResponses table
+   */
+  getQuotationResponses(page: number = 1, limit: number = 20, search?: string): Observable<any> {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.http.get<any>(`${this.apiUrl}/responses${qs}`).pipe(
+      catchError(() => this.getQuotations(page, 1000, search))
+    );
   }
 }
 
