@@ -35,6 +35,8 @@ export interface UserInfo {
   displayName?: string;
   photoURL?: string;
   locationId?: number | null;
+  /** All locations an Admin / Sales Executive is assigned to; locationId is the active one. */
+  locationIds?: number[];
 }
 
 @Injectable({
@@ -304,7 +306,8 @@ export class AuthService {
           email: data.email || fallbackUser?.email || email,
           userId: data.id || data.userId || fallbackUser?.userId || '',
           roles: roles.length ? roles : (fallbackUser?.roles ?? []),
-          locationId: data.locationId ?? fallbackUser?.locationId ?? null
+          locationId: data.locationId ?? fallbackUser?.locationId ?? null,
+          locationIds: Array.isArray(data.locationIds) ? data.locationIds.map(Number) : (fallbackUser?.locationIds ?? [])
         };
         this.user.set(updated);
         localStorage.setItem(this.userKey, JSON.stringify(updated));

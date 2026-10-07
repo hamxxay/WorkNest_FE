@@ -683,15 +683,19 @@
           style="background:#f1f5f9;color:#94a3b8" />
         }
         } @else if (field.type === 'user-location-select') {
-        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
-          [disabled]="!isSuperAdmin && !!userLocationId">
-          <option [ngValue]="null">Select Location (Required for Admin/Sales)...</option>
-          @for (loc of locationOptions(); track loc.v) {
-          <option [value]="loc.v">{{ loc.l }}</option>
+        <div class="location-checklist">
+          @for (loc of assignableUserLocations; track loc.v) {
+          <label class="location-check">
+            <input type="checkbox" [checked]="isUserLocationChecked(loc.v)"
+              (change)="toggleUserLocation(loc.v, $any($event.target).checked)" />
+            <span>{{ loc.l }}</span>
+          </label>
+          } @empty {
+          <span style="color:#94a3b8;font-size:0.85rem">No locations available.</span>
           }
-        </select>
+        </div>
         <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">
-          Required for Admin and Sales Executive roles.
+          Required for Admin and Sales Executive roles. Tick more than one to let them switch between locations.
         </small>
         } @else if (field.type === 'select') {
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
@@ -1648,7 +1652,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId"
+          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId" [disabled]="locationLocked"
             (change)="onQuotationLocationChange()">
             @for (loc of locationOptions(); track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
@@ -2078,7 +2082,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId"
+          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" [disabled]="locationLocked"
             (change)="onBookingLocationChange()">
             @for (loc of locationOptions(); track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
