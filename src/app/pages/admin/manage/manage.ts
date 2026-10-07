@@ -1,3 +1,4 @@
+import { WhtInvoiceFields } from '../../../components/wht-invoice-fields/wht-invoice-fields';
 import { Component, signal, OnInit, computed, inject, HostListener, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
@@ -33,7 +34,7 @@ interface EntityConfig {
 
 @Component({
   selector: 'app-manage',
-  imports: [CommonModule, FormsModule, DatePipe],
+  imports: [CommonModule, FormsModule, DatePipe, WhtInvoiceFields],
   templateUrl: './manage.html',
   styleUrl: './manage.css'
 })
@@ -491,7 +492,13 @@ export class Manage implements OnInit {
   readonly offeringTypes = signal<{ id: number; description: string; discountCap: number }[]>([]);
   quotationOfferingTypeId: number = 1;
   quotationOfferingType = '24/7';
-  quotationWithholdingTaxRate: number = 15;
+  // WHT invoice (shared component). Unticked quotations still store 15% for the PDF's withholding note.
+  quotationSendWht = false;
+  quotationWithholdingTaxRate: number | null = null;
+  quotationWhtTouched = false;
+  bookingSendWht = false;
+  bookingWhtRate: number | null = null;
+  bookingWhtTouched = false;
   readonly quotationDiscountError = signal('');
   readonly quotationBasePriceError = signal('');
 
@@ -1390,6 +1397,9 @@ export class Manage implements OnInit {
     this.securityDepositMonthsOverride = null;
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
+    this.bookingSendWht = false;
+    this.bookingWhtRate = null;
+    this.bookingWhtTouched = false;
     this.bookingPerSeatBasePrice = 0;
     this.bookingMinPerSeatBasePrice = 0;
     this.bookingBasePriceError.set('');
@@ -2346,6 +2356,15 @@ export class Manage implements OnInit {
     this.bookingFormError.set('');
     this.bookingFormErrorField = '';
 
+    const bookingWhtError = WhtInvoiceFields.validate(this.bookingSendWht, this.bookingWhtRate);
+    if (bookingWhtError) {
+      this.bookingWhtTouched = true;
+      this.bookingFormError.set(bookingWhtError);
+      this.showError(bookingWhtError);
+      this.bookingFormSaving.set(false);
+      return;
+    }
+
     if (!this.selectedCustomer) {
       const msg = 'Please select a customer.';
       this.bookingFormErrorField = 'customer';
@@ -2485,6 +2504,8 @@ export class Manage implements OnInit {
         capacity: this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null,
         // Sent only when raised, so standard bookings keep working before the WN_Bookings_Insert update is applied.
         perSeatBasePrice: this.bookingHasRaisedBasePrice ? Number(this.bookingPerSeatBasePrice) : null,
+        sendWhtInvoice: this.bookingSendWht,
+        whtRate: this.bookingSendWht ? Number(this.bookingWhtRate) : null,
       };
 
       if (this.editingBookingId) {
@@ -4788,7 +4809,9 @@ export class Manage implements OnInit {
     this.quotationBasePriceError.set('');
     this.quotationOfferingTypeId = 1;
     this.quotationOfferingType = '24/7';
-    this.quotationWithholdingTaxRate = 15;
+    this.quotationWithholdingTaxRate = null;
+    this.quotationSendWht = false;
+    this.quotationWhtTouched = false;
     this.loadOfferingTypes();
     this.quotationFloorId = null;
     this.quotationFloorOptions.set([]);
@@ -5133,6 +5156,14 @@ export class Manage implements OnInit {
       this.quotationFormSaving.set(false);
       return;
     }
+    const quotationWhtError = WhtInvoiceFields.validate(this.quotationSendWht, this.quotationWithholdingTaxRate);
+    if (quotationWhtError) {
+      this.quotationWhtTouched = true;
+      this.quotationFormError.set(quotationWhtError);
+      this.showError(quotationWhtError);
+      this.quotationFormSaving.set(false);
+      return;
+    }
     if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'slot' && this.quotationSelectedSlots.size === 0) {
       this.quotationFormErrorField = 'slots';
       this.quotationFormError.set('Please select at least one time slot.');
@@ -5212,7 +5243,8 @@ export class Manage implements OnInit {
       Capacity: Number(this.quotationCapacity || 1),
       MonthlyBasePrice: Number(this.quotationMonthlyBasePrice || 0),
       MaxDiscountPercent: Number(this.quotationDynamicDiscountCap || 10),
-      WithholdingTaxRate: Number(this.quotationWithholdingTaxRate ?? 15),
+      WithholdingTaxRate: this.quotationSendWht ? Number(this.quotationWithholdingTaxRate) : 15,
+      SendWhtInvoice: this.quotationSendWht,
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
@@ -5364,6 +5396,11 @@ export class Manage implements OnInit {
     this.quotationSecurityDepositMonths = sourceVersion.securityDepositMonths || 2;
     this.quotationSecurityDepositMonthsOverride = sourceVersion.securityDepositMonthsOverride ?? null;
     this.quotationDiscountType = sourceVersion.discountType || 'Percentage';
+    // Carry the WHT invoice choice into the new version.
+    this.quotationSendWht = !!(sourceVersion.sendWhtInvoice ?? sourceVersion.SendWhtInvoice);
+    this.quotationWithholdingTaxRate = this.quotationSendWht
+      ? Number(sourceVersion.withholdingTaxRate ?? sourceVersion.WithholdingTaxRate) || null
+      : null;
     this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
     const srcOt = sourceVersion.offeringTypeDescription || sourceVersion.OfferingTypeDescription || sourceVersion.offeringType || sourceVersion.OfferingType || sourceVersion.operatingHours;
     const srcOtId = sourceVersion.offeringTypeId || sourceVersion.OfferingTypeId;
