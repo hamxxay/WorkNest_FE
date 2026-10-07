@@ -863,12 +863,12 @@ export class Manage implements OnInit {
    * ones (the API returns just those), and it is locked when there is only one.
    */
   get locationLocked(): boolean {
-    return !this.isSuperAdmin && this.locationOptions().length <= 1;
+    return this.isLocationBound && this.locationOptions().length <= 1;
   }
 
   /** Locations an admin may assign to a user: all for a super admin, otherwise only the admin's own. */
   get assignableUserLocations(): { v: any; l: string }[] {
-    if (this.isSuperAdmin) return this.locationOptions();
+    if (!this.isLocationBound) return this.locationOptions();
     const own = new Set((this.auth.user()?.locationIds?.length ? this.auth.user()!.locationIds! : [this.auth.user()?.locationId])
       .filter(x => x != null).map(Number));
     return this.locationOptions().filter(l => own.has(Number(l.v)));
@@ -883,7 +883,13 @@ export class Manage implements OnInit {
     this.formData['locationIds'] = checked ? [...new Set([...current, Number(id)])] : current.filter(x => x !== Number(id));
   }
 
+  /** Only Sales Executives are tied to location(s); Admins and Super Admins cover every location. */
+  get isLocationBound(): boolean {
+    return this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin');
+  }
+
   get userLocationId(): number | null {
+    if (!this.isLocationBound) return null;
     return this.auth.user()?.locationId ?? null;
   }
   assignableRoles = ASSIGNABLE_ROLES;
@@ -1119,7 +1125,7 @@ export class Manage implements OnInit {
 
   openAddSpaceModal() {
     this.addSpaceTypeId = '';
-    this.addSpaceLocationId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? String(this.auth.user()?.locationId) : '';
+    this.addSpaceLocationId = this.userLocationId ? String(this.userLocationId) : '';
     this.addSpacePreviewCode = '';
     this.addSpaceError.set('');
     this.generateError.set('');
@@ -3174,8 +3180,8 @@ export class Manage implements OnInit {
   openCreate() {
     this.editItem = null; this.formData = {}; this.error.set(''); this.showModal.set(true);
     this.selectedAmenityIds = [];
-    const boundLoc = this.auth.user()?.locationId;
-    if (!this.isSuperAdmin && boundLoc) {
+    const boundLoc = this.userLocationId;
+    if (this.isLocationBound && boundLoc) {
       this.formData.locationId = boundLoc;
       if (this.entity === 'spaces') {
         this.loadFloorsForLocation(boundLoc);
@@ -3183,10 +3189,10 @@ export class Manage implements OnInit {
     }
     if (this.entity === 'users') {
       this.formData.role = 'general';
-      if (!this.isSuperAdmin && boundLoc) {
+      if (this.isLocationBound && boundLoc) {
         this.formData.locationId = boundLoc;
       }
-      this.formData.locationIds = !this.isSuperAdmin && boundLoc ? [Number(boundLoc)] : [];
+      this.formData.locationIds = this.isLocationBound && boundLoc ? [Number(boundLoc)] : [];
       if (!this.locationOptions().length) this.loadLocationOptions();
       if (!this.cityOptions().length) this.loadCityOptions();
     }
@@ -3200,7 +3206,7 @@ export class Manage implements OnInit {
     if (this.entity === 'gallery') this.formData.isActive = true;
     if (this.entity === 'users') {
       this.formData.role = 'general';
-      if (!this.isSuperAdmin && this.auth.user()?.locationId) {
+      if (this.isLocationBound && this.userLocationId) {
         this.formData.locationId = this.auth.user()?.locationId;
       }
       if (!this.locationOptions().length) this.loadLocationOptions();
@@ -3690,12 +3696,13 @@ export class Manage implements OnInit {
         return;
       }
 
-      if (role === 'super_admin' || role === 'general') {
+      if (role !== 'sales_executive') {
+        // Only Sales Executives are tied to locations; Admins and Super Admins cover every location.
         locationId = null;
         locationIds = [];
-      } else if (role === 'admin' || role === 'sales_executive') {
+      } else {
         if (!locationId || locationId <= 0) {
-          if (!this.isSuperAdmin && this.auth.user()?.locationId) {
+          if (this.isLocationBound && this.userLocationId) {
             locationId = this.auth.user()!.locationId!;
             locationIds = [Number(locationId)];
           } else {
@@ -4255,11 +4262,11 @@ export class Manage implements OnInit {
   onFieldChange(key: string) {
     if (key === 'role' && this.entity === 'users') {
       const role = this.normalizeRole(this.formData['role']);
-      if (role === 'super_admin' || role === 'general') {
+      if (role !== 'sales_executive') {
         this.formData['locationId'] = null;
         this.formData['locationIds'] = [];
-      } else if (role === 'admin' || role === 'sales_executive') {
-        if (!this.isSuperAdmin && this.auth.user()?.locationId) {
+      } else {
+        if (this.isLocationBound && this.userLocationId) {
           this.formData['locationId'] = this.auth.user()?.locationId;
           if (!(this.formData['locationIds'] || []).length) this.formData['locationIds'] = [Number(this.auth.user()?.locationId)];
         }
