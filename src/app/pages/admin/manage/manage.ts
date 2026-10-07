@@ -2762,17 +2762,24 @@ export class Manage implements OnInit {
         });
 
         if (this.entity === 'contacts') {
-          const contactsOnly = (data || []).map((c: any) => ({
-            ...c,
-            fullName: c.fullName || c.FullName || c.name || c.Name || c.userName || c.customerName || c.CustomerName || '-',
-            email: c.email || c.Email || c.customerEmail || c.CustomerEmail || '-',
-            phone: c.phone || c.Phone || c.phoneNumber || c.PhoneNumber || c.customerPhone || '-',
-            company: c.company || c.Company || '-',
-            subject: c.subject || c.Subject || c.contactType || c.ContactType || c.type || c.Type || 'Book Tour Request',
-            message: c.message || c.Message || c.notes || c.Notes || c.body || c.Body || '-',
-            status: c.status || c.Status || (c.statusId === 1 ? 'New' : c.statusId === 2 ? 'InProgress' : c.statusId === 3 ? 'Resolved' : 'New'),
-            createdAt: c.createdAt || c.CreatedAt || c.createdDate || c.CreatedDate || c.createdOn || c.CreatedOn || ''
-          }));
+          const contactsOnly = (data || []).map((c: any) => {
+            const stId = Number(c.statusId ?? c.StatusId ?? c.status ?? c.Status ?? 1);
+            const statusStr = typeof c.status === 'string' && isNaN(Number(c.status))
+              ? c.status
+              : (stId === 2 ? 'InProgress' : stId === 3 ? 'Resolved' : 'New');
+            return {
+              ...c,
+              id: c.id ?? c.Id,
+              fullName: c.fullName || c.FullName || c.name || c.Name || c.userName || c.customerName || c.CustomerName || '-',
+              email: c.email || c.Email || c.customerEmail || c.CustomerEmail || '-',
+              phone: c.phone || c.Phone || c.phoneNumber || c.PhoneNumber || c.customerPhone || '-',
+              company: c.company || c.Company || '-',
+              subject: c.subject || c.Subject || c.contactType || c.ContactType || c.type || c.Type || 'Book Tour Request',
+              message: c.message || c.Message || c.notes || c.Notes || c.body || c.Body || '-',
+              status: statusStr,
+              createdAt: c.createdAt || c.CreatedAt || c.createdDate || c.CreatedDate || c.createdOn || c.CreatedOn || ''
+            };
+          });
           this.items.set(contactsOnly);
           this.totalCount.set(res?.total ?? res?.Total ?? res?.totalCount ?? res?.TotalCount ?? res?.data?.total ?? contactsOnly.length);
           this.loading.set(false);
@@ -3086,25 +3093,28 @@ export class Manage implements OnInit {
 
     if (this.entity === 'contacts') {
       if (col.key === 'fullName') {
-        return item.fullName || item.customerName || item.CustomerName || item.name || item.userName || item.email || '-';
+        return item.fullName || item.FullName || item.customerName || item.CustomerName || item.name || item.Name || item.userName || item.email || '-';
+      }
+      if (col.key === 'company') {
+        return item.company || item.Company || '-';
       }
       if (col.key === 'email') {
-        return item.email || item.customerEmail || item.CustomerEmail || item.userEmail || '-';
+        return item.email || item.Email || item.customerEmail || item.CustomerEmail || item.userEmail || '-';
       }
       if (col.key === 'phone') {
-        return item.phone || item.phoneNumber || item.customerPhone || item.CustomerPhone || '-';
+        return item.phone || item.Phone || item.phoneNumber || item.PhoneNumber || item.customerPhone || item.CustomerPhone || '-';
       }
       if (col.key === 'subject') {
-        return item.subject || item.type || 'Book Tour Request';
+        return item.subject || item.Subject || item.contactType || item.ContactType || item.type || 'Book Tour Request';
       }
       if (col.key === 'message') {
-        return item.message || item.customerNote || item.note || item.remarks || '-';
+        return item.message || item.Message || item.customerNote || item.note || item.remarks || '-';
       }
       if (col.key === 'status') {
         return item.status || item.Status || 'New';
       }
       if (col.key === 'createdAt') {
-        return item.createdAt || item.createdDate || item.updatedDate || item.CreatedDate || item.UpdatedDate || '';
+        return item.createdAt || item.CreatedAt || item.createdDate || item.CreatedDate || item.createdOn || item.CreatedOn || item.updatedDate || '';
       }
     }
 
@@ -3720,11 +3730,27 @@ export class Manage implements OnInit {
       }
       const addr1 = (this.formData.addressLine1 || '').trim();
 
-      if (custType === 'Company' && !compName) {
-        this.error.set('Company / Business Name is required when Customer Type is Company.');
-        this.showError(this.error());
-        this.saving.set(false);
-        return;
+      const ntnVal = (this.formData.ntn || '').trim();
+      if (custType === 'Company') {
+        if (!compName) {
+          this.error.set('Company / Business Name is required when Customer Type is Company.');
+          this.showError(this.error());
+          this.saving.set(false);
+          return;
+        }
+        if (!ntnVal) {
+          this.error.set('NTN (National Tax Number) is required when Customer Type is Company.');
+          this.showError(this.error());
+          this.saving.set(false);
+          return;
+        }
+        const cleanNtn = ntnVal.replace(/-/g, '');
+        if (cleanNtn.length !== 8 || !/^\d+$/.test(cleanNtn)) {
+          this.error.set('Please enter a valid 8-digit NTN (e.g. 1234567-8).');
+          this.showError(this.error());
+          this.saving.set(false);
+          return;
+        }
       }
       if (!fn) {
         this.error.set('First Name is required.');
@@ -3785,6 +3811,8 @@ export class Manage implements OnInit {
         addressLine2: (this.formData.addressLine2 || '').trim(),
         address: fullAddress,
         cityId: this.formData.cityId ? Number(this.formData.cityId) : null,
+        ntn: ntnVal || null,
+        secpRegistrationNo: (this.formData.secpRegistrationNo || '').trim() || null,
         isActive: this.editItem ? (this.formData.isActive ?? true) : true
       };
     }
@@ -4309,6 +4337,7 @@ export class Manage implements OnInit {
           { key: 'customerType', label: 'Type' },
           { key: 'fullName', label: 'Name' },
           { key: 'company', label: 'Company' },
+          { key: 'ntn', label: 'NTN' },
           { key: 'email', label: 'Email' },
           { key: 'phoneNumber', label: 'Phone' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
@@ -4318,6 +4347,8 @@ export class Manage implements OnInit {
           { key: 'firstName', label: 'First Name', type: 'text', required: true },
           { key: 'lastName', label: 'Last Name', type: 'text' },
           { key: 'company', label: 'Company / Business Name', type: 'text', required: true },
+          { key: 'ntn', label: 'NTN (National Tax Number)', type: 'text' },
+          { key: 'secpRegistrationNo', label: 'SECP Reg No', type: 'text' },
           { key: 'email', label: 'Email', type: 'email', required: true },
           { key: 'phoneNumber', label: 'Phone Number', type: 'phone-split', required: true },
           { key: 'addressLine1', label: 'Address Line 1', type: 'text', required: true },
