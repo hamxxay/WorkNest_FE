@@ -508,3 +508,8 @@
   .modal-content.sheet-modal{border-radius:0;padding:24px 16px 0;min-height:100vh;margin:0}
   .sheet-modal .modal-actions{margin:24px -16px 0;padding:14px 16px;border-radius:0}
 }
+
+/* Users form: locations an Admin / Sales Executive may work in */
+.location-checklist{display:flex;flex-wrap:wrap;gap:8px}
+.location-check{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #dbe2ea;border-radius:10px;cursor:pointer;font-size:.88rem;color:#334155;background:#fff}
+.location-check input{width:16px;height:16px;accent-color:#0d9488;margin:0}

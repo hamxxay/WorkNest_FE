@@ -858,6 +858,31 @@ export class Manage implements OnInit {
 
   readonly today = localDateIso();
   isSuperAdmin = false;
+  /**
+   * Location dropdown in Create Booking / Create Quotation: staff tied to locations only get their assigned
+   * ones (the API returns just those), and it is locked when there is only one.
+   */
+  get locationLocked(): boolean {
+    return !this.isSuperAdmin && this.locationOptions().length <= 1;
+  }
+
+  /** Locations an admin may assign to a user: all for a super admin, otherwise only the admin's own. */
+  get assignableUserLocations(): { v: any; l: string }[] {
+    if (this.isSuperAdmin) return this.locationOptions();
+    const own = new Set((this.auth.user()?.locationIds?.length ? this.auth.user()!.locationIds! : [this.auth.user()?.locationId])
+      .filter(x => x != null).map(Number));
+    return this.locationOptions().filter(l => own.has(Number(l.v)));
+  }
+
+  isUserLocationChecked(id: any): boolean {
+    return (this.formData['locationIds'] || []).map(Number).includes(Number(id));
+  }
+
+  toggleUserLocation(id: any, checked: boolean): void {
+    const current: number[] = (this.formData['locationIds'] || []).map(Number);
+    this.formData['locationIds'] = checked ? [...new Set([...current, Number(id)])] : current.filter(x => x !== Number(id));
+  }
+
   get userLocationId(): number | null {
     return this.auth.user()?.locationId ?? null;
   }
@@ -3161,6 +3186,7 @@ export class Manage implements OnInit {
       if (!this.isSuperAdmin && boundLoc) {
         this.formData.locationId = boundLoc;
       }
+      this.formData.locationIds = !this.isSuperAdmin && boundLoc ? [Number(boundLoc)] : [];
       if (!this.locationOptions().length) this.loadLocationOptions();
       if (!this.cityOptions().length) this.loadCityOptions();
     }
@@ -3479,6 +3505,9 @@ export class Manage implements OnInit {
     if (this.entity === 'users') {
       this.formData.role = this.normalizeRole(item.role ?? item.roleId ?? item.RoleId) || 'general';
       this.formData.locationId = item.locationId != null ? Number(item.locationId) : null;
+      this.formData.locationIds = Array.isArray(item.locationIds) && item.locationIds.length
+        ? item.locationIds.map(Number)
+        : (item.locationId != null ? [Number(item.locationId)] : []);
       if (!this.locationOptions().length) this.loadLocationOptions();
       if (!this.cityOptions().length) this.loadCityOptions();
     }
@@ -3629,6 +3658,11 @@ export class Manage implements OnInit {
       let locationId = this.formData.locationId != null && this.formData.locationId !== '' && this.formData.locationId !== 'null'
         ? Number(this.formData.locationId)
         : null;
+      // Admin / Sales Executive may have several locations; the primary (default) one is kept if still ticked.
+      let locationIds: number[] = (this.formData.locationIds || []).map(Number).filter((x: number) => x > 0);
+      if (locationIds.length) {
+        locationId = locationId && locationIds.includes(locationId) ? locationId : locationIds[0];
+      }
 
       if (!name) {
         this.error.set('Full Name is required.');
@@ -3658,10 +3692,12 @@ export class Manage implements OnInit {
 
       if (role === 'super_admin' || role === 'general') {
         locationId = null;
+        locationIds = [];
       } else if (role === 'admin' || role === 'sales_executive') {
         if (!locationId || locationId <= 0) {
           if (!this.isSuperAdmin && this.auth.user()?.locationId) {
             locationId = this.auth.user()!.locationId!;
+            locationIds = [Number(locationId)];
           } else {
             this.error.set(`Location is required for ${this.getRoleLabel(role)} role.`);
             this.showError(this.error());
@@ -3678,6 +3714,7 @@ export class Manage implements OnInit {
         password: password || undefined,
         role: role,
         locationId: locationId,
+        locationIds: locationIds,
         cityId: this.formData.cityId ? Number(this.formData.cityId) : null,
         phone: (this.formData.phone || '').trim() || null,
         cnicOrPassport: (this.formData.cnicOrPassport || '').trim() || null,
@@ -4220,9 +4257,11 @@ export class Manage implements OnInit {
       const role = this.normalizeRole(this.formData['role']);
       if (role === 'super_admin' || role === 'general') {
         this.formData['locationId'] = null;
+        this.formData['locationIds'] = [];
       } else if (role === 'admin' || role === 'sales_executive') {
         if (!this.isSuperAdmin && this.auth.user()?.locationId) {
           this.formData['locationId'] = this.auth.user()?.locationId;
+          if (!(this.formData['locationIds'] || []).length) this.formData['locationIds'] = [Number(this.auth.user()?.locationId)];
         }
       }
     }
@@ -4445,7 +4484,8 @@ export class Manage implements OnInit {
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
         getFn: (p, l, s) => {
-          const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
+          // The API limits location-bound staff to every location they're assigned to.
+          const locId = undefined;
           // Server-side paging + search (the API returns { data, total }).
           return this.admin.getBookings(p, l, s, locId);
         },
@@ -4559,7 +4599,8 @@ export class Manage implements OnInit {
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         getFn: (p, l, s) => {
-          const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
+          // The API limits location-bound staff to every location they're assigned to.
+          const locId = undefined;
           return this.quotationSvc.getQuotations(p, l, s, locId);
         },
       };
@@ -4579,7 +4620,8 @@ export class Manage implements OnInit {
           { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
         ],
         getFn: (p, l, s) => {
-          const locId = (!this.isSuperAdmin && this.auth.user()?.locationId) ? this.auth.user()!.locationId! : undefined;
+          // The API limits location-bound staff to every location they're assigned to.
+          const locId = undefined;
           return this.admin.getInvoices(p, l, s, undefined, locId);
         },
       };
