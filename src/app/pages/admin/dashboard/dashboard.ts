@@ -146,6 +146,8 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get userLocationId(): number | null {
+    // Only Sales Executives are tied to a location; Admins and Super Admins cover every location.
+    if (!(this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin'))) return null;
     return this.auth.user()?.locationId ?? null;
   }
 
