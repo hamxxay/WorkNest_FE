@@ -1919,7 +1919,6 @@ export class Manage implements OnInit {
       .map((s: any) => {
         const cap = this.getSpaceCapacity(s);
         const capLabel = cap > 0 ? ` - Cap: ${cap}` : '';
-        const codeLabel = s.code ? ` (${s.code})` : '';
         const locLabel = s.locationName ? ` - ${s.locationName}` : '';
 
         const st = (s.status || s.Status || '').toString().trim().toLowerCase();
@@ -1940,7 +1939,7 @@ export class Manage implements OnInit {
 
         return {
           v: s.idGuid ?? s.id,
-          l: `${s.name}${codeLabel}${capLabel}${locLabel}${tag}`
+          l: `${s.name}${capLabel}${locLabel}${tag}`   // name only, no space code
         };
       }));
   }
