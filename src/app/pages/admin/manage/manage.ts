@@ -13,6 +13,7 @@ import { QuotationService } from '../../../services/quotation.service';
 import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService } from '../../../services/agreement.service';
+import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso } from '../../../utils/dates';
@@ -502,10 +503,8 @@ export class Manage implements OnInit {
   readonly offeringTypes = signal<{ id: number; description: string; discountCap: number }[]>([]);
   quotationOfferingTypeId: number = 1;
   quotationOfferingType = '24/7';
-  // WHT invoice (shared component). Unticked quotations still store 15% for the PDF's withholding note.
-  quotationSendWht = false;
-  quotationWithholdingTaxRate: number | null = null;
-  quotationWhtTouched = false;
+  // WHT invoice (shared component) on Create Booking. Quotations no longer choose WHT: it is chosen on the
+  // Initial Invoice Preview.
   bookingSendWht = false;
   bookingWhtRate: number | null = null;
   bookingWhtTouched = false;
@@ -921,6 +920,7 @@ export class Manage implements OnInit {
   private bookingService = inject(BookingService);
   private quotationSvc = inject(QuotationService);
   private agreementSvc = inject(AgreementService);
+  private whtRateSvc = inject(WhtRateService);
   private toast = inject(ToastService);
   private cdr = inject(ChangeDetectorRef);
 
@@ -4836,9 +4836,6 @@ export class Manage implements OnInit {
     this.quotationBasePriceError.set('');
     this.quotationOfferingTypeId = 1;
     this.quotationOfferingType = '24/7';
-    this.quotationWithholdingTaxRate = null;
-    this.quotationSendWht = false;
-    this.quotationWhtTouched = false;
     this.loadOfferingTypes();
     this.quotationFloorId = null;
     this.quotationFloorOptions.set([]);
@@ -5183,14 +5180,6 @@ export class Manage implements OnInit {
       this.quotationFormSaving.set(false);
       return;
     }
-    const quotationWhtError = WhtInvoiceFields.validate(this.quotationSendWht, this.quotationWithholdingTaxRate);
-    if (quotationWhtError) {
-      this.quotationWhtTouched = true;
-      this.quotationFormError.set(quotationWhtError);
-      this.showError(quotationWhtError);
-      this.quotationFormSaving.set(false);
-      return;
-    }
     if (this.isQuotationMeetingRoom && this.quotationMeetingRoomMode === 'slot' && this.quotationSelectedSlots.size === 0) {
       this.quotationFormErrorField = 'slots';
       this.quotationFormError.set('Please select at least one time slot.');
@@ -5272,8 +5261,6 @@ export class Manage implements OnInit {
       Capacity: Number(this.quotationCapacity || 1),
       MonthlyBasePrice: Number(this.quotationMonthlyBasePrice || 0),
       MaxDiscountPercent: Number(this.quotationDynamicDiscountCap || 10),
-      WithholdingTaxRate: this.quotationSendWht ? Number(this.quotationWithholdingTaxRate) : null,   // WN_WHTaxRate Id; none when unticked
-      SendWhtInvoice: this.quotationSendWht,
     };
     if (this.quotationRemarks) payload.Remarks = this.quotationRemarks;
     if (currentAdminId) payload.CreatedById = currentAdminId;
@@ -5425,11 +5412,6 @@ export class Manage implements OnInit {
     this.quotationSecurityDepositMonths = sourceVersion.securityDepositMonths || 2;
     this.quotationSecurityDepositMonthsOverride = sourceVersion.securityDepositMonthsOverride ?? null;
     this.quotationDiscountType = sourceVersion.discountType || 'Percentage';
-    // Carry the WHT invoice choice into the new version.
-    this.quotationSendWht = !!(sourceVersion.sendWhtInvoice ?? sourceVersion.SendWhtInvoice);
-    this.quotationWithholdingTaxRate = this.quotationSendWht
-      ? Number(sourceVersion.withholdingTaxRate ?? sourceVersion.WithholdingTaxRate) || null
-      : null;
     this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
     const srcOt = sourceVersion.offeringTypeDescription || sourceVersion.OfferingTypeDescription || sourceVersion.offeringType || sourceVersion.OfferingType || sourceVersion.operatingHours;
     const srcOtId = sourceVersion.offeringTypeId || sourceVersion.OfferingTypeId;
@@ -5862,6 +5844,11 @@ export class Manage implements OnInit {
       return;
     }
     this.selectedInitialInvoiceItem.set(item);
+    // WHT choice: unknown until the first preview returns the booking's own WHTax id (which preselects it).
+    this.initialInvoiceType.set('standard');
+    this.initialInvoiceWhTaxId.set(null);
+    this.initialInvoiceWhtChosen = false;
+    this.whtRateSvc.getAll().subscribe(list => this.initialInvoiceWhtRates.set(list.filter(o => o.id !== null)));
     // Only the invoice opened right after a signed agreement is dated on that agreement; any other is dated today.
     this.initialInvoiceIssuedOn.set(item.issuedOn ?? null);
     // Show the server's own figures (proration, discount, tax, deposit) â€” not a browser-side estimate.
@@ -5876,17 +5863,62 @@ export class Manage implements OnInit {
   initialInvoicePreview = signal<any | null>(null);
   initialInvoicePreviewLoading = signal(false);
   initialInvoicePreviewError = signal('');
+  // Invoice type chosen on the preview: Standard, or WHT at a WN_WHTaxRate rate (saved on the booking on send).
+  readonly initialInvoiceType = signal<'standard' | 'wht'>('standard');
+  readonly initialInvoiceWhTaxId = signal<number | null>(null);
+  readonly initialInvoiceWhtRates = signal<WhtRateOption[]>([]);
+  /** False until the first preview has set the dropdowns from the booking: until then the booking's own setting is previewed. */
+  private initialInvoiceWhtChosen = false;
+  private initialInvoicePreviewSeq = 0;
+  /** WHT selected but no rate chosen yet: nothing to preview, and Send is disabled. */
+  initialInvoiceNeedsWhtRate(): boolean {
+    return this.initialInvoiceType() === 'wht' && this.initialInvoiceWhTaxId() === null;
+  }
+  /** What the API is asked for: undefined = booking's own setting; null = standard; an Id = WHT at that rate. */
+  private initialInvoiceWhtArg(): number | null | undefined {
+    if (!this.initialInvoiceWhtChosen) return undefined;
+    return this.initialInvoiceType() === 'wht' ? this.initialInvoiceWhTaxId() : null;
+  }
+  onInitialInvoiceTypeChange(type: 'standard' | 'wht') {
+    this.initialInvoiceType.set(type);
+    this.initialInvoiceWhtChosen = true;
+    if (type === 'standard') this.initialInvoiceWhTaxId.set(null);   // hidden and cleared
+    this.reloadInitialInvoicePreview();
+  }
+  onInitialInvoiceWhtRateChange(id: number | null) {
+    this.initialInvoiceWhTaxId.set(id === null || (id as any) === '' ? null : Number(id));
+    this.initialInvoiceWhtChosen = true;
+    this.reloadInitialInvoicePreview();
+  }
+  reloadInitialInvoicePreview() {
+    const item = this.selectedInitialInvoiceItem();
+    const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
+    if (bookingId) this.loadInitialInvoicePreview(Number(bookingId), this.initialInvoiceIssuedOn());
+  }
   loadInitialInvoicePreview(bookingId: number, issuedOn: string | null) {
+    const seq = ++this.initialInvoicePreviewSeq;   // a quicker, older response must not overwrite a newer choice
     this.initialInvoicePreview.set(null);
     this.initialInvoicePreviewError.set('');
+    if (this.initialInvoiceNeedsWhtRate()) { this.initialInvoicePreviewLoading.set(false); return; }
     this.initialInvoicePreviewLoading.set(true);
-    this.admin.previewInitialInvoice(bookingId, issuedOn).subscribe({
+    this.admin.previewInitialInvoice(bookingId, issuedOn, this.initialInvoiceWhtArg()).subscribe({
       next: (res: any) => {
+        if (seq !== this.initialInvoicePreviewSeq) return;
         this.initialInvoicePreviewLoading.set(false);
-        if (res?.data) this.initialInvoicePreview.set(res.data);
+        if (res?.data) {
+          if (!this.initialInvoiceWhtChosen) {
+            // Default: WHT when the booking already has a WHTax id, otherwise Standard.
+            const existing = res.data.bookingWhTaxId ?? null;
+            this.initialInvoiceType.set(existing !== null ? 'wht' : 'standard');
+            this.initialInvoiceWhTaxId.set(existing !== null ? Number(existing) : null);
+            this.initialInvoiceWhtChosen = true;
+          }
+          this.initialInvoicePreview.set(res.data);
+        }
         else this.initialInvoicePreviewError.set(res?.message || 'The invoice could not be calculated.');
       },
       error: (err: any) => {
+        if (seq !== this.initialInvoicePreviewSeq) return;
         this.initialInvoicePreviewLoading.set(false);
         this.initialInvoicePreviewError.set(err?.error?.message || 'The invoice could not be calculated.');
       }
@@ -5897,13 +5929,16 @@ export class Manage implements OnInit {
     // Double-click guard: a send is already in flight.
     if (this.sendingInitialInvoiceId() !== null) return;
     const item = this.selectedInitialInvoiceItem();
-    if (!item || !this.initialInvoicePreview()) return;
+    if (!item || !this.initialInvoicePreview() || this.initialInvoiceNeedsWhtRate()) return;
     const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
     if (!bookingId) return;
 
     this.sendingInitialInvoiceId.set(bookingId);
 
-    this.admin.sendInitialInvoice(bookingId, this.initialInvoiceIssuedOn()).subscribe({
+    // Standard sends no WHTax id; WHT sends the chosen one (saved on the booking, invoice type 6).
+    // An already-created first invoice is only re-sent, so no choice is sent with it.
+    const wht = this.initialInvoicePreview()?.hasExistingInvoice ? undefined : this.initialInvoiceWhtArg();
+    this.admin.sendInitialInvoice(bookingId, this.initialInvoiceIssuedOn(), wht).subscribe({
       next: (res: any) => {
         this.sendingInitialInvoiceId.set(null);
         this.initialInvoiceIssuedOn.set(null);
