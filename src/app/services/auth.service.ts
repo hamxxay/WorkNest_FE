@@ -294,26 +294,45 @@ export class AuthService {
     const email = fallbackUser?.email;
     if (!email) return of(fallbackUser);
 
-    return this.http.get<any>(`${environment.apiUrl}/auth/me`, {
-      headers: { 'x-user-email': email }
-    }).pipe(
-      map(res => {
-        const data = res?.data;
-        if (!data) return fallbackUser;
-        const roles = this.extractRoles(data, fallbackUser?.roles ?? []);
-        const updated: UserInfo = {
-          ...fallbackUser!,
-          email: data.email || fallbackUser?.email || email,
-          userId: data.id || data.userId || fallbackUser?.userId || '',
-          roles: roles.length ? roles : (fallbackUser?.roles ?? []),
-          locationId: data.locationId ?? fallbackUser?.locationId ?? null,
-          locationIds: Array.isArray(data.locationIds) ? data.locationIds.map(Number) : (fallbackUser?.locationIds ?? [])
-        };
-        this.user.set(updated);
-        localStorage.setItem(this.userKey, JSON.stringify(updated));
-        return updated;
-      }),
-      catchError(() => of(fallbackUser))
+    const currentUser = firebaseAuth?.currentUser;
+    const ensureToken$ = !this.getToken() && currentUser
+      ? this.syncLoginToApi$(email, '', currentUser).pipe(
+          map(res => {
+            const token = this.extractToken(res);
+            if (token) {
+              localStorage.setItem(this.tokenKey, token);
+            }
+            return token;
+          }),
+          catchError(() => of(null))
+        )
+      : of(this.getToken());
+
+    return ensureToken$.pipe(
+      switchMap(() => {
+        if (!this.getToken()) return of(fallbackUser);
+        return this.http.get<any>(`${environment.apiUrl}/auth/me`, {
+          headers: { 'x-user-email': email }
+        }).pipe(
+          map(res => {
+            const data = res?.data;
+            if (!data) return fallbackUser;
+            const roles = this.extractRoles(data, fallbackUser?.roles ?? []);
+            const updated: UserInfo = {
+              ...fallbackUser!,
+              email: data.email || fallbackUser?.email || email,
+              userId: data.id || data.userId || fallbackUser?.userId || '',
+              roles: roles.length ? roles : (fallbackUser?.roles ?? []),
+              locationId: data.locationId ?? fallbackUser?.locationId ?? null,
+              locationIds: Array.isArray(data.locationIds) ? data.locationIds.map(Number) : (fallbackUser?.locationIds ?? [])
+            };
+            this.user.set(updated);
+            localStorage.setItem(this.userKey, JSON.stringify(updated));
+            return updated;
+          }),
+          catchError(() => of(fallbackUser))
+        );
+      })
     );
   }
 

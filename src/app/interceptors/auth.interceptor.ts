@@ -48,7 +48,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
             // when an action needs an account (non-GET) or they are on a protected page, instead
             // of being left on a broken page. A background GET on a public page just fails.
             const sendGuestToLogin = guest && (req.method !== 'GET' || authService.isProtectedUrl(router.url));
-            if (!guest) {
+            if (!guest && !isAuthRequest(req.url)) {
               authService.clearSession();
             }
             if ((!guest || sendGuestToLogin) && !isAuthRequest(req.url) && !router.url.startsWith('/login')) {
