@@ -327,15 +327,21 @@ export class AdminService {
     return this.http.get<ApiResponse<any>>(`${this.api}/booking/${bookingId}/row`);
   }
   /** Exactly what the first invoice will contain (same server calculation), without saving or emailing. */
-  previewInitialInvoice(bookingId: number, issuedOn?: string | null): Observable<ApiResponse<any>> {
-    const params: any = { preview: true };
+  /** wht: undefined = the booking's own WHT setting; null = standard invoice; a WN_WHTaxRate Id = WHT invoice at that rate. */
+  previewInitialInvoice(bookingId: number, issuedOn?: string | null, wht?: number | null): Observable<ApiResponse<any>> {
+    const params: any = { preview: true, ...this.initialInvoiceWhtParams(wht) };
     if (issuedOn) params.issuedOn = issuedOn;
     return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/send-initial-invoice`, {}, { params });
   }
-  sendInitialInvoice(bookingId: number, issuedOn?: string | null): Observable<ApiResponse<any>> {
+  sendInitialInvoice(bookingId: number, issuedOn?: string | null, wht?: number | null): Observable<ApiResponse<any>> {
     // issuedOn (yyyy-MM-dd): the signed agreement's date — the first invoice is dated on it
-    const params: any = issuedOn ? { issuedOn } : {};
+    const params: any = { ...this.initialInvoiceWhtParams(wht) };
+    if (issuedOn) params.issuedOn = issuedOn;
     return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/send-initial-invoice`, {}, { params });
+  }
+  private initialInvoiceWhtParams(wht?: number | null): any {
+    if (wht === undefined) return {};
+    return wht === null ? { invoiceType: 'standard' } : { invoiceType: 'wht', whTaxId: wht };
   }
 
   recordInvoicePayment(invoiceId: number, data: { paidAmount: number; paymentMethod: string; transactionRef?: string; notes?: string }): Observable<ApiResponse<any>> {
