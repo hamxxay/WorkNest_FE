@@ -36,6 +36,8 @@ export class DashboardOverview {
 
   /** 'ALL' or a location id (as the dashboard's location filter holds it). */
   locationId = input<string>('ALL');
+  /** Locations to total (one or several); empty = all the user may see. Takes precedence over locationId. */
+  locationIds = input<number[]>([]);
   /** Bumped by the dashboard to reload. */
   refreshTick = input<number>(0);
   /** This month / quarter / year — every number and chart follows it. */
@@ -63,6 +65,7 @@ export class DashboardOverview {
     inject(DestroyRef).onDestroy(() => this.destroyCharts());
     effect(() => {
       const loc = this.locationId();
+      this.locationIds();
       this.refreshTick();
       this.period();
       untracked(() => this.load(loc));
@@ -71,8 +74,8 @@ export class DashboardOverview {
 
   load(loc: string) {
     if (!this.data()) this.loading.set(true);
-    const id = loc && loc !== 'ALL' ? Number(loc) : null;
-    this.admin.getDashboardOverview(id, this.period()).subscribe({
+    const id = loc && loc !== 'ALL' && !isNaN(Number(loc)) ? Number(loc) : null;
+    this.admin.getDashboardOverview(id, this.period(), this.locationIds()).subscribe({
       next: (res) => {
         this.data.set(res); this.failed.set(false); this.loading.set(false);
         setTimeout(() => this.renderCharts(res));

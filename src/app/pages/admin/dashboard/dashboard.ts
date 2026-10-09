@@ -161,6 +161,29 @@ export class Dashboard implements OnInit, OnDestroy {
 
   // Locations list signal
   locationsList = signal<Location[]>([]);
+  /** Locations the KPIs and lists cover: one or several. Empty = every location the user may see. */
+  readonly kpiLocationIds = signal<number[]>([]);
+  readonly locationMenuOpen = signal(false);
+  private kpiLocationsInitialised = false;
+  isKpiLocationSelected(id: number): boolean {
+    return this.kpiLocationIds().includes(Number(id));
+  }
+  toggleKpiLocation(id: number) {
+    const n = Number(id);
+    const cur = this.kpiLocationIds();
+    const next = cur.includes(n) ? cur.filter(x => x !== n) : [...cur, n];
+    // Unticking the last one means "all": a sales executive then sees all of their locations.
+    this.kpiLocationIds.set(next);
+    this.loadFallbackData();
+  }
+  selectAllKpiLocations() {
+    this.kpiLocationIds.set([]);
+    this.loadFallbackData();
+  }
+  /** Sales executive (not also admin): sees only the locations assigned to them. */
+  get isSalesExecutiveOnly(): boolean {
+    return this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin');
+  }
 
   // Main Spaces Operational List
   allSpaces = signal<SpaceOperationItem[]>([]);
@@ -250,10 +273,16 @@ export class Dashboard implements OnInit, OnDestroy {
   });
 
   locationLabel = computed(() => {
-    const sel = this.selectedLocation();
-    if (!sel || sel === 'ALL') return 'All locations';
-    const loc = this.locationsList().find((l: any) => String(l.id ?? l.Id) === String(sel));
-    return (loc as any)?.name ?? (loc as any)?.Name ?? 'Your location';
+    const ids = this.kpiLocationIds();
+    const all = this.locationsList();
+    const name = (l: any) => l?.name ?? l?.Name ?? '';
+    if (!ids.length || (all.length > 0 && ids.length >= all.length)) {
+      if (this.isSalesExecutiveOnly && all.length === 1) return name(all[0]) || 'Your location';
+      return this.isSalesExecutiveOnly ? 'All my locations' : 'All locations';
+    }
+    const names = ids.map(id => name(all.find((l: any) => Number(l.id ?? l.Id) === id))).filter(Boolean);
+    if (names.length <= 2) return names.join(' + ') || 'Selected locations';
+    return `${names.length} locations`;
   });
 
   updatedAgo = computed(() => {
@@ -335,28 +364,32 @@ export class Dashboard implements OnInit, OnDestroy {
       const rawTypes = extract(typesRes);
       let rawLocations: Location[] = extract(locationsRes);
 
-      const boundLocId = (!this.isSuperAdmin && this.userLocationId) ? this.userLocationId : null;
-      if (boundLocId) {
-        this.selectedLocation.set(String(boundLocId));
+      // The location list is already limited by the API to the user's own locations (sales executive).
+      this.locationsList.set(rawLocations);
+      if (!this.kpiLocationsInitialised) {
+        this.kpiLocationsInitialised = true;
+        // A sales executive with one location sees just that one; with several, all of them until they pick.
+        if (this.isSalesExecutiveOnly && rawLocations.length === 1) this.kpiLocationIds.set([Number((rawLocations[0] as any).id ?? (rawLocations[0] as any).Id)]);
+      }
+      const selected = new Set(this.kpiLocationIds());
+      if (selected.size) {
         rawSpaces = rawSpaces.filter((s: any) => {
           const loc = s.locationId ?? s.LocationId;
-          return loc != null && Number(loc) === boundLocId;
+          return loc != null && selected.has(Number(loc));
         });
         const spaceIds = new Set(rawSpaces.map((s: any) => s.id ?? s.spaceId ?? s.SpaceId));
         rawBookings = rawBookings.filter((b: any) => {
           const loc = b.locationId ?? b.LocationId;
-          if (loc != null && Number(loc) === boundLocId) return true;
+          if (loc != null && selected.has(Number(loc))) return true;
           const sId = b.spaceId ?? b.SpaceId;
           return sId != null && spaceIds.has(sId);
         });
         rawQuotations = rawQuotations.filter((q: any) => {
           const loc = q.locationId ?? q.LocationId;
-          if (loc != null && Number(loc) === boundLocId) return true;
+          if (loc != null && selected.has(Number(loc))) return true;
           const sId = q.spaceId ?? q.SpaceId;
           return sId != null && spaceIds.has(sId);
         });
-        const filteredLocs = rawLocations.filter((l: any) => Number(l.id) === boundLocId);
-        rawLocations = filteredLocs.length ? filteredLocs : rawLocations;
       }
 
       this.locationsList.set(rawLocations);

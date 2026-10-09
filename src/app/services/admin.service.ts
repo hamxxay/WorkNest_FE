@@ -550,9 +550,11 @@ export class AdminService {
     return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
   }
   // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
-  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month'): Observable<any> {
+  // locationIds: total these locations (one or several); empty = all the user may see (API limits sales executives to theirs).
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
     const params: any = { period };
-    if (locationId) params.locationId = locationId;
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    else if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }
   // Admin sidebar badges: items waiting on staff, keyed by sidebar route ({ "/admin/bookings": 2, ... }).

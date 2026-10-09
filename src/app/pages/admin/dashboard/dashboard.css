@@ -1469,6 +1469,16 @@
 .dot-sep { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; }
 .loc-chip { display: inline-flex; align-items: center; gap: 5px; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 10px; color: #334155; font-weight: 600; font-size: 0.8rem; }
 .loc-chip svg { color: #0d9488; }
+.loc-picker { position: relative; display: inline-flex; }
+.loc-chip-btn { cursor: pointer; font-family: inherit; }
+.loc-chip-btn:disabled { cursor: default; }
+.loc-chip-btn:not(:disabled):hover { border-color: #0d9488; }
+.loc-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.loc-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41; min-width: 220px; max-height: 320px; overflow-y: auto;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12); padding: 6px; }
+.loc-option { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; font-size: 0.85rem; color: #334155; cursor: pointer; }
+.loc-option:hover { background: #f1f5f9; }
+.loc-option input { accent-color: #0d9488; }
 .dash-header-actions { display: flex; align-items: center; gap: 10px; }
 .updated { font-size: 0.8rem; color: #94a3b8; white-space: nowrap; }
 .icon-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; color: #334155; cursor: pointer; transition: border-color .15s, background .15s; }
