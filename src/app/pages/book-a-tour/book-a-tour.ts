@@ -15,6 +15,7 @@ export class BookATour {
     fullName: '',
     email: '',
     phone: '',
+    location: '',
     preferredDate: '',
     timeSlot: '',
     message: ''
@@ -38,10 +39,16 @@ export class BookATour {
     return localDateIso();
   }
 
-  constructor(private contactService: ContactService) {}
+  /** Locations from dbo.WN_Locations (not hard-coded). */
+  readonly locations = signal<{ id: number; name: string }[]>([]);
+
+  constructor(private contactService: ContactService) {
+    this.contactService.getLocations().subscribe(list => this.locations.set(list));
+  }
 
   onSubmit() {
-    if (!this.form.fullName || !this.form.email || !this.form.phone || !this.form.preferredDate || !this.form.timeSlot) {
+    const needsLocation = this.locations().length > 0;
+    if (!this.form.fullName || !this.form.email || !this.form.phone || (needsLocation && !this.form.location) || !this.form.preferredDate || !this.form.timeSlot) {
       const msg = 'Please fill in all required fields.';
       alert(msg);
       this.error.set(msg);
@@ -53,13 +60,13 @@ export class BookATour {
     const payload = {
       ...this.form,
       subject: 'Book a Tour Request',
-      message: `Tour Request\nDate: ${this.form.preferredDate}\nTime: ${this.form.timeSlot}\n\n${this.form.message}`
+      message: `Tour Request\n${this.form.location ? 'Location: ' + this.form.location + '\n' : ''}Date: ${this.form.preferredDate}\nTime: ${this.form.timeSlot}\n\n${this.form.message}`
     };
 
     this.contactService.submit(payload).subscribe({
       next: () => {
         this.loading.set(false);
-        const msg = `Hi WorkNest! I'd like to book a tour.\n\nName: ${this.form.fullName}\nEmail: ${this.form.email}\nPhone: ${this.form.phone}\nDate: ${this.form.preferredDate}\nTime: ${this.form.timeSlot}${this.form.message ? '\nNotes: ' + this.form.message : ''}`;
+        const msg = `Hi WorkNest! I'd like to book a tour.\n\nName: ${this.form.fullName}\nEmail: ${this.form.email}\nPhone: ${this.form.phone}${this.form.location ? '\nLocation: ' + this.form.location : ''}\nDate: ${this.form.preferredDate}\nTime: ${this.form.timeSlot}${this.form.message ? '\nNotes: ' + this.form.message : ''}`;
         this.contactService.sendWhatsApp(msg);
         this.submitted.set(true);
       },

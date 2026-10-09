@@ -27,6 +27,8 @@ interface EntityConfig {
   fields?: FieldDef[];
   getFn: (page: number, limit: number, search: string) => any;
   createFn?: (data: any) => any;
+  /** Text of the create button (default "Add New"). */
+  createLabel?: string;
   updateFn?: (id: any, data: any) => any;
   deleteFn?: (id: any) => any;
   statusFn?: (id: any, statusId: number) => any;
@@ -1086,6 +1088,7 @@ export class Manage implements OnInit {
         }
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
         if (this.entity === 'invoices') this.loadSpaceInventoryForConfig();
+        if (this.entity === 'quotations') this.openQuotationFromInquiryParams();
       });
     });
   }
@@ -2939,6 +2942,25 @@ export class Manage implements OnInit {
           return data;
         });
 
+        if (this.entity === 'complaints') {
+          const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+          const statusLabel: Record<string, string> = { open: 'Open', in_progress: 'In Progress', resolved: 'Resolved', closed: 'Closed' };
+          const rows = raw.map((c: any) => ({
+            ...c,
+            customerName: c.customerName || '-',
+            phoneNumber: c.phoneNumber || '-',
+            status: statusLabel[c.status] || c.status,
+            sourceLabel: (c.source === 'whatsapp' ? 'WhatsApp' : 'Manual') + (c.isFollowUp && c.previousComplaintNo ? ` · follow-up of ${c.previousComplaintNo}` : ''),
+            replyLabel: c.resolutionResponse === 'persists' ? 'Issue persists' : c.resolutionResponse === 'resolved' ? 'Confirmed resolved'
+              : (c.resolvedNotificationSent ? 'Waiting for reply' : '-')
+          }));
+          this.items.set(rows);
+          this.totalCount.set(res?.total ?? res?.Total ?? rows.length);
+          this.loading.set(false);
+          if (cb) cb();
+          return;
+        }
+
         if (this.entity === 'contacts') {
           const contactsOnly = (data || []).map((c: any) => {
             const stId = Number(c.statusId ?? c.StatusId ?? c.status ?? c.Status ?? 1);
@@ -2955,9 +2977,16 @@ export class Manage implements OnInit {
               subject: c.subject || c.Subject || c.contactType || c.ContactType || c.type || c.Type || 'Book Tour Request',
               message: c.message || c.Message || c.notes || c.Notes || c.body || c.Body || '-',
               status: statusStr,
-              createdAt: c.createdAt || c.CreatedAt || c.createdDate || c.CreatedDate || c.createdOn || c.CreatedOn || ''
+              createdAt: c.createdAt || c.CreatedAt || c.createdDate || c.CreatedDate || c.createdOn || c.CreatedOn || '',
+              feedbackOutcome: c.feedbackOutcome ?? c.FeedbackOutcome ?? null,
+              feedbackReason: c.feedbackReason ?? c.FeedbackReason ?? null,
+              followUpOn: c.followUpOn ?? c.FollowUpOn ?? null,
+              followUpDue: !!(c.followUpDue ?? c.FollowUpDue),
+              quotationId: c.quotationId ?? c.QuotationId ?? null
             };
           });
+          // Follow-ups that are due come first so they are seen.
+          contactsOnly.sort((a: any, b: any) => Number(b.followUpDue) - Number(a.followUpDue));
           this.items.set(contactsOnly);
           this.totalCount.set(res?.total ?? res?.Total ?? res?.totalCount ?? res?.TotalCount ?? res?.data?.total ?? contactsOnly.length);
           this.loading.set(false);
@@ -3270,6 +3299,7 @@ export class Manage implements OnInit {
     }
 
     if (this.entity === 'contacts') {
+      if (col.key === 'feedback') return this.contactFeedbackText(item);
       if (col.key === 'fullName') {
         return item.fullName || item.FullName || item.customerName || item.CustomerName || item.name || item.Name || item.userName || item.email || '-';
       }
@@ -4152,8 +4182,10 @@ export class Manage implements OnInit {
       'expired': 4, '4': 4
     };
 
+    const complaintStatusMap: Record<string, number> = { 'open': 1, 'in progress': 2, 'resolved': 3, 'closed': 4 };
     const targetMap = this.entity === 'bookings' ? bookingStatusMap :
       this.entity === 'payments' ? paymentStatusMap :
+        this.entity === 'complaints' ? complaintStatusMap :
         this.entity === 'contacts' ? contactStatusMap :
           this.entity === 'memberships' ? membershipStatusMap : bookingStatusMap;
 
@@ -4175,8 +4207,9 @@ export class Manage implements OnInit {
             item.status = status;
             item.Status = status;
           }
-          this.success.set('Status updated successfully.');
-          setTimeout(() => this.success.set(''), 3000);
+          // Complaints: the API says whether the customer was asked on WhatsApp to confirm.
+          this.success.set(this.entity === 'complaints' && res?.message ? res.message : 'Status updated successfully.');
+          setTimeout(() => this.success.set(''), this.entity === 'complaints' ? 6000 : 3000);
           this.load();
         },
         error: (err: any) => {
@@ -4760,18 +4793,66 @@ export class Manage implements OnInit {
         deleteFn: (id) => this.admin.deletePayment(id),
       };
 
+      case 'complaints': return {
+        title: 'Complaints',
+        columns: [
+          { key: 'complaintNo', label: 'Complaint #' },
+          { key: 'customerName', label: 'Customer' },
+          { key: 'phoneNumber', label: 'Phone' },
+          { key: 'category', label: 'Category' },
+          { key: 'description', label: 'Description' },
+          { key: 'sourceLabel', label: 'Source' },
+          { key: 'replyLabel', label: 'Customer Reply' },
+          { key: 'status', label: 'Status', type: 'status' },
+          { key: 'createdOn', label: 'Date', type: 'date' },
+        ],
+        // Staff can add a complaint received by phone, walk-in or email.
+        fields: [
+          { key: 'customerName', label: 'Customer Name', type: 'text' },
+          { key: 'phoneNumber', label: 'Phone (WhatsApp)', type: 'text' },
+          { key: 'email', label: 'Email', type: 'email' },
+          { key: 'branch', label: 'Branch', type: 'select', options: [{ v: 'I-8', l: 'I-8' }, { v: 'F-7', l: 'F-7' }] },
+          {
+            key: 'category', label: 'Category', type: 'select', required: true, options: [
+              { v: 'Internet / WiFi', l: 'Internet / WiFi' }, { v: 'Electricity / AC', l: 'Electricity / AC' },
+              { v: 'Cleaning', l: 'Cleaning' }, { v: 'Noise', l: 'Noise' }, { v: 'Access / Entry', l: 'Access / Entry' },
+              { v: 'Booking Issue', l: 'Booking Issue' }, { v: 'Other', l: 'Other' },
+            ]
+          },
+          { key: 'description', label: 'Description', type: 'textarea', required: true },
+        ],
+        createLabel: 'Add Complaint',
+        createFn: (d) => this.admin.createComplaint(d),
+        getFn: (p, l, s) => this.admin.getComplaints(p, l, s),
+        statusFn: (id, statusId) => this.admin.updateComplaintStatus(id, ['', 'open', 'in_progress', 'resolved', 'closed'][statusId] || 'open'),
+        statusOptions: ['Open', 'In Progress', 'Resolved', 'Closed'],
+      };
+
       case 'contacts': return {
-        title: 'Contacts & Tour Inquiries',
+        title: 'Tour Inquiries',
         columns: [
           { key: 'fullName', label: 'Name' },
           { key: 'company', label: 'Company' },
           { key: 'email', label: 'Email' },
           { key: 'phone', label: 'Phone' },
           { key: 'subject', label: 'Subject / Type' },
-          { key: 'message', label: 'Message / Feedback' },
+          { key: 'message', label: 'Message' },
+          { key: 'feedback', label: 'Feedback' },
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdAt', label: 'Date', type: 'date' },
         ],
+        // Staff can add an inquiry taken by phone / walk-in; saved like a website "Book a Tour" request.
+        fields: [
+          { key: 'fullName', label: 'Full Name', type: 'text', required: true },
+          { key: 'email', label: 'Email', type: 'email', required: true },
+          { key: 'phone', label: 'Phone', type: 'text' },
+          { key: 'message', label: 'Message / Notes', type: 'textarea' },
+        ],
+        createLabel: 'Add Inquiry',
+        createFn: (d) => this.admin.createTourInquiry({
+          fullName: (d.fullName || '').trim(), email: (d.email || '').trim(),
+          phone: (d.phone || '').trim() || null, message: (d.message || '').trim() || null
+        }),
         getFn: (p, l, s) => this.admin.getContacts(p, l, s),
         statusFn: (id, status) => this.admin.updateContactStatus(id, status),
         statusOptions: ['New', 'InProgress', 'Resolved'],
@@ -4910,7 +4991,107 @@ export class Manage implements OnInit {
     return this.quotationSelectedSlots.has(slot.start);
   }
 
+  // ---------- Tour inquiry feedback ----------
+  readonly showContactFeedback = signal(false);
+  readonly contactFeedbackSaving = signal(false);
+  readonly contactFeedbackError = signal('');
+  contactFeedbackItem: any = null;
+  contactFeedbackOutcome: '' | 'not_interested' | 'future_prospect' | 'converted' = '';
+  contactFeedbackReason = '';
+  contactFeedbackDate = '';
+  /** Inquiry being converted: set when Create Quotation is opened from it, linked when the quotation is saved. */
+  private pendingInquiryId: number | null = null;
+
+  contactFeedbackText(item: any): string {
+    const fmt = (d: string) => { const x = new Date(d + 'T00:00:00'); return isNaN(x.getTime()) ? d : x.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); };
+    switch (item?.feedbackOutcome) {
+      case 'not_interested': return 'Not interested' + (item.feedbackReason ? ` – ${item.feedbackReason}` : '');
+      case 'future_prospect': return item.followUpDue
+        ? `⏰ Follow-up due (${fmt(item.followUpOn)})`
+        : `Future prospect – follow up ${item.followUpOn ? fmt(item.followUpOn) : ''}`;
+      case 'converted': return 'Converted to quotation' + (item.quotationId ? ` #${item.quotationId}` : '');
+      default: return '-';
+    }
+  }
+
+  openContactFeedback(item: any) {
+    this.contactFeedbackItem = item;
+    this.contactFeedbackOutcome = '';
+    this.contactFeedbackReason = '';
+    this.contactFeedbackDate = '';
+    this.contactFeedbackError.set('');
+    this.showContactFeedback.set(true);
+  }
+
+  saveContactFeedback() {
+    const item = this.contactFeedbackItem;
+    const id = Number(item?.id ?? item?.Id);
+    if (!id || this.contactFeedbackSaving()) return;
+    const outcome = this.contactFeedbackOutcome;
+    if (!outcome) { this.contactFeedbackError.set('Choose an option.'); return; }
+    if (outcome === 'not_interested' && !this.contactFeedbackReason.trim()) { this.contactFeedbackError.set('Enter the reason.'); return; }
+    if (outcome === 'future_prospect' && !this.contactFeedbackDate) { this.contactFeedbackError.set('Choose the follow-up date.'); return; }
+    if (outcome === 'converted') { this.startQuotationFromInquiry(item); return; }
+
+    this.contactFeedbackSaving.set(true);
+    this.contactFeedbackError.set('');
+    this.admin.saveContactFeedback(id, {
+      outcome,
+      reason: this.contactFeedbackReason.trim() || null,
+      followUpOn: outcome === 'future_prospect' ? this.contactFeedbackDate : null
+    }).subscribe({
+      next: () => {
+        this.contactFeedbackSaving.set(false);
+        this.showContactFeedback.set(false);
+        this.showSuccess(outcome === 'not_interested' ? 'Marked not interested and closed.' : 'Follow-up saved. You will be alerted on that date.');
+        this.load();
+      },
+      error: (err: any) => {
+        this.contactFeedbackSaving.set(false);
+        this.contactFeedbackError.set(err?.error?.message || 'Could not save the feedback.');
+      }
+    });
+  }
+
+  /** "Conversion into quotation": open Create Quotation with the inquiry's customer details to search. */
+  startQuotationFromInquiry(item: any) {
+    this.showContactFeedback.set(false);
+    this.router.navigate(['/admin/quotations'], {
+      queryParams: {
+        fromInquiry: item.id ?? item.Id,
+        name: item.fullName && item.fullName !== '-' ? item.fullName : null,
+        email: item.email && item.email !== '-' ? item.email : null
+      }
+    });
+  }
+
+  /** Called on the Quotations page: if opened from an inquiry, open Create Quotation prefilled. */
+  private openQuotationFromInquiryParams() {
+    const qp = this.route.snapshot.queryParamMap;
+    const inquiryId = Number(qp.get('fromInquiry'));
+    if (!inquiryId) return;
+    this.openAdminQuotationForm();
+    this.pendingInquiryId = inquiryId;   // after opening: a form opened any other way is not linked
+    this.customerSearchQuery = qp.get('email') || qp.get('name') || '';
+    if (this.customerSearchQuery) this.onCustomerSearch();
+    // Drop the parameters so a refresh does not reopen the form.
+    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+  }
+
+  /** After a quotation is saved from an inquiry: record the inquiry as converted and link the quotation. */
+  private linkInquiryToQuotation(createdQ: any) {
+    const inquiryId = this.pendingInquiryId;
+    if (!inquiryId) return;
+    this.pendingInquiryId = null;
+    const qid = Number(createdQ?.id ?? createdQ?.Id ?? createdQ?.quotationId ?? createdQ?.QuotationId) || null;
+    this.admin.saveContactFeedback(inquiryId, { outcome: 'converted', quotationId: qid }).subscribe({
+      next: () => this.showSuccess('Inquiry marked as converted.'),
+      error: () => this.showError('Quotation saved, but the inquiry could not be marked as converted.')
+    });
+  }
+
   openAdminQuotationForm() {
+    this.pendingInquiryId = null;
     this.showQuotationForm.set(true);
     this.quotationFormData = {};
     this.quotationFormError.set('');
@@ -5389,6 +5570,7 @@ export class Manage implements OnInit {
         this.load();
 
         const createdQ = res?.data ?? res;
+        if (!this.isCreatingNewVersion) this.linkInquiryToQuotation(createdQ);
         if (createdQ) {
           this.previewQuotation(createdQ);
           if (sendEmail) {

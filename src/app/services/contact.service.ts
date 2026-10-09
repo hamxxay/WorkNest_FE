@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -15,6 +16,18 @@ export class ContactService {
   submit(data: any): Observable<any> {
     const url = data.subject === 'Book a Tour Request' ? this.apiUrl : this.contactUrl;
     return this.http.post<any>(url, data);
+  }
+
+  /** Active WorkNest locations (dbo.WN_Locations) for the public forms' location dropdown. */
+  getLocations(): Observable<{ id: number; name: string }[]> {
+    return this.http.get<any>(`${environment.apiUrl}/location/all`).pipe(
+      map(res => (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []) as any[]),
+      map(rows => rows
+        .filter(l => (l.isActive ?? l.IsActive ?? true) && (l.name ?? l.Name))
+        .map(l => ({ id: Number(l.id ?? l.Id), name: String(l.name ?? l.Name) }))
+        .sort((a, b) => a.name.localeCompare(b.name))),
+      catchError(() => of([]))
+    );
   }
 
   sendWhatsApp(message: string): void {

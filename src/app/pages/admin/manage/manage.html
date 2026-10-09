@@ -73,7 +73,7 @@
           <line x1="12" x2="12" y1="5" y2="19" />
           <line x1="5" x2="19" y1="12" y2="12" />
         </svg>
-        Add New
+        {{ config().createLabel || 'Add New' }}
       </button>
       }
     </div>
@@ -139,7 +139,7 @@
         <thead>
           <tr>
             @for (col of config().columns; track col.key) {
-            <th>{{ col.label }}</th>
+            <th [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">{{ col.label }}</th>
             }
             <th class="actions-col">Actions</th>
           </tr>
@@ -148,12 +148,12 @@
           @for (item of filtered; track item.bookingId || item.id || item.idGuid || $index) {
           <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
             @for (col of config().columns; track col.key) {
-            <td>
+            <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
               @if (col.type === 'image') {
               <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
               } @else if (col.type === 'status' || col.type === 'booking-status' || col.type === 'invoice-status') {
               <span class="status-badge"
-                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase()">{{ getCellValue(item,
+                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{ getCellValue(item,
                 col) }}</span>
               } @else if (col.type === 'boolean') {
               <span class="bool-badge" [class.active]="item[col.key]">{{ item[col.key] ? 'Yes' : 'No' }}</span>
@@ -173,7 +173,7 @@
               <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
                 }}</span>
               } @else {
-              {{ getCellValue(item, col) }}
+              <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
               }
             </td>
             }
@@ -508,6 +508,10 @@
                 </svg>
                 }
               </button>
+              }
+              @if (entity === 'contacts') {
+              <button class="btn-admin btn-outline-admin" style="padding:4px 10px;font-size:.8rem;white-space:nowrap"
+                (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Feedback</button>
               }
               @if (config().deleteFn) {
               <button class="action-btn delete" (click)="deleteItem(item)" title="Delete">
@@ -4243,6 +4247,56 @@
       style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
       <button class="btn-admin btn-outline-admin" (click)="closeQuickUploadModal()">
         Cancel
+      </button>
+    </div>
+  </div>
+</div>
+}
+<!-- Tour inquiry feedback -->
+@if (showContactFeedback() && contactFeedbackItem; as fi) {
+<div class="modal-overlay" (click)="showContactFeedback.set(false)">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;width:100%">
+    <button class="modal-close" (click)="showContactFeedback.set(false)" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Inquiry Feedback</h2>
+    <p style="margin:0 0 14px;color:#475569;font-size:.9rem"><strong>{{ fi.fullName }}</strong> · {{ fi.email }}</p>
+
+    <label class="fb-option" [class.active]="contactFeedbackOutcome === 'not_interested'">
+      <input type="radio" name="fbOutcome" value="not_interested" [(ngModel)]="contactFeedbackOutcome" />
+      <span><strong>Not interested</strong><small>Give the reason. The inquiry is closed.</small></span>
+    </label>
+    @if (contactFeedbackOutcome === 'not_interested') {
+    <textarea class="form-input-admin" rows="3" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbReason"
+      placeholder="Reason (e.g. budget, chose another provider)" style="width:100%;margin:6px 0 10px"></textarea>
+    }
+
+    <label class="fb-option" [class.active]="contactFeedbackOutcome === 'future_prospect'">
+      <input type="radio" name="fbOutcome" value="future_prospect" [(ngModel)]="contactFeedbackOutcome" />
+      <span><strong>Future prospect</strong><small>Pick a date. You will be alerted on that date.</small></span>
+    </label>
+    @if (contactFeedbackOutcome === 'future_prospect') {
+    <input class="form-input-admin" type="date" [min]="today" [(ngModel)]="contactFeedbackDate" name="fbDate"
+      style="width:100%;margin:6px 0 4px" />
+    <textarea class="form-input-admin" rows="2" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbNote"
+      placeholder="Note (optional)" style="width:100%;margin:4px 0 10px"></textarea>
+    }
+
+    <label class="fb-option" [class.active]="contactFeedbackOutcome === 'converted'">
+      <input type="radio" name="fbOutcome" value="converted" [(ngModel)]="contactFeedbackOutcome" />
+      <span><strong>Conversion into quotation</strong><small>Opens Create Quotation for this customer. The inquiry is marked converted when the quotation is saved.</small></span>
+    </label>
+
+    @if (contactFeedbackError()) {
+    <div style="color:#b91c1c;font-size:.85rem;margin-top:10px">{{ contactFeedbackError() }}</div>
+    }
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn-admin btn-outline-admin" (click)="showContactFeedback.set(false)">Cancel</button>
+      <button class="btn-admin btn-primary-admin" (click)="saveContactFeedback()" [disabled]="contactFeedbackSaving()">
+        {{ contactFeedbackOutcome === 'converted' ? 'Send Quotation' : (contactFeedbackSaving() ? 'Saving…' : 'Save') }}
       </button>
     </div>
   </div>

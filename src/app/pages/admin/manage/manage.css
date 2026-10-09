@@ -513,3 +513,10 @@
 .location-checklist{display:flex;flex-wrap:wrap;gap:8px}
 .location-check{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #dbe2ea;border-radius:10px;cursor:pointer;font-size:.88rem;color:#334155;background:#fff}
 .location-check input{width:16px;height:16px;accent-color:#0d9488;margin:0}
+
+/* Tour inquiry feedback options */
+.fb-option { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+.fb-option.active { border-color: #0d9488; background: #f0fdfa; }
+.fb-option input { margin-top: 3px; accent-color: #0d9488; }
+.fb-option span { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; color: #0f172a; }
+.fb-option small { color: #64748b; font-size: .78rem; }
