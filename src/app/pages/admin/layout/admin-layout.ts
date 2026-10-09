@@ -34,7 +34,8 @@ export class AdminLayout implements OnInit, OnDestroy {
   badges = signal<Record<string, number>>({});
   /** Routes whose badge is shown in red (overdue invoices, suspended door access). */
   private static readonly URGENT_ROUTES = new Set(['/admin/invoices', '/admin/attendants']);
-  private static readonly POLL_MS = 60_000;
+  // New tour inquiries, complaints and WhatsApp messages should show without a page refresh.
+  private static readonly POLL_MS = 20_000;
   private static readonly NAV_DEBOUNCE_MS = 1_000;
   private baseTitle = '';
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -117,7 +118,10 @@ export class AdminLayout implements OnInit, OnDestroy {
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
     this.loadBadges();
-    this.pollTimer = setInterval(() => this.loadBadges(), AdminLayout.POLL_MS);
+    this.pollTimer = setInterval(() => { if (!document.hidden) this.loadBadges(); }, AdminLayout.POLL_MS);
+    // Browsers slow timers in background tabs: refresh as soon as the tab is visible / focused again.
+    document.addEventListener('visibilitychange', this.onVisible);
+    window.addEventListener('focus', this.onVisible);
     // Refresh soon after each navigation, so handling an item updates its count.
     this.navSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
       this.currentPath.set(this.router.url.split(/[?#]/)[0]);
@@ -126,8 +130,15 @@ export class AdminLayout implements OnInit, OnDestroy {
     });
   }
 
+  private lastBadgeLoad = 0;
+  private readonly onVisible = () => {
+    if (!document.hidden && Date.now() - this.lastBadgeLoad > 3_000) this.loadBadges();
+  };
+
   ngOnDestroy() {
     if (this.pollTimer) clearInterval(this.pollTimer);
+    document.removeEventListener('visibilitychange', this.onVisible);
+    window.removeEventListener('focus', this.onVisible);
     if (this.navTimer) clearTimeout(this.navTimer);
     this.navSub?.unsubscribe();
     this.badgeSub?.unsubscribe();
@@ -136,6 +147,7 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   private loadBadges() {
     if (!this.auth.isAuthenticated()) return;
+    this.lastBadgeLoad = Date.now();
     this.badgeSub?.unsubscribe();
     this.badgeSub = this.admin.getNavBadges().subscribe({
       next: res => {
