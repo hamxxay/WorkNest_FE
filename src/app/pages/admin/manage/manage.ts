@@ -902,17 +902,21 @@ export class Manage implements OnInit {
 
     const executeSend = (email: string) => {
       this.bookingService.sendChallanEmail(bookingId, email).subscribe({
-        next: () => {
+        next: (res: any) => {
           this.resendingBookingEmailId.set(null);
+          if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+            const msg = res.message || 'Failed to send booking & challan email.';
+            this.showError(msg);
+            return;
+          }
           this.bookingEmailFeedback.set(`Booking & Challan email sent to ${email}`);
           this.showSuccess(`Booking & Challan email sent to ${email}`);
           setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
         },
-        error: () => {
+        error: (err: any) => {
           this.resendingBookingEmailId.set(null);
-          this.bookingEmailFeedback.set(`Booking & Challan email sent to ${email}`);
-          this.showSuccess(`Booking & Challan email sent to ${email}`);
-          setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+          const msg = err?.error?.message || err?.message || 'Failed to send booking & challan email.';
+          this.showError(msg);
         }
       });
     };
@@ -3702,7 +3706,7 @@ export class Manage implements OnInit {
         this.showQuickCreateCustomer.set(false);
         const created = res?.data ?? res;
         if (created) {
-          if (!this.showQuotationForm()) {
+          if (!this.showQuotationForm() && !this.showBookingForm()) {
             this.openAdminQuotationForm();
           }
           this.selectCustomer(created);
@@ -4411,15 +4415,20 @@ export class Manage implements OnInit {
     const bookingId = this.reassignBooking.bookingPublicId ?? this.reassignBooking.idGuid;
     this.admin.reassignBooking(bookingId, Number(this.selectedNewSpace), 0).subscribe({
       next: () => {
+        this.reassignLoading.set(false);
+        this.showReassignModal.set(false);
+        this.reassignBooking = null;
+        this.availableSpacesForReassign.set([]);
+        this.selectedNewSpace = '';
         this.success.set('Booking reassigned successfully');
+        this.showSuccess('Booking reassigned successfully');
         setTimeout(() => this.success.set(''), 3000);
-        this.closeReassignModal();
         this.load();
       },
       error: (err: any) => {
+        this.reassignLoading.set(false);
         this.reassignError.set(err?.error?.message || 'Failed to reassign booking');
         this.showError(this.reassignError());
-        this.reassignLoading.set(false);
       }
     });
   }
@@ -5158,7 +5167,11 @@ export class Manage implements OnInit {
           this.selectedQuotationLocationId = match ? String(match.v) : String(this.locationOptions()[0].v);
         }
         if (this.selectedQuotationLocationId) {
-          this.onQuotationLocationChange();
+          if (!this.isCreatingNewVersion) {
+            this.onQuotationLocationChange();
+          } else {
+            this.onQuotationLocationChange(true);
+          }
         }
       },
       error: this.apiError('Failed to load locations.')
@@ -5192,13 +5205,15 @@ export class Manage implements OnInit {
     });
   }
 
-  onQuotationLocationChange() {
-    this.quotationFormData.spaceId = '';
-    this.quotationFloorId = null;
-    this.quotationFloorOptions.set([]);
-    this.quotationPerSeatBasePrice = 0;
-    this.quotationMinPerSeatBasePrice = 0;
-    this.quotationBasePriceError.set('');
+  onQuotationLocationChange(preserveSelection: boolean = false) {
+    if (!preserveSelection && !this.isCreatingNewVersion) {
+      this.quotationFormData.spaceId = '';
+      this.quotationFloorId = null;
+      this.quotationFloorOptions.set([]);
+      this.quotationPerSeatBasePrice = 0;
+      this.quotationMinPerSeatBasePrice = 0;
+      this.quotationBasePriceError.set('');
+    }
     const available = this.filteredQuotationOfferingTypes();
     if (available.length > 0 && !available.some(o => o.id === Number(this.quotationOfferingTypeId))) {
       this.quotationOfferingTypeId = available[0].id;
@@ -5217,7 +5232,7 @@ export class Manage implements OnInit {
             })));
             if (!this.isCreatingNewVersion && this.isLocationI8(this.selectedQuotationLocationId)) {
               const thirdFloor = this.findThirdFloorId(this.quotationFloorOptions());
-              if (thirdFloor != null) {
+              if (thirdFloor != null && !preserveSelection) {
                 this.quotationFloorId = thirdFloor;
               }
             }
@@ -5226,8 +5241,10 @@ export class Manage implements OnInit {
         });
       }
     }
-    this.validateQuotationBasePrice();
-    this.recalcQuotationAmount();
+    if (!preserveSelection && !this.isCreatingNewVersion) {
+      this.validateQuotationBasePrice();
+      this.recalcQuotationAmount();
+    }
   }
 
   onQuotationSpaceTypeChange() {
@@ -5648,7 +5665,7 @@ export class Manage implements OnInit {
       const space = this.allSpaces().find((s: any) => String(s.id) === String(sourceVersion.spaceId) || String(s.idGuid) === String(sourceVersion.spaceId));
       if (space) {
         this.selectedQuotationLocationId = space.locationId || space.location?.id || sourceVersion.locationId || '';
-        this.onQuotationLocationChange();
+        this.onQuotationLocationChange(true);
 
         const cat = (space.spaceTypeName || space.spaceCategory || '').toLowerCase();
         if (cat.includes('shared') || cat.includes('co-working')) {
@@ -5670,7 +5687,7 @@ export class Manage implements OnInit {
       } else {
         if (sourceVersion.locationId) {
           this.selectedQuotationLocationId = sourceVersion.locationId;
-          this.onQuotationLocationChange();
+          this.onQuotationLocationChange(true);
         }
         if (sourceVersion.spaceTypeId) this.selectedQuotationSpaceTypeId = sourceVersion.spaceTypeId;
         if (sourceVersion.capacity) this.selectedQuotationCapacity = sourceVersion.capacity;
@@ -5843,15 +5860,23 @@ export class Manage implements OnInit {
     this.challanEmailSent.set('Sending Challan Email...');
 
     this.bookingService.sendChallanEmail(c.bookingId || c.id, targetEmail).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.sendingChallanEmail.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          const msg = res.message || 'Failed to send challan email.';
+          this.showError(msg);
+          this.challanEmailSent.set('');
+          return;
+        }
         this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
+        this.showSuccess(`Challan emailed to ${targetEmail}`);
         setTimeout(() => this.challanEmailSent.set(''), 4000);
       },
-      error: () => {
+      error: (err: any) => {
         this.sendingChallanEmail.set(false);
-        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-        setTimeout(() => this.challanEmailSent.set(''), 4000);
+        this.challanEmailSent.set('');
+        const msg = err?.error?.message || err?.message || 'Failed to send challan email.';
+        this.showError(msg);
       }
     });
   }
@@ -6596,6 +6621,10 @@ export class Manage implements OnInit {
     this.admin.sendInvoiceEmail(id).subscribe({
       next: (res: any) => {
         this.sendingInvoiceEmailId.set(null);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          this.showError(res?.message || 'Failed to send invoice email.');
+          return;
+        }
         this.showSuccess(res?.message || 'Invoice email sent successfully!');
       },
       error: (err: any) => {
