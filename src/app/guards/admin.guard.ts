@@ -52,7 +52,7 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
     if (isSalesExecutiveUrl(state.url)) {
       return true;
     }
-    return router.createUrlTree(['/admin/quotations']);
+    return router.createUrlTree(['/admin/dashboard']);
   }
 
   if (isAdmin) {
