@@ -43,6 +43,12 @@ export class AccessAnalytics implements OnInit, OnDestroy {
 
   // User drill-down
   showUser = signal(false);
+  /** Member popup: the full room list is collapsed to a few rooms + "N more" until expanded. */
+  showAllRooms = signal(false);
+  readonly roomPreviewCount = 6;
+  roomsOf(room: string | null | undefined): string[] {
+    return (room || '').split(/[,;]+/).map(r => r.trim()).filter(Boolean);
+  }
   userLoading = signal(false);
   user = signal<HikUserAnalytics | null>(null);
 
@@ -151,6 +157,7 @@ export class AccessAnalytics implements OnInit, OnDestroy {
   }
 
   closeUser() {
+    this.showAllRooms.set(false);
     this.showUser.set(false);
   }
 }
