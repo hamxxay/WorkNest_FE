@@ -1,0 +1,136 @@
+<div class="access-page wa-page">
+  <div class="page-header">
+    <div>
+      <h2>WhatsApp Inbox</h2>
+      <p class="subtitle">Conversations with the WorkNest WhatsApp number. The bot answers automatically; you can reply here at any time.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline btn-sm" (click)="loadConversations()" [disabled]="loadingList()">{{ loadingList() ? 'Loading…' : 'Refresh' }}</button>
+      <button class="btn btn-outline btn-sm" (click)="showStart.set(true)">+ New Message</button>
+      @if (canBroadcast) {
+      <button class="btn btn-primary btn-sm" (click)="showBroadcast.set(true)">Broadcast</button>
+      }
+    </div>
+  </div>
+
+  <div class="wa-shell">
+    <!-- Conversation list -->
+    <aside class="wa-list">
+      <div class="wa-search">
+        <input type="search" placeholder="Search name, number, tag…" [(ngModel)]="search" (keyup.enter)="loadConversations()" (search)="loadConversations()" />
+      </div>
+      <div class="wa-list-body">
+        @for (c of conversations(); track c.id) {
+        <button class="wa-conv" [class.active]="selected()?.id === c.id" [class.unread]="c.unreadCount > 0" (click)="open(c)">
+          <span class="wa-avatar">{{ initials(c) }}</span>
+          <span class="wa-conv-main">
+            <span class="wa-conv-top">
+              <span class="wa-conv-name">{{ displayName(c) }}</span>
+              <span class="wa-conv-time">{{ c.lastMessageAt | date:'d MMM, h:mm a' }}</span>
+            </span>
+            <span class="wa-conv-bottom">
+              <span class="wa-conv-preview">{{ c.lastMessageText || 'No messages yet' }}</span>
+              @if (c.unreadCount > 0) { <span class="wa-unread">{{ c.unreadCount }}</span> }
+            </span>
+          </span>
+        </button>
+        } @empty {
+        <div class="wa-empty">{{ loadingList() ? 'Loading conversations…' : 'No conversations yet.' }}</div>
+        }
+      </div>
+    </aside>
+
+    <!-- Thread -->
+    <section class="wa-thread-pane">
+      @if (selected(); as c) {
+      <header class="wa-thread-head">
+        <span class="wa-avatar lg">{{ initials(c) }}</span>
+        <div class="wa-thread-title">
+          <strong>{{ displayName(c) }}</strong>
+          <small>+{{ c.phoneNumber }}@if (c.tags) { · {{ c.tags }} }</small>
+        </div>
+        <span class="wa-window" [class.open]="c.inReplyWindow" [title]="c.inReplyWindow ? 'The customer wrote in the last 24 hours: replies go as normal messages.' : 'More than 24 hours since the customer wrote: replies are sent using the approved template.'">
+          {{ c.inReplyWindow ? '24h window open' : 'Template only' }}
+        </span>
+        <button class="btn btn-outline btn-sm" (click)="editContact()">Contact</button>
+      </header>
+
+      @if (editingContact()) {
+      <div class="wa-contact-edit">
+        <input class="wa-input" placeholder="Name" [(ngModel)]="contactForm.name" maxlength="200" />
+        <input class="wa-input" placeholder="Tags (comma separated, e.g. member, i8)" [(ngModel)]="contactForm.tags" maxlength="500" />
+        <textarea class="wa-input" rows="2" placeholder="Notes for staff" [(ngModel)]="contactForm.adminNotes" maxlength="2000"></textarea>
+        <div class="wa-row-end">
+          <button class="btn btn-outline btn-sm" (click)="editingContact.set(false)">Cancel</button>
+          <button class="btn btn-primary btn-sm" (click)="saveContact()">Save</button>
+        </div>
+      </div>
+      } @else if (c.adminNotes) {
+      <div class="wa-notes">📝 {{ c.adminNotes }}</div>
+      }
+
+      <div class="wa-thread" #thread>
+        @if (loadingMessages() && !messages().length) { <div class="wa-empty">Loading messages…</div> }
+        @for (m of messages(); track m.id) {
+        <div class="wa-msg" [class.out]="m.direction === 'outgoing'">
+          <div class="wa-bubble">
+            <div class="wa-text">{{ m.messageText }}</div>
+            <div class="wa-meta">
+              @if (m.direction === 'outgoing') { {{ m.sentByUserId ? 'Staff' : 'Bot' }}@if (m.messageType === 'template') { · template } · }
+              {{ m.createdOn | date:'d MMM, h:mm a' }}
+            </div>
+          </div>
+        </div>
+        }
+      </div>
+
+      <footer class="wa-compose">
+        <textarea class="wa-input" rows="2" [(ngModel)]="replyText" (keydown)="onReplyKey($event)" maxlength="4000"
+          [placeholder]="c.inReplyWindow ? 'Type a reply… (Enter to send, Shift+Enter for a new line)' : 'Type a reply… it will be sent using the approved WhatsApp template'"></textarea>
+        <button class="btn btn-primary" (click)="send()" [disabled]="sending() || !replyText.trim()">{{ sending() ? 'Sending…' : 'Send' }}</button>
+      </footer>
+      } @else {
+      <div class="wa-placeholder">
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <p>Select a conversation to read and reply.</p>
+      </div>
+      }
+    </section>
+  </div>
+</div>
+
+@if (showStart()) {
+<div class="modal-overlay" (click)="showStart.set(false)">
+  <div class="modal-content wa-modal" (click)="$event.stopPropagation()">
+    <h3>New WhatsApp Message</h3>
+    <label>WhatsApp number *</label>
+    <input class="wa-input" placeholder="03001234567" [(ngModel)]="startForm.phone" />
+    <label>Name</label>
+    <input class="wa-input" placeholder="Customer name (optional)" [(ngModel)]="startForm.name" />
+    <label>Message *</label>
+    <textarea class="wa-input" rows="4" [(ngModel)]="startForm.message" maxlength="4000"></textarea>
+    <small class="wa-hint">If this number hasn't written in the last 24 hours, the message is sent using the approved template.</small>
+    <div class="wa-row-end">
+      <button class="btn btn-outline btn-sm" (click)="showStart.set(false)">Cancel</button>
+      <button class="btn btn-primary btn-sm" (click)="startConversation()" [disabled]="sending()">{{ sending() ? 'Sending…' : 'Send' }}</button>
+    </div>
+  </div>
+</div>
+}
+
+@if (showBroadcast()) {
+<div class="modal-overlay" (click)="showBroadcast.set(false)">
+  <div class="modal-content wa-modal" (click)="$event.stopPropagation()">
+    <h3>Broadcast</h3>
+    <label>Send to</label>
+    <input class="wa-input" placeholder="Tag (leave empty for all contacts)" [(ngModel)]="broadcastForm.tag" />
+    <label>Message *</label>
+    <textarea class="wa-input" rows="5" [(ngModel)]="broadcastForm.message" maxlength="4000"></textarea>
+    <small class="wa-hint">Contacts who haven't written in the last 24 hours receive it through the approved template.</small>
+    <div class="wa-row-end">
+      <button class="btn btn-outline btn-sm" (click)="showBroadcast.set(false)">Cancel</button>
+      <button class="btn btn-primary btn-sm" (click)="sendBroadcast()" [disabled]="sending()">{{ sending() ? 'Sending…' : 'Send Broadcast' }}</button>
+    </div>
+  </div>
+</div>
+}

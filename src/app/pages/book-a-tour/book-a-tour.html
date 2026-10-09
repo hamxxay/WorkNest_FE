@@ -34,9 +34,20 @@
                 <input type="email" class="form-input" placeholder="you@example.com" [(ngModel)]="form.email" name="email" required />
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Phone Number <span class="required">*</span></label>
-              <input type="tel" class="form-input" placeholder="+92 300 1234567" [(ngModel)]="form.phone" name="phone" required />
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Phone Number <span class="required">*</span></label>
+                <input type="tel" class="form-input" placeholder="+92 300 1234567" [(ngModel)]="form.phone" name="phone" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Location <span class="required">*</span></label>
+                <select class="form-input" [(ngModel)]="form.location" name="location" required>
+                  <option value="">{{ locations().length ? 'Select a location' : 'Loading…' }}</option>
+                  @for (loc of locations(); track loc.id) {
+                    <option [value]="loc.name">{{ loc.name }}</option>
+                  }
+                </select>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">

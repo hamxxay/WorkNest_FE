@@ -7,6 +7,8 @@ import { AuthService } from '../services/auth.service';
  * and the sidebar (admin-layout) so the two never drift apart.
  */
 export const SALES_EXECUTIVE_ROUTES: string[] = [
+  '/admin',            // Dashboard (sidebar item). Matched exactly, so it does not open every /admin/* page.
+  '/admin/dashboard',
   '/admin/profile',
   '/admin/kyc',
   '/admin/quotations',
@@ -19,6 +21,8 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/biometric-users',
   '/admin/machine-users',
   '/admin/contacts',
+  '/admin/complaints',
+  '/admin/whatsapp',
   '/admin/quotation-responses',
   '/admin/network',
   '/admin/network/clients',
@@ -30,7 +34,7 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
 /** True when `url` is one of the allowed routes or a child of one (query/fragment ignored). */
 export function isSalesExecutiveUrl(url: string): boolean {
   const path = url.split(/[?#]/)[0];
-  return SALES_EXECUTIVE_ROUTES.some(p => path === p || path.startsWith(p + '/'));
+  return SALES_EXECUTIVE_ROUTES.some(p => path === p || (p !== '/admin' && path.startsWith(p + '/')));
 }
 
 // Used as both canActivate and canActivateChild on the /admin parent, so every
@@ -50,7 +54,7 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
     if (isSalesExecutiveUrl(state.url)) {
       return true;
     }
-    return router.createUrlTree(['/admin/quotations']);
+    return router.createUrlTree(['/admin/dashboard']);
   }
 
   if (isAdmin) {

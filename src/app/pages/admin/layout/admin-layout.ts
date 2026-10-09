@@ -76,7 +76,9 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
     { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },
     { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
-    { route: '/admin/contacts', group: 'Sales',       label: 'Contacts',          icon: 'contacts'        },
+    { route: '/admin/contacts', group: 'Sales',       label: 'Tour Inquiries',    icon: 'contacts'        },
+    { route: '/admin/complaints', group: 'Sales',     label: 'Complaints',        icon: 'complaints'      },
+    { route: '/admin/whatsapp', group: 'Sales',       label: 'WhatsApp Inbox',    icon: 'whatsapp'        },
     { route: '/admin/gallery', group: 'Spaces',        label: 'Gallery',           icon: 'gallery'         },
     { route: '/admin/space-configuration', group: 'Spaces', label: 'Space Config', icon: 'spaceconfig',  superAdminOnly: true },
     { route: '/admin/manage-spaces', group: 'Spaces',  label: 'Manage Spaces',     icon: 'managespaces'    },
@@ -107,7 +109,7 @@ export class AdminLayout implements OnInit, OnDestroy {
       // Same allow-list as adminGuard (challan-validity is super-admin only, so not listed).
       this.menuItems = this.menuItems.filter(item => SALES_EXECUTIVE_ROUTES.includes(item.route));
       if (!isSalesExecutiveUrl(this.router.url)) {
-        this.router.navigate(['/admin/quotations']);
+        this.router.navigate(['/admin/dashboard']);
       }
     }
   }

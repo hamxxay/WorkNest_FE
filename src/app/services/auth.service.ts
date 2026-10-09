@@ -264,7 +264,7 @@ export class AuthService {
 
   getPostLoginRedirect(): string {
     if (this.hasRole('sales_executive')) {
-      return '/admin/quotations';
+      return '/admin/dashboard';
     }
     if (this.hasRole('admin') || this.hasRole('super_admin')) {
       return '/admin';

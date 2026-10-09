@@ -374,6 +374,25 @@ export class AdminService {
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
   updateContactStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status`, { statusId }); }
+  // Complaints (WhatsApp chatbot + entered by staff)
+  getComplaints(page?: number, limit?: number, search?: string): Observable<any> {
+    const params: any = { page: page || 1, limit: limit || 10 };
+    if (search) params.search = search;
+    return this.http.get<any>(`${this.api}/complaints`, { params });
+  }
+  createComplaint(data: any): Observable<ApiResponse<any>> { return this.http.post<ApiResponse<any>>(`${this.api}/complaints`, data); }
+  /** status: open | in_progress | resolved | closed. Resolved asks the customer on WhatsApp to confirm. */
+  updateComplaintStatus(id: number, status: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/complaints/${id}/status`, { status });
+  }
+  /** Feedback on a tour inquiry: not_interested (reason) | future_prospect (followUpOn yyyy-MM-dd) | converted (quotationId). */
+  saveContactFeedback(id: number, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/contact/${id}/feedback`, data);
+  }
+  /** Tour inquiry entered by staff (phone / walk-in): saved like the website's "Book a Tour" form. */
+  createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/book-tour`, data);
+  }
   deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
 
   // Floors
@@ -550,9 +569,11 @@ export class AdminService {
     return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/access-suspension`);
   }
   // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
-  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month'): Observable<any> {
+  // locationIds: total these locations (one or several); empty = all the user may see (API limits sales executives to theirs).
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
     const params: any = { period };
-    if (locationId) params.locationId = locationId;
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    else if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }
   // Admin sidebar badges: items waiting on staff, keyed by sidebar route ({ "/admin/bookings": 2, ... }).
