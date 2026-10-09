@@ -1,3 +1,4 @@
+import { ToastService } from '../../../../services/toast.service';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,12 +20,16 @@ type HourFilter = 'all' | 'fingerprint' | 'face' | 'card' | 'door' | 'denied';
 })
 export class AccessDashboard implements OnInit, OnDestroy {
   private hik = inject(HikDeviceService);
+  private toast = inject(ToastService);
 
   @ViewChild('inflowCanvas', { static: true }) inflowCanvas!: ElementRef<HTMLCanvasElement>;
   private inflowChart?: Chart;
   private refreshTimer?: ReturnType<typeof setInterval>;
 
   data = signal<HikAccessDashboard | null>(null);
+  /** Machines being tested right now ("Test" button), and whether "Test all" is running. */
+  testingIds = signal<number[]>([]);
+  testingAll = signal(false);
   loading = signal(true);
   error = signal<string | null>(null);
   updatedAt = signal<Date | null>(null);
@@ -83,6 +88,55 @@ export class AccessDashboard implements OnInit, OnDestroy {
     this.load();
     // Live refresh every 30s (skipped while the drill-down is open).
     this.refreshTimer = setInterval(() => { if (!this.showHourModal()) this.load(true); }, 30000);
+  }
+
+  /** Connects to one machine now and shows / saves whether it is online. */
+  testMachine(m: { id: number; name: string }) {
+    if (this.testingIds().includes(m.id)) return;
+    this.testingIds.update(ids => [...ids, m.id]);
+    this.hik.testDevice(m.id).subscribe({
+      next: (res: any) => {
+        this.testingIds.update(ids => ids.filter(x => x !== m.id));
+        const r = res?.data;
+        if (r) this.applyTestResults([r]);
+        if (r?.online) this.toast.success(res?.message || `${m.name} is online.`);
+        else this.toast.error(res?.message || `${m.name} is offline.`);
+      },
+      error: (err: any) => {
+        this.testingIds.update(ids => ids.filter(x => x !== m.id));
+        this.toast.error(err?.error?.message || 'The machine could not be tested.');
+      }
+    });
+  }
+
+  testAllMachines() {
+    if (this.testingAll()) return;
+    this.testingAll.set(true);
+    this.hik.testAllDevices().subscribe({
+      next: (res: any) => {
+        this.testingAll.set(false);
+        this.applyTestResults(res?.data || []);
+        this.toast.success(res?.message || 'All machines tested.');
+        this.load(true);
+      },
+      error: (err: any) => {
+        this.testingAll.set(false);
+        this.toast.error(err?.error?.message || 'The machines could not be tested.');
+      }
+    });
+  }
+
+  isTesting(id: number): boolean { return this.testingAll() || this.testingIds().includes(id); }
+
+  private applyTestResults(results: { deviceId: number; online: boolean }[]) {
+    const d = this.data();
+    if (!d) return;
+    const byId = new Map(results.map(r => [r.deviceId, r.online]));
+    const devices = (d.devices || []).map((m: any) => byId.has(m.id)
+      ? { ...m, online: byId.get(m.id), last_seen: byId.get(m.id) ? new Date().toISOString() : m.last_seen }
+      : m);
+    const online = devices.filter((m: any) => m.online).length;
+    this.data.set({ ...d, devices, stats: { ...d.stats, devicesOnline: online } } as any);
   }
 
   ngOnDestroy() {
