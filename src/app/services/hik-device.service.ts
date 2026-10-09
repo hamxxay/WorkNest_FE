@@ -18,6 +18,16 @@ export class HikDeviceService {
   /**
    * Fetch list of biometric access devices / machines
    */
+  /** "Test" button: connects to the machine now and saves online / offline (admin, super admin). */
+  testDevice(id: number): Observable<any> {
+    return this.http.post<any>(`${this.api}/hik/devices/${id}/test`, {});
+  }
+
+  /** "Test all": tests every machine and saves online / offline. */
+  testAllDevices(): Observable<any> {
+    return this.http.post<any>(`${this.api}/hik/devices/test-all`, {});
+  }
+
   getDevices(location?: string): Observable<HikDevice[]> {
     const params: Record<string, string> = {};
     if (location) params['location'] = location;

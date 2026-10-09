@@ -108,7 +108,11 @@
     <div class="card">
       <div class="card-header-row">
         <h3 class="card-title">Machines</h3>
-        <a class="btn btn-outline btn-sm" routerLink="/admin/biometric-users">Access Users →</a>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" (click)="testAllMachines()" [disabled]="testingAll()"
+            title="Connect to every machine now and update online / offline">{{ testingAll() ? 'Testing…' : 'Test all' }}</button>
+          <a class="btn btn-outline btn-sm" routerLink="/admin/biometric-users">Access Users →</a>
+        </div>
       </div>
       <div class="scroll-list">
         @for (m of data()?.devices || []; track m.id) {
@@ -118,6 +122,8 @@
             <div class="list-title">{{ m.name }}</div>
             <div class="list-sub">{{ m.grp || 'Ungrouped' }}{{ m.code ? ' · Room ' + m.code : '' }}{{ m.last_seen ? ' · seen ' + relStamp(m.last_seen) : '' }}</div>
           </div>
+          <button class="btn btn-outline btn-sm" style="margin-right:8px;padding:2px 10px" (click)="testMachine(m)" [disabled]="isTesting(m.id)"
+            title="Connect to this machine now">{{ isTesting(m.id) ? 'Testing…' : 'Test' }}</button>
           <span class="badge" [class.badge-ok]="m.online" [class.badge-bad]="!m.online">{{ m.online ? 'Online' : 'Offline' }}</span>
         </div>
         } @empty {
