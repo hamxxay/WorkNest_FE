@@ -29,6 +29,17 @@ export class AccessDashboard implements OnInit, OnDestroy {
   data = signal<HikAccessDashboard | null>(null);
   /** Machines being tested right now ("Test" button), and whether "Test all" is running. */
   testingIds = signal<number[]>([]);
+  /** Machine sync status panel: automatic schedule on/off and each job's last run. */
+  syncEnabled = signal<boolean | null>(null);
+  syncJobs = signal<{ job: string; lastStartedAt?: string; lastFinishedAt?: string; lastOk?: boolean | null; lastResult?: string; running?: boolean }[]>([]);
+  syncError = signal<string | null>(null);
+  runningJob = signal<string | null>(null);
+  readonly syncJobLabels: Record<string, string> = {
+    online: 'Online check (every 2 min)', maintenance: 'Events, users & cards (every 5 min)', watch: 'New enrollments (every 90 s)',
+    clock: 'Clock sync (daily 04:00)', events: 'Door events', queue: 'Queued changes', expiry: 'Expiry', grants: 'Pending grants',
+    credentials: 'Copy fingerprints / cards / faces', snapshots: 'Machine user lists', users: 'Users table', cards: 'Card grants',
+    facevault: 'Face vault', renewals: 'Booking renewals'
+  };
   testingAll = signal(false);
   loading = signal(true);
   error = signal<string | null>(null);
@@ -86,8 +97,9 @@ export class AccessDashboard implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.load();
+    this.loadSyncStatus();
     // Live refresh every 30s (skipped while the drill-down is open).
-    this.refreshTimer = setInterval(() => { if (!this.showHourModal()) this.load(true); }, 30000);
+    this.refreshTimer = setInterval(() => { if (!this.showHourModal()) { this.load(true); this.loadSyncStatus(); } }, 30000);
   }
 
   /** Connects to one machine now and shows / saves whether it is online. */
@@ -122,6 +134,39 @@ export class AccessDashboard implements OnInit, OnDestroy {
       error: (err: any) => {
         this.testingAll.set(false);
         this.toast.error(err?.error?.message || 'The machines could not be tested.');
+      }
+    });
+  }
+
+  loadSyncStatus() {
+    this.hik.getSyncStatus().subscribe({
+      next: (res: any) => {
+        const d = res?.data ?? res;
+        this.syncEnabled.set(!!d?.enabled);
+        this.syncJobs.set(Array.isArray(d?.jobs) ? d.jobs : []);
+        this.syncError.set(null);
+      },
+      error: (err: any) => this.syncError.set(err?.status === 404
+        ? 'The live API does not have the machine sync yet: deploy the latest API.'
+        : (err?.error?.message || 'Could not read the sync status.'))
+    });
+  }
+
+  runJob(job: string) {
+    if (this.runningJob()) return;
+    this.runningJob.set(job);
+    this.hik.runSyncJob(job).subscribe({
+      next: (res: any) => {
+        this.runningJob.set(null);
+        const s = res?.data;
+        const msg = `${this.syncJobLabels[job] || job}: ${s?.lastResult || res?.message || 'done'}`;
+        if (s?.lastOk === false) this.toast.error(msg); else this.toast.success(msg);
+        this.loadSyncStatus();
+        this.load(true);
+      },
+      error: (err: any) => {
+        this.runningJob.set(null);
+        this.toast.error(err?.error?.message || 'The job could not be run.');
       }
     });
   }
