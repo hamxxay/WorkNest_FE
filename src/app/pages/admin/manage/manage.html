@@ -2877,6 +2877,52 @@
 </div>
 }
 
+<!-- Record Payment Modal -->
+@if (showRecordPaymentModal()) {
+<div class="modal-overlay" (click)="showRecordPaymentModal.set(false)">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px;width:100%;">
+    <button class="modal-close" (click)="showRecordPaymentModal.set(false)">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Record Payment</h2>
+    <form (ngSubmit)="submitRecordPayment()">
+      <div class="form-group-admin">
+        <label>Amount (PKR) *</label>
+        <input type="number" class="form-input-admin" [(ngModel)]="recordPaymentFormData.paidAmount" name="paidAmount" required min="1" step="any" placeholder="Enter paid amount" />
+      </div>
+      <div class="form-group-admin">
+        <label>Payment Method *</label>
+        <select class="form-input-admin" [(ngModel)]="recordPaymentFormData.paymentMethod" name="paymentMethod" required>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cash">Cash</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="Online">Online / Portal</option>
+        </select>
+      </div>
+      <div class="form-group-admin">
+        <label>Transaction Reference / Cheque #</label>
+        <input type="text" class="form-input-admin" [(ngModel)]="recordPaymentFormData.transactionRef" name="transactionRef" placeholder="e.g. TR-123456" />
+      </div>
+      <div class="form-group-admin">
+        <label>Notes</label>
+        <textarea class="form-input-admin" [(ngModel)]="recordPaymentFormData.notes" name="notes" rows="2" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="modal-actions" style="margin-top: 1.5rem;">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="showRecordPaymentModal.set(false)" [disabled]="recordPaymentSaving()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="recordPaymentSaving() || !recordPaymentFormData.paidAmount || recordPaymentFormData.paidAmount <= 0">
+          {{ recordPaymentSaving() ? 'Recording...' : 'Record Payment' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
 <!-- Quotation Preview & Version History Modal -->
 @if (showQuotationPreviewModal() && selectedQuotation(); as q) {
 <div class="modal-overlay" (click)="closeQuotationPreviewModal()">

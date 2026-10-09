@@ -71,7 +71,19 @@ export class AuthService {
         firebaseAuth,
         async currentUser => {
           if (!currentUser) {
-            // Don't wipe guest sessions â€” they have no Firebase user by design
+            if (this.getToken() && parsedCachedUser) {
+              this.hydrateBackendSession$(parsedCachedUser).subscribe({
+                next: userInfo => {
+                  subscriber.next(userInfo);
+                  subscriber.complete();
+                },
+                error: () => {
+                  subscriber.next(parsedCachedUser);
+                  subscriber.complete();
+                }
+              });
+              return;
+            }
             if (!this.isGuest()) {
               this.clearSession();
             }
@@ -110,17 +122,73 @@ export class AuthService {
     }).pipe(catchError(() => of(null)));
   }
 
+  loginWithBackendApi$(email: string, password: string): Observable<{
+    isSuccessful: boolean;
+    message: string;
+    data: UserInfo | null;
+  }> {
+    const payload = { email, password };
+    return this.http.post<any>(`${environment.apiUrl}/auth/login`, payload).pipe(
+      switchMap(res => {
+        if (!res || res.isSuccessful === false || res.isSuccess === false || res.success === false) {
+          const msg = res?.message || 'Invalid email or password.';
+          return throwError(() => ({ error: { message: msg } }));
+        }
+        const data = res.data ?? res;
+        const token = this.extractToken(res);
+        if (token) {
+          localStorage.setItem(this.tokenKey, token);
+        }
+        const roles = this.extractRoles(data, data?.role ? [data.role] : ['customer']);
+        const userInfo: UserInfo = {
+          email: data?.email || email,
+          userId: data?.id || data?.userId || '',
+          roles: roles.length ? roles : ['customer'],
+          displayName: data?.name || email.split('@')[0],
+          locationId: data?.locationId != null ? Number(data.locationId) : null,
+          locationIds: Array.isArray(data?.locationIds) ? data.locationIds.map(Number) : []
+        };
+        localStorage.setItem(this.userKey, JSON.stringify(userInfo));
+        this.user.set(userInfo);
+
+        if (isFirebaseConfigured && password && password.length >= 6) {
+          signInWithEmailAndPassword(firebaseAuth, email, password)
+            .catch(() => createUserWithEmailAndPassword(firebaseAuth, email, password))
+            .catch(() => { /* ignore background Firebase sync */ });
+        }
+
+        return of({
+          isSuccessful: true,
+          message: res.message || 'Login successful.',
+          data: userInfo
+        });
+      }),
+      catchError(err => {
+        const msg = err?.error?.message || err?.message || 'Invalid email or password.';
+        return throwError(() => ({ error: { message: msg } }));
+      })
+    );
+  }
+
   login(email: string, password: string): Observable<{
     isSuccessful: boolean;
     message: string;
     data: UserInfo | null;
   }> {
-    return this.ensureConfigured().pipe(
-      switchMap(() => from(signInWithEmailAndPassword(firebaseAuth, email, password))),
+    if (!isFirebaseConfigured) {
+      return this.loginWithBackendApi$(email, password);
+    }
+
+    return from(signInWithEmailAndPassword(firebaseAuth, email, password)).pipe(
       switchMap(credential => this.syncLoginOrProvisionApi$(credential.user, email, password).pipe(
         map(response => ({ credential, response }))
       )),
-      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response))
+      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response)),
+      catchError(firebaseError => {
+        return this.loginWithBackendApi$(email, password).pipe(
+          catchError(() => throwError(() => this.normalizeAuthError(firebaseError)))
+        );
+      })
     );
   }
 

@@ -137,15 +137,18 @@ export class MyBookings implements OnInit {
     }
     this.resendingEmailId.set(b.id);
     this.bookingService.sendChallanEmail(b.id, targetEmail).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.resendingEmailId.set(null);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          alert(res.message || 'Failed to send booking & challan email.');
+          return;
+        }
         this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
         setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
       },
-      error: () => {
+      error: (err: any) => {
         this.resendingEmailId.set(null);
-        this.bookingEmailFeedback.set(`Booking & Challan email sent to ${targetEmail}`);
-        setTimeout(() => this.bookingEmailFeedback.set(''), 4000);
+        alert(err?.error?.message || err?.message || 'Failed to send booking & challan email.');
       }
     });
   }
