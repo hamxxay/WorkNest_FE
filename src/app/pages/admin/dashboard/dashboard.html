@@ -6,9 +6,31 @@
       <p class="dash-meta">
         <span>{{ today | date:'EEEE, d MMMM y' }}</span>
         <span class="dot-sep"></span>
-        <span class="loc-chip">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          {{ locationLabel() }}
+        <!-- Locations the KPIs cover: one or several (sales executives see only their own). -->
+        <span class="loc-picker">
+          <button type="button" class="loc-chip loc-chip-btn" (click)="locationMenuOpen.set(!locationMenuOpen())"
+            [attr.aria-expanded]="locationMenuOpen()" aria-haspopup="listbox" [disabled]="locationsList().length <= 1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            {{ locationLabel() }}
+            @if (locationsList().length > 1) {
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            }
+          </button>
+          @if (locationMenuOpen() && locationsList().length > 1) {
+          <div class="loc-menu-backdrop" (click)="locationMenuOpen.set(false)"></div>
+          <div class="loc-menu" role="listbox" aria-multiselectable="true">
+            <label class="loc-option">
+              <input type="checkbox" [checked]="kpiLocationIds().length === 0" (change)="selectAllKpiLocations()" />
+              <span>{{ isSalesExecutiveOnly ? 'All my locations' : 'All locations' }}</span>
+            </label>
+            @for (loc of locationsList(); track loc.id) {
+            <label class="loc-option">
+              <input type="checkbox" [checked]="isKpiLocationSelected(loc.id)" (change)="toggleKpiLocation(loc.id)" />
+              <span>{{ loc.name }}</span>
+            </label>
+            }
+          </div>
+          }
         </span>
       </p>
     </div>
@@ -40,7 +62,7 @@
   </div>
 
   <!-- Headline numbers, needs attention, 6-month trend -->
-  <app-dashboard-overview [locationId]="selectedLocation()" [refreshTick]="refreshTick()" [period]="period()"></app-dashboard-overview>
+  <app-dashboard-overview [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-dashboard-overview>
 
   @if (canSeeAccess) {
   <app-access-overview></app-access-overview>
