@@ -985,9 +985,15 @@ export class Manage implements OnInit {
     this.formData['locationIds'] = checked ? [...new Set([...current, Number(id)])] : current.filter(x => x !== Number(id));
   }
 
-  /** Only Sales Executives are tied to location(s); Admins and Super Admins cover every location. */
+  /** Roles that are tied to location(s): admin and sales executive (super admins and customers are not). */
+  isLocationRole(role: any): boolean {
+    const r = this.normalizeRole(role);
+    return r === 'admin' || r === 'sales_executive';
+  }
+
+  /** Admins and sales executives are limited to their own location(s); super admins are not. */
   get isLocationBound(): boolean {
-    return this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin');
+    return this.auth.isLocationBound();
   }
 
   get userLocationId(): number | null {
@@ -995,6 +1001,12 @@ export class Manage implements OnInit {
     return this.auth.user()?.locationId ?? null;
   }
   assignableRoles = ASSIGNABLE_ROLES;
+  /** Only a Super Admin creates Admins / Super Admins; an Admin creates Sales Executives and customers. */
+  get rolesICanAssign(): { v: string; l: string }[] {
+    return this.auth.hasRole('super_admin')
+      ? ASSIGNABLE_ROLES
+      : ASSIGNABLE_ROLES.filter(r => r.v === 'sales_executive' || r.v === 'general');
+  }
   amountLabels: Record<string, string> = {};
 
   private route = inject(ActivatedRoute);
@@ -3916,8 +3928,8 @@ export class Manage implements OnInit {
         return;
       }
 
-      if (role !== 'sales_executive') {
-        // Only Sales Executives are tied to locations; Admins and Super Admins cover every location.
+      if (!this.isLocationRole(role)) {
+        // Admins and Sales Executives are tied to locations; Super Admins and customers are not.
         locationId = null;
         locationIds = [];
       } else {
@@ -4508,7 +4520,7 @@ export class Manage implements OnInit {
   onFieldChange(key: string) {
     if (key === 'role' && this.entity === 'users') {
       const role = this.normalizeRole(this.formData['role']);
-      if (role !== 'sales_executive') {
+      if (!this.isLocationRole(role)) {
         this.formData['locationId'] = null;
         this.formData['locationIds'] = [];
       } else {
@@ -4619,7 +4631,7 @@ export class Manage implements OnInit {
           { key: 'name', label: 'Full Name', type: 'text', required: true },
           { key: 'email', label: 'Email Address', type: 'email', required: true },
           { key: 'password', label: 'Password', type: 'password', required: !this.editItem },
-          { key: 'role', label: 'Role', type: 'select', options: this.assignableRoles, required: true },
+          { key: 'role', label: 'Role', type: 'select', options: this.rolesICanAssign, required: true },
           { key: 'locationId', label: 'Location', type: 'user-location-select' },
           { key: 'phone', label: 'Phone Number', type: 'text' },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
