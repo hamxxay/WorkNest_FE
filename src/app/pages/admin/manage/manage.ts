@@ -80,8 +80,18 @@ export class Manage implements OnInit {
   get filtered() {
     let list = this.items();
     if (this.entity === 'spaces') return this.displayedItems;
-    // Bookings are paged on the server: the list already is the current page.
+    // Bookings and users are paged on the server: the list already is the current page.
     if (this.entity === 'bookings') return list;
+    if (this.entity === 'users') {
+      return [...list].sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || a.CreatedAt || a.createdOn || a.CreatedOn || 0).getTime();
+        const dateB = new Date(b.createdAt || b.CreatedAt || b.createdOn || b.CreatedOn || 0).getTime();
+        if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+        const idA = Number(a.id ?? a.Id ?? 0);
+        const idB = Number(b.id ?? b.Id ?? 0);
+        return idB - idA;
+      });
+    }
     if (list.length > this.pageSize()) {
       const start = (this.page() - 1) * this.pageSize();
       return list.slice(start, start + this.pageSize());
@@ -201,10 +211,9 @@ export class Manage implements OnInit {
 
   /** Offering type's discount cap at the standard rate. */
   get bookingBaseDiscountCap(): number {
-    const ot = this.offeringTypes().find(o =>
-      (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
-      (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
-    );
+    const otId = Number(this.bookingOfferingTypeId || 0);
+    const ot = (otId > 0 ? this.offeringTypes().find(o => o.id === otId) : null)
+      || this.offeringTypes().find(o => String(o.id) === String(this.bookingOfferingType) || o.description === this.bookingOfferingType);
     if (ot && ot.discountCap != null && Number(ot.discountCap) >= 0) {
       return Number(ot.discountCap);
     }
@@ -225,10 +234,9 @@ export class Manage implements OnInit {
   }
 
   get bookingOfferingTypeName(): string {
-    const ot = this.offeringTypes().find(o =>
-      (this.bookingOfferingTypeId && o.id === Number(this.bookingOfferingTypeId)) ||
-      (this.bookingOfferingType && (o.description === this.bookingOfferingType || String(o.id) === String(this.bookingOfferingType)))
-    );
+    const otId = Number(this.bookingOfferingTypeId || 0);
+    const ot = (otId > 0 ? this.offeringTypes().find(o => o.id === otId) : null)
+      || this.offeringTypes().find(o => String(o.id) === String(this.bookingOfferingType) || o.description === this.bookingOfferingType);
     return ot?.description || this.bookingOfferingType || '24/7';
   }
 
@@ -283,12 +291,9 @@ export class Manage implements OnInit {
   }
 
   onBookingOfferingTypeChange() {
-    const ot = this.offeringTypes().find(o =>
-      String(o.id) === String(this.bookingOfferingType) ||
-      o.description === this.bookingOfferingType
-    );
+    this.bookingOfferingTypeId = Number(this.bookingOfferingTypeId);
+    const ot = this.offeringTypes().find(o => o.id === this.bookingOfferingTypeId);
     if (ot) {
-      this.bookingOfferingTypeId = ot.id;
       this.bookingOfferingType = ot.description;
     }
     this.recalcAmount();
@@ -500,7 +505,7 @@ export class Manage implements OnInit {
   readonly quotationFloorOptions = signal<{ v: any; l: string }[]>([]);
   quotationBillingPeriodMonths = 3;
   quotationSecurityDepositMonths = 2;
-  readonly offeringTypes = signal<{ id: number; description: string; discountCap: number }[]>([]);
+  readonly offeringTypes = signal<{ id: number; description: string; discountCap: number; locationId?: number | null }[]>([]);
   quotationOfferingTypeId: number = 1;
   quotationOfferingType = '24/7';
   // WHT invoice (shared component) on Create Booking. Quotations no longer choose WHT: it is chosen on the
@@ -511,6 +516,30 @@ export class Manage implements OnInit {
   readonly quotationDiscountError = signal('');
   readonly quotationBasePriceError = signal('');
 
+  filteredQuotationOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
+    const locId = this.selectedQuotationLocationId ? Number(this.selectedQuotationLocationId) : null;
+    const all = this.offeringTypes();
+    if (!locId) return all;
+    const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
+    return filtered.length > 0 ? filtered : all;
+  }
+
+  filteredBookingOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
+    const locId = this.selectedLocationId ? Number(this.selectedLocationId) : null;
+    const all = this.offeringTypes();
+    if (!locId) return all;
+    const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
+    return filtered.length > 0 ? filtered : all;
+  }
+
+  filteredAgreementOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
+    const locId = this.sendAgreementData?.locationId ? Number(this.sendAgreementData.locationId) : null;
+    const all = this.offeringTypes();
+    if (!locId) return all;
+    const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
+    return filtered.length > 0 ? filtered : all;
+  }
+
   loadOfferingTypes() {
     this.quotationSvc.getOfferingTypes().subscribe({
       next: (res: any) => {
@@ -519,46 +548,105 @@ export class Manage implements OnInit {
           this.offeringTypes.set(list.map((item: any) => ({
             id: Number(item.id ?? item.Id ?? 0),
             description: String(item.description ?? item.Description ?? '').trim(),
-            discountCap: Number(item.discountCap ?? item.DiscountCap ?? 10)
+            discountCap: Number(item.discountCap ?? item.DiscountCap ?? 10),
+            locationId: item.locationId != null ? Number(item.locationId) : (item.LocationId != null ? Number(item.LocationId) : (Number(item.id ?? item.Id) <= 3 ? 1 : 2))
           })));
         } else if (!this.offeringTypes().length) {
           this.offeringTypes.set([
-            { id: 1, description: '24/7', discountCap: 10 },
-            { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
-            { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
+            { id: 1, description: '24/7-I8', discountCap: 10, locationId: 1 },
+            { id: 2, description: 'Morning 6am to 6pm', discountCap: 30, locationId: 1 },
+            { id: 3, description: 'Evening 6pm to 6am', discountCap: 40, locationId: 1 },
+            { id: 4, description: '24/7', discountCap: 5, locationId: 2 },
+            { id: 5, description: 'Morning 6am to 6pm', discountCap: 20, locationId: 2 },
+            { id: 6, description: 'Evening 6pm to 6am', discountCap: 25, locationId: 2 }
           ]);
         }
         if (this.sendAgreementData?.operatingHours) {
           this.sendAgreementData.operatingHours = this.resolveOfferingTypeDescription(this.sendAgreementData.operatingHours);
         }
-        if (this.quotationOfferingType) {
+        if (this.quotationOfferingTypeId) {
           this.quotationOfferingType = this.resolveOfferingTypeDescription(this.quotationOfferingType, this.quotationOfferingTypeId);
         }
-        if (this.bookingOfferingType) {
+        if (this.bookingOfferingTypeId) {
           this.bookingOfferingType = this.resolveOfferingTypeDescription(this.bookingOfferingType, this.bookingOfferingTypeId);
         }
       },
       error: () => {
         if (!this.offeringTypes().length) {
           this.offeringTypes.set([
-            { id: 1, description: '24/7', discountCap: 10 },
-            { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
-            { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
+            { id: 1, description: '24/7-I8', discountCap: 10, locationId: 1 },
+            { id: 2, description: 'Morning 6am to 6pm', discountCap: 30, locationId: 1 },
+            { id: 3, description: 'Evening 6pm to 6am', discountCap: 40, locationId: 1 },
+            { id: 4, description: '24/7', discountCap: 5, locationId: 2 },
+            { id: 5, description: 'Morning 6am to 6pm', discountCap: 20, locationId: 2 },
+            { id: 6, description: 'Evening 6pm to 6am', discountCap: 25, locationId: 2 }
           ]);
         }
       }
     });
   }
 
-  resolveOfferingTypeDescription(raw: any, rawId?: any): string {
+  resolveOfferingTypeId(raw: any, rawId?: any, locationId?: number | null): number {
     const list = (this.offeringTypes() && this.offeringTypes().length > 0) ? this.offeringTypes() : [
-      { id: 1, description: '24/7', discountCap: 10 },
-      { id: 2, description: 'Shift Morning(6am-6pm)', discountCap: 15 },
-      { id: 3, description: 'Shift Evening(6pm-6am)', discountCap: 15 }
+      { id: 1, description: '24/7-I8', discountCap: 10, locationId: 1 },
+      { id: 2, description: 'Morning 6am to 6pm', discountCap: 30, locationId: 1 },
+      { id: 3, description: 'Evening 6pm to 6am', discountCap: 40, locationId: 1 },
+      { id: 4, description: '24/7', discountCap: 5, locationId: 2 },
+      { id: 5, description: 'Morning 6am to 6pm', discountCap: 20, locationId: 2 },
+      { id: 6, description: 'Evening 6pm to 6am', discountCap: 25, locationId: 2 }
     ];
 
-    if (rawId != null && Number(rawId) > 0) {
-      const match = list.find(o => Number(o.id) === Number(rawId));
+    if (rawId != null && !isNaN(Number(rawId)) && Number(rawId) > 0) {
+      const match = list.find(o => o.id === Number(rawId));
+      if (match) return match.id;
+    }
+
+    if (raw != null) {
+      const str = String(raw).trim();
+      const num = parseInt(str, 10);
+      if (!isNaN(num) && String(num) === str) {
+        const match = list.find(o => o.id === num);
+        if (match) return match.id;
+      }
+
+      if (locationId) {
+        const matchLoc = list.find(o =>
+          (o.description || '').trim().toLowerCase() === str.toLowerCase() &&
+          (o.locationId == null || Number(o.locationId) === Number(locationId))
+        );
+        if (matchLoc) return matchLoc.id;
+      }
+
+      const matchExact = list.find(o => (o.description || '').trim().toLowerCase() === str.toLowerCase());
+      if (matchExact) return matchExact.id;
+
+      const matchPartial = list.find(o =>
+        (o.description || '').toLowerCase().includes(str.toLowerCase()) ||
+        str.toLowerCase().includes((o.description || '').toLowerCase())
+      );
+      if (matchPartial) return matchPartial.id;
+    }
+
+    if (locationId) {
+      const locMatch = list.find(o => Number(o.locationId) === Number(locationId));
+      if (locMatch) return locMatch.id;
+    }
+
+    return 1;
+  }
+
+  resolveOfferingTypeDescription(raw: any, rawId?: any): string {
+    const list = (this.offeringTypes() && this.offeringTypes().length > 0) ? this.offeringTypes() : [
+      { id: 1, description: '24/7-I8', discountCap: 10, locationId: 1 },
+      { id: 2, description: 'Morning 6am to 6pm', discountCap: 30, locationId: 1 },
+      { id: 3, description: 'Evening 6pm to 6am', discountCap: 40, locationId: 1 },
+      { id: 4, description: '24/7', discountCap: 5, locationId: 2 },
+      { id: 5, description: 'Morning 6am to 6pm', discountCap: 20, locationId: 2 },
+      { id: 6, description: 'Evening 6pm to 6am', discountCap: 25, locationId: 2 }
+    ];
+
+    if (rawId != null && !isNaN(Number(rawId)) && Number(rawId) > 0) {
+      const match = list.find(o => o.id === Number(rawId));
       if (match?.description) return match.description;
     }
 
@@ -568,11 +656,8 @@ export class Manage implements OnInit {
 
       const num = parseInt(str, 10);
       if (!isNaN(num) && String(num) === str) {
-        const match = list.find(o => Number(o.id) === num);
+        const match = list.find(o => o.id === num);
         if (match?.description) return match.description;
-        if (num === 1) return '24/7';
-        if (num === 2) return 'Shift Morning(6am-6pm)';
-        if (num === 3) return 'Shift Evening(6pm-6am)';
       }
 
       const matchExact = list.find(o => (o.description || '').trim().toLowerCase() === str.toLowerCase());
@@ -585,8 +670,8 @@ export class Manage implements OnInit {
       if (matchPartial?.description) return matchPartial.description;
 
       const lower = str.toLowerCase();
-      if (lower.includes('morning') || lower.includes('6am')) return 'Shift Morning(6am-6pm)';
-      if (lower.includes('evening') || lower.includes('night') || lower.includes('6pm')) return 'Shift Evening(6pm-6am)';
+      if (lower.includes('morning') || lower.includes('6am')) return 'Morning 6am to 6pm';
+      if (lower.includes('evening') || lower.includes('night') || lower.includes('6pm')) return 'Evening 6pm to 6am';
       if (lower.includes('24') || lower.includes('full')) return '24/7';
     }
 
@@ -594,12 +679,9 @@ export class Manage implements OnInit {
   }
 
   onQuotationOfferingTypeChange() {
-    const ot = this.offeringTypes().find(o =>
-      String(o.id) === String(this.quotationOfferingType) ||
-      o.description === this.quotationOfferingType
-    );
+    this.quotationOfferingTypeId = Number(this.quotationOfferingTypeId);
+    const ot = this.offeringTypes().find(o => o.id === this.quotationOfferingTypeId);
     if (ot) {
-      this.quotationOfferingTypeId = ot.id;
       this.quotationOfferingType = ot.description;
     }
     this.recalcQuotationAmount();
@@ -619,10 +701,9 @@ export class Manage implements OnInit {
 
   /** Offering type's discount cap at the standard rate (e.g. 10% for 24/7). */
   get quotationBaseDiscountCap(): number {
-    const ot = this.offeringTypes().find(o =>
-      (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
-      (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
-    );
+    const otId = Number(this.quotationOfferingTypeId || 0);
+    const ot = (otId > 0 ? this.offeringTypes().find(o => o.id === otId) : null)
+      || this.offeringTypes().find(o => String(o.id) === String(this.quotationOfferingType) || o.description === this.quotationOfferingType);
     if (ot && ot.discountCap != null && Number(ot.discountCap) >= 0) {
       return Number(ot.discountCap);
     }
@@ -667,10 +748,9 @@ export class Manage implements OnInit {
   }
 
   get quotationOfferingTypeName(): string {
-    const ot = this.offeringTypes().find(o =>
-      (this.quotationOfferingTypeId && o.id === Number(this.quotationOfferingTypeId)) ||
-      (this.quotationOfferingType && (o.description === this.quotationOfferingType || String(o.id) === String(this.quotationOfferingType)))
-    );
+    const otId = Number(this.quotationOfferingTypeId || 0);
+    const ot = (otId > 0 ? this.offeringTypes().find(o => o.id === otId) : null)
+      || this.offeringTypes().find(o => String(o.id) === String(this.quotationOfferingType) || o.description === this.quotationOfferingType);
     return ot?.description || this.quotationOfferingType || '24/7';
   }
 
@@ -1415,8 +1495,9 @@ export class Manage implements OnInit {
     this.bookingBasePriceError.set('');
     this.bookingDiscountValue = 0;
     this.bookingDiscountError.set('');
-    this.bookingOfferingTypeId = 1;
-    this.bookingOfferingType = '24/7';
+    const initialBookingOfferings = this.filteredBookingOfferingTypes();
+    this.bookingOfferingTypeId = initialBookingOfferings[0]?.id || (this.selectedLocationId === '2' ? 4 : 1);
+    this.bookingOfferingType = initialBookingOfferings[0]?.description || (this.selectedLocationId === '2' ? '24/7' : '24/7-I8');
     this.loadOfferingTypes();
     this.bookingSubtotal = 0;
     this.bookingDiscountAmount = 0;
@@ -1631,8 +1712,10 @@ export class Manage implements OnInit {
     if (secMonths != null) {
       this.securityDepositMonthsOverride = Number(secMonths);
     }
-    this.bookingOfferingType = booking.offeringType || booking.operatingHours || '24/7';
-    this.bookingOfferingTypeId = booking.offeringTypeId || 1;
+    const rawOtId = booking.offeringTypeId || booking.OfferingTypeId;
+    const rawOt = booking.offeringType || booking.OfferingType || booking.operatingHours || booking.OperatingHours;
+    this.bookingOfferingTypeId = this.resolveOfferingTypeId(rawOt, rawOtId, this.selectedLocationId ? Number(this.selectedLocationId) : null);
+    this.bookingOfferingType = this.resolveOfferingTypeDescription(rawOt, this.bookingOfferingTypeId);
     this.loadOfferingTypes();
 
     this.onBookingSpaceSelected();
@@ -1758,6 +1841,11 @@ export class Manage implements OnInit {
     this.securityDeposit = 0;
     this.bookingFloorId = null;
     this.bookingFloorOptions.set([]);
+    const available = this.filteredBookingOfferingTypes();
+    if (available.length > 0 && !available.some(o => o.id === Number(this.bookingOfferingTypeId))) {
+      this.bookingOfferingTypeId = available[0].id;
+      this.bookingOfferingType = available[0].description;
+    }
     if (this.selectedLocationId) {
       this.loadBookingFloors(this.selectedLocationId);
     }
@@ -1765,6 +1853,8 @@ export class Manage implements OnInit {
       this.updateAvailableAdminCapacities();
     }
     this.applyBookingSpaceFilter();
+    this.recalcAmount();
+    this.validateBookingDiscount();
   }
 
   isLocationI8(locationIdOrValue: any): boolean {
@@ -2836,6 +2926,16 @@ export class Manage implements OnInit {
             });
             return merged;
           }
+          if (this.entity === 'users') {
+            return (data || []).slice().sort((a: any, b: any) => {
+              const dateA = new Date(a.createdAt || a.CreatedAt || a.createdOn || a.CreatedOn || 0).getTime();
+              const dateB = new Date(b.createdAt || b.CreatedAt || b.createdOn || b.CreatedOn || 0).getTime();
+              if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+              const idA = Number(a.id ?? a.Id ?? 0);
+              const idB = Number(b.id ?? b.Id ?? 0);
+              return idB - idA;
+            });
+          }
           return data;
         });
 
@@ -3220,6 +3320,12 @@ export class Manage implements OnInit {
       }
       if (col.key === 'respondedDate') {
         return item.respondedDate || item.createdAt || item.createdDate || item.updatedDate || '';
+      }
+    }
+
+    if (this.entity === 'users') {
+      if (col.key === 'createdAt' || col.key === 'createdOn') {
+        return item.createdAt || item.CreatedAt || item.createdOn || item.CreatedOn || '';
       }
     }
 
@@ -4465,7 +4571,7 @@ export class Manage implements OnInit {
           { key: 'role', label: 'Role', type: 'role' },
           { key: 'locationName', label: 'Location' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
-          // { key: 'createdAt', label: 'Created', type: 'date' },
+          { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         fields: [
           { key: 'name', label: 'Full Name', type: 'text', required: true },
@@ -4833,8 +4939,9 @@ export class Manage implements OnInit {
     this.quotationPerSeatBasePrice = 0;
     this.quotationMinPerSeatBasePrice = 0;
     this.quotationBasePriceError.set('');
-    this.quotationOfferingTypeId = 1;
-    this.quotationOfferingType = '24/7';
+    const initialOfferings = this.filteredQuotationOfferingTypes();
+    this.quotationOfferingTypeId = initialOfferings[0]?.id || (this.selectedQuotationLocationId === '2' ? 4 : 1);
+    this.quotationOfferingType = initialOfferings[0]?.description || (this.selectedQuotationLocationId === '2' ? '24/7' : '24/7-I8');
     this.loadOfferingTypes();
     this.quotationFloorId = null;
     this.quotationFloorOptions.set([]);
@@ -4911,6 +5018,11 @@ export class Manage implements OnInit {
     this.quotationPerSeatBasePrice = 0;
     this.quotationMinPerSeatBasePrice = 0;
     this.quotationBasePriceError.set('');
+    const available = this.filteredQuotationOfferingTypes();
+    if (available.length > 0 && !available.some(o => o.id === Number(this.quotationOfferingTypeId))) {
+      this.quotationOfferingTypeId = available[0].id;
+      this.quotationOfferingType = available[0].description;
+    }
     if (this.selectedQuotationLocationId) {
       const locInt = parseInt(String(this.selectedQuotationLocationId), 10);
       if (locInt) {
@@ -5414,9 +5526,9 @@ export class Manage implements OnInit {
     this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
     const srcOt = sourceVersion.offeringTypeDescription || sourceVersion.OfferingTypeDescription || sourceVersion.offeringType || sourceVersion.OfferingType || sourceVersion.operatingHours;
     const srcOtId = sourceVersion.offeringTypeId || sourceVersion.OfferingTypeId;
-    this.quotationOfferingType = this.resolveOfferingTypeDescription(srcOt, srcOtId);
-    const matched = this.offeringTypes().find(o => o.description === this.quotationOfferingType);
-    this.quotationOfferingTypeId = matched?.id || Number(srcOtId || 1);
+    const locId = this.selectedQuotationLocationId ? Number(this.selectedQuotationLocationId) : (sourceVersion.locationId ? Number(sourceVersion.locationId) : null);
+    this.quotationOfferingTypeId = this.resolveOfferingTypeId(srcOt, srcOtId, locId);
+    this.quotationOfferingType = this.resolveOfferingTypeDescription(srcOt, this.quotationOfferingTypeId);
     this.loadOfferingTypes();
 
     const declineNote = sourceVersion.customerNote || sourceVersion.note || sourceVersion.responseNote;
@@ -7143,6 +7255,7 @@ export class Manage implements OnInit {
       spaceName: item?.spaceName || item?.SpaceName || '',
       spaceTypeName: item?.spaceTypeName || item?.SpaceTypeName || '',
       locationName: item?.locationName || item?.LocationName || '',
+      locationId: item?.locationId || item?.LocationId || null,
       quotationNumber: item?.quotationNumber || item?.QuotationNumber || ''
     };
 
@@ -7233,6 +7346,7 @@ export class Manage implements OnInit {
               this.sendAgreementData.spaceName = q.spaceName || q.spaceCode || q.SpaceName;
               this.sendAgreementData.spaceTypeName = q.spaceTypeName || q.SpaceTypeName || '';
               this.sendAgreementData.locationName = q.locationName || q.LocationName || '';
+              this.sendAgreementData.locationId = q.locationId || q.LocationId || null;
             }
             const qBpm = Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 1);
             this.sendAgreementData.billingPeriod = qBpm === 2 ? 'Bi-Monthly' : (qBpm === 3 ? 'Quarterly' : (qBpm === 6 ? 'Bi-Annual' : (qBpm === 12 ? 'Annual' : 'Monthly')));

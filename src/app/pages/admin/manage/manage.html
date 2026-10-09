@@ -1663,16 +1663,10 @@
         </div>
         <div class="form-group-admin">
           <label>Offering Type *</label>
-          <select class="form-input-admin" [(ngModel)]="quotationOfferingType" name="qOfferingType"
+          <select class="form-input-admin" [(ngModel)]="quotationOfferingTypeId" name="qOfferingType"
             (change)="onQuotationOfferingTypeChange()" (ngModelChange)="validateQuotationDiscount()">
-            @if (offeringTypes().length === 0) {
-            <option value="24/7">24/7</option>
-            <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
-            <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
-            } @else {
-            @for (ot of offeringTypes(); track ot.id) {
-            <option [value]="ot.description">{{ ot.description }}</option>
-            }
+            @for (ot of filteredQuotationOfferingTypes(); track ot.id) {
+            <option [value]="ot.id">{{ ot.description }}</option>
             }
           </select>
         </div>
@@ -2088,16 +2082,10 @@
         </div>
         <div class="form-group-admin">
           <label>Offering Type *</label>
-          <select class="form-input-admin" [(ngModel)]="bookingOfferingType" name="bookingOfferingType"
+          <select class="form-input-admin" [(ngModel)]="bookingOfferingTypeId" name="bookingOfferingTypeId"
             (change)="onBookingOfferingTypeChange()" (ngModelChange)="validateBookingDiscount()">
-            @if (offeringTypes().length === 0) {
-            <option value="24/7">24/7</option>
-            <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
-            <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
-            } @else {
-            @for (ot of offeringTypes(); track ot.id) {
-            <option [value]="ot.description">{{ ot.description }}</option>
-            }
+            @for (ot of filteredBookingOfferingTypes(); track ot.id) {
+            <option [value]="ot.id">{{ ot.description }}</option>
             }
           </select>
         </div>
@@ -3945,14 +3933,8 @@
         <div class="form-group-admin">
           <label>Operating Hours / Offering *</label>
           <select class="form-input-admin" [(ngModel)]="sendAgreementData.operatingHours" name="agOpHours">
-            @if (offeringTypes().length === 0) {
-            <option value="24/7">24/7</option>
-            <option value="Shift Morning(6am-6pm)">Shift Morning(6am-6pm)</option>
-            <option value="Shift Evening(6pm-6am)">Shift Evening(6pm-6am)</option>
-            } @else {
-            @for (ot of offeringTypes(); track ot.id) {
+            @for (ot of filteredAgreementOfferingTypes(); track ot.id) {
             <option [value]="ot.description">{{ ot.description }}</option>
-            }
             }
           </select>
         </div>

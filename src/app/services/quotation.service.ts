@@ -28,8 +28,9 @@ export class QuotationService {
   /**
    * Get dynamic offering types and their discount caps from DB
    */
-  getOfferingTypes(): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/offering-types`);
+  getOfferingTypes(locationId?: number): Observable<any> {
+    const qs = locationId ? `?locationId=${locationId}` : '';
+    return this.http.get<any>(`${this.apiUrl}/offering-types${qs}`);
   }
 
   /**

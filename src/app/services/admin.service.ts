@@ -442,8 +442,9 @@ export class AdminService {
   }
 
   // Get dynamic offering types and discount caps from DB
-  getOfferingTypes(): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.api}/quotation/offering-types`);
+  getOfferingTypes(locationId?: number): Observable<ApiResponse<any[]>> {
+    const qs = locationId ? `?locationId=${locationId}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/quotation/offering-types${qs}`);
   }
 
   // Challan Validity
