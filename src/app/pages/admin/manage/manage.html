@@ -686,8 +686,8 @@
         <input class="form-input-admin" value="N/A — only for Private Office" disabled
           style="background:#f1f5f9;color:#94a3b8" />
         }
-        } @else if (field.type === 'user-location-select' && normalizeRole(formData['role']) !== 'sales_executive') {
-        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only Sales Executives are limited to specific locations).</div>
+        } @else if (field.type === 'user-location-select' && !isLocationRole(formData['role'])) {
+        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only Admins and Sales Executives are limited to specific locations).</div>
         } @else if (field.type === 'user-location-select') {
         <div class="location-checklist">
           @for (loc of assignableUserLocations; track loc.v) {
