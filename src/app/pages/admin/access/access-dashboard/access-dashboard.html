@@ -134,6 +134,46 @@
   </div>
 
   @if (data(); as d) {
+
+  <!-- Machine sync: is the automatic copy from the machines running, and what did each job do last -->
+  <div class="card sync-card">
+    <div class="card-header-row">
+      <h3 class="card-title">Machine Sync
+        @if (syncEnabled() === true) { <span class="badge badge-ok" style="margin-left:8px">Automatic: ON</span> }
+        @if (syncEnabled() === false) { <span class="badge badge-bad" style="margin-left:8px">Automatic: OFF</span> }
+      </h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" (click)="runJob('online')" [disabled]="!!runningJob()">{{ runningJob() === 'online' ? 'Checking…' : 'Check machines now' }}</button>
+        <button class="btn btn-primary btn-sm" (click)="runJob('events')" [disabled]="!!runningJob()">{{ runningJob() === 'events' ? 'Pulling…' : 'Pull door events now' }}</button>
+      </div>
+    </div>
+    @if (syncError()) {
+    <div class="empty-state" style="color:#b91c1c">{{ syncError() }}</div>
+    } @else {
+    @if (syncEnabled() === false) {
+    <p class="list-sub" style="margin:0 0 10px">The automatic schedule is off on this server (HikSync:Enabled = false), so machines are not checked and door events are not copied automatically. The buttons still work.</p>
+    }
+    <div class="scroll-list">
+      @for (j of syncJobs(); track j.job) {
+      <div class="list-row">
+        <span class="dot" [class.dot-on]="j.lastOk === true" [class.dot-off]="j.lastOk === false"></span>
+        <div class="list-main">
+          <div class="list-title">{{ syncJobLabels[j.job] || j.job }}</div>
+          <div class="list-sub">
+            @if (j.running) { Running now… }
+            @else if (j.lastFinishedAt) { {{ j.lastFinishedAt | date:'d MMM, h:mm:ss a' }} · {{ j.lastResult || (j.lastOk ? 'ok' : 'failed') }} }
+            @else { Not run yet since the API started }
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" (click)="runJob(j.job)" [disabled]="!!runningJob()">{{ runningJob() === j.job ? 'Running…' : 'Run' }}</button>
+      </div>
+      } @empty {
+      <div class="empty-state">No sync jobs reported.</div>
+      }
+    </div>
+    }
+  </div>
+
   <div class="grid-2 even">
     <div class="card">
       <div class="card-header-row">

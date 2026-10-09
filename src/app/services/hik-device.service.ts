@@ -23,6 +23,16 @@ export class HikDeviceService {
     return this.http.post<any>(`${this.api}/hik/devices/${id}/test`, {});
   }
 
+  /** Machine sync: whether the automatic schedule is on and the last run of each job (admin, super admin). */
+  getSyncStatus(): Observable<any> {
+    return this.http.get<any>(`${this.api}/hik/sync/status`);
+  }
+
+  /** Runs one sync job now (events, online, maintenance, watch, clock, …). */
+  runSyncJob(job: string): Observable<any> {
+    return this.http.post<any>(`${this.api}/hik/sync/run/${job}`, {});
+  }
+
   /** "Test all": tests every machine and saves online / offline. */
   testAllDevices(): Observable<any> {
     return this.http.post<any>(`${this.api}/hik/devices/test-all`, {});
