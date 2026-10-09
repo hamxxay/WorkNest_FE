@@ -1,0 +1,278 @@
+@if (loading()) {
+  <div class="kpi-grid">
+    @for (i of [1,2,3,4,5,6]; track i) {
+      <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+    }
+  </div>
+} @else if (failed() && !data()) {
+  <div class="dash-panel ov-error">Could not load this section. <button class="link-btn" (click)="load()">Try again</button></div>
+} @else {
+
+  <!-- ===================== Sales executive ===================== -->
+  @if (sales(); as s) {
+    <div class="section-title"><h2>My sales</h2><span>Your locations · {{ periodWord() }}</span></div>
+    <div class="kpi-grid">
+      @for (k of salesTiles(); track k.key) {
+        <a class="kpi-card" [routerLink]="k.link" [class]="'kpi-card tone-' + k.tone">
+          <span class="kpi-label">{{ k.label }}</span>
+          <span class="kpi-value">{{ k.value }}</span>
+          <span class="kpi-sub">{{ k.sub }}</span>
+        </a>
+      }
+    </div>
+
+    <div class="ins-grid">
+      <!-- Pipeline -->
+      <div class="dash-panel span-5">
+        <div class="panel-head">
+          <div><h3>Sales pipeline</h3><p class="panel-sub">Quotations created {{ periodWord() }}, by where they are now</p></div>
+          <div class="head-stats"><div><span>Converted value</span><strong [title]="fullMoney(s.convertedValue)">{{ money(s.convertedValue) }}</strong></div></div>
+        </div>
+        @if (!s.quotationsCreated) {
+          <div class="empty"><strong>No quotations {{ periodWord() }} yet</strong><span>New quotations show up here as they move through the stages.</span></div>
+        } @else {
+          <ul class="funnel">
+            @for (st of pipeline(); track st.label) {
+              <li>
+                <span class="f-label">{{ st.label }}</span>
+                <span class="f-track"><span class="f-bar" [class]="'f-bar ' + st.cls" [style.width.%]="st.pct || 2"></span></span>
+                <strong>{{ st.n }}</strong>
+              </li>
+            }
+          </ul>
+        }
+        <a class="panel-link" routerLink="/admin/quotations">Open quotations →</a>
+      </div>
+
+      <!-- Deals waiting on the customer / on staff -->
+      <div class="dash-panel span-7 attention">
+        <div class="panel-head"><div><h3>Deals to push</h3><p class="panel-sub">Agreements sent but not signed, and bookings to confirm</p></div></div>
+        <div class="seg">
+          <button [class.active]="salesTab() === 'signature'" (click)="salesTab.set('signature')">Awaiting signature <span class="seg-count warn">{{ s.awaitingSignature.length }}</span></button>
+          <button [class.active]="salesTab() === 'confirm'" (click)="salesTab.set('confirm')">To confirm <span class="seg-count">{{ s.pendingBookings.length }}</span></button>
+        </div>
+        @let list = salesTab() === 'signature' ? s.awaitingSignature : s.pendingBookings;
+        @if (!list.length) {
+          <div class="empty"><span class="empty-icon">✓</span><strong>Nothing waiting</strong><span>{{ salesTab() === 'signature' ? 'Every agreement sent has been signed.' : 'No bookings need confirming.' }}</span></div>
+        } @else {
+          <ul class="att-list">
+            @for (it of list; track $index) {
+              <li class="att-row">
+                <span class="att-avatar" [class.warn]="salesTab() === 'signature'">{{ initial(it.customer) }}</span>
+                <div class="att-main"><strong>{{ it.customer || 'Customer' }}</strong><span>{{ it.reference }} · {{ it.space }}</span></div>
+                <div class="att-side">
+                  @if (it.amount != null) { <strong [title]="fullMoney(it.amount)">{{ money(it.amount) }}</strong> }
+                  @if (it.date) {
+                    <span class="pill" [class.warn]="salesTab() === 'signature' && daysFromToday(it.date) < -7">
+                      {{ salesTab() === 'signature' ? 'sent ' + (it.date | date:'d MMM') : 'starts ' + (it.date | date:'d MMM') }}
+                    </span>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+        <a class="panel-link" [routerLink]="salesTab() === 'signature' ? '/admin/agreements' : '/admin/bookings'">{{ salesTab() === 'signature' ? 'Open agreements →' : 'Open bookings →' }}</a>
+      </div>
+
+      <!-- Follow-ups -->
+      <div class="dash-panel span-4 attention">
+        <div class="panel-head"><div><h3>Tour follow-ups</h3><p class="panel-sub">Future prospects whose follow-up date has come · {{ s.convertedInquiries }} converted {{ periodWord() }}</p></div></div>
+        @if (!s.followUps.length) {
+          <div class="empty"><span class="empty-icon">✓</span><strong>No follow-ups due</strong><span>Prospects appear here on the date you set.</span></div>
+        } @else {
+          <ul class="att-list">
+            @for (f of s.followUps; track f.contactId) {
+              <li class="att-row">
+                <span class="att-avatar danger">{{ initial(f.name) }}</span>
+                <div class="att-main"><strong>{{ f.name || 'Inquiry #' + f.contactId }}</strong><span>{{ f.phone || f.note || '' }}</span></div>
+                <div class="att-side"><span class="pill" [class.danger]="daysFromToday(f.followUpOn) < 0">{{ daysFromToday(f.followUpOn) === 0 ? 'today' : (f.followUpOn | date:'d MMM') }}</span></div>
+              </li>
+            }
+          </ul>
+        }
+        <a class="panel-link" routerLink="/admin/contacts">Open tour inquiries →</a>
+      </div>
+
+      <!-- Renewals -->
+      <div class="dash-panel span-4 attention">
+        <div class="panel-head"><div><h3>Renewals</h3><p class="panel-sub">Running leases ending in the next {{ s.renewalDays }} days</p></div></div>
+        @if (!s.renewals.length) {
+          <div class="empty"><span class="empty-icon">✓</span><strong>No leases ending soon</strong><span>Nothing to renew in the next {{ s.renewalDays }} days.</span></div>
+        } @else {
+          <ul class="att-list">
+            @for (r of s.renewals; track $index) {
+              <li class="att-row">
+                <span class="att-avatar warn">{{ initial(r.customer) }}</span>
+                <div class="att-main"><strong>{{ r.customer || 'Customer' }}</strong><span>{{ r.space }} · {{ r.reference }}</span></div>
+                <div class="att-side">
+                  <strong>{{ r.date | date:'d MMM' }}</strong>
+                  <span class="pill" [class.danger]="daysFromToday(r.date) <= 14" [class.warn]="daysFromToday(r.date) > 14">{{ daysFromToday(r.date) }}d left</span>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+        <a class="panel-link" routerLink="/admin/bookings">Open bookings →</a>
+      </div>
+
+      <!-- Collections -->
+      <div class="dash-panel span-4 attention">
+        <div class="panel-head">
+          <div><h3>Collections</h3><p class="panel-sub">Overdue invoices to chase</p></div>
+          <div class="head-stats"><div><span>Outstanding</span><strong [title]="fullMoney(s.outstanding)">{{ money(s.outstanding) }}</strong></div></div>
+        </div>
+        @if (!s.overdueInvoices.length) {
+          <div class="empty"><span class="empty-icon">✓</span><strong>Nothing overdue</strong><span>Every invoice is within its due date.</span></div>
+        } @else {
+          <ul class="att-list">
+            @for (i of s.overdueInvoices; track $index) {
+              <li class="att-row">
+                <span class="att-avatar danger">{{ initial(i.customer) }}</span>
+                <div class="att-main"><strong>{{ i.customer || 'Customer' }}</strong><span>{{ i.reference }} · {{ i.space }}</span></div>
+                <div class="att-side">
+                  <strong [title]="fullMoney(i.amount)">{{ money(i.amount) }}</strong>
+                  <span class="pill danger">{{ -daysFromToday(i.date) }}d overdue</span>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+        <a class="panel-link" routerLink="/admin/invoices">Open invoices →</a>
+      </div>
+    </div>
+  }
+
+  <!-- ===================== Admin & super admin: team & service ===================== -->
+  @if (team()) {
+    <div class="section-title"><h2>Team &amp; service</h2><span>Work waiting on staff right now</span></div>
+    <div class="kpi-grid">
+      @for (k of teamTiles(); track k.key) {
+        <a class="kpi-card" [routerLink]="k.link" [class]="'kpi-card tone-' + k.tone">
+          <span class="kpi-label">{{ k.label }}</span>
+          <span class="kpi-value">{{ k.value }}</span>
+          <span class="kpi-sub">{{ k.sub }}</span>
+        </a>
+      }
+    </div>
+  }
+
+  <!-- ===================== Super admin: location comparison ===================== -->
+  @if (role() === 'super_admin' && locations().length) {
+    <div class="section-title"><h2>Location comparison</h2><span>Occupancy now · money {{ periodWord() }}</span></div>
+    <div class="dash-panel table-panel">
+      <div class="table-scroll">
+        <table class="cmp-table">
+          <thead>
+            <tr><th>Location</th><th>Occupancy</th><th class="num">Active bookings</th><th class="num">Invoiced</th><th class="num">Collected</th><th class="num">Outstanding</th><th class="num">Overdue</th></tr>
+          </thead>
+          <tbody>
+            @for (l of locations(); track l.locationId) {
+              <tr>
+                <td><strong>{{ l.name }}</strong></td>
+                <td>
+                  <div class="occ">
+                    <span class="occ-track"><span class="occ-bar" [style.width.%]="l.occupancyPct"></span></span>
+                    <span>{{ l.occupancyPct }}% <small>({{ l.occupiedSpaces }}/{{ l.totalSpaces }})</small></span>
+                  </div>
+                </td>
+                <td class="num">{{ l.activeBookings }}</td>
+                <td class="num" [title]="fullMoney(l.invoiced)">{{ money(l.invoiced) }}</td>
+                <td class="num" [title]="fullMoney(l.collected)">{{ money(l.collected) }} <small>{{ collectionRate(l.invoiced, l.collected) }}%</small></td>
+                <td class="num" [title]="fullMoney(l.outstanding)">{{ money(l.outstanding) }}</td>
+                <td class="num" [class.bad]="l.overdue > 0" [title]="fullMoney(l.overdue)">{{ money(l.overdue) }}</td>
+              </tr>
+            }
+          </tbody>
+          @if (locations().length > 1) {
+            @let t = locationTotals();
+            <tfoot>
+              <tr>
+                <td>Company total</td>
+                <td>{{ t.occupancyPct }}% <small>({{ t.occupiedSpaces }}/{{ t.totalSpaces }})</small></td>
+                <td class="num">{{ t.activeBookings }}</td>
+                <td class="num" [title]="fullMoney(t.invoiced)">{{ money(t.invoiced) }}</td>
+                <td class="num" [title]="fullMoney(t.collected)">{{ money(t.collected) }} <small>{{ collectionRate(t.invoiced, t.collected) }}%</small></td>
+                <td class="num" [title]="fullMoney(t.outstanding)">{{ money(t.outstanding) }}</td>
+                <td class="num" [class.bad]="t.overdue > 0" [title]="fullMoney(t.overdue)">{{ money(t.overdue) }}</td>
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- ===================== Super admin: staff & system ===================== -->
+  @if (role() === 'super_admin' && (staff() || system())) {
+    <div class="ins-grid">
+      @if (staff(); as st) {
+        <div class="dash-panel span-7">
+          <div class="panel-head">
+            <div><h3>Staff overview</h3><p class="panel-sub">Quotations each admin and sales executive created {{ periodWord() }}</p></div>
+            <a class="panel-link top" routerLink="/admin/users">Manage users →</a>
+          </div>
+          <div class="loc-staff">
+            @for (l of st.perLocation; track l.locationId) {
+              <div class="loc-staff-card">
+                <strong>{{ l.name }}</strong>
+                <span>{{ l.admins }} admin{{ l.admins === 1 ? '' : 's' }} · {{ l.salesExecutives }} sales exec{{ l.salesExecutives === 1 ? '' : 's' }}</span>
+              </div>
+            }
+          </div>
+          @if (!st.people.length) {
+            <div class="empty"><strong>No admins or sales executives yet</strong><span>Add them from the Users page.</span></div>
+          } @else {
+            <div class="table-scroll">
+              <table class="cmp-table compact">
+                <thead><tr><th>Name</th><th>Role</th><th>Locations</th><th class="num">Quotations</th><th class="num">Converted</th><th class="num">Value</th></tr></thead>
+                <tbody>
+                  @for (p of st.people; track p.userId) {
+                    <tr>
+                      <td><strong>{{ p.name }}</strong></td>
+                      <td><span class="pill" [class.role-admin]="p.role === 'Admin'">{{ p.role }}</span></td>
+                      <td class="muted">{{ p.locations || '—' }}</td>
+                      <td class="num">{{ p.quotations }}</td>
+                      <td class="num">{{ p.converted }}</td>
+                      <td class="num" [title]="fullMoney(p.convertedValue)">{{ money(p.convertedValue) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      @if (system(); as sy) {
+        <div class="dash-panel span-5">
+          <div class="panel-head"><div><h3>System health</h3><p class="panel-sub">Background jobs and integrations</p></div></div>
+          <ul class="health">
+            <li>
+              <span class="dot" [class.ok]="sy.hikSyncEnabled && sy.hikJobs.length" [class.bad]="!sy.hikSyncEnabled"></span>
+              <div><strong>Door machine sync</strong><span>{{ sy.hikSyncEnabled ? 'Running on this server' : 'Turned off (HikSync:Enabled)' }}</span></div>
+            </li>
+            @for (j of sy.hikJobs; track j.job) {
+              <li class="sub">
+                <span class="dot" [class.ok]="j.lastOk === true" [class.bad]="j.lastOk === false" [class.run]="j.running"></span>
+                <div><strong>{{ jobLabel(j.job) }}</strong><span>{{ j.running ? 'running now' : 'last run ' + ago(j.lastFinishedAt) }}{{ j.lastOk === false && j.lastResult ? ' · ' + j.lastResult : '' }}</span></div>
+              </li>
+            }
+            <li>
+              <span class="dot" [class.ok]="!sy.machinesOffline" [class.bad]="sy.machinesOffline > 0"></span>
+              <div><strong>Door machines</strong><span>{{ sy.machines - sy.machinesOffline }} of {{ sy.machines }} online · last seen {{ ago(sy.lastMachineSeen) }}</span></div>
+            </li>
+            <li>
+              <span class="dot" [class.ok]="sy.whatsAppConfigured" [class.bad]="!sy.whatsAppConfigured"></span>
+              <div><strong>WhatsApp bot</strong><span>{{ sy.whatsAppConfigured ? 'Connected' : 'Not configured' }} · last message {{ ago(sy.lastWhatsAppMessage) }}</span></div>
+            </li>
+            <li>
+              <span class="dot" [class.ok]="!sy.emailFailed" [class.bad]="sy.emailFailed > 0"></span>
+              <div><strong>Invoice e-mails</strong><span>{{ sy.emailPending }} queued · {{ sy.emailFailed }} failed</span></div>
+            </li>
+          </ul>
+        </div>
+      }
+    </div>
+  }
+}

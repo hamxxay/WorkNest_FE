@@ -8,6 +8,7 @@ import { QuotationService } from '../../../services/quotation.service';
 import { AuthService } from '../../../services/auth.service';
 import { AccessOverview } from './access-overview/access-overview';
 import { DashboardOverview, DashPeriod } from './dashboard-overview/dashboard-overview';
+import { RoleDashboard, DashRole } from './role-dashboard/role-dashboard';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
 
 export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
@@ -123,7 +124,7 @@ export interface SpaceTypeCardData {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview, DashboardOverview],
+  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview, DashboardOverview, RoleDashboard],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
@@ -138,6 +139,13 @@ export class Dashboard implements OnInit, OnDestroy {
 
   get isSuperAdmin(): boolean {
     return this.auth.hasRole('super_admin');
+  }
+
+  /** Which role sections the dashboard shows (same order of precedence as the API's api/dashboard/role). */
+  get dashRole(): DashRole {
+    if (this.auth.hasRole('super_admin')) return 'super_admin';
+    if (this.auth.hasRole('admin')) return 'admin';
+    return 'sales_executive';
   }
 
   /** Door access card: machines + challan suspensions (admin / super admin). */

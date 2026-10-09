@@ -576,6 +576,13 @@ export class AdminService {
     else if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }
+  // Role-based dashboard sections (sales executive: pipeline / inquiries / renewals / collections; admin: team &
+  // service; super admin: also location comparison, staff, system health). Same location rules as the overview.
+  getRoleDashboard(period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+    const params: any = { period };
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    return this.http.get<any>(`${this.api}/dashboard/role`, { params });
+  }
   // Admin sidebar badges: items waiting on staff, keyed by sidebar route ({ "/admin/bookings": 2, ... }).
   // Role- and location-scoped by the API; only routes the user can open are returned.
   getNavBadges(): Observable<Record<string, number>> {
