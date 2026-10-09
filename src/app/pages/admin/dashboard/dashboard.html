@@ -50,10 +50,12 @@
           <path d="M21 3v5h-5" />
         </svg>
       </button>
+      @if (dashRole !== 'sales_executive') {
       <button class="btn-report" (click)="downloadReport()" [disabled]="exporting" title="Download a one-page PDF of this view">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
         {{ exporting ? 'Preparing…' : 'Download report' }}
       </button>
+      }
       <button class="btn-new-ann" (click)="openCreateAnnouncementModal()">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5-5 18-4-6-9-7Z"/></svg>
         New announcement
@@ -61,8 +63,15 @@
     </div>
   </div>
 
+  <!-- Sections by role. Sales executive: own sales pipeline, inquiries, renewals, collections.
+       Admin: branch overview + team & service. Super admin: company overview + team, locations, staff, system. -->
+  @if (dashRole === 'sales_executive') {
+  <app-role-dashboard role="sales_executive" [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-role-dashboard>
+  } @else {
   <!-- Headline numbers, needs attention, 6-month trend -->
   <app-dashboard-overview [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-dashboard-overview>
+  <app-role-dashboard [role]="dashRole" [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-role-dashboard>
+  }
 
   @if (canSeeAccess) {
   <app-access-overview></app-access-overview>
