@@ -146,8 +146,8 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get userLocationId(): number | null {
-    // Only Sales Executives are tied to a location; Admins and Super Admins cover every location.
-    if (!(this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin'))) return null;
+    // Admins and Sales Executives are tied to their location(s); only Super Admins cover every location.
+    if (!this.auth.isLocationBound()) return null;
     return this.auth.user()?.locationId ?? null;
   }
 
@@ -181,8 +181,9 @@ export class Dashboard implements OnInit, OnDestroy {
     this.loadFallbackData();
   }
   /** Sales executive (not also admin): sees only the locations assigned to them. */
+  /** Admin or sales executive (not super admin): sees only the locations assigned to them. */
   get isSalesExecutiveOnly(): boolean {
-    return this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin');
+    return this.auth.isLocationBound();
   }
 
   // Main Spaces Operational List
