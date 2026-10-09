@@ -130,7 +130,7 @@
 <!-- User drill-down -->
 @if (showUser()) {
 <div class="modal-backdrop" (click)="closeUser()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+  <div class="modal-card member-modal" (click)="$event.stopPropagation()">
     @if (userLoading()) {
     <div class="empty-state">Loading member activity…</div>
     } @else if (user(); as u) {
@@ -142,10 +142,26 @@
           <div class="badge-row">
             @if (u.employeeNo) { <span class="badge badge-muted">#{{ u.employeeNo }}</span> }
             @if (u.status) { <span class="badge" [class.badge-ok]="u.status === 'active'" [class.badge-bad]="u.status !== 'active'">{{ u.status === 'active' ? 'Active' : 'Expired' }}</span> }
-            @if (u.room) { <span class="badge badge-muted">Room {{ u.room }}</span> }
             <span class="badge badge-muted">{{ u.cardNo ? 'Card ' + u.cardNo : 'No card' }}</span>
             @if (u.validEnd) { <span class="badge badge-warn">Valid until {{ u.validEnd.slice(0, 10) }}</span> }
           </div>
+          @if (roomsOf(u.room); as rooms) {
+          @if (rooms.length) {
+          <div class="room-line">
+            <span class="room-label">{{ rooms.length === 1 ? 'Room' : 'Rooms (' + rooms.length + ')' }}</span>
+            <div class="room-chips">
+              @for (r of (showAllRooms() ? rooms : rooms.slice(0, roomPreviewCount)); track r) {
+              <span class="room-chip">{{ r }}</span>
+              }
+              @if (rooms.length > roomPreviewCount) {
+              <button type="button" class="room-more" (click)="showAllRooms.set(!showAllRooms())">
+                {{ showAllRooms() ? 'Show less' : '+' + (rooms.length - roomPreviewCount) + ' more' }}
+              </button>
+              }
+            </div>
+          </div>
+          }
+          }
         </div>
       </div>
       <button class="close-btn" (click)="closeUser()" aria-label="Close">×</button>
@@ -162,14 +178,15 @@
         <div class="kpi-value small">{{ u.peakHourLabel }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">First & Last Scan</div>
-        <div class="kpi-value small">{{ relStamp(u.firstScan) }} / {{ relStamp(u.lastScan) }}</div>
+        <div class="kpi-label">First / Last Scan</div>
+        <div class="kpi-value small">{{ relStamp(u.firstScan) }} <span class="kpi-sep">→</span> {{ relStamp(u.lastScan) }}</div>
       </div>
     </div>
 
     <div class="grid-2 even">
       <div>
-        <h4 class="section-title">Doors used</h4>
+        <h4 class="section-title">Doors used <span class="section-count">{{ u.doors.length }}</span></h4>
+        <div class="panel-scroll">
         @for (door of u.doors; track door.name) {
         <div class="bar-row">
           <div class="bar-row-head"><span>{{ door.name }}</span><span class="person-sub">{{ door.count }} ({{ door.percent }}%)</span></div>
@@ -178,10 +195,11 @@
         } @empty {
         <div class="empty-state">No scans in this period.</div>
         }
+        </div>
       </div>
       <div>
         <h4 class="section-title">Recent scans</h4>
-        <div class="table-wrap">
+        <div class="table-wrap panel-scroll">
           <table class="data-table">
             <tbody>
               @for (e of u.recentEvents; track e.id) {
