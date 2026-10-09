@@ -61,8 +61,20 @@
               <h2 class="q-number-title">{{ activeQuotation().quotationNumber }}</h2>
               <span class="version-pill">Version {{ activeQuotation().versionNumber }}</span>
             </div>
-            <div class="status-badge" [ngClass]="getStatusBadgeClass(activeQuotation().status)">
-              {{ activeQuotation().status }}
+            <div style="display:flex;align-items:center;gap:10px">
+              <button class="btn-download-pdf" (click)="downloadPdf(activeQuotation())" [disabled]="downloadingPdf()"
+                style="background:#0f766e;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                {{ downloadingPdf() ? 'Downloading...' : 'Download PDF' }}
+              </button>
+              <div class="status-badge" [ngClass]="getStatusBadgeClass(activeQuotation().status)">
+                {{ activeQuotation().status }}
+              </div>
             </div>
           </div>
           <p class="q-date" *ngIf="activeQuotation().validUntil">Valid Until: {{ activeQuotation().validUntil | date:'mediumDate' }}</p>

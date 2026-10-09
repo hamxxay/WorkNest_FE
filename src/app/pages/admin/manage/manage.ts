@@ -5783,69 +5783,52 @@ export class Manage implements OnInit {
     this.quotationVersions.set([]);
   }
 
-  async downloadQuotationPdf() {
-    const { default: html2canvas } = await import('html2canvas');
-    const { jsPDF } = await import('jspdf');
-    const el = document.getElementById('quotation-printable');
-    if (!el) return;
+  downloadQuotationPdf(versionItem?: any) {
+    const q = versionItem || this.selectedQuotation();
+    const id = q?.id || q?.quotationId;
+    if (!id) return;
 
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const imgH = (canvas.height * pageW) / canvas.width;
-    pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-
-    const q = this.selectedQuotation();
-    const filename = `Quotation-${q?.quotationNumber || 'WN'}-v${q?.versionNumber || 1}.pdf`;
-    pdf.save(filename);
+    const versionNum = q?.versionNumber ?? q?.version;
+    this.quotationSvc.getQuotationPdfBlob(id, versionNum).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Quotation-${q?.quotationNumber || 'WN'}-v${versionNum || 1}.pdf`;
+        a.click();
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+      },
+      error: (err) => {
+        console.error('Failed to download quotation PDF:', err);
+        this.showError('Failed to download Quotation PDF from backend service.');
+      }
+    });
   }
 
-  async emailQuotation(item: any) {
+  emailQuotation(item: any) {
     if (!this.selectedQuotation() || this.selectedQuotation().id !== item.id) {
       this.previewQuotation(item);
-      setTimeout(() => this.sendQuotationEmailNow(), 1500);
+      setTimeout(() => this.sendQuotationEmailNow(), 500);
       return;
     }
-    await this.sendQuotationEmailNow();
+    this.sendQuotationEmailNow();
   }
 
-  async sendQuotationEmailNow() {
+  sendQuotationEmailNow() {
     const q = this.selectedQuotation();
     if (!q) return;
 
-    this.quotationEmailSent.set('Generating PDF snapshot...');
-    const { default: html2canvas } = await import('html2canvas');
-    const { jsPDF } = await import('jspdf');
-    const el = document.getElementById('quotation-printable');
-    if (!el) {
-      this.quotationEmailSent.set('Print element not found.');
-      return;
-    }
+    this.quotationEmailSent.set('Sending email...');
 
-    try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const imgH = (canvas.height * pageW) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
-
-      const pdfBase64 = pdf.output('datauristring').split(',')[1];
-      this.quotationEmailSent.set('Sending email...');
-
-      this.quotationSvc.sendQuotationEmail(q.id, q.customerEmail, pdfBase64, q.quotationNumber).subscribe({
-        next: () => {
-          this.quotationEmailSent.set('Email sent successfully!');
-          setTimeout(() => this.quotationEmailSent.set(''), 3000);
-        },
-        error: (err: any) => {
-          this.quotationEmailSent.set(`Failed to send email: ${err?.error?.message || err?.message}`);
-        }
-      });
-    } catch (e: any) {
-      this.quotationEmailSent.set(`Error capturing PDF: ${e.message}`);
-    }
+    this.quotationSvc.sendQuotationEmail(q.id, q.customerEmail, '', q.quotationNumber).subscribe({
+      next: () => {
+        this.quotationEmailSent.set('Email sent successfully!');
+        setTimeout(() => this.quotationEmailSent.set(''), 3000);
+      },
+      error: (err: any) => {
+        this.quotationEmailSent.set(`Failed to send email: ${err?.error?.message || err?.message}`);
+      }
+    });
   }
 
   sendChallanEmail() {
