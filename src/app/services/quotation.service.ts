@@ -26,6 +26,16 @@ export class QuotationService {
   }
 
   /**
+   * Download quotation PDF generated from backend service
+   */
+  getQuotationPdfBlob(id: number, version?: number): Observable<Blob> {
+    const url = version
+      ? `${this.apiUrl}/${id}/versions/${version}/pdf`
+      : `${this.apiUrl}/${id}/pdf`;
+    return this.http.get(url, { responseType: 'blob' });
+  }
+
+  /**
    * Get dynamic offering types and their discount caps from DB
    */
   getOfferingTypes(locationId?: number): Observable<any> {

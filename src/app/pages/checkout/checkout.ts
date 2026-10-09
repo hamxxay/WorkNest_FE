@@ -439,6 +439,31 @@ export class Checkout implements OnInit {
   printChallan() { window.print(); }
   printVoucher() { window.print(); }
 
+  downloadingPdf = signal(false);
+
+  downloadChallan() {
+    const c = this.challan() || this.voucher();
+    const bookingId = c?.bookingId || c?.id;
+    if (!bookingId) return;
+
+    this.downloadingPdf.set(true);
+    this.bookingService.getChallanPdfBlob(bookingId).subscribe({
+      next: (blob: Blob) => {
+        this.downloadingPdf.set(false);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Challan-${c?.challanNumber || c?.voucherNumber || bookingId}.pdf`;
+        a.click();
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+      },
+      error: () => {
+        this.downloadingPdf.set(false);
+        this.error.set('Failed to download Challan PDF from server.');
+      }
+    });
+  }
+
   sendChallanEmail() {
     const c = this.challan();
     if (!c) return;

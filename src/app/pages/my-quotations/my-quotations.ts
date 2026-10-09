@@ -271,4 +271,30 @@ export class MyQuotations implements OnInit {
   isPrivateRoom(item: any): boolean {
     return this.getSpaceType(item) === 'PrivateRoom';
   }
+
+  downloadingPdf = signal(false);
+
+  downloadPdf(q?: any) {
+    const item = q || this.activeQuotation();
+    const id = item?.id || item?.quotationId;
+    if (!id) return;
+
+    this.downloadingPdf.set(true);
+    const version = item.versionNumber ?? item.version;
+    this.quotationService.getQuotationPdfBlob(id, version).subscribe({
+      next: (blob: Blob) => {
+        this.downloadingPdf.set(false);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Quotation-${item.quotationNumber || 'WN'}-v${version || 1}.pdf`;
+        a.click();
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+      },
+      error: () => {
+        this.downloadingPdf.set(false);
+        alert('Failed to download Quotation PDF from server.');
+      }
+    });
+  }
 }

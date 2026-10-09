@@ -1563,6 +1563,17 @@
           </svg>
           {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
         </button>
+        <button class="btn-admin" (click)="downloadChallan()"
+          style="background:#0f766e;color:#fff;border:none;display:flex;align-items:center;gap:6px"
+          title="Download Challan PDF">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Download PDF
+        </button>
         <button class="btn-admin btn-primary-admin" (click)="printReceipt()">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2855,7 +2866,7 @@
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="7 10 12 15 17 10" />
           <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>Download</button>
+        </svg>Download PDF</button>
       <button class="btn-admin btn-primary-admin" (click)="openRecordPaymentModal(inv)">Record Payment</button>
     </div>
   </div>
@@ -2975,6 +2986,17 @@
             </div>
 
             <div style="display:flex;gap:6px">
+              <button class="btn-admin btn-outline-admin" (click)="downloadQuotationPdf(v)"
+                style="font-size:0.75rem;padding:4px 8px;display:flex;align-items:center;gap:4px"
+                title="Download PDF for Version {{ v.versionNumber || ($index + 1) }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                PDF
+              </button>
               @if ((v.status || '').toLowerCase() === 'declined') {
               <button class="btn-admin btn-outline-admin" (click)="createNextVersion(v)"
                 style="font-size:0.75rem;padding:4px 10px;color:#7c3aed;border-color:#ddd6fe">
