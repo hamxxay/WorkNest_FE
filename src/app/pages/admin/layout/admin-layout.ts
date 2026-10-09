@@ -107,7 +107,7 @@ export class AdminLayout implements OnInit, OnDestroy {
       // Same allow-list as adminGuard (challan-validity is super-admin only, so not listed).
       this.menuItems = this.menuItems.filter(item => SALES_EXECUTIVE_ROUTES.includes(item.route));
       if (!isSalesExecutiveUrl(this.router.url)) {
-        this.router.navigate(['/admin/quotations']);
+        this.router.navigate(['/admin/dashboard']);
       }
     }
   }
