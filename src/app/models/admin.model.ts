@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Shared Admin Models
 // ============================================================
 // This file contains all entity interfaces and response wrappers
@@ -29,6 +29,7 @@ export interface User {
   roles?: string[];
   isActive?: boolean;
   createdAt?: string;
+  createdOn?: string;
 }
 
 /**
