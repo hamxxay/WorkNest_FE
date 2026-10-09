@@ -19,8 +19,8 @@ export class ManageSpaces implements OnInit {
   }
 
   get userLocationId(): number | null {
-    // Only Sales Executives are tied to a location; Admins and Super Admins cover every location.
-    if (!(this.auth.hasRole('sales_executive') && !this.auth.hasRole('admin') && !this.auth.hasRole('super_admin'))) return null;
+    // Admins and Sales Executives are tied to their location(s); only Super Admins cover every location.
+    if (!this.auth.isLocationBound()) return null;
     return this.auth.user()?.locationId ?? null;
   }
 

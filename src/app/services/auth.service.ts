@@ -340,6 +340,11 @@ export class AuthService {
     return '/dashboard';
   }
 
+  /** Admins and sales executives only see their own location(s); super admins see every location. */
+  isLocationBound(): boolean {
+    return !this.hasRole('super_admin') && (this.hasRole('admin') || this.hasRole('sales_executive'));
+  }
+
   hasRole(role?: string): boolean {
     const currentUser = this.user();
     if (!currentUser) return false;
