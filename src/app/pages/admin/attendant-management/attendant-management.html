@@ -378,13 +378,14 @@
       } @else {
       <strong>{{ res.error || 'Enrollment failed' }}</strong>
       }
+      @if (res.summary) { <div class="enroll-summary">{{ res.summary }}</div> }
       @if (res.machineId) { <div>Machine ID {{ res.machineId }}</div> }
       @if (res.cardNo) { <div>Card #{{ res.cardNo }}</div> }
       @if (res.quality) { <div>Fingerprint quality: {{ res.quality }}</div> }
       @if (res.devices?.length) {
       <ul class="device-results">
         @for (r of res.devices; track r.deviceId) {
-        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.error) { — {{ r.error }} }</li>
+        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.ok && r.verified === true) { <span class="verified"> · confirmed on machine</span> } @else if (r.ok && r.verified === null && !r.queued) { <span class="unverified"> · saved, not checked</span> }@if (r.error) { — {{ r.error }} }</li>
         }
       </ul>
       }
@@ -433,7 +434,7 @@
       @if (res.devices?.length) {
       <ul class="device-results">
         @for (r of res.devices; track $index) {
-        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.error) { — {{ r.error }} }</li>
+        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.ok && r.verified === true) { <span class="verified"> · confirmed on machine</span> } @else if (r.ok && r.verified === null && !r.queued) { <span class="unverified"> · saved, not checked</span> }@if (r.error) { — {{ r.error }} }</li>
         }
       </ul>
       }

@@ -17,7 +17,7 @@
     <div class="ac-empty ac-error">Could not load access status. <button class="ac-link" (click)="load()">Try again</button></div>
   } @else if (overview(); as o) {
     <div class="ac-stats">
-      <a class="ac-stat" routerLink="/admin/access-dashboard" [class.warn]="o.devicesOffline > 0">
+      <a class="ac-stat" [routerLink]="canOpenMachines ? '/admin/access-dashboard' : null" [class.warn]="o.devicesOffline > 0">
         <span class="ac-stat-label">Machines</span>
         <span class="ac-stat-value">{{ o.devicesOnline }}<small>/{{ o.devices }} online</small></span>
         <span class="ac-stat-foot">

@@ -5,3 +5,6 @@
 .offline-banner { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; }
 .kpi-value.small { font-size: 1rem; }
 .text-muted { color: #64748b; font-weight: 400; }
+
+.loc-select { margin-right: 8px; height: 28px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; font-size: 0.78rem; font-family: inherit; cursor: pointer; max-width: 120px; }
+.loc-select:disabled { opacity: .6; cursor: default; }

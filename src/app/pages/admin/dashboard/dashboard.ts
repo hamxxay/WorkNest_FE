@@ -150,9 +150,9 @@ export class Dashboard implements OnInit, OnDestroy {
     return 'sales_executive';
   }
 
-  /** Door access card: machines + challan suspensions (admin / super admin). */
+  /** Door access card: machines + challan suspensions (sales executives can set access too; the API limits bookings to their locations). */
   get canSeeAccess(): boolean {
-    return this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+    return this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('sales_executive');
   }
 
   get userLocationId(): number | null {

@@ -6,6 +6,9 @@ export interface HikDevice {
   location?: string | null;
   online?: number | boolean;
   last_seen?: string | null;
+  /** WorkNest location the machine belongs to (WN_Locations.Id); null = not assigned. */
+  locationId?: number | null;
+  locationName?: string | null;
 }
 
 export interface HikDeviceUserValid {
@@ -219,6 +222,8 @@ export interface HikDeviceResult {
   ok: boolean;
   queued: boolean;
   error?: string | null;
+  /** Read back from the machine after saving: true = found, false = missing, null = could not check. */
+  verified?: boolean | null;
 }
 
 export interface HikStaffResult {
@@ -227,4 +232,6 @@ export interface HikStaffResult {
   machineId?: string | null;
   error?: string | null;
   devices: HikDeviceResult[];
+  /** E.g. "Saved on 3 of 3 machines · 1 offline (queued)" (fingerprint / face / card enrollment). */
+  summary?: string | null;
 }

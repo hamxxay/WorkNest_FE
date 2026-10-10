@@ -33,6 +33,11 @@ export class HikDeviceService {
     return this.http.post<any>(`${this.api}/hik/sync/run/${job}`, {});
   }
 
+  /** Super admin: which WorkNest location a machine belongs to (null = not assigned). */
+  setDeviceLocation(id: number, locationId: number | null): Observable<any> {
+    return this.http.put<any>(`${this.api}/hik/devices/${id}/location`, { locationId });
+  }
+
   /** "Test all": tests every machine and saves online / offline. */
   testAllDevices(): Observable<any> {
     return this.http.post<any>(`${this.api}/hik/devices/test-all`, {});

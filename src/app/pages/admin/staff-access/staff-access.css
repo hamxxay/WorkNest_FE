@@ -46,3 +46,7 @@
 /* Single-line rows */
 .data-table td { white-space: nowrap; vertical-align: middle; }
 .person-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
+.enroll-summary { margin: 4px 0 2px; font-weight: 600; }
+.device-results .verified { color: #047857; font-size: .85em; }
+.device-results .unverified { color: #b45309; font-size: .85em; }

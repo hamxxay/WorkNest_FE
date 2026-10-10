@@ -95,3 +95,7 @@ textarea.form-control { resize: vertical; font-family: inherit; }
 .empty-state.small { padding: 0.75rem; font-size: 0.82rem; }
 .status-pill.cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
 .suspension-banner.upcoming { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+
+.enroll-summary { margin: 4px 0 2px; font-weight: 600; }
+.device-results .verified { color: #047857; font-size: .85em; }
+.device-results .unverified { color: #b45309; font-size: .85em; }
