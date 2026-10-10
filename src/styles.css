@@ -649,3 +649,15 @@ textarea.has-error,
 .admin-shell .status-badge:is(.status-inprogress, .status-in-progress, .status-partial, .status-quoted, .status-viewed) { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
 .admin-shell .status-badge:is(.status-resolved, .status-closed, .status-paid, .status-confirmed, .status-active, .status-approved, .status-converted, .status-signed, .status-completed, .status-accepted) { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
 .admin-shell .status-badge:is(.status-cancelled, .status-rejected, .status-failed, .status-expired, .status-overdue, .status-inactive, .status-noshow, .status-declined, .status-suspended) { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+/* Inline field validation message (e.g. CNIC format) */
+.field-error-text {
+  display: block;
+  margin-top: 4px;
+  color: #dc2626;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+input.input-invalid {
+  border-color: #ef4444 !important;
+}

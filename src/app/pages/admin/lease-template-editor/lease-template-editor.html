@@ -32,11 +32,11 @@
       <div class="toolbar-group">
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().undo().run()"
           [disabled]="!editor.can().undo()" title="Undo (Ctrl+Z)">
-          <i class="bi bi-arrow-counterclockwise"></i> ↶
+          Undo
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().redo().run()"
           [disabled]="!editor.can().redo()" title="Redo (Ctrl+Y)">
-          <i class="bi bi-arrow-clockwise"></i> ↷
+          Redo
         </button>
         <button type="button" class="toolbar-btn" (click)="clearFormatting()" title="Clear Formatting">
           <span style="text-decoration: line-through; opacity: 0.7;">T</span>
@@ -113,17 +113,17 @@
           <input type="color" [value]="currentColor" (input)="onColorInput($event)" class="color-input-hidden" />
         </label>
         <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetColor()" title="Reset Text Color">
-          ✕
+          &times;
         </button>
 
         <label class="color-picker-btn highlight-picker" title="Highlight / Background Color">
-          <span class="highlight-label">🖊️</span>
+          <span class="highlight-label">Highlight</span>
           <span class="color-indicator" [style.background-color]="currentHighlight"></span>
           <input type="color" [value]="currentHighlight" (input)="onHighlightInput($event)"
             class="color-input-hidden" />
         </label>
         <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetHighlight()" title="Remove Highlight">
-          ✕
+          &times;
         </button>
       </div>
 
@@ -163,7 +163,7 @@
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleBlockquote().run()"
           [class.is-active]="editor.isActive('blockquote')" title="Quote Block">
-          ❝ Quote
+          Quote
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleCodeBlock().run()"
           [class.is-active]="editor.isActive('codeBlock')" title="Code Block">
@@ -181,7 +181,7 @@
       <div class="toolbar-group">
         <button type="button" class="toolbar-btn" (click)="setLink()" [class.is-active]="editor.isActive('link')"
           title="Insert/Edit Link">
-          🔗 Link
+          Link
         </button>
         @if (editor.isActive('link')) {
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().unsetLink().run()"
@@ -231,7 +231,7 @@
         </button>
         <button type="button" class="toolbar-btn btn-danger-soft" (click)="editor.chain().focus().deleteTable().run()"
           title="Delete Table">
-          🗑 Table
+          Delete table
         </button>
         }
       </div>
@@ -262,10 +262,10 @@
           </div>
           <div class="source-actions">
             <button type="button" class="btn-source-action" (click)="copySource()" title="Copy HTML source to clipboard">
-              📋 Copy HTML
+              Copy HTML
             </button>
             <button type="button" class="btn-source-action btn-source-switch" (click)="toggleSourceMode()" title="Switch back to visual editor">
-              👁️ View Visual
+              View Visual
             </button>
           </div>
         </div>

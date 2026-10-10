@@ -6,6 +6,7 @@ import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
 import { HikDevice, HikDeviceResult, HikStaff, HikStaffMachine, HikTag } from '../../../models/hik-device.model';
 import { initials } from '../access/access-shared';
+import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 
 type EnrollType = 'fingerprint' | 'card' | 'face';
 
@@ -56,6 +57,9 @@ export class StaffAccess implements OnInit {
   formStaff = signal<HikStaff | null>(null);
   formName = '';
   formCnic = '';
+  readonly cnicError = cnicError;
+  readonly onCnicInput = onCnicInput;
+  readonly cnicMaxLength = CNIC_MAX_LENGTH;
   formTagId: number | null = null;
   formRoomIds = new Set<number>();
   formValidUntil = '';
@@ -164,7 +168,8 @@ export class StaffAccess implements OnInit {
     if (this.formMode() === 'add') {
       const cnic = this.formCnic.replace(/\D/g, '');
       if (!this.formName.trim()) { this.toast.error('Enter the staff member\'s name.'); return; }
-      if (cnic.length !== 13) { this.toast.error('CNIC must be 13 digits.'); return; }
+      const cnicMsg = cnicError(this.formCnic, true);
+      if (cnicMsg) { this.toast.error(cnicMsg); return; }
       if (!this.formTagId) { this.toast.error('Choose a job tag (e.g. Janitor, Office Boy).'); return; }
 
       this.saving.set(true);

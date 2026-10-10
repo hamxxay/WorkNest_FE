@@ -560,11 +560,11 @@
           <button type="button" class="pill-btn"
             [class.active]="formData.customerType === 'Individual' || !formData.customerType"
             (click)="formData.customerType = 'Individual'; formData.company = ''">
-            👤 Individual
+            Individual
           </button>
           <button type="button" class="pill-btn" [class.active]="formData.customerType === 'Company'"
             (click)="formData.customerType = 'Company'">
-            🏢 Company / Business
+            Company / Business
           </button>
         </div>
       </div>
@@ -609,7 +609,15 @@
           <span style="color:#ef4444;font-weight:bold;margin-left:2px">*</span>
           }
         </label>
-        @if (field.type === 'textarea') {
+        @if (field.key === 'cnicOrPassport') {
+        <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
+          #cnicFieldCtrl="ngModel" [maxlength]="cnicMaxLength" inputmode="numeric" placeholder="e.g. 35202-1234567-1"
+          (input)="onCnicFieldInput($event, formData, field.key)"
+          [class.input-invalid]="cnicFieldCtrl.touched && cnicError(formData[field.key])" />
+        @if (cnicFieldCtrl.touched && cnicError(formData[field.key]); as msg) {
+        <small class="field-error-text">{{ msg }}</small>
+        }
+        } @else if (field.type === 'textarea') {
         <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
         } @else if (field.type === 'phone-split') {
         <div class="phone-split-wrap" style="display:flex;gap:8px;align-items:center">
@@ -2056,13 +2064,20 @@
         </div>
       </div>
       <div class="form-row-admin">
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="cnic" [class.has-error]="bookingFormErrorField === 'cnic'">
           <label>CNIC / Passport @if (isCustomerFieldEmpty('cnicOrPassport')) { <span class="field-required-badge">fill
               in</span> }</label>
           <input class="form-input-admin" [(ngModel)]="bookingFormData.cnicOrPassport" name="cnicOrPassport"
+            #bkCnicCtrl="ngModel"
             [readonly]="!isCustomerFieldEmpty('cnicOrPassport')"
+            [attr.maxlength]="isCustomerFieldEmpty('cnicOrPassport') ? cnicMaxLength : null"
+            inputmode="numeric"
+            (input)="isCustomerFieldEmpty('cnicOrPassport') && onCnicFieldInput($event, bookingFormData, 'cnicOrPassport')"
             [placeholder]="isCustomerFieldEmpty('cnicOrPassport') ? 'e.g. 42101-1234567-1' : ''"
             [style.background]="isCustomerFieldEmpty('cnicOrPassport') ? '#fff' : '#f1f5f9'" />
+          @if (isCustomerFieldEmpty('cnicOrPassport') && bkCnicCtrl.touched && cnicError(bookingFormData.cnicOrPassport); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
         </div>
         <div class="form-group-admin">
           <label>City @if (isCustomerFieldEmpty('cityId')) { <span class="field-required-badge">fill in</span> }</label>
@@ -2414,11 +2429,11 @@
           <button type="button" class="pill-btn"
             [class.active]="quickCustomerForm.customerType === 'Individual' || !quickCustomerForm.customerType"
             (click)="quickCustomerForm.customerType = 'Individual'; quickCustomerForm.company = ''">
-            👤 Individual
+            Individual
           </button>
           <button type="button" class="pill-btn" [class.active]="quickCustomerForm.customerType === 'Company'"
             (click)="quickCustomerForm.customerType = 'Company'">
-            🏢 Company / Business
+            Company / Business
           </button>
         </div>
       </div>
@@ -3925,7 +3940,12 @@
         <div class="form-group-admin">
           <label>CNIC / Passport *</label>
           <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerCnic" name="agCustCnic"
-            required placeholder="XXXXX-XXXXXXX-X" />
+            #agCnicCtrl="ngModel" required placeholder="XXXXX-XXXXXXX-X" [maxlength]="cnicMaxLength" inputmode="numeric"
+            (input)="onCnicFieldInput($event, sendAgreementData, 'customerCnic')"
+            [class.input-invalid]="agCnicCtrl.touched && cnicError(sendAgreementData.customerCnic, true)" />
+          @if (agCnicCtrl.touched && cnicError(sendAgreementData.customerCnic, true); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
         </div>
       </div>
       <div class="form-row-admin">
