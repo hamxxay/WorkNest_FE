@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
@@ -7,6 +7,7 @@ import { CardPaymentService } from '../../services/card-payment.service';
 import { OneBillService, OneBillVoucherResponse } from '../../services/one-bill.service';
 import { PayFastService } from '../../services/payfast.service';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 
 type PaymentTab = 'card' | 'voucher' | 'counter' | 'payfast';
 
@@ -64,6 +65,8 @@ export class Checkout implements OnInit {
     'EasyPaisa / JazzCash',
     'HBL Mobile / MCB Mobile',
   ];
+
+  private readonly toast = inject(ToastService);
 
   constructor(
     private route:          ActivatedRoute,
@@ -409,15 +412,18 @@ export class Checkout implements OnInit {
     }
     this.sendingEmail.set(true);
     this.bookingService.sendChallanEmail(bookingId, targetEmail).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.sendingEmail.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          this.toast.error(res.message || 'The challan could not be emailed. Please try again.');
+          return;
+        }
         this.emailSent.set(`Voucher emailed to ${targetEmail}`);
         setTimeout(() => this.emailSent.set(''), 4000);
       },
-      error: () => {
+      error: (err: any) => {
         this.sendingEmail.set(false);
-        this.emailSent.set(`Voucher emailed to ${targetEmail}`);
-        setTimeout(() => this.emailSent.set(''), 4000);
+        this.toast.error(err?.error?.message || 'The challan could not be emailed. Please try again.');
       }
     });
   }
@@ -474,15 +480,18 @@ export class Checkout implements OnInit {
     }
     this.sendingEmail.set(true);
     this.bookingService.sendChallanEmail(c.bookingId, targetEmail).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.sendingEmail.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          this.toast.error(res.message || 'The challan could not be emailed. Please try again.');
+          return;
+        }
         this.emailSent.set(`Challan emailed to ${targetEmail}`);
         setTimeout(() => this.emailSent.set(''), 4000);
       },
-      error: () => {
+      error: (err: any) => {
         this.sendingEmail.set(false);
-        this.emailSent.set(`Challan emailed to ${targetEmail}`);
-        setTimeout(() => this.emailSent.set(''), 4000);
+        this.toast.error(err?.error?.message || 'The challan could not be emailed. Please try again.');
       }
     });
   }

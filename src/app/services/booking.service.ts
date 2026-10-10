@@ -46,7 +46,7 @@ export class BookingService {
 
   sendChallanEmail(bookingId: number, email?: string, pdfBase64?: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/${bookingId}/send-challan-email`, { pdfBase64: pdfBase64 || '' }).pipe(
-      catchError(() => of({ isSuccessful: true, message: `Challan emailed to ${email || 'customer'}` }))
+      catchError(err => of({ isSuccessful: false, message: err?.error?.message || 'The challan could not be emailed. Please try again.' }))
     );
   }
 

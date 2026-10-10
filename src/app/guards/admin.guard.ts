@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
-import { Router, CanActivateFn, CanActivateChildFn } from '@angular/router';
+import { Router, CanActivateFn, CanActivateChildFn, UrlTree } from '@angular/router';
+import { map } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 /**
@@ -47,19 +48,30 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
     return router.createUrlTree(['/login'], { queryParams: { redirect: state.url } });
   }
 
-  const isSalesExecutive = auth.hasRole('sales_executive');
-  const isAdmin = auth.hasRole('admin') || auth.hasRole('super_admin');
+  const decide = (): boolean | UrlTree => {
+    const isSalesExecutive = auth.hasRole('sales_executive');
+    const isAdmin = auth.hasRole('admin') || auth.hasRole('super_admin');
 
-  if (isSalesExecutive && !isAdmin) {
-    if (isSalesExecutiveUrl(state.url)) {
+    if (isSalesExecutive && !isAdmin) {
+      if (isSalesExecutiveUrl(state.url)) {
+        return true;
+      }
+      return router.createUrlTree(['/admin/dashboard']);
+    }
+
+    if (isAdmin) {
       return true;
     }
-    return router.createUrlTree(['/admin/dashboard']);
+
+    return router.createUrlTree(['/unauthorized']);
+  };
+
+  if (auth.rolesVerified()) {
+    return decide();
   }
 
-  if (isAdmin) {
-    return true;
-  }
-
-  return router.createUrlTree(['/unauthorized']);
+  // Roles came from localStorage only: confirm them with auth/me before opening an admin page.
+  return auth.verifyRoles$().pipe(
+    map(verified => verified ? decide() : router.createUrlTree(['/unauthorized']))
+  );
 };

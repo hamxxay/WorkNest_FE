@@ -309,7 +309,9 @@
 
     <div class="modal-actions">
       <button class="btn btn-outline" (click)="closeAddModal()">Cancel</button>
-      <button class="btn btn-primary" (click)="submitAddAttendant()">Proceed</button>
+      <button class="btn btn-primary" (click)="submitAddAttendant()" [disabled]="savingAttendant()">
+        {{ savingAttendant() ? 'Saving…' : 'Proceed' }}
+      </button>
     </div>
   </div>
 </div>
@@ -459,7 +461,9 @@
         snapshot-billed for the active cycle once applied.</small></p>
     <div class="modal-actions">
       <button class="btn btn-outline" (click)="showWarningModal.set(false)">Cancel</button>
-      <button class="btn btn-warning" (click)="confirmOverCapacityAssignment()">Confirm & Apply Surcharge</button>
+      <button class="btn btn-warning" (click)="confirmOverCapacityAssignment()" [disabled]="assigningAttendant()">
+        {{ assigningAttendant() ? 'Applying…' : 'Confirm & Apply Surcharge' }}
+      </button>
     </div>
   </div>
 </div>

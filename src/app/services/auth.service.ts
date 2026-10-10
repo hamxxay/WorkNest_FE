@@ -44,6 +44,11 @@ export interface UserInfo {
 })
 export class AuthService {
   user: WritableSignal<UserInfo | null> = signal<UserInfo | null>(null);
+  /**
+   * True only once the API (login/sync response or /auth/me) has returned this user's roles.
+   * Roles read from localStorage can be edited by the user, so admin guards wait for this.
+   */
+  readonly rolesVerified = signal(false);
   private readonly tokenKey = 'wn_token';
   private readonly userKey = 'wn_user';
 
@@ -150,6 +155,7 @@ export class AuthService {
         };
         localStorage.setItem(this.userKey, JSON.stringify(userInfo));
         this.user.set(userInfo);
+        this.rolesVerified.set(true);
 
         if (isFirebaseConfigured && password && password.length >= 6) {
           signInWithEmailAndPassword(firebaseAuth, email, password)
@@ -271,6 +277,7 @@ export class AuthService {
       displayName: 'Guest'
     };
     this.user.set(guest);
+    this.rolesVerified.set(false);
     localStorage.setItem(this.userKey, JSON.stringify(guest));
   }
 
@@ -359,8 +366,37 @@ export class AuthService {
 
   clearSession(): void {
     this.user.set(null);
+    this.rolesVerified.set(false);
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
+  }
+
+  /**
+   * Confirms the signed-in user's roles with GET auth/me (used by the admin guards).
+   * Emits true when the API returned roles; false when the call failed or returned none.
+   */
+  verifyRoles$(): Observable<boolean> {
+    if (this.rolesVerified()) return of(true);
+    return this.hydrateBackendSession$(this.user()).pipe(
+      map(() => this.rolesVerified()),
+      catchError(() => of(false))
+    );
+  }
+
+  /** Cached user with staff roles removed: used when the API could not confirm the roles. */
+  private withoutStaffRoles(cached: UserInfo | null): UserInfo | null {
+    if (!cached) return null;
+    const staff = ['admin', 'superadmin', 'salesexecutive'];
+    const roles = (cached.roles || []).filter(r => !staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
+    return { ...cached, roles };
+  }
+
+  /** Keeps the session but drops unconfirmed staff roles (in memory only; the next load retries auth/me). */
+  private unverifiedUser(fallbackUser: UserInfo | null): UserInfo | null {
+    this.rolesVerified.set(false);
+    const stripped = this.withoutStaffRoles(fallbackUser);
+    if (stripped) this.user.set(stripped);
+    return stripped;
   }
 
   private hydrateBackendSession$(fallbackUser: UserInfo | null): Observable<UserInfo | null> {
@@ -389,21 +425,23 @@ export class AuthService {
         }).pipe(
           map(res => {
             const data = res?.data;
-            if (!data) return fallbackUser;
-            const roles = this.extractRoles(data, fallbackUser?.roles ?? []);
+            if (!data) return this.unverifiedUser(fallbackUser);
+            const roles = this.extractRoles(data, []);
+            if (!roles.length) return this.unverifiedUser(fallbackUser);
             const updated: UserInfo = {
               ...fallbackUser!,
               email: data.email || fallbackUser?.email || email,
               userId: data.id || data.userId || fallbackUser?.userId || '',
-              roles: roles.length ? roles : (fallbackUser?.roles ?? []),
+              roles,
               locationId: data.locationId ?? fallbackUser?.locationId ?? null,
               locationIds: Array.isArray(data.locationIds) ? data.locationIds.map(Number) : (fallbackUser?.locationIds ?? [])
             };
             this.user.set(updated);
+            this.rolesVerified.set(true);
             localStorage.setItem(this.userKey, JSON.stringify(updated));
             return updated;
           }),
-          catchError(() => of(fallbackUser))
+          catchError(() => of(this.unverifiedUser(fallbackUser)))
         );
       })
     );
@@ -438,6 +476,8 @@ export class AuthService {
     return from(this.mapFirebaseUser(credential.user)).pipe(
       map(userInfo => {
         const apiPayload = this.extractApiPayload(apiResponse);
+        // Roles count as verified only when the API response carried them (not Firebase claims alone).
+        const apiRoles = this.extractRoles(apiPayload, []);
         const hydratedUser = userInfo
           ? {
               ...userInfo,
@@ -456,6 +496,7 @@ export class AuthService {
         }
 
         this.user.set(hydratedUser);
+        this.rolesVerified.set(!!hydratedUser && apiRoles.length > 0);
         return {
           isSuccessful: true,
           message: apiResponse?.message || 'Authentication successful.',

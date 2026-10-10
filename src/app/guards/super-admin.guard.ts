@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
-import { Router, CanActivateFn } from '@angular/router';
+import { Router, CanActivateFn, UrlTree } from '@angular/router';
+import { map } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 export const superAdminGuard: CanActivateFn = (route, state) => {
@@ -10,9 +11,17 @@ export const superAdminGuard: CanActivateFn = (route, state) => {
     return router.createUrlTree(['/login'], { queryParams: { redirect: state.url } });
   }
 
-  if (auth.hasRole('super_admin') || auth.hasRole('superadmin')) {
-    return true;
+  const decide = (): boolean | UrlTree =>
+    auth.hasRole('super_admin') || auth.hasRole('superadmin')
+      ? true
+      : router.createUrlTree(['/unauthorized']);
+
+  if (auth.rolesVerified()) {
+    return decide();
   }
 
-  return router.createUrlTree(['/unauthorized']);
+  // Roles came from localStorage only: confirm them with auth/me first.
+  return auth.verifyRoles$().pipe(
+    map(verified => verified ? decide() : router.createUrlTree(['/unauthorized']))
+  );
 };

@@ -107,6 +107,9 @@ export class Manage implements OnInit {
   readonly saving = signal(false);
   readonly error = signal('');
   readonly success = signal('');
+  /** Quotation being sent to the customer; blocks a second click while the request runs. */
+  readonly sendingQuotationId = signal<number | null>(null);
+  readonly sendingQuotationEmail = signal(false);
 
   readonly showUserModal = signal(false);
   selectedUser = signal<any>(null);
@@ -5757,16 +5760,20 @@ export class Manage implements OnInit {
     const qId = item.quotationId || item.id || item.Id;
     const vId = item.versionId || item.versionNumber || item.version || 1;
 
+    if (this.sendingQuotationId() !== null) return;
     if (!confirm(`Are you sure you want to Send Version ${vId} of Quotation ${item.quotationNumber} to the customer?`)) return;
 
+    this.sendingQuotationId.set(Number(qId));
     this.quotationSvc.sendQuotationVersion(qId, vId).subscribe({
       next: () => {
+        this.sendingQuotationId.set(null);
         this.success.set(`Quotation Version ${vId} sent to customer. Status updated to Sent.`);
         this.showSuccess(this.success());
         setTimeout(() => this.success.set(''), 4000);
         this.load();
       },
       error: (err: any) => {
+        this.sendingQuotationId.set(null);
         this.showError(err?.error?.message || err?.message || 'Failed to send quotation.');
       }
     });
@@ -5845,16 +5852,19 @@ export class Manage implements OnInit {
 
   sendQuotationEmailNow() {
     const q = this.selectedQuotation();
-    if (!q) return;
+    if (!q || this.sendingQuotationEmail()) return;
 
+    this.sendingQuotationEmail.set(true);
     this.quotationEmailSent.set('Sending email...');
 
     this.quotationSvc.sendQuotationEmail(q.id, q.customerEmail, '', q.quotationNumber).subscribe({
       next: () => {
+        this.sendingQuotationEmail.set(false);
         this.quotationEmailSent.set('Email sent successfully!');
         setTimeout(() => this.quotationEmailSent.set(''), 3000);
       },
       error: (err: any) => {
+        this.sendingQuotationEmail.set(false);
         this.quotationEmailSent.set(`Failed to send email: ${err?.error?.message || err?.message}`);
       }
     });

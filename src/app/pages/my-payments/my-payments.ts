@@ -1,9 +1,10 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PaymentService } from '../../services/payment.service';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-my-payments',
@@ -52,6 +53,8 @@ export class MyPayments implements OnInit {
       .filter(p => p.paymentStatus === 'Pending')
       .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
   );
+
+  private readonly toast = inject(ToastService);
 
   constructor(
     private paymentService: PaymentService,
@@ -147,15 +150,18 @@ export class MyPayments implements OnInit {
     }
     this.sendingChallanEmail.set(true);
     this.bookingService.sendChallanEmail(c.bookingId || c.id, targetEmail).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.sendingChallanEmail.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          this.toast.error(res.message || 'The challan could not be emailed. Please try again.');
+          return;
+        }
         this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
         setTimeout(() => this.challanEmailSent.set(''), 4000);
       },
-      error: () => {
+      error: (err: any) => {
         this.sendingChallanEmail.set(false);
-        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-        setTimeout(() => this.challanEmailSent.set(''), 4000);
+        this.toast.error(err?.error?.message || 'The challan could not be emailed. Please try again.');
       }
     });
   }

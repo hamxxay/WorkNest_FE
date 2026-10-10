@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { BookingService } from '../../services/booking.service';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-my-bookings',
@@ -17,6 +18,8 @@ export class MyBookings implements OnInit {
   successMsg = signal('');
   selectedChallan = signal<any>(null);
   loadingChallan = signal(false);
+
+  private readonly toast = inject(ToastService);
 
   constructor(
     private bookingService: BookingService,
@@ -178,15 +181,18 @@ export class MyBookings implements OnInit {
     }
     this.sendingChallanEmail.set(true);
     this.bookingService.sendChallanEmail(c.bookingId || c.id, targetEmail).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.sendingChallanEmail.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          this.toast.error(res.message || 'The challan could not be emailed. Please try again.');
+          return;
+        }
         this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
         setTimeout(() => this.challanEmailSent.set(''), 4000);
       },
-      error: () => {
+      error: (err: any) => {
         this.sendingChallanEmail.set(false);
-        this.challanEmailSent.set(`Challan emailed to ${targetEmail}`);
-        setTimeout(() => this.challanEmailSent.set(''), 4000);
+        this.toast.error(err?.error?.message || 'The challan could not be emailed. Please try again.');
       }
     });
   }
