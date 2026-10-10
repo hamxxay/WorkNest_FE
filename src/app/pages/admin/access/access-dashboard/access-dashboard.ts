@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HikDeviceService } from '../../../../services/hik-device.service';
+import { AuthService } from '../../../../services/auth.service';
+import { AdminService } from '../../../../services/admin.service';
 import { HikAccessDashboard, HikAccessEvent } from '../../../../models/hik-device.model';
 import {
   ACCENT, Chart, METHOD_LABELS, addDays, downloadCsv, formatTime12, hourLabel, hourRangeLabel, initials, localDate, relStamp
@@ -21,6 +23,13 @@ type HourFilter = 'all' | 'fingerprint' | 'face' | 'card' | 'door' | 'denied';
 export class AccessDashboard implements OnInit, OnDestroy {
   private hik = inject(HikDeviceService);
   private toast = inject(ToastService);
+  private auth = inject(AuthService);
+  private admin = inject(AdminService);
+
+  /** Super admins assign each machine to a WorkNest location; admins see only their locations' machines. */
+  readonly canSetLocation = this.auth.hasRole('super_admin');
+  locations = signal<{ id: number; name: string }[]>([]);
+  savingLocationId = signal<number | null>(null);
 
   @ViewChild('inflowCanvas', { static: true }) inflowCanvas!: ElementRef<HTMLCanvasElement>;
   private inflowChart?: Chart;
@@ -98,8 +107,38 @@ export class AccessDashboard implements OnInit, OnDestroy {
   ngOnInit() {
     this.load();
     this.loadSyncStatus();
+    if (this.canSetLocation) this.loadLocations();
     // Live refresh every 30s (skipped while the drill-down is open).
     this.refreshTimer = setInterval(() => { if (!this.showHourModal()) { this.load(true); this.loadSyncStatus(); } }, 30000);
+  }
+
+  private loadLocations() {
+    this.admin.getLocations(1, 1000).subscribe({
+      next: (res: any) => {
+        const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : res?.data?.items ?? res?.items ?? [];
+        this.locations.set(raw.map((l: any) => ({ id: Number(l.id ?? l.Id), name: String(l.name ?? l.Name ?? '') })).filter((l: any) => l.id > 0));
+      },
+      error: () => { /* the dropdown stays empty; the machine list still works */ }
+    });
+  }
+
+  /** Super admin: saves the machine's location, then updates the row in place. */
+  setMachineLocation(m: any, value: string) {
+    const locationId = value ? Number(value) : null;
+    if ((m.locationId ?? null) === locationId || this.savingLocationId() !== null) return;
+    this.savingLocationId.set(m.id);
+    this.hik.setDeviceLocation(m.id, locationId).subscribe({
+      next: () => {
+        this.savingLocationId.set(null);
+        const name = this.locations().find(l => l.id === locationId)?.name ?? null;
+        this.data.update(d => d ? { ...d, devices: (d.devices || []).map((x: any) => x.id === m.id ? { ...x, locationId, locationName: name } : x) } : d);
+        this.toast.success(locationId ? `${m.name} is now at ${name}.` : `${m.name} has no location now.`);
+      },
+      error: (err: any) => {
+        this.savingLocationId.set(null);
+        this.toast.error(err?.error?.message || 'The location could not be saved.');
+      }
+    });
   }
 
   /** Connects to one machine now and shows / saves whether it is online. */

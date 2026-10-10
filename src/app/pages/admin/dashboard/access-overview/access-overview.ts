@@ -1,3 +1,4 @@
+import { AuthService } from '../../../../services/auth.service';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -22,6 +23,9 @@ type ListFilter = 'all' | 'suspended' | 'extended' | 'ending';
 export class AccessOverview implements OnInit, OnDestroy {
   private admin = inject(AdminService);
   private toast = inject(ToastService);
+  private auth = inject(AuthService);
+  /** The machines page is admin / super admin only; sales executives see the counts without the link. */
+  readonly canOpenMachines = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
   private timer?: ReturnType<typeof setInterval>;
 
   loading = signal(true);
