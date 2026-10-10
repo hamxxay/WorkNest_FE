@@ -2,6 +2,7 @@ import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, sig
 import { RouterLink } from '@angular/router';
 import { UnifiService } from '../../../../services/unifi.service';
 import { UnifiWifiAp, UnifiWifiRadio, UnifiWifiResponse } from '../../../../models/unifi.model';
+import { NetworkSsids } from '../network-ssids/network-ssids';
 import { AMBER, ChartBag, ExportKind, NET_SHARED, S1, ago, avg, errMsg, exportCard, exportPagePdf, fmt, hbar, hbarOptions, sum, timeLabel } from '../network-shared';
 
 /** Thresholds for flagging a radio — one place so the table and tiles agree. */
@@ -23,7 +24,7 @@ function radioIssues(r: UnifiWifiRadio, sameChannel: number): [string, string][]
 @Component({
   selector: 'app-network-wifi',
   standalone: true,
-  imports: [RouterLink, ...NET_SHARED],
+  imports: [RouterLink, NetworkSsids, ...NET_SHARED],
   templateUrl: './network-wifi.html',
   styleUrls: ['../network-shared.css', './network-wifi.css']
 })

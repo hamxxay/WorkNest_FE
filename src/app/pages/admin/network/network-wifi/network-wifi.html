@@ -2,7 +2,7 @@
   <div class="dash-header">
     <div>
       <h1>Wi-Fi</h1>
-      <p class="dash-meta"><span>Radio health, channel plan and experience per access point</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+      <p class="dash-meta"><span>SSIDs, device access, radio health and channel plan</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
     </div>
     <div class="dash-header-actions no-print">
       <span class="updated">@if (loading() && !wifi()) { Loading… } @else { {{ updatedText() }} }</span>
@@ -39,6 +39,9 @@
       @for (i of [1, 2, 3, 4]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
     }
   </section>
+
+  <!-- SSIDs: clients per SSID and per-SSID MAC allow / block lists -->
+  <app-network-ssids />
 
   <section class="dash-panel">
     <div class="panel-head">

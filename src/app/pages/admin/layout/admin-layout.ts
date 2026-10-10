@@ -1,3 +1,4 @@
+import { UnifiService } from '../../../services/unifi.service';
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
@@ -28,6 +29,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private router = inject(Router);
   private admin = inject(AdminService);
+  private unifi = inject(UnifiService);
   private titleService = inject(Title);
 
   /** Items waiting on staff, keyed by sidebar route (from api/admin/nav-badges). Last good values are kept on errors. */
@@ -117,6 +119,7 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
+    this.loadNetworkScope();
     this.loadBadges();
     this.pollTimer = setInterval(() => { if (!document.hidden) this.loadBadges(); }, AdminLayout.POLL_MS);
     // Browsers slow timers in background tabs: refresh as soon as the tab is visible / focused again.
@@ -210,7 +213,15 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   /** Visible menu items (role rules applied), grouped under section headings. */
   private visibleItems(): any[] {
-    return this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin));
+    return this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
+      && (i.group !== 'Network' || this.networkAllowed()));
+  }
+
+  /** False when the UniFi network belongs to other locations than this admin's / sales executive's (api/unifi/scope). */
+  readonly networkAllowed = signal(true);
+  private loadNetworkScope() {
+    if (this.isSuperAdmin) return;
+    this.unifi.getScope().subscribe({ next: s => this.networkAllowed.set(s.allowed), error: () => { /* keep the section */ } });
   }
 
   get menuGroups(): { name: string; items: any[] }[] {

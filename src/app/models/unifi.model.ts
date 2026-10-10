@@ -433,3 +433,63 @@ export interface UnifiAliasResult {
   mac: string;
   name: string;
 }
+
+/** One Wi-Fi network (UniFi WLAN) with its per-SSID MAC filter and the clients on it right now. */
+export interface UnifiSsid {
+  id: string;
+  name: string;
+  enabled: boolean;
+  hidden: boolean;
+  guest: boolean;
+  security: string;
+  bands: string[];
+  filterEnabled: boolean;
+  /** off = no filter; allow = only listed MACs may join; deny = listed MACs are blocked. */
+  filterPolicy: 'off' | 'allow' | 'deny';
+  macList: string[];
+  /** Name / room entered in WorkNest for each MAC on the list. */
+  devices: { mac: string; name: string | null; roomNo: string | null }[];
+  /** Speed limit for each device on this SSID (Mbps); null = no limit. */
+  speedLimit: { downMbps: number | null; upMbps: number | null } | null;
+  /** UniFi speed profile the SSID uses; null = Default (no limit). */
+  speedProfile: { id: string; name: string } | null;
+  clientCount: number;
+  clients: UnifiClient[];
+}
+
+export interface UnifiSsidsResponse {
+  ssids: UnifiSsid[];
+  activeCount: number;
+  wifiClients: number;
+}
+
+export type UnifiMacFilterAction = 'add' | 'remove' | 'block' | 'unblock' | 'mode';
+export type UnifiSsidLogAction = UnifiMacFilterAction | 'hide' | 'unhide' | 'speed';
+
+export interface UnifiMacFilterLogEntry {
+  id: number;
+  at: string | null;
+  wlanId: string;
+  ssid: string;
+  mac: string | null;
+  action: UnifiSsidLogAction;
+  policy: string | null;
+  reason: string | null;
+  by: string | null;
+}
+
+/** Which WorkNest locations the UniFi network belongs to, and whether the current user may see it. */
+export interface UnifiScope {
+  locationIds: number[];
+  allowed: boolean;
+  canEdit: boolean;
+}
+
+/** UniFi speed profile (user group): per-device speeds, and the SSIDs using it. */
+export interface UnifiSpeedProfile {
+  id: string;
+  name: string;
+  downMbps: number | null;
+  upMbps: number | null;
+  ssids: string[];
+}

@@ -1,0 +1,244 @@
+<section class="dash-panel ssid-panel">
+  <div class="panel-head">
+    <div>
+      <h3>SSIDs &amp; device access</h3>
+      <p class="panel-sub">
+        @if (!loading() || ssids().length) { {{ activeCount() }} of {{ ssids().length }} SSIDs broadcasting · {{ fmt(wifiClients()) }} Wi-Fi clients · }
+        Block or allow devices per SSID
+      </p>
+    </div>
+    <div class="panel-tools no-print">
+      <button class="icon-btn" (click)="load()" title="Reload SSIDs" aria-label="Reload SSIDs"><net-icon name="refresh" [size]="15" /></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (loading() && !ssids().length) {
+    <div class="ssid-grid">@for (i of [1, 2, 3]; track i) { <div class="ssid-card"><div class="sk sk-line" style="width:60%"></div><div class="sk sk-value"></div></div> }</div>
+  } @else if (!ssids().length && !error()) {
+    <div class="empty-state">No SSIDs found on the UniFi console.</div>
+  } @else {
+    <!-- SSID cards -->
+    <div class="ssid-grid" role="tablist" aria-label="SSIDs">
+      @for (s of ssids(); track s.id) {
+        <button class="ssid-card" role="tab" [class.active]="s.id === selectedId()" [class.off]="!s.enabled" [attr.aria-selected]="s.id === selectedId()" (click)="select(s.id)">
+          <span class="ssid-top">
+            <span class="ssid-name"><net-icon [name]="s.filterPolicy === 'off' ? 'wifi' : 'lock'" [size]="15" />{{ s.name }}</span>
+            <span class="trend" [class.good]="s.enabled" [class.flat]="!s.enabled">{{ s.enabled ? 'Active' : 'Off' }}</span>
+          </span>
+          <span class="ssid-count"><strong>{{ s.clientCount }}</strong> client{{ s.clientCount === 1 ? '' : 's' }}</span>
+          <span class="ssid-meta">
+            {{ s.bands.join(' · ') || '—' }}
+            @if (s.guest) { <span class="tag">Guest</span> }
+            @if (s.hidden) { <span class="tag">Hidden</span> }
+            @if (s.speedLimit) { <span class="tag" title="Speed limit per device">≤ {{ s.speedLimit.downMbps ?? '∞' }} Mbps</span> }
+            @if (s.filterPolicy !== 'off') { <span class="tag" [class.warn]="s.filterPolicy === 'deny'" [class.accent]="s.filterPolicy === 'allow'">{{ policyLabel(s.filterPolicy) }} · {{ s.macList.length }}</span> }
+          </span>
+        </button>
+      }
+    </div>
+
+    @if (selected(); as s) {
+      <div class="ssid-detail">
+        <div class="detail-head">
+          <div>
+            <h4>{{ s.name }}</h4>
+            <span class="muted">{{ securityLabel(s.security) }} · {{ s.bands.join(' · ') || '—' }}</span>
+          </div>
+          <div class="seg" role="tablist" aria-label="SSID details">
+            <button [class.active]="shownTab() === 'clients'" (click)="setTab('clients')">Connected <span class="seg-n">{{ s.clientCount }}</span></button>
+            @if (s.filterPolicy !== 'off') {
+              <button [class.active]="shownTab() === 'filter'" (click)="setTab('filter')">{{ listTabLabel(s) }} <span class="seg-n">{{ s.macList.length }}</span></button>
+            }
+            <button [class.active]="shownTab() === 'history'" (click)="setTab('history')">History</button>
+          </div>
+        </div>
+
+        <!-- How the SSID works: who may join, and whether its name is shown -->
+        <div class="settings-row">
+          <div class="setting">
+            <span class="mode-label">Access</span>
+            <div class="seg" role="radiogroup" aria-label="Who can join">
+              <button [class.active]="s.filterPolicy === 'off'" (click)="askMode('off')" title="Anyone with the password can join">Normal</button>
+              <button [class.active]="s.filterPolicy === 'allow'" (click)="askMode('allow')" title="Only the MACs in the list can join">Allowed devices only</button>
+              <button [class.active]="s.filterPolicy === 'deny'" (click)="askMode('deny')" title="The MACs in the list can't join">Block listed devices</button>
+            </div>
+          </div>
+          <div class="setting">
+            <span class="mode-label">Name</span>
+            <div class="seg" role="radiogroup" aria-label="SSID name visibility">
+              <button [class.active]="!s.hidden" (click)="askHidden(false)" title="Shown in the Wi-Fi list">Visible</button>
+              <button [class.active]="s.hidden" (click)="askHidden(true)" title="Not shown; devices must type the name">Hidden</button>
+            </div>
+          </div>
+          <div class="setting">
+            <span class="mode-label">Speed per device</span>
+            @if (canLimitSpeed) {
+              <select class="net-input speed-select" #profileSel [value]="s.speedProfile?.id ?? ''" (change)="pickProfile(profileSel.value, profileSel)" aria-label="Speed profile">
+                <option value="">No limit</option>
+                @for (p of profiles(); track p.id) { <option [value]="p.id">{{ profileLabel(p) }}</option> }
+                <option value="__new">+ New profile…</option>
+              </select>
+            } @else {
+              <span class="speed-val" [class.on]="!!s.speedLimit">{{ s.speedProfile ? s.speedProfile.name + ' · ' : '' }}{{ speedText(s) }}</span>
+            }
+          </div>
+        </div>
+
+        @if (newProfileOpen()) {
+          <div class="profile-form">
+            <strong>New speed profile</strong>
+            <label class="fld grow"><span>Name</span><input class="net-input" placeholder="e.g. 100 Mbps" maxlength="64" [ngModel]="profileName()" (ngModelChange)="profileName.set($event)" /></label>
+            <label class="fld"><span>Download (Mbps)</span><input class="net-input" type="number" min="1" max="10000" placeholder="No limit" [ngModel]="profileDown()" (ngModelChange)="profileDown.set($event)" /></label>
+            <label class="fld"><span>Upload (Mbps)</span><input class="net-input" type="number" min="1" max="10000" placeholder="No limit" [ngModel]="profileUp()" (ngModelChange)="profileUp.set($event)" /></label>
+            <button class="btn-sm btn-primary add-btn" (click)="createProfile()" [disabled]="creatingProfile()">{{ creatingProfile() ? 'Creating…' : 'Create profile' }}</button>
+            <button class="btn-sm btn-outline add-btn" (click)="newProfileOpen.set(false)" [disabled]="creatingProfile()">Cancel</button>
+          </div>
+        }
+
+        <!-- Connected clients -->
+        @if (shownTab() === 'clients') {
+          <div class="tools-row">
+            <input class="net-input" type="search" placeholder="Search name, MAC, IP or access point" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+          </div>
+          @if (!clients().length) {
+            <div class="empty-state">
+              {{ s.clientCount ? 'No client matches your search.' : 'No devices are connected to this SSID right now.' }}
+              @if (!s.clientCount && s.filterPolicy === 'allow') {
+                <div class="empty-cta">
+                  <span>{{ s.macList.length ? s.macList.length + ' device(s) are allowed on this SSID.' : 'No device is allowed yet, so nobody can join.' }}</span>
+                  <button class="btn-sm btn-primary" (click)="setTab('filter')">Add allowed device</button>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="table-container scroll">
+              <table class="clean-table">
+                <thead><tr><th>Device</th><th>MAC</th><th>IP</th><th>Access point</th><th>Signal</th><th>Band</th><th class="num">Action</th></tr></thead>
+                <tbody>
+                  @for (c of clients(); track c.mac) {
+                    <tr>
+                      <td><strong>{{ c.name }}</strong>@if (c.vendor) { <div class="muted small">{{ c.vendor }}</div> }</td>
+                      <td class="mono">{{ c.macDisplay }}@if (c.privateMac) { <span class="tag" title="The phone uses a random (private) MAC for this network; it can change if the device forgets the network.">Private</span> }</td>
+                      <td class="mono">{{ c.ip || '—' }}</td>
+                      <td>{{ c.uplinkName || '—' }}</td>
+                      <td><net-signal [dbm]="c.signal" /></td>
+                      <td>{{ c.band || '—' }}</td>
+                      <td class="num">
+                        @if (isBlocked(s, c.mac)) { <span class="trend bad">Blocked</span> }
+                        @else { <button class="btn-sm btn-danger" (click)="askBlock(c)">Block</button> }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+
+        <!-- MAC filter -->
+        @if (shownTab() === 'filter') {
+          <p class="muted small filter-hint">
+            @switch (s.filterPolicy) {
+              @case ('allow') { Only the devices below can join “{{ s.name }}”. }
+              @case ('deny') { The devices below can't join “{{ s.name }}”; everyone else can. }
+            }
+          </p>
+
+          <form class="add-row" (ngSubmit)="askAdd()">
+            <label class="fld"><span>MAC address</span>
+              <input class="net-input mono" name="mac" placeholder="aa:bb:cc:dd:ee:ff" maxlength="17" [ngModel]="newMac()" (ngModelChange)="newMac.set($event)" autocomplete="off" />
+            </label>
+            <label class="fld grow"><span>Name</span>
+              <input class="net-input" name="name" placeholder="e.g. Ali's laptop, Reception printer" maxlength="100" [ngModel]="newName()" (ngModelChange)="newName.set($event)" />
+            </label>
+            <label class="fld"><span>Room</span>
+              <select class="net-input" name="room" [ngModel]="newRoom()" (ngModelChange)="newRoom.set($event)">
+                <option value="">— No room —</option>
+                @for (g of rooms(); track g.type) {
+                  <optgroup [label]="g.type">
+                    @for (r of g.names; track r) { <option [value]="r">{{ r }}</option> }
+                  </optgroup>
+                }
+              </select>
+            </label>
+            <button class="btn-sm btn-primary add-btn" type="submit" [disabled]="!validMac(newMac()) || !newName().trim()">{{ s.filterPolicy === 'allow' ? 'Add allowed device' : s.filterPolicy === 'deny' ? 'Add blocked device' : 'Add device' }}</button>
+          </form>
+
+          @if (!s.macList.length) {
+            <div class="empty-state">No devices in the list yet. Add one above, or block a device from the Connected tab.</div>
+          } @else {
+            <div class="table-container scroll">
+              <table class="clean-table">
+                <thead><tr><th>MAC address</th><th>Name</th><th>Room</th><th>Status</th><th class="num">Action</th></tr></thead>
+                <tbody>
+                  @for (m of s.macList; track m) {
+                    <tr>
+                      <td class="mono">{{ m }}</td>
+                      <td>{{ nameOf(m) || '—' }}</td>
+                      <td>{{ roomOf(m) || '—' }}</td>
+                      <td>
+                        @if (s.filterPolicy === 'off') { <span class="trend flat">Not in use</span> }
+                        @else if (s.filterPolicy === 'allow') { <span class="trend good">Allowed</span> }
+                        @else { <span class="trend bad">Blocked</span> }
+                      </td>
+                      <td class="num">
+                        @if (s.filterPolicy === 'deny') { <button class="btn-sm btn-outline" (click)="askUnblock(m)">Unblock</button> }
+                        @else { <button class="btn-sm btn-outline" (click)="askRemove(m)">Remove</button> }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+
+        <!-- History -->
+        @if (shownTab() === 'history') {
+          @if (logLoading()) {
+            <div class="empty-state">Loading…</div>
+          } @else if (!log().length) {
+            <div class="empty-state">No changes made from WorkNest on this SSID yet.</div>
+          } @else {
+            <div class="table-container scroll">
+              <table class="clean-table">
+                <thead><tr><th>When</th><th>Change</th><th>MAC</th><th>Access after</th><th>By</th><th>Reason</th></tr></thead>
+                <tbody>
+                  @for (e of log(); track e.id) {
+                    <tr>
+                      <td [title]="e.at || ''">{{ ago(e.at) }}</td>
+                      <td>{{ actionLabel(e.action) }}</td>
+                      <td class="mono">{{ e.mac || '—' }}@if (e.mac && nameOf(e.mac)) { <div class="muted small">{{ nameOf(e.mac) }}</div> }</td>
+                      <td>{{ policyLabel($any(e.policy || 'off')) }}</td>
+                      <td>{{ e.by || '—' }}</td>
+                      <td class="wrap">{{ e.reason || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+      </div>
+    }
+  }
+</section>
+
+<!-- Confirm dialog -->
+@if (pending(); as p) {
+  <div class="ssid-modal-backdrop" (click)="cancel()"></div>
+  <div class="ssid-modal" role="dialog" aria-modal="true" [attr.aria-label]="p.title">
+    <h4>{{ p.title }}</h4>
+    <p>{{ p.text }}</p>
+    <label class="reason">
+      <span>Reason (optional, saved in the history)</span>
+      <textarea rows="2" maxlength="500" [ngModel]="reason()" (ngModelChange)="reason.set($event)" placeholder="e.g. Contract ended, unknown device"></textarea>
+    </label>
+    <div class="modal-actions">
+      <button class="btn-sm btn-outline" (click)="cancel()" [disabled]="saving()">Cancel</button>
+      <button class="btn-sm" [class.btn-danger]="p.danger" [class.btn-primary]="!p.danger" (click)="confirm()" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Confirm' }}</button>
+    </div>
+  </div>
+}
