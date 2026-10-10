@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ContactService } from '../../services/contact.service';
+import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../utils/phone';
 
 @Component({
   selector: 'app-contact',
@@ -17,6 +18,10 @@ export class Contact {
     message: ''
   };
 
+  readonly phoneError = phoneError;
+  readonly onPhoneInput = onPhoneInput;
+  readonly phoneMaxLength = PHONE_MAX_LENGTH;
+
   submitted = signal(false);
   error = signal('');
 
@@ -27,6 +32,13 @@ export class Contact {
       const msg = 'Please fill in all required fields.';
       alert(msg);
       this.error.set(msg);
+      return;
+    }
+    // Phone is optional here, but if entered it must be a valid phone number.
+    const phoneMsg = phoneError(this.form.phone);
+    if (phoneMsg) {
+      alert(phoneMsg);
+      this.error.set(phoneMsg);
       return;
     }
     this.error.set('');

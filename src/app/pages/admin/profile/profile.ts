@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
 import { AdminService } from '../../../services/admin.service';
 import { ToastService } from '../../../services/toast.service';
+import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../../utils/phone';
 
 /** Signed-in staff member's own profile: view details, edit name and phone, change password. */
 @Component({
@@ -21,6 +22,10 @@ export class AdminProfile implements OnInit {
   readonly saving = signal(false);
   readonly changingPassword = signal(false);
   readonly passwordError = signal('');
+
+  readonly phoneError = phoneError;
+  readonly onPhoneInput = onPhoneInput;
+  readonly phoneMaxLength = PHONE_MAX_LENGTH;
 
   email = '';
   role = '';
@@ -69,6 +74,11 @@ export class AdminProfile implements OnInit {
   saveProfile(): void {
     if (!this.name.trim()) {
       this.toast.error('Name is required.');
+      return;
+    }
+    const phoneMsg = phoneError(this.phone);
+    if (phoneMsg) {
+      this.toast.error(phoneMsg);
       return;
     }
     this.saving.set(true);

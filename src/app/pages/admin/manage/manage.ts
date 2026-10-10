@@ -18,6 +18,7 @@ import { of, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso } from '../../../utils/dates';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
+import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -2565,6 +2566,17 @@ export class Manage implements OnInit {
       this.bookingFormSaving.set(false);
       return;
     }
+    if (this.isCustomerFieldEmpty('phone')) {
+      const phoneMsg = phoneError(this.bookingFormData.phone);
+      if (phoneMsg) {
+        this.bookingFormErrorField = 'phone';
+        this.bookingFormError.set(phoneMsg);
+        this.showError(phoneMsg);
+        this.scrollToTopAndHighlight('phone');
+        this.bookingFormSaving.set(false);
+        return;
+      }
+    }
     if (this.isCustomerFieldEmpty('cnicOrPassport')) {
       const cnicMsg = cnicError(this.bookingFormData.cnicOrPassport);
       if (cnicMsg) {
@@ -3697,11 +3709,17 @@ export class Manage implements OnInit {
       return;
     }
 
-    this.quickCustomerSaving.set(true);
-    this.quickCustomerError.set('');
-
     const code = countryCode || '+92';
     const fullPhone = `${code}${phoneDigits}`;
+    if (!isValidPhone(fullPhone)) {
+      const msg = phoneError(fullPhone)!;
+      this.showError(msg);
+      this.quickCustomerError.set(msg);
+      return;
+    }
+
+    this.quickCustomerSaving.set(true);
+    this.quickCustomerError.set('');
     const fullAddress = addr1 + (addressLine2 ? ', ' + addressLine2.trim() : '');
 
     const payload = {
@@ -3907,6 +3925,17 @@ export class Manage implements OnInit {
     target[key] = onCnicInput(event);
   }
 
+  // Free-text phone fields: shared rule (11-15 digits; spaces, dashes, brackets, leading '+') — see utils/phone.ts
+  readonly phoneError = phoneError;
+  readonly phoneMaxLength = PHONE_MAX_LENGTH;
+  onPhoneFieldInput(event: Event, target: any, key: string) {
+    target[key] = onPhoneInput(event);
+  }
+  /** Plain-text phone inputs in the generic entity form (the split country-code field is handled separately). */
+  isPhoneTextField(field: { key: string; type?: string }): boolean {
+    return (field.key === 'phone' || field.key === 'phoneNumber') && field.type === 'text';
+  }
+
   save() {
     this.saving.set(true);
     this.error.set('');
@@ -3917,6 +3946,18 @@ export class Manage implements OnInit {
       if (cnicMsg) {
         this.error.set(cnicMsg);
         this.showError(cnicMsg);
+        this.saving.set(false);
+        return;
+      }
+    }
+
+    // Plain-text phone fields (Users, Complaints, Tour Inquiries): if entered (or required) it must be valid.
+    for (const f of this.config().fields || []) {
+      if (!this.isPhoneTextField(f)) continue;
+      const phoneMsg = phoneError(this.formData[f.key], !!f.required);
+      if (phoneMsg) {
+        this.error.set(phoneMsg);
+        this.showError(phoneMsg);
         this.saving.set(false);
         return;
       }
@@ -4073,6 +4114,12 @@ export class Manage implements OnInit {
       const fullAddress = addr1 + (this.formData.addressLine2 ? ', ' + this.formData.addressLine2.trim() : '');
       const countryCode = this.selectedCountryCode || '+92';
       const fullPhone = `${countryCode}${phoneDigits}`;
+      if (!isValidPhone(fullPhone)) {
+        this.error.set(phoneError(fullPhone)!);
+        this.showError(this.error());
+        this.saving.set(false);
+        return;
+      }
 
       this.formData = {
         ...this.formData,
@@ -4189,8 +4236,33 @@ export class Manage implements OnInit {
     });
   }
 
-  changeStatus(item: any, status: string) {
+  /** The status column of a list whose status can be changed (the dropdown lives in that column). */
+  canEditStatus(col: { type?: string }): boolean {
+    return !!(this.config().statusFn && this.config().statusOptions?.length) &&
+      (col.type === 'status' || col.type === 'booking-status');
+  }
+
+  /** "No Show" / "no_show" / "InProgress" -> "noshow" / "inprogress": for matching options and CSS classes. */
+  statusKey(value: any): string {
+    return String(value ?? '').toLowerCase().replace(/[\s_-]+/g, '');
+  }
+
+  /** "InProgress" -> "In Progress". */
+  statusDisplay(value: string): string {
+    return String(value ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+
+  /** The dropdown option matching the row's current status, or '' when it isn't one of the options. */
+  currentStatusOption(item: any, col: any): string {
+    const key = this.statusKey(this.getCellValue(item, col));
+    return this.config().statusOptions?.find(o => this.statusKey(o) === key) ?? '';
+  }
+
+  changeStatus(item: any, status: string, select?: HTMLSelectElement, previous?: string) {
     if (!status || !item) return;
+    // Put the dropdown back on the old status when the change doesn't go through.
+    const revert = () => { if (select) select.value = previous ?? ''; };
+    if (previous && this.statusKey(previous) === this.statusKey(status)) return;
 
     // Resolve real ID (prioritize bookingId / non-zero values over 0)
     const rawId = (item.bookingId && item.bookingId !== 0) ? item.bookingId :
@@ -4201,6 +4273,7 @@ export class Manage implements OnInit {
 
     if (!rawId || rawId === 0 || rawId === '0') {
       this.showError('Unable to update status: Missing or invalid item ID.');
+      revert();
       return;
     }
 
@@ -4249,6 +4322,7 @@ export class Manage implements OnInit {
           if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
             const err = res.message || res.errorMessage || res.error || 'Server rejected status update';
             this.showError('Failed to update status: ' + err);
+            revert();
             return;
           }
           if (item) {
@@ -4265,6 +4339,7 @@ export class Manage implements OnInit {
         error: (err: any) => {
           const msg = err?.error?.message ?? err?.error?.ErrorMessage ?? err?.message ?? 'Server error';
           this.showError('Failed to update status: ' + msg);
+          revert();
         }
       });
     }
@@ -7696,6 +7771,12 @@ export class Manage implements OnInit {
         this.showError(cnicMsg);
         return;
       }
+    }
+    const agPhoneMsg = phoneError(this.sendAgreementData.customerPhone);
+    if (agPhoneMsg) {
+      this.sendAgreementError.set(agPhoneMsg);
+      this.showError(agPhoneMsg);
+      return;
     }
     this.sendAgreementSaving.set(true);
     this.sendAgreementError.set('');

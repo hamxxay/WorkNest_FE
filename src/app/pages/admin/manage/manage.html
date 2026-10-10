@@ -151,6 +151,23 @@
             <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
               @if (col.type === 'image') {
               <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
+              } @else if (canEditStatus(col)) {
+              <!-- Status is changed right here: the pill shows the current status and is coloured by it. -->
+              <span class="status-picker" [class]="'status-picker status-' + statusKey(getCellValue(item, col))">
+                <select (change)="changeStatus(item, $any($event.target).value, $any($event.target), currentStatusOption(item, col))"
+                  aria-label="Change status" [title]="'Change status'">
+                  @if (!currentStatusOption(item, col)) {
+                  <option value="" disabled selected>{{ getCellValue(item, col) || 'Not set' }}</option>
+                  }
+                  @for (s of config().statusOptions; track s) {
+                  <option [value]="s" [selected]="s === currentStatusOption(item, col)">{{ statusDisplay(s) }}</option>
+                  }
+                </select>
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
               } @else if (col.type === 'status' || col.type === 'booking-status' || col.type === 'invoice-status') {
               <span class="status-badge"
                 [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{ getCellValue(item,
@@ -465,15 +482,6 @@
                 </svg>
               </button>
               }
-              @if (config().statusFn && config().statusOptions) {
-
-              <select class="status-select" (change)="changeStatus(item, $any($event.target).value)">
-                <option value="" disabled selected>Status</option>
-                @for (s of config().statusOptions; track s) {
-                <option [value]="s">{{ s }}</option>
-                }
-              </select>
-              }
               @if (config().updateFn && config().fields) {
               <button class="action-btn edit" (click)="openEdit(item)" title="Edit">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -617,6 +625,14 @@
         @if (cnicFieldCtrl.touched && cnicError(formData[field.key]); as msg) {
         <small class="field-error-text">{{ msg }}</small>
         }
+        } @else if (isPhoneTextField(field)) {
+        <input class="form-input-admin" type="tel" [(ngModel)]="formData[field.key]" [name]="field.key"
+          #phoneFieldCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" placeholder="e.g. 03001234567"
+          (input)="onPhoneFieldInput($event, formData, field.key)"
+          [class.input-invalid]="phoneFieldCtrl.touched && phoneError(formData[field.key], !!field.required)" />
+        @if (phoneFieldCtrl.touched && phoneError(formData[field.key], !!field.required); as msg) {
+        <small class="field-error-text">{{ msg }}</small>
+        }
         } @else if (field.type === 'textarea') {
         <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
         } @else if (field.type === 'phone-split') {
@@ -628,7 +644,7 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
-            placeholder=" (e.g. 3001234567)" maxlength="11" (input)="onPhoneInput($event, field.key)" style="flex:1" />
+            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onPhoneInput($event, field.key)" style="flex:1" />
         </div>
         <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
           Country code will be joined automatically.</small>
@@ -2055,12 +2071,19 @@
             [placeholder]="isCustomerFieldEmpty('customerCode') ? 'e.g. WN001' : ''"
             [style.background]="isCustomerFieldEmpty('customerCode') ? '#fff' : '#f1f5f9'" />
         </div>
-        <div class="form-group-admin">
+        <div class="form-group-admin" data-field="phone" [class.has-error]="bookingFormErrorField === 'phone'">
           <label>Phone @if (isCustomerFieldEmpty('phone')) { <span class="field-required-badge">fill in</span> }</label>
           <input class="form-input-admin" [(ngModel)]="bookingFormData.phone" name="phone"
+            #bkPhoneCtrl="ngModel"
             [readonly]="!isCustomerFieldEmpty('phone')"
+            [attr.maxlength]="isCustomerFieldEmpty('phone') ? phoneMaxLength : null"
+            inputmode="tel"
+            (input)="isCustomerFieldEmpty('phone') && onPhoneFieldInput($event, bookingFormData, 'phone')"
             [placeholder]="isCustomerFieldEmpty('phone') ? 'e.g. 03001234567' : ''"
             [style.background]="isCustomerFieldEmpty('phone') ? '#fff' : '#f1f5f9'" />
+          @if (isCustomerFieldEmpty('phone') && bkPhoneCtrl.touched && phoneError(bookingFormData.phone); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
         </div>
       </div>
       <div class="form-row-admin">
@@ -2475,7 +2498,7 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.phoneNumber" name="qcPhone"
-            placeholder=" (e.g. 3001234567)" maxlength="11" (input)="onQuickPhoneInput($event)" style="flex:1" />
+            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onQuickPhoneInput($event)" style="flex:1" />
         </div>
         <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
           Country code will be joined automatically.</small>
@@ -3951,8 +3974,14 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Phone Number</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerPhone"
-            name="agCustPhone" />
+          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone"
+            name="agCustPhone" #agCustPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel"
+            placeholder="e.g. 03001234567"
+            (input)="onPhoneFieldInput($event, sendAgreementData, 'customerPhone')"
+            [class.input-invalid]="agCustPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone)" />
+          @if (agCustPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
         </div>
         <div class="form-group-admin">
           <label>Residential Address</label>
@@ -3993,8 +4022,14 @@
         </div>
         <div class="form-group-admin">
           <label>Contact Phone</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerPhone"
-            name="agCompPhone" />
+          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone"
+            name="agCompPhone" #agCompPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel"
+            placeholder="e.g. 03001234567"
+            (input)="onPhoneFieldInput($event, sendAgreementData, 'customerPhone')"
+            [class.input-invalid]="agCompPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone)" />
+          @if (agCompPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
         </div>
       </div>
       }
