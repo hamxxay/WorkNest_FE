@@ -30,6 +30,26 @@ export interface SendAgreementRequest {
   companySecpRegNo?: string;
 }
 
+/** Customer e-signature (POST agreement/my/{id}/esign). */
+export interface ESignAgreementRequest {
+  signerName: string;
+  /** "data:image/png;base64,..." of the drawn or typed signature. */
+  signatureImage: string;
+  consent: boolean;
+}
+
+/** Staff view of how an agreement was e-signed (GET agreement/{id}/esignature). */
+export interface AgreementESignature {
+  agreementId: number;
+  signerName?: string;
+  signerEmail?: string;
+  signedAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+  documentSha256?: string;
+  signatureImage?: string;
+}
+
 export interface MarkAgreementSignedRequest {
   signedBy?: string;
   note?: string;
@@ -85,6 +105,16 @@ export class AgreementService {
     formData.append('file', file, file.name);
     formData.append('signedDate', signedDate);
     return this.http.post<any>(`${this.apiUrl}/my/${agreementId}/upload-signed`, formData);
+  }
+
+  /** Customer signs electronically; creates the booking (or leaves it for staff to confirm). */
+  eSignMyAgreement(agreementId: number, req: ESignAgreementRequest): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/my/${agreementId}/esign`, req);
+  }
+
+  /** Staff: e-signature evidence of an agreement (data is null when it was not e-signed). */
+  getESignature(agreementId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${agreementId}/esignature`);
   }
 
   /** Signed agreement came back: upload the scan + the date on it; creates the booking dated on that date. */

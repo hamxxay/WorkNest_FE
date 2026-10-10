@@ -52,6 +52,14 @@
 .upload-panel label { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #334155; }
 .upload-panel input[type="date"] { height: 40px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 10px; font: inherit; max-width: 220px; }
 
+.sign-choices { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+.sign-choices > p { margin: 0 0 10px; font-size: 0.86rem; font-weight: 700; color: var(--text-primary); }
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.choice { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 14px 16px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; cursor: pointer; font: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+.choice:hover { border-color: var(--accent, #0d9488); box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+.choice strong { font-size: 0.92rem; color: var(--text-primary, #0f172a); }
+.choice span { font-size: 0.8rem; color: var(--text-muted, #64748b); line-height: 1.5; }
+
 @media (max-width: 600px) {
   .steps { grid-template-columns: repeat(2, 1fr); row-gap: 14px; }
   .actions { justify-content: stretch; }

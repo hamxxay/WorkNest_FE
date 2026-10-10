@@ -308,7 +308,9 @@ export class NetworkSsids implements OnInit, OnDestroy {
         this.newProfileOpen.set(false);
         this.profileName.set(''); this.profileDown.set(''); this.profileUp.set('');
         this.profiles.update(list => [...list, p].sort((a, b) => a.name.localeCompare(b.name)));
-        this.toast.success(`Profile “${p.name}” created.`);
+        this.toast.success(p.confirmedAfterTimeout
+          ? `Profile “${p.name}” created. Applied: UniFi was slow to answer, so it was checked on the console.`
+          : `Profile “${p.name}” created.`);
         this.askProfile(p.id); // offer to use it on this SSID straight away
       },
       error: err => { this.creatingProfile.set(false); this.toast.error(errMsg(err, 'The profile could not be created.')); }
@@ -362,7 +364,9 @@ export class NetworkSsids implements OnInit, OnDestroy {
         if (p.action === 'speed') this.loadProfiles();
         // After switching to "Allowed devices only", go straight to the list where devices are added.
         if (p.action === 'mode' && p.policy === 'allow') this.tab.set('filter');
-        this.toast.success(this.actionLabel(p.action) + '.', s.name);
+        this.toast.success(updated.confirmedAfterTimeout
+          ? `${this.actionLabel(p.action)}. Applied: UniFi was slow to answer, so the change was checked on the console.`
+          : this.actionLabel(p.action) + '.', s.name);
         if (this.tab() === 'history') this.loadLog();
         setTimeout(() => this.load(true), 4000); // the console takes a moment to show the change on clients
       },

@@ -12,7 +12,7 @@ import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
-import { AgreementService } from '../../../services/agreement.service';
+import { AgreementService, AgreementESignature } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
 import { of, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -3106,7 +3106,8 @@ export class Manage implements OnInit {
           agreementsent: 'Sent', sent: 'Sent', signeduploaded: 'Signed copy received â€” verify',
           emailfailed: 'Email failed â€” resend', signed: 'Signed', converted: 'Signed'
         };
-        return (item.bookingId || item.BookingId) ? 'Signed Â· booking created' : (labels[st.toLowerCase()] ?? st);
+        const label = (item.bookingId || item.BookingId) ? 'Signed Â· booking created' : (labels[st.toLowerCase()] ?? st);
+        return this.eSignedAt(item) ? `${label} (e-signed)` : label;
       }
       if (col.key === 'createdOn') {
         return item.sentDate || item.SentDate || item.createdOn || item.CreatedOn || item.createdAt || item.CreatedAt || '';
@@ -7837,9 +7838,34 @@ export class Manage implements OnInit {
   selectedAgreementDetails = signal<any>(null);
   uploadingSignedAgreementId = signal<number | null>(null);
 
+  /** E-signature evidence of the agreement open in the details modal (null = not e-signed / not loaded). */
+  selectedAgreementESignature = signal<AgreementESignature | null>(null);
+  loadingAgreementESignature = signal(false);
+
   openAgreementDetailsModal(item: any) {
     this.selectedAgreementDetails.set(item);
     this.showAgreementDetailsModal.set(true);
+    this.selectedAgreementESignature.set(null);
+    const id = Number(item?.id || item?.agreementId);
+    if (!id || !this.eSignedAt(item)) return;
+    this.loadingAgreementESignature.set(true);
+    this.agreementSvc.getESignature(id).subscribe({
+      next: (res: any) => {
+        this.loadingAgreementESignature.set(false);
+        // Ignore a late answer for an agreement that is no longer open.
+        const cur = this.selectedAgreementDetails();
+        if (cur && Number(cur.id || cur.agreementId) === id) this.selectedAgreementESignature.set(res?.data ?? null);
+      },
+      error: () => this.loadingAgreementESignature.set(false)
+    });
+  }
+
+  /** When the customer signed electronically in the portal (null when the signed copy was uploaded or not signed yet). */
+  eSignedAt(ag: any): string | null {
+    return ag?.eSignedAt || ag?.ESignedAt || ag?.esignedAt || null;
+  }
+  eSignedBy(ag: any): string {
+    return ag?.eSignedBy || ag?.ESignedBy || ag?.esignedBy || '';
   }
 
   onSignedAgreementFileSelected(agreementId: any, event: any) {

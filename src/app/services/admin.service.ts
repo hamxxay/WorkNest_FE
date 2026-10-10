@@ -583,6 +583,20 @@ export class AdminService {
     if (locationIds.length) params.locationIds = locationIds.join(',');
     return this.http.get<any>(`${this.api}/dashboard/role`, { params });
   }
+  // Revenue & occupancy forecast for the next N months (default 3) from current leases. Same location rules as the overview.
+  getDashboardForecast(locationIds: number[] = [], months = 3): Observable<any> {
+    const params: any = { months };
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    return this.http.get<any>(`${this.api}/dashboard/forecast`, { params });
+  }
+  // Weekly super admin report: the e-mail HTML as it would go out now (super admin only).
+  getWeeklyReportPreview(): Observable<Blob> {
+    return this.http.get(`${this.api}/reports/weekly/preview`, { responseType: 'blob' });
+  }
+  // E-mails the weekly report to the super admins now: { isSuccessful, message, recipients }.
+  sendWeeklyReportNow(): Observable<any> {
+    return this.http.post<any>(`${this.api}/reports/weekly/send-now`, {});
+  }
   // Admin sidebar badges: items waiting on staff, keyed by sidebar route ({ "/admin/bookings": 2, ... }).
   // Role- and location-scoped by the API; only routes the user can open are returned.
   getNavBadges(): Observable<Record<string, number>> {
