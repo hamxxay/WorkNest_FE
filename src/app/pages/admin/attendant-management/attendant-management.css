@@ -99,3 +99,6 @@ textarea.form-control { resize: vertical; font-family: inherit; }
 .enroll-summary { margin: 4px 0 2px; font-weight: 600; }
 .device-results .verified { color: #047857; font-size: .85em; }
 .device-results .unverified { color: #b45309; font-size: .85em; }
+
+.app-access { display: block; margin-top: 4px; font-size: .78em; font-weight: 600; color: #047857; }
+.app-access.expired { color: #b45309; }

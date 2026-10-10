@@ -17,6 +17,7 @@ import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.servic
 import { of, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso } from '../../../utils/dates';
+import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -2564,6 +2565,17 @@ export class Manage implements OnInit {
       this.bookingFormSaving.set(false);
       return;
     }
+    if (this.isCustomerFieldEmpty('cnicOrPassport')) {
+      const cnicMsg = cnicError(this.bookingFormData.cnicOrPassport);
+      if (cnicMsg) {
+        this.bookingFormErrorField = 'cnic';
+        this.bookingFormError.set(cnicMsg);
+        this.showError(cnicMsg);
+        this.scrollToTopAndHighlight('cnic');
+        this.bookingFormSaving.set(false);
+        return;
+      }
+    }
     this.validateBookingDiscount();
     if (this.bookingDiscountError()) {
       this.bookingFormErrorField = 'discount';
@@ -3888,9 +3900,27 @@ export class Manage implements OnInit {
     });
   }
 
+  // CNIC fields: shared rule (13 digits, dashes/spaces allowed) — see utils/cnic.ts
+  readonly cnicError = cnicError;
+  readonly cnicMaxLength = CNIC_MAX_LENGTH;
+  onCnicFieldInput(event: Event, target: any, key: string) {
+    target[key] = onCnicInput(event);
+  }
+
   save() {
     this.saving.set(true);
     this.error.set('');
+
+    // Users / Customers: CNIC is optional, but if entered it must be a valid CNIC.
+    if (this.entity === 'users' || this.entity === 'customers') {
+      const cnicMsg = cnicError(this.formData.cnicOrPassport);
+      if (cnicMsg) {
+        this.error.set(cnicMsg);
+        this.showError(cnicMsg);
+        this.saving.set(false);
+        return;
+      }
+    }
 
     if (this.entity === 'users') {
       const name = (this.formData.name || '').trim();
@@ -7659,6 +7689,14 @@ export class Manage implements OnInit {
   }
 
   submitSendAgreement() {
+    if (this.sendAgreementTab === 'Individual') {
+      const cnicMsg = cnicError(this.sendAgreementData.customerCnic, true);
+      if (cnicMsg) {
+        this.sendAgreementError.set(cnicMsg);
+        this.showError(cnicMsg);
+        return;
+      }
+    }
     this.sendAgreementSaving.set(true);
     this.sendAgreementError.set('');
     const qId = Number(this.selectedAgreementItem?.quotationId || this.selectedAgreementItem?.id || this.sendAgreementData.quotationId || 0);

@@ -338,7 +338,7 @@
         <span class="challan-subtitle">Booking #{{ selectedBookingDetails()?.bookingId || selectedBookingDetails()?.id
           }}</span>
       </div>
-      <button class="btn-close-modal" (click)="closeBookingModal()">✕</button>
+      <button class="btn-close-modal" (click)="closeBookingModal()" aria-label="Close">&times;</button>
     </div>
 
     <div class="challan-modal-body">

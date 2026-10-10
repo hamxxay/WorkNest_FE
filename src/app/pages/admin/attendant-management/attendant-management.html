@@ -220,6 +220,12 @@
                 @if (a.machineId) {
                 <small class="emp-no">Machine ID {{ a.machineId }}</small>
                 }
+                @if (a.appAccess; as app) {
+                <small class="app-access" [class.expired]="!app.isActive"
+                  [title]="'Verified in the app with ' + app.accountEmail + (app.unlockCount ? ' · ' + app.unlockCount + ' unlock(s)' : '')">
+                  {{ app.isActive ? 'App verified' : 'App verification expired' }} {{ app.verifiedAt | date:'d MMM' }} · until {{ app.expiresAt | date:'d MMM' }}@if (app.lastUnlockAt) { · last unlock {{ app.lastUnlockAt | date:'d MMM, h:mm a' }} }
+                </small>
+                }
                 @if (a.hikPendingOps > 0) {
                 <small class="queued-tag" title="Waiting for offline machine(s) to reconnect">{{ a.hikPendingOps }} machine(s) pending sync</small>
                 }
@@ -301,7 +307,12 @@
       </div>
       <div class="form-group">
         <label>ID Number</label>
-        <input type="text" class="form-control" [(ngModel)]="newIdNumber" placeholder="61101-1234567-1">
+        <input type="text" class="form-control" [(ngModel)]="newIdNumber" #idNumCtrl="ngModel"
+          [attr.maxlength]="newIdType === 'CNIC' ? cnicMaxLength : null"
+          [attr.inputmode]="newIdType === 'CNIC' ? 'numeric' : null"
+          [placeholder]="newIdType === 'CNIC' ? '61101-1234567-1' : ''" (input)="onIdNumberInput($event)"
+          [class.input-invalid]="newIdType === 'CNIC' && idNumCtrl.touched && cnicError(newIdNumber)">
+        @if (newIdType === 'CNIC' && idNumCtrl.touched && cnicError(newIdNumber); as msg) { <small class="field-error-text">{{ msg }}</small> }
       </div>
     </div>
     }
@@ -384,7 +395,7 @@
       @if (res.devices?.length) {
       <ul class="device-results">
         @for (r of res.devices; track r.deviceId) {
-        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.ok && r.verified === true) { <span class="verified"> · confirmed on machine</span> } @else if (r.ok && r.verified === null && !r.queued) { <span class="unverified"> · saved, not checked</span> }@if (r.error) { — {{ r.error }} }</li>
+        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued"><strong>{{ r.ok ? 'Saved' : (r.queued ? 'Queued' : 'Failed') }}:</strong> {{ r.device }}@if (r.ok && r.verified === true) { <span class="verified"> · confirmed on machine</span> } @else if (r.ok && r.verified === null && !r.queued) { <span class="unverified"> · saved, not checked</span> }@if (r.error) { — {{ r.error }} }</li>
         }
       </ul>
       }
@@ -433,7 +444,7 @@
       @if (res.devices?.length) {
       <ul class="device-results">
         @for (r of res.devices; track $index) {
-        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued">{{ r.ok ? '✓' : (r.queued ? '⏳' : '✗') }} {{ r.device }}@if (r.ok && r.verified === true) { <span class="verified"> · confirmed on machine</span> } @else if (r.ok && r.verified === null && !r.queued) { <span class="unverified"> · saved, not checked</span> }@if (r.error) { — {{ r.error }} }</li>
+        <li [class.failed]="!r.ok && !r.queued" [class.queued]="r.queued"><strong>{{ r.ok ? 'Saved' : (r.queued ? 'Queued' : 'Failed') }}:</strong> {{ r.device }}@if (r.ok && r.verified === true) { <span class="verified"> · confirmed on machine</span> } @else if (r.ok && r.verified === null && !r.queued) { <span class="unverified"> · saved, not checked</span> }@if (r.error) { — {{ r.error }} }</li>
         }
       </ul>
       }
