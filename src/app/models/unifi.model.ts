@@ -455,6 +455,8 @@ export interface UnifiSsid {
   speedProfile: { id: string; name: string } | null;
   clientCount: number;
   clients: UnifiClient[];
+  /** Set when UniFi timed out and the change was confirmed by reading the SSID back. */
+  confirmedAfterTimeout?: boolean;
 }
 
 export interface UnifiSsidsResponse {
@@ -492,4 +494,6 @@ export interface UnifiSpeedProfile {
   downMbps: number | null;
   upMbps: number | null;
   ssids: string[];
+  /** Set when UniFi timed out and the profile was found by reading the list back. */
+  confirmedAfterTimeout?: boolean;
 }
