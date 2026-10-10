@@ -1,0 +1,53 @@
+/* Same look as the role dashboard tables (panels, cmp-table, occupancy bars). */
+:host { display: block; }
+
+.sk { display: block; border-radius: 6px; background: linear-gradient(90deg, #eef2f6 25%, #f8fafc 37%, #eef2f6 63%); background-size: 400% 100%; animation: shimmer 1.3s ease infinite; }
+.sk-line { height: 11px; }
+.sk-block { height: 140px; margin-top: 14px; border-radius: 12px; }
+.w40 { width: 40%; }
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+.section-title { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 12px; }
+.section-title h2 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a; }
+.section-title span { font-size: 0.8rem; color: #94a3b8; }
+
+.dash-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); min-width: 0; margin-bottom: 20px; }
+.table-panel { padding: 18px 0 6px; }
+.table-panel .panel-head, .table-panel .loc-seg, .table-panel .empty { margin-left: 22px; margin-right: 22px; }
+.panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.panel-head h3 { margin: 0 0 2px; font-size: 1rem; font-weight: 700; color: #0f172a; }
+.panel-sub { margin: 0; font-size: 0.8rem; color: #64748b; }
+.head-stats { display: flex; gap: 18px; }
+.head-stats div { display: flex; flex-direction: column; align-items: flex-end; }
+.head-stats span { font-size: 0.7rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+.head-stats strong { font-size: 1rem; color: #0f172a; white-space: nowrap; }
+.head-stats strong.warn { color: #b45309; }
+.ov-error { color: #b91c1c; font-size: 0.9rem; }
+.link-btn { background: none; border: none; color: #0d9488; font-weight: 600; cursor: pointer; padding: 0; }
+
+.loc-seg { display: flex; flex-wrap: wrap; gap: 4px; background: #f1f5f9; border-radius: 10px; padding: 4px; margin-bottom: 8px; width: fit-content; max-width: calc(100% - 44px); }
+.loc-seg button { border: none; background: transparent; border-radius: 7px; padding: 6px 12px; font-size: 0.78rem; font-weight: 600; color: #475569; cursor: pointer; white-space: nowrap; }
+.loc-seg button.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1); }
+
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 28px 12px; color: #64748b; font-size: 0.82rem; }
+.empty strong { color: #0f172a; font-size: 0.9rem; }
+
+.table-scroll { overflow-x: auto; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.cmp-table th { text-align: left; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 10px 22px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+.cmp-table td { padding: 12px 22px; border-bottom: 1px solid #f1f5f9; color: #334155; white-space: nowrap; }
+.cmp-table tbody tr:last-child td { border-bottom: none; }
+.cmp-table tbody tr:hover { background: #f8fafc; }
+.cmp-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cmp-table small { color: #94a3b8; font-size: 0.72rem; margin-left: 4px; }
+.cmp-table td.warn { color: #b45309; font-weight: 700; }
+.occ { display: flex; align-items: center; gap: 10px; min-width: 170px; }
+.occ-track { flex: 0 0 90px; height: 8px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+.occ-track.rent { flex-basis: 110px; }
+.occ-bar { display: block; height: 100%; background: #0d9488; border-radius: 999px; transition: width 0.4s ease; }
+.occ-bar.rent { background: #6366f1; }
+
+.dash-panel { animation: dash-rise 0.45s ease both; }
+@keyframes dash-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dash-panel { animation: none; } }
+@media (max-width: 640px) { .head-stats { width: 100%; justify-content: space-between; } .head-stats div { align-items: flex-start; } }

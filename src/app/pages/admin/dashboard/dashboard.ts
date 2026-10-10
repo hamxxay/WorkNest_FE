@@ -9,6 +9,8 @@ import { AuthService } from '../../../services/auth.service';
 import { AccessOverview } from './access-overview/access-overview';
 import { DashboardOverview, DashPeriod } from './dashboard-overview/dashboard-overview';
 import { RoleDashboard, DashRole } from './role-dashboard/role-dashboard';
+import { ForecastPanel } from './forecast-panel/forecast-panel';
+import { WeeklyReportMenu } from './weekly-report-menu/weekly-report-menu';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
 
 export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
@@ -124,7 +126,7 @@ export interface SpaceTypeCardData {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview, DashboardOverview, RoleDashboard],
+  imports: [CommonModule, RouterLink, FormsModule, DatePipe, AccessOverview, DashboardOverview, RoleDashboard, ForecastPanel, WeeklyReportMenu],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
