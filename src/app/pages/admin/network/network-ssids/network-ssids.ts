@@ -40,8 +40,8 @@ export class NetworkSsids implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private auth = inject(AuthService);
 
-  /** Speed limits are set by admins / super admins only (the API enforces it too). */
-  readonly canLimitSpeed = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  /** Speed limits are set by super admins only (the API enforces it too). */
+  readonly canLimitSpeed = this.auth.hasRole('super_admin');
   private admin = inject(AdminService);
 
   /** UniFi speed profiles; the SSID's limit is chosen from these (or "No limit"). */
