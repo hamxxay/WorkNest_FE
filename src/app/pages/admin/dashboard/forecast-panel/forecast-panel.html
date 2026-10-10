@@ -1,0 +1,65 @@
+<div class="section-title"><h2>Next {{ months() }} months</h2><span>Forecast from current leases</span></div>
+
+@if (loading()) {
+  <div class="dash-panel"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+} @else if (failed() && !data()) {
+  <div class="dash-panel ov-error">Could not load the forecast. <button class="link-btn" (click)="load()">Try again</button></div>
+} @else {
+  <div class="dash-panel table-panel">
+    <div class="panel-head">
+      <div>
+        <h3>Revenue &amp; occupancy outlook</h3>
+        <p class="panel-sub">Rent the current leases earn each month (30-day proration, before tax) · occupancy at month end · no renewals assumed</p>
+      </div>
+      <div class="head-stats">
+        <div><span>Expected rent</span><strong [title]="fullMoney(totals().rent)">{{ money(totals().rent) }}</strong></div>
+        <div><span>Ending</span><strong [class.warn]="totals().ending > 0">{{ totals().ending }}</strong></div>
+        <div><span>Starting</span><strong>{{ totals().starting }}</strong></div>
+      </div>
+    </div>
+
+    @if (locations().length > 1) {
+      <div class="loc-seg" role="tablist" aria-label="Location">
+        <button role="tab" [class.active]="selected() === 0" [attr.aria-selected]="selected() === 0" (click)="selected.set(0)">All</button>
+        @for (l of locations(); track l.locationId) {
+          <button role="tab" [class.active]="selected() === l.locationId" [attr.aria-selected]="selected() === l.locationId" (click)="selected.set(l.locationId)">{{ l.name }}</button>
+        }
+      </div>
+    }
+
+    @if (!hasLeases()) {
+      <div class="empty"><strong>No leases in the coming months</strong><span>Confirmed and pending bookings show up here once they are in the system.</span></div>
+    } @else {
+      <div class="table-scroll">
+        <table class="cmp-table">
+          <thead>
+            <tr><th>Month</th><th>Expected rent</th><th>Occupancy</th><th class="num">Leases ending</th><th class="num">Leases starting</th></tr>
+          </thead>
+          <tbody>
+            @for (m of rows(); track m.month) {
+              <tr>
+                <td><strong>{{ m.label }}</strong></td>
+                <td>
+                  <div class="occ">
+                    <span class="occ-track rent"><span class="occ-bar rent" [style.width.%]="(m.expectedRent / maxRent()) * 100"></span></span>
+                    <span [title]="fullMoney(m.expectedRent)">{{ money(m.expectedRent) }}
+                      @if (m.confirmedRent < m.expectedRent) { <small [title]="'Confirmed leases: ' + fullMoney(m.confirmedRent)">{{ money(m.confirmedRent) }} confirmed</small> }
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div class="occ">
+                    <span class="occ-track"><span class="occ-bar" [style.width.%]="m.occupancyPct"></span></span>
+                    <span>{{ m.occupancyPct }}% <small>({{ m.occupiedSpaces }}/{{ m.totalSpaces }})</small></span>
+                  </div>
+                </td>
+                <td class="num" [class.warn]="m.leasesEnding > 0">{{ m.leasesEnding }}</td>
+                <td class="num">{{ m.leasesStarting }} @if (m.pendingStarting) { <small>{{ m.pendingStarting }} pending</small> }</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}

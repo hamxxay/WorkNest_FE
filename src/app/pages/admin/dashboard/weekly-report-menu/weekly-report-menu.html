@@ -1,0 +1,29 @@
+<div class="wr">
+  <button type="button" class="wr-btn" (click)="toggle()" [disabled]="previewing() || sending()" [attr.aria-expanded]="open()" aria-haspopup="menu"
+    title="The weekly e-mail report to super admins">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+    {{ previewing() ? 'Preparing…' : sending() ? 'Sending…' : 'Weekly report' }}
+  </button>
+  @if (open()) {
+    <div class="wr-backdrop" (click)="close()"></div>
+    <div class="wr-menu" role="menu">
+      @if (!confirming()) {
+        <p class="wr-note">Sent to super admins automatically every week.</p>
+        <button type="button" role="menuitem" class="wr-item" (click)="preview()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          Preview
+        </button>
+        <button type="button" role="menuitem" class="wr-item" (click)="confirming.set(true)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          Send now
+        </button>
+      } @else {
+        <p class="wr-confirm">E-mail this week's report to all super admins now?</p>
+        <div class="wr-actions">
+          <button type="button" class="wr-cancel" (click)="confirming.set(false)" [disabled]="sending()">Cancel</button>
+          <button type="button" class="wr-send" (click)="send()" [disabled]="sending()">{{ sending() ? 'Sending…' : 'Send' }}</button>
+        </div>
+      }
+    </div>
+  }
+</div>

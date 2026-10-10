@@ -1,0 +1,18 @@
+:host { display: inline-block; }
+.wr { position: relative; }
+.wr-btn { height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; color: #0f172a; font-weight: 600; font-size: 0.84rem; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s; }
+.wr-btn:hover:not(:disabled) { border-color: #94a3b8; background: #f8fafc; }
+.wr-btn:disabled { opacity: .6; cursor: default; }
+.wr-backdrop { position: fixed; inset: 0; z-index: 40; }
+.wr-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 41; width: 250px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14); padding: 8px; }
+.wr-note { margin: 4px 8px 8px; font-size: 0.75rem; color: #94a3b8; }
+.wr-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: none; border-radius: 8px; background: none; color: #0f172a; font-size: 0.85rem; font-weight: 600; text-align: left; cursor: pointer; }
+.wr-item:hover { background: #f1f5f9; }
+.wr-item svg { color: #0d9488; }
+.wr-confirm { margin: 6px 8px 12px; font-size: 0.85rem; color: #0f172a; line-height: 1.4; }
+.wr-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 4px 4px; }
+.wr-cancel, .wr-send { height: 34px; padding: 0 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.wr-cancel { border: 1px solid #e2e8f0; background: #fff; color: #334155; }
+.wr-send { border: none; background: #0d9488; color: #fff; }
+.wr-send:hover:not(:disabled) { background: #0f766e; }
+.wr-cancel:disabled, .wr-send:disabled { opacity: .6; cursor: default; }
