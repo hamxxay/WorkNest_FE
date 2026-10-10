@@ -14,7 +14,7 @@ import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
-import { of } from 'rxjs';
+import { of, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso } from '../../../utils/dates';
 
@@ -5049,8 +5049,10 @@ export class Manage implements OnInit {
 
   saveContactFeedback() {
     const item = this.contactFeedbackItem;
-    const id = Number(item?.id ?? item?.Id);
-    if (!id || this.contactFeedbackSaving()) return;
+    // Number id when the list has it; otherwise the inquiry's public id (some databases return only that).
+    const id: number | string = Number(item?.id ?? item?.Id ?? item?.contactId ?? item?.ContactId) || (item?.publicId ?? item?.PublicId ?? '');
+    if (this.contactFeedbackSaving()) return;
+    if (!id) { this.contactFeedbackError.set('This inquiry could not be identified. Refresh the page and try again.'); return; }
     const outcome = this.contactFeedbackOutcome;
     if (!outcome) { this.contactFeedbackError.set('Choose an option.'); return; }
     if (outcome === 'not_interested' && !this.contactFeedbackReason.trim()) { this.contactFeedbackError.set('Enter the reason.'); return; }
@@ -5063,7 +5065,7 @@ export class Manage implements OnInit {
       outcome,
       reason: this.contactFeedbackReason.trim() || null,
       followUpOn: outcome === 'future_prospect' ? this.contactFeedbackDate : null
-    }).subscribe({
+    }).pipe(timeout(30000)).subscribe({
       next: () => {
         this.contactFeedbackSaving.set(false);
         this.showContactFeedback.set(false);
@@ -5072,7 +5074,9 @@ export class Manage implements OnInit {
       },
       error: (err: any) => {
         this.contactFeedbackSaving.set(false);
-        this.contactFeedbackError.set(err?.error?.message || 'Could not save the feedback.');
+        this.contactFeedbackError.set(err?.name === 'TimeoutError'
+          ? 'The server did not answer. Check your connection and try again.'
+          : err?.error?.message || `Could not save the feedback${err?.status ? ` (error ${err.status})` : ''}.`);
       }
     });
   }

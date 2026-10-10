@@ -386,8 +386,8 @@ export class AdminService {
     return this.http.patch<ApiResponse<any>>(`${this.api}/complaints/${id}/status`, { status });
   }
   /** Feedback on a tour inquiry: not_interested (reason) | future_prospect (followUpOn yyyy-MM-dd) | converted (quotationId). */
-  saveContactFeedback(id: number, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.api}/contact/${id}/feedback`, data);
+  saveContactFeedback(id: number | string, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(String(id))}/feedback`, data);
   }
   /** Tour inquiry entered by staff (phone / walk-in): saved like the website's "Book a Tour" form. */
   createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null }): Observable<ApiResponse<any>> {
