@@ -241,7 +241,6 @@
               <td class="text-end">
                 <div class="action-group">
                   <button class="btn btn-sm btn-outline" [disabled]="!!captureBlockedReason" (click)="openEnrollModal(a, 'fingerprint')" title="Enroll fingerprint on a machine">Fingerprint</button>
-                  <button class="btn btn-sm btn-outline" [disabled]="!!captureBlockedReason" (click)="openEnrollModal(a, 'card')" title="Tag an RFID card on a machine">Card</button>
                   <button class="btn btn-sm btn-outline" [disabled]="!!captureBlockedReason" (click)="openEnrollModal(a, 'face')" title="Enroll face on a machine">Face</button>
                   <button class="btn btn-sm btn-danger" (click)="removeAttendant(a.personId)">Remove</button>
                 </div>
