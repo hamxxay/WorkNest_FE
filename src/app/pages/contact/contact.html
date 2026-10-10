@@ -37,7 +37,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Phone Number</label>
-                <input type="tel" class="form-input" placeholder="+92 300 1234567" [(ngModel)]="form.phone" name="phone" />
+                <input type="tel" class="form-input" placeholder="+92 300 1234567" [(ngModel)]="form.phone" name="phone"
+                  #phoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" autocomplete="tel"
+                  (input)="form.phone = onPhoneInput($event)"
+                  [class.input-invalid]="phoneCtrl.touched && phoneError(form.phone)" />
+                @if (phoneCtrl.touched && phoneError(form.phone); as msg) { <small class="field-error-text">{{ msg }}</small> }
               </div>
             </div>
             <div class="form-row">

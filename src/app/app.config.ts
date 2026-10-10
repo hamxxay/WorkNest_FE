@@ -8,7 +8,8 @@
 import { 
   ApplicationConfig, 
   provideBrowserGlobalErrorListeners, 
-  APP_INITIALIZER 
+  APP_INITIALIZER,
+  ErrorHandler
 } from '@angular/core';
 
 import { 
@@ -30,6 +31,8 @@ import {
 
 import { routes } from './app.routes';
 import { authInterceptor } from './interceptors/auth.interceptor';
+import { errorInterceptor } from './interceptors/error.interceptor';
+import { GlobalErrorHandler } from './interceptors/global-error-handler';
 import { AuthService } from './services/auth.service';
 
 // ============================================================
@@ -45,6 +48,8 @@ export const appConfig: ApplicationConfig = {
     // Enables better browser-level error tracking
     // --------------------------------------------------------
     provideBrowserGlobalErrorListeners(),
+    // Unhandled request failures show a readable notice instead of failing silently.
+    { provide: ErrorHandler, useClass: GlobalErrorHandler },
 
     // --------------------------------------------------------
     // Router Configuration
@@ -68,7 +73,8 @@ export const appConfig: ApplicationConfig = {
     // Adds JWT token automatically to API requests
     // --------------------------------------------------------
     provideHttpClient(
-      withInterceptors([authInterceptor])
+      // errorInterceptor runs closest to the server, so every caller (and authInterceptor) sees readable messages.
+      withInterceptors([authInterceptor, errorInterceptor])
     ),
 
     // --------------------------------------------------------

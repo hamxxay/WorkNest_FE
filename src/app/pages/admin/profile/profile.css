@@ -29,3 +29,4 @@
   .profile-page { padding: 20px 16px 40px; }
   .grid { grid-template-columns: 1fr; }
 }
+.field small.field-error-text { color: #dc2626; font-size: .78rem; }

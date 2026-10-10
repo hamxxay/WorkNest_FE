@@ -104,7 +104,10 @@
   <div class="modal-content wa-modal" (click)="$event.stopPropagation()">
     <h3>New WhatsApp Message</h3>
     <label>WhatsApp number *</label>
-    <input class="wa-input" placeholder="03001234567" [(ngModel)]="startForm.phone" />
+    <input class="wa-input" type="tel" placeholder="03001234567" [(ngModel)]="startForm.phone" #waPhoneCtrl="ngModel"
+      [maxlength]="phoneMaxLength" inputmode="tel" (input)="startForm.phone = onPhoneInput($event)"
+      [class.input-invalid]="waPhoneCtrl.touched && phoneError(startForm.phone, true)" />
+    @if (waPhoneCtrl.touched && phoneError(startForm.phone, true); as msg) { <small class="field-error-text">{{ msg }}</small> }
     <label>Name</label>
     <input class="wa-input" placeholder="Customer name (optional)" [(ngModel)]="startForm.name" />
     <label>Message *</label>

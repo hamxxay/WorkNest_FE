@@ -6,6 +6,7 @@ import { ToastService } from '../../../services/toast.service';
 import { HikDeviceService } from '../../../services/hik-device.service';
 import { HikDevice } from '../../../models/hik-device.model';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
+import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../../utils/phone';
 
 type EnrollType = 'fingerprint' | 'card' | 'face';
 
@@ -49,6 +50,9 @@ export class AttendantManagement implements OnInit, OnDestroy {
   newIdNumber = '';
   readonly cnicError = cnicError;
   readonly cnicMaxLength = CNIC_MAX_LENGTH;
+  readonly phoneError = phoneError;
+  readonly onPhoneInput = onPhoneInput;
+  readonly phoneMaxLength = PHONE_MAX_LENGTH;
 
   /** ID Number typing: when the ID type is CNIC, only digits and '-' are kept. */
   onIdNumberInput(event: Event) {
@@ -292,6 +296,8 @@ export class AttendantManagement implements OnInit, OnDestroy {
         this.toast.error('Please fill in all required person identity fields.');
         return;
       }
+      const phoneMsg = phoneError(this.newPhone, true);
+      if (phoneMsg) { this.toast.error(phoneMsg); return; }
       if (this.newIdType === 'CNIC') {
         const cnicMsg = cnicError(this.newIdNumber, true);
         if (cnicMsg) { this.toast.error(cnicMsg); return; }

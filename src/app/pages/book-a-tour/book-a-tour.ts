@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ContactService } from '../../services/contact.service';
 import { localDateIso } from '../../utils/dates';
+import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../utils/phone';
 
 @Component({
   selector: 'app-book-a-tour',
@@ -20,6 +21,10 @@ export class BookATour {
     timeSlot: '',
     message: ''
   };
+
+  readonly phoneError = phoneError;
+  readonly onPhoneInput = onPhoneInput;
+  readonly phoneMaxLength = PHONE_MAX_LENGTH;
 
   submitted = signal(false);
   loading = signal(false);
@@ -52,6 +57,12 @@ export class BookATour {
       const msg = 'Please fill in all required fields.';
       alert(msg);
       this.error.set(msg);
+      return;
+    }
+    const phoneMsg = phoneError(this.form.phone, true);
+    if (phoneMsg) {
+      alert(phoneMsg);
+      this.error.set(phoneMsg);
       return;
     }
     this.error.set('');

@@ -31,7 +31,10 @@
         </label>
         <label class="field">
           <span>Phone</span>
-          <input type="tel" name="phone" [(ngModel)]="phone" maxlength="20" placeholder="+92 300 1234567" autocomplete="tel" />
+          <input type="tel" name="phone" [(ngModel)]="phone" #phoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel"
+            placeholder="+92 300 1234567" autocomplete="tel" (input)="phone = onPhoneInput($event)"
+            [class.input-invalid]="phoneCtrl.touched && phoneError(phone)" />
+          @if (phoneCtrl.touched && phoneError(phone); as msg) { <small class="field-error-text">{{ msg }}</small> }
         </label>
         <label class="field">
           <span>Email</span>

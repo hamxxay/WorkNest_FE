@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { WaConversation, WaMessage, WhatsAppService } from '../../../services/whatsapp.service';
 import { ToastService } from '../../../services/toast.service';
 import { AuthService } from '../../../services/auth.service';
+import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../../utils/phone';
 
 /**
  * WhatsApp Inbox: every conversation with the WorkNest WhatsApp number (the bot answers automatically;
@@ -39,6 +40,9 @@ export class WhatsAppInbox implements OnInit {
   // new conversation / broadcast
   showStart = signal(false);
   startForm = { phone: '', name: '', message: '' };
+  readonly phoneError = phoneError;
+  readonly onPhoneInput = onPhoneInput;
+  readonly phoneMaxLength = PHONE_MAX_LENGTH;
   showBroadcast = signal(false);
   broadcastForm = { tag: '', message: '' };
 
@@ -137,6 +141,8 @@ export class WhatsAppInbox implements OnInit {
   startConversation() {
     const f = this.startForm;
     if (!f.phone.trim() || !f.message.trim()) { this.toast.error('Enter the WhatsApp number and a message.'); return; }
+    const phoneMsg = phoneError(f.phone, true);
+    if (phoneMsg) { this.toast.error(phoneMsg); return; }
     this.sending.set(true);
     this.wa.start(f.phone.trim(), f.name.trim(), f.message.trim()).subscribe({
       next: res => {
