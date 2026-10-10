@@ -5,6 +5,7 @@
       <p class="dash-meta"><span>{{ subtitle() }}</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
     </div>
     <div class="dash-header-actions no-print">
+      <app-network-location />
       <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
       <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
       <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Ask UniFi for fresh data now" aria-label="Refresh network data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>

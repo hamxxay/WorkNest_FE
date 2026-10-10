@@ -1,3 +1,4 @@
+import { NetworkLocation } from '../network-location/network-location';
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +22,7 @@ const MODE_TEXT: Record<string, string> = { failover_only: 'Failover', failover:
 @Component({
   selector: 'app-network-overview',
   standalone: true,
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, ...NET_SHARED],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, ...NET_SHARED, NetworkLocation],
   templateUrl: './network-overview.html',
   styleUrls: ['../network-shared.css', './network-overview.css']
 })

@@ -1,0 +1,64 @@
+.ssid-panel { margin-bottom: 20px; }
+.ssid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.ssid-card { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; cursor: pointer; font-family: inherit; transition: border-color .15s, box-shadow .15s; min-width: 0; }
+.ssid-card:hover { border-color: #94a3b8; }
+.ssid-card.active { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+.ssid-card.off { background: #f8fafc; }
+.ssid-card.off .ssid-name { color: #64748b; }
+.ssid-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ssid-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.92rem; color: #0f172a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ssid-count { font-size: 0.8rem; color: #64748b; }
+.ssid-count strong { font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-right: 2px; }
+.ssid-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 0.74rem; color: #94a3b8; }
+.ssid-meta .tag { margin-left: 0; }
+.tag.warn { background: #fee2e2; color: #b91c1c; }
+
+.ssid-detail { border-top: 1px solid #f1f5f9; padding-top: 16px; }
+.detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.detail-head h4 { margin: 0 0 2px; font-size: 1rem; font-weight: 800; color: #0f172a; }
+.seg-n { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: 0.68rem; }
+.muted { color: #64748b; }
+.small { font-size: 0.74rem; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.clean-table td.wrap { white-space: normal; max-width: 280px; }
+
+.tools-row, .add-row, .mode-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.mode-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+.net-input { height: 36px; padding: 0 12px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: 0.84rem; font-family: inherit; color: #0f172a; background: #fff; min-width: 0; }
+.net-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+.tools-row .net-input { flex: 1 1 280px; max-width: 420px; }
+.add-row { align-items: flex-end; }
+.fld { display: flex; flex-direction: column; gap: 5px; flex: 0 1 200px; min-width: 150px; }
+.fld.grow { flex: 1 1 260px; }
+.fld > span { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+.fld .net-input { width: 100%; box-sizing: border-box; }
+.add-btn { height: 36px; }
+.btn-danger { border: 1px solid #dc2626; background: #fff; color: #b91c1c; }
+.btn-danger:hover:not(:disabled) { background: #dc2626; color: #fff; }
+
+.ssid-modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 1000; }
+.ssid-modal { position: fixed; z-index: 1001; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 32px)); background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25); }
+.ssid-modal h4 { margin: 0 0 8px; font-size: 1.02rem; color: #0f172a; }
+.ssid-modal p { margin: 0 0 14px; font-size: 0.86rem; color: #475569; line-height: 1.5; }
+.reason { display: flex; flex-direction: column; gap: 6px; font-size: 0.76rem; color: #64748b; }
+.reason textarea { border: 1px solid #e2e8f0; border-radius: 9px; padding: 8px 10px; font-family: inherit; font-size: 0.84rem; resize: vertical; }
+.reason textarea:focus { outline: none; border-color: #0d9488; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .detail-head .seg { width: 100%; overflow-x: auto; }
+  .fld, .add-row button { flex: 1 1 100%; max-width: none; }
+}
+
+.settings-row { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; padding: 12px 14px; margin-bottom: 14px; background: #f8fafc; border: 1px solid #eef2f6; border-radius: 12px; }
+.setting { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.settings-row .seg { background: #e9eef4; }
+.filter-hint { margin: 0 0 12px; }
+
+.speed-val { font-size: 0.84rem; font-weight: 600; color: #64748b; }
+.speed-val.on { color: #0f766e; }
+.speed-select { height: 34px; min-width: 230px; cursor: pointer; }
+.profile-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 12px 14px; margin: -6px 0 14px; border: 1px dashed #99f6e4; background: #f0fdfa; border-radius: 12px; }
+.profile-form > strong { flex: 1 1 100%; font-size: 0.84rem; color: #0f766e; }
+select.net-input { cursor: pointer; }
+.empty-cta { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; color: #475569; }

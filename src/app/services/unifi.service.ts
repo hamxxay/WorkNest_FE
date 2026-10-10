@@ -5,7 +5,8 @@ import { environment } from '../../environments/environment';
 import {
   UnifiSummary, UnifiClientsResponse, UnifiTopology, UnifiWansResponse, UnifiIspResponse, UnifiWifiResponse,
   UnifiClientUsage, UnifiTopUsage, UnifiSpeedtestStart, UnifiSpeedtestStatus, UnifiDeviceHistory,
-  UnifiConfig, UnifiAliasResult, UnifiLog, UnifiDeviceDetail
+  UnifiConfig, UnifiAliasResult, UnifiLog, UnifiDeviceDetail,
+  UnifiSsid, UnifiSsidsResponse, UnifiMacFilterAction, UnifiMacFilterLogEntry, UnifiScope, UnifiSpeedProfile
 } from '../models/unifi.model';
 
 /** UniFi network monitoring (proxied by the API from the UniFi Site Manager / console). */
@@ -96,5 +97,52 @@ export class UnifiService {
   /** CPU / memory / traffic / clients history for one device; range in hours (1–168). */
   getDeviceHistory(mac: string, range: number): Observable<UnifiDeviceHistory> {
     return this.http.get<UnifiDeviceHistory>(`${this.api}/device/${encodeURIComponent(mac)}/history`, { params: { range } });
+  }
+
+  /** Every SSID with its MAC filter and connected clients. */
+  getSsids(): Observable<UnifiSsidsResponse> {
+    return this.http.get<UnifiSsidsResponse>(`${this.api}/ssids`);
+  }
+
+  /** Changes one SSID's MAC filter (add / remove a MAC, block / unblock a device, or set the mode). Returns the updated SSID. */
+  updateMacFilter(wlanId: string, body: { action: UnifiMacFilterAction; mac?: string; name?: string; roomNo?: string; policy?: 'allow' | 'deny' | 'off'; reason?: string }): Observable<UnifiSsid> {
+    return this.http.post<UnifiSsid>(`${this.api}/ssids/${encodeURIComponent(wlanId)}/mac-filter`, body);
+  }
+
+  /** Shows (hidden = false) or hides the SSID name. Returns the updated SSID. */
+  setSsidVisibility(wlanId: string, hidden: boolean, reason?: string): Observable<UnifiSsid> {
+    return this.http.post<UnifiSsid>(`${this.api}/ssids/${encodeURIComponent(wlanId)}/visibility`, { hidden, reason });
+  }
+
+  /** UniFi speed profiles with their per-device speeds. */
+  getSpeedProfiles(): Observable<{ profiles: UnifiSpeedProfile[] }> {
+    return this.http.get<{ profiles: UnifiSpeedProfile[] }>(`${this.api}/speed-profiles`);
+  }
+
+  /** Admin / super admin: creates a UniFi speed profile (Mbps; null = no limit that way). */
+  createSpeedProfile(name: string, downMbps: number | null, upMbps: number | null): Observable<UnifiSpeedProfile> {
+    return this.http.post<UnifiSpeedProfile>(`${this.api}/speed-profiles`, { name, downMbps, upMbps });
+  }
+
+  /** Admin / super admin: puts the SSID on a speed profile (null = no limit). Returns the updated SSID. */
+  setSpeedProfile(wlanId: string, profileId: string | null, reason?: string): Observable<UnifiSsid> {
+    return this.http.post<UnifiSsid>(`${this.api}/ssids/${encodeURIComponent(wlanId)}/speed-profile`, { profileId, reason });
+  }
+
+  /** Locations the network belongs to and whether this user may see it (used to hide the Network section). */
+  getScope(): Observable<UnifiScope> {
+    return this.http.get<UnifiScope>(`${this.api}/scope`);
+  }
+
+  /** Super admin: saves the locations the network belongs to (empty = every location). */
+  setScope(locationIds: number[]): Observable<UnifiScope> {
+    return this.http.put<UnifiScope>(`${this.api}/scope`, { locationIds });
+  }
+
+  /** Latest MAC filter changes, optionally for one SSID. */
+  getMacFilterLog(wlanId?: string): Observable<{ entries: UnifiMacFilterLogEntry[] }> {
+    const params: any = {};
+    if (wlanId) params.wlanId = wlanId;
+    return this.http.get<{ entries: UnifiMacFilterLogEntry[] }>(`${this.api}/ssids/log`, { params });
   }
 }
