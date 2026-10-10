@@ -2,21 +2,25 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AgreementService } from '../../services/agreement.service';
+import { AuthService } from '../../services/auth.service';
+import { ESignPanel } from './esign-panel';
 
 type Stage = 'sign' | 'review' | 'booked' | 'other';
 
 /**
- * Customer portal: agreements sent to me. Download the agreement, upload the signed copy with the
- * date I signed it (held for admin verification), and see when my booking is confirmed.
+ * Customer portal: agreements sent to me. Either sign electronically (the booking is created straight away),
+ * or download the agreement, print and sign it, and upload the signed copy with the date I signed it (held for
+ * admin verification). Shows when my booking is confirmed.
  */
 @Component({
   selector: 'app-my-agreements',
-  imports: [DatePipe, DecimalPipe, RouterLink],
+  imports: [DatePipe, DecimalPipe, RouterLink, ESignPanel],
   templateUrl: './my-agreements.html',
   styleUrl: './my-agreements.css'
 })
 export class MyAgreements implements OnInit {
   private agreements = inject(AgreementService);
+  private auth = inject(AuthService);
 
   loading = signal(true);
   items = signal<any[]>([]);
@@ -29,6 +33,9 @@ export class MyAgreements implements OnInit {
   signedDate = signal('');
   uploading = signal(false);
   busyDownload = signal<number | null>(null);
+
+  // E-signature panel (one agreement at a time)
+  esignFor = signal<number | null>(null);
 
   ngOnInit() { this.load(); }
 
@@ -53,6 +60,29 @@ export class MyAgreements implements OnInit {
     return 'other';
   }
 
+  /** A newer agreement was sent for the same quotation: only the latest one can be signed online. */
+  superseded(a: any): boolean {
+    const q = Number(a.quotationId ?? a.QuotationId);
+    return this.items().some(o => Number(o.quotationId ?? o.QuotationId) === q && this.id(o) > this.id(a));
+  }
+
+  signerName(a: any): string {
+    return a.customerName || a.CustomerName || this.auth.getUser()?.displayName || '';
+  }
+
+  openESign(a: any) {
+    this.uploadFor.set(null);
+    this.esignFor.set(this.id(a));
+    this.error.set('');
+    this.success.set('');
+  }
+  closeESign() { this.esignFor.set(null); }
+  onESigned(message: string) {
+    this.esignFor.set(null);
+    this.success.set(message);
+    this.load();
+  }
+
   todayIso(): string {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -63,6 +93,7 @@ export class MyAgreements implements OnInit {
   }
 
   openUpload(a: any) {
+    this.esignFor.set(null);
     this.uploadFor.set(this.id(a));
     this.file.set(null);
     this.signedDate.set(this.todayIso());

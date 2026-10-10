@@ -2,7 +2,7 @@
   <div class="container">
     <div class="section-header">
       <h1>My Agreements</h1>
-      <p>Download your agreement, sign it, and upload the signed copy here. Your booking is confirmed once we verify it.</p>
+      <p>Sign your agreement online, or download it, print and sign it, and upload the signed copy here. Your booking is confirmed once it is signed.</p>
     </div>
 
     @if (success()) { <div class="notice ok">{{ success() }}</div> }
@@ -40,7 +40,7 @@
 
             <ol class="steps">
               <li class="done">Agreement sent</li>
-              <li [class.done]="stage(a) === 'review' || stage(a) === 'booked'" [class.current]="stage(a) === 'sign'">You sign &amp; upload</li>
+              <li [class.done]="stage(a) === 'review' || stage(a) === 'booked'" [class.current]="stage(a) === 'sign'">You sign</li>
               <li [class.done]="stage(a) === 'booked'" [class.current]="stage(a) === 'review'">We verify</li>
               <li [class.done]="stage(a) === 'booked'">Booking confirmed</li>
             </ol>
@@ -54,12 +54,32 @@
               @if (a.hasSignedCopy || a.HasSignedCopy) {
                 <button class="btn-outline" (click)="download(a, true)" [disabled]="busyDownload() === id(a)">My signed copy</button>
               }
-              @if (stage(a) === 'sign' || stage(a) === 'review') {
-                <button class="btn-primary" (click)="openUpload(a)">
-                  {{ stage(a) === 'review' ? 'Replace signed copy' : 'Upload signed agreement' }}
-                </button>
+              @if (stage(a) === 'review') {
+                <button class="btn-primary" (click)="openUpload(a)">Replace signed copy</button>
               }
             </div>
+
+            @if (stage(a) === 'sign' && esignFor() !== id(a) && uploadFor() !== id(a)) {
+              <div class="sign-choices">
+                <p>How would you like to sign?</p>
+                <div class="choice-grid">
+                  @if (!superseded(a)) {
+                    <button type="button" class="choice" (click)="openESign(a)">
+                      <strong>Sign electronically</strong>
+                      <span>Read and sign here in a minute. Your booking is created straight away.</span>
+                    </button>
+                  }
+                  <button type="button" class="choice" (click)="openUpload(a)">
+                    <strong>Print, sign and upload</strong>
+                    <span>Download the agreement, sign it on paper, and upload the scanned copy (PDF).</span>
+                  </button>
+                </div>
+              </div>
+            }
+
+            @if (esignFor() === id(a)) {
+              <app-esign-panel [agreementId]="id(a)" [defaultName]="signerName(a)" (signed)="onESigned($event)" (cancelled)="closeESign()" />
+            }
 
             @if (uploadFor() === id(a)) {
               <div class="upload-panel">

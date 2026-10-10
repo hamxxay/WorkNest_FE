@@ -1,0 +1,69 @@
+<div class="esign-panel">
+  <div class="esign-head">
+    <h4>Sign electronically</h4>
+    <p>Read the agreement, add your signature and confirm. Your booking is created as soon as you sign.</p>
+  </div>
+
+  <!-- 1. The agreement -->
+  <div class="pdf-box">
+    @if (pdfLoading()) {
+      <div class="pdf-state"><div class="spinner"></div><span>Loading the agreement…</span></div>
+    } @else if (pdfError()) {
+      <div class="pdf-state err">We could not load the agreement. Please use "Download agreement" to read it, then sign here.</div>
+    } @else if (pdfUrl(); as url) {
+      <iframe [src]="url" title="Lease agreement"></iframe>
+    }
+  </div>
+  @if (pdfUrl()) {
+    <button type="button" class="link-btn" (click)="openPdf()">Open the agreement in a new tab</button>
+  }
+
+  <!-- 2. Signer -->
+  <label class="field">
+    <span>Your full name</span>
+    <input type="text" maxlength="100" autocomplete="name" [value]="signerName()" (input)="signerName.set($any($event.target).value)" [disabled]="submitting()" />
+    @if (signerName() && !nameValid()) { <small class="field-err">Enter your full name (2 to 100 characters).</small> }
+  </label>
+
+  <!-- 3. Signature -->
+  <div class="field">
+    <div class="sig-label">
+      <span>Your signature</span>
+      <div class="mode-switch" role="tablist">
+        <button type="button" role="tab" [class.active]="mode() === 'draw'" [attr.aria-selected]="mode() === 'draw'" (click)="setMode('draw')" [disabled]="submitting()">Draw</button>
+        <button type="button" role="tab" [class.active]="mode() === 'type'" [attr.aria-selected]="mode() === 'type'" (click)="setMode('type')" [disabled]="submitting()">Type</button>
+      </div>
+    </div>
+
+    @if (mode() === 'draw') {
+      <div class="pad-wrap">
+        <canvas #pad width="1200" height="400" aria-label="Signature pad: draw your signature"
+          (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)"
+          (pointerup)="onPointerUp()" (pointerleave)="onPointerUp()" (pointercancel)="onPointerUp()"></canvas>
+        @if (!hasInk()) { <span class="pad-hint">Sign here with your mouse or finger</span> }
+        <div class="pad-line"></div>
+      </div>
+      <div class="pad-actions">
+        <button type="button" class="btn-outline small" (click)="clearPad()" [disabled]="submitting() || !hasInk()">Clear</button>
+      </div>
+    } @else {
+      <input type="text" maxlength="100" placeholder="Type your name" [value]="typedSignature()" (input)="typedSignature.set($any($event.target).value)" [disabled]="submitting()" />
+      <div class="typed-preview" [style.font-family]="signatureFont">{{ typedSignature() || ' ' }}</div>
+    }
+  </div>
+
+  <!-- 4. Consent -->
+  <label class="consent">
+    <input type="checkbox" [checked]="consent()" (change)="consent.set($any($event.target).checked)" [disabled]="submitting()" />
+    <span>I have read the agreement and agree to sign it electronically; my electronic signature has the same effect as a handwritten one.</span>
+  </label>
+
+  @if (error()) { <div class="notice err">{{ error() }}</div> }
+
+  <div class="actions">
+    <button type="button" class="btn-outline" (click)="cancel()" [disabled]="submitting()">Cancel</button>
+    <button type="button" class="btn-primary" (click)="sign()" [disabled]="!canSign()">
+      {{ submitting() ? 'Signing…' : 'Sign agreement' }}
+    </button>
+  </div>
+</div>

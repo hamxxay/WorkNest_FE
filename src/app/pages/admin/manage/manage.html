@@ -4063,7 +4063,11 @@
       </p>
       @if (customerCopyOnFile(ag)) {
       <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:8px;padding:10px 12px;font-size:0.82rem;line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        @if (eSignedAt(ag)) {
+        <span><strong>E-signed</strong> by {{ eSignedBy(ag) || 'the customer' }} on {{ eSignedAt(ag) | date:'d MMM y, h:mm a' }}, but the booking was not created automatically. Check the quotation's space and dates, then confirm.</span>
+        } @else {
         <span>The customer uploaded the signed copy on {{ (ag.signedPdfUploadedAt || ag.SignedPdfUploadedAt) | date:'d MMM y' }}. Check it before confirming.</span>
+        }
         <button class="btn-admin btn-outline-admin" style="white-space:nowrap" (click)="downloadSignedAgreementPdf(ag.id || ag.agreementId)">View copy</button>
       </div>
       }
@@ -4185,7 +4189,36 @@
       <!-- Signed Agreement Section -->
       <div
         style="background:#ffffff;border:1.5px dashed #94a3b8;border-radius:10px;padding:18px 20px;margin-bottom:10px">
-        <h4 style="margin:0 0 10px 0;font-size:0.95rem;font-weight:700;color:#0f172a">Signed Agreement Copy</h4>
+        <h4 style="margin:0 0 10px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          Signed Agreement Copy
+          @if (eSignedAt(agreement)) {
+          <span style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">E-signed</span>
+          } @else if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
+          <span style="background:#e0f2fe;color:#0369a1;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">Uploaded</span>
+          }
+        </h4>
+
+        @if (eSignedAt(agreement)) {
+        <div style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:#334155;line-height:1.6">
+          <div style="font-weight:700;color:#5b21b6;margin-bottom:4px">
+            Signed electronically by {{ eSignedBy(agreement) || 'the customer' }} on {{ eSignedAt(agreement) | date:'d MMM y, h:mm a' }} (PKT)
+          </div>
+          @if (loadingAgreementESignature()) {
+          <div style="color:#64748b">Loading signature details…</div>
+          } @else if (selectedAgreementESignature(); as es) {
+          <div style="display:grid;grid-template-columns:120px 1fr;gap:2px 10px;word-break:break-all">
+            <span style="color:#64748b">Email</span><span>{{ es.signerEmail || '—' }}</span>
+            <span style="color:#64748b">IP address</span><span>{{ es.ipAddress || '—' }}</span>
+            <span style="color:#64748b">Browser</span><span>{{ es.userAgent || '—' }}</span>
+            <span style="color:#64748b">SHA-256</span><span style="font-family:monospace;font-size:0.75rem">{{ es.documentSha256 || '—' }}</span>
+          </div>
+          @if (es.signatureImage) {
+          <img [src]="es.signatureImage" alt="Customer signature" style="margin-top:8px;max-width:260px;max-height:90px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px" />
+          }
+          }
+          <div style="color:#64748b;font-size:0.75rem;margin-top:6px">The signed PDF ends with the electronic signature certificate.</div>
+        </div>
+        }
 
         <!-- Conditional Download Link -->
         <div style="margin-bottom:16px">
