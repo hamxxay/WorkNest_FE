@@ -69,6 +69,9 @@ export class AttendantManagement implements OnInit, OnDestroy {
   // Signals: the app is zoneless, so state changed in HTTP callbacks must be signals to re-render.
   enrolling = signal(false);
   savingAccess = signal(false);
+  // Block double submits while the attendant is being created / assigned.
+  savingAttendant = signal(false);
+  assigningAttendant = signal(false);
 
   // Challan-based access suspension (overdue unpaid challan) for the selected booking
   suspension = signal<any>(null);
@@ -274,7 +277,7 @@ export class AttendantManagement implements OnInit, OnDestroy {
   }
 
   submitAddAttendant() {
-    if (!this.selectedCustomerId || !this.selectedBookingDetailId) return;
+    if (this.savingAttendant() || !this.selectedCustomerId || !this.selectedBookingDetailId) return;
 
     if (this.addMode === 'new') {
       if (!this.newName || !this.newEmail || !this.newPhone || !this.newIdNumber) {
@@ -291,12 +294,17 @@ export class AttendantManagement implements OnInit, OnDestroy {
         idNumber: this.newIdNumber.trim()
       };
 
+      this.savingAttendant.set(true);
       this.admin.addAttendant(body).subscribe({
         next: (res: any) => {
+          this.savingAttendant.set(false);
           this.closeAddModal();
           this.processBookingAssignment(res.personId);
         },
-        error: (err) => this.toast.error('Failed to create person: ' + (err.error?.message || err.message))
+        error: (err) => {
+          this.savingAttendant.set(false);
+          this.toast.error('Failed to create person: ' + (err.error?.message || err.message));
+        }
       });
     } else {
       if (!this.selectedExistingPersonId) {
@@ -345,13 +353,18 @@ export class AttendantManagement implements OnInit, OnDestroy {
   }
 
   executeAssignment() {
-    if (!this.pendingAssignmentPayload) return;
+    if (!this.pendingAssignmentPayload || this.assigningAttendant()) return;
+    this.assigningAttendant.set(true);
     this.admin.assignAttendantToBooking(this.pendingAssignmentPayload.bookingDetailId, this.pendingAssignmentPayload).subscribe({
       next: () => {
+        this.assigningAttendant.set(false);
         this.pendingAssignmentPayload = null;
         this.onCustomerChange();
       },
-      error: (err) => this.toast.error('Assignment failed: ' + (err.error?.message || err.message))
+      error: (err) => {
+        this.assigningAttendant.set(false);
+        this.toast.error('Assignment failed: ' + (err.error?.message || err.message));
+      }
     });
   }
 
