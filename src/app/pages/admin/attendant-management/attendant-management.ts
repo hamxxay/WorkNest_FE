@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { ToastService } from '../../../services/toast.service';
 import { HikDeviceService } from '../../../services/hik-device.service';
+import { AuthService } from '../../../services/auth.service';
 import { HikDevice } from '../../../models/hik-device.model';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../../utils/phone';
@@ -24,6 +25,24 @@ export class AttendantManagement implements OnInit, OnDestroy {
   private admin = inject(AdminService);
   private toast = inject(ToastService);
   private hikDevices = inject(HikDeviceService);
+  private auth = inject(AuthService);
+
+  /** Admins may add people beyond a room's capacity (billed as overage); sales executives fill it up to capacity only. */
+  readonly canOverfill = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+
+  /** Sales executive and the selected room already has as many people as seats: adds become requests for an admin. */
+  myEmail = (this.auth.getUser()?.email || '').toLowerCase();
+
+  /** Pending over-capacity requests for the selected room. */
+  roomRequests = signal<any[]>([]);
+  /** Admins: every pending request at their locations (shown at the top of the page). */
+  allRequests = signal<any[]>([]);
+  decidingRequestId = signal<number | null>(null);
+
+  roomFull = computed(() => {
+    const cap = this.capacityInfo();
+    return !this.canOverfill && !!cap && cap.roomCapacity > 0 && this.attendants().length >= cap.roomCapacity;
+  });
 
   customers = signal<any[]>([]);
   selectedCustomerId = '';
@@ -126,6 +145,7 @@ export class AttendantManagement implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadCustomers();
     this.loadDevices();
+    this.loadRequests();
     // Re-check machine online status while a space is selected, so the enrollment buttons
     // enable on their own once the room machine comes back online (and disable if it drops).
     this.machineStatusTimer = setInterval(() => {
@@ -261,6 +281,8 @@ export class AttendantManagement implements OnInit, OnDestroy {
       error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to check attendant capacity.')
     });
 
+    this.loadRequests();
+
     this.admin.getBookingAttendants(this.selectedBookingDetailId).subscribe({
       next: (res: any) => {
         this.attendants.set(res || []);
@@ -349,6 +371,8 @@ export class AttendantManagement implements OnInit, OnDestroy {
 
         if (cap.wouldExceedCapacity) {
           if (!cap.allowsOverCapacity) {
+            // Sales executive and a full room: send it to an admin instead of adding directly.
+            if (!this.canOverfill) { this.requestApproval(bId, personId, cId); return; }
             this.toast.error(`Over-capacity assignment is strictly not allowed for ${cap.spaceCategory} (${cap.spaceName}). Capacity limit is ${cap.roomCapacity}.`);
             return;
           }
@@ -362,6 +386,71 @@ export class AttendantManagement implements OnInit, OnDestroy {
         }
       },
       error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Failed to check attendant capacity.')
+    });
+  }
+
+  /** Sales executive: the room is full, so ask an admin to approve adding this person. */
+  private requestApproval(bookingDetailId: number, personId: number, customerId: number) {
+    this.admin.requestOverCapacity(bookingDetailId, personId, customerId).subscribe({
+      next: (res: any) => {
+        this.toast.success(res?.message || 'An admin has been asked to approve adding this person.');
+        this.loadRequests();
+      },
+      error: (e: any) => this.toast.error(e?.error?.message ?? e?.message ?? 'Could not send the request.')
+    });
+  }
+
+  /** Pending requests for the selected room, and (admins) for all rooms. */
+  loadRequests() {
+    if (this.selectedBookingDetailId) {
+      const bId = this.selectedBookingDetailId;
+      this.admin.getCapacityRequests(bId).subscribe({
+        next: rows => { if (this.selectedBookingDetailId === bId) this.roomRequests.set(rows || []); },
+        error: () => this.roomRequests.set([])
+      });
+    } else {
+      this.roomRequests.set([]);
+    }
+    if (this.canOverfill) {
+      this.admin.getCapacityRequests(null).subscribe({ next: rows => this.allRequests.set(rows || []), error: () => this.allRequests.set([]) });
+    }
+  }
+
+  isMyRequest(r: any): boolean {
+    return (r?.requestedByEmail || '').toLowerCase() === this.myEmail;
+  }
+
+  approveRequest(r: any) {
+    if (this.decidingRequestId() !== null) return;
+    this.decidingRequestId.set(r.id);
+    this.admin.approveCapacityRequest(r.id).subscribe({
+      next: (res: any) => {
+        this.decidingRequestId.set(null);
+        this.toast.success(res?.message || 'Approved.');
+        this.loadRequests();
+        if (this.selectedBookingDetailId === r.bookingDetailId) this.loadAttendantsForSpace();
+      },
+      error: (e: any) => { this.decidingRequestId.set(null); this.toast.error(e?.error?.message ?? e?.message ?? 'Could not approve.'); }
+    });
+  }
+
+  rejectRequest(r: any) {
+    if (this.decidingRequestId() !== null) return;
+    const note = prompt(`Reject adding ${r.personName || 'this person'} to ${r.spaceName || 'the room'}? Optional reason for the sales executive:`);
+    if (note === null) return;
+    this.decidingRequestId.set(r.id);
+    this.admin.rejectCapacityRequest(r.id, note.trim()).subscribe({
+      next: (res: any) => { this.decidingRequestId.set(null); this.toast.success(res?.message || 'Request rejected.'); this.loadRequests(); },
+      error: (e: any) => { this.decidingRequestId.set(null); this.toast.error(e?.error?.message ?? e?.message ?? 'Could not reject.'); }
+    });
+  }
+
+  cancelRequest(r: any) {
+    if (this.decidingRequestId() !== null || !confirm('Withdraw this request?')) return;
+    this.decidingRequestId.set(r.id);
+    this.admin.cancelCapacityRequest(r.id).subscribe({
+      next: (res: any) => { this.decidingRequestId.set(null); this.toast.success(res?.message || 'Request withdrawn.'); this.loadRequests(); },
+      error: (e: any) => { this.decidingRequestId.set(null); this.toast.error(e?.error?.message ?? e?.message ?? 'Could not withdraw.'); }
     });
   }
 

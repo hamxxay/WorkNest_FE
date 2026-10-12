@@ -102,3 +102,18 @@ textarea.form-control { resize: vertical; font-family: inherit; }
 
 .app-access { display: block; margin-top: 4px; font-size: .78em; font-weight: 600; color: #047857; }
 .app-access.expired { color: #b45309; }
+
+/* Sales executive: room at capacity */
+.room-full-note { margin: -4px 0 12px; padding: 10px 14px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; font-size: 0.85rem; }
+
+/* Over-capacity requests */
+.cap-requests, .cap-requests-all { border: 1px solid #fde68a; background: #fffbeb; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.cap-requests-all { margin: 0 0 18px; }
+.cap-requests-title { font-weight: 700; color: #92400e; font-size: 0.9rem; margin-bottom: 6px; }
+.cap-request { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #fef3c7; flex-wrap: wrap; }
+.cap-request:first-of-type { border-top: none; }
+.cap-request-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cap-request-main .muted { color: #64748b; font-size: 0.8rem; }
+.cap-request-actions { display: flex; gap: 8px; align-items: center; }
+.pill-waiting { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; }
+.cap-requests-all .muted.small { color: #64748b; font-size: 0.8rem; margin: 0 0 6px; }

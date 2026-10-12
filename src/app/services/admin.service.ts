@@ -547,6 +547,25 @@ export class AdminService {
   checkAttendantCapacity(bookingDetailId: number): Observable<any> {
     return this.http.get<any>(`${this.api}/bookings/${bookingDetailId}/capacity-check`);
   }
+  /** Sales executive, full room: ask an admin to approve adding this person. */
+  requestOverCapacity(bookingDetailId: number, personId: number, customerId: number): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/capacity-requests`, { personId, customerId });
+  }
+  /** Over-capacity requests (pending by default) for the user's locations, optionally for one room. */
+  getCapacityRequests(bookingDetailId?: number | null, status = 'Pending'): Observable<any[]> {
+    const params: any = { status };
+    if (bookingDetailId) params.bookingDetailId = bookingDetailId;
+    return this.http.get<any[]>(`${this.api}/capacity-requests`, { params });
+  }
+  approveCapacityRequest(id: number): Observable<any> {
+    return this.http.post<any>(`${this.api}/capacity-requests/${id}/approve`, {});
+  }
+  rejectCapacityRequest(id: number, note?: string): Observable<any> {
+    return this.http.post<any>(`${this.api}/capacity-requests/${id}/reject`, { note: note || null });
+  }
+  cancelCapacityRequest(id: number): Observable<any> {
+    return this.http.post<any>(`${this.api}/capacity-requests/${id}/cancel`, {});
+  }
   assignAttendantToBooking(bookingDetailId: number, data: any): Observable<any> {
     return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/attendants`, data);
   }

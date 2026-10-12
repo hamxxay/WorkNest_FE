@@ -8,6 +8,26 @@
     <button class="btn btn-outline" (click)="openExportModal()"> Hikvision Export Preview</button>
   </div>
 
+  @if (canOverfill && allRequests().length) {
+  <div class="card cap-requests-all">
+    <div class="cap-requests-title">Requests to add people to full rooms ({{ allRequests().length }})</div>
+    <p class="muted small">Sales executives asked to add these people beyond the room's seats. Approving adds them and bills the extra seats as usual.</p>
+    @for (r of allRequests(); track r.id) {
+    <div class="cap-request">
+      <div class="cap-request-main">
+        <strong>{{ r.personName || 'Person #' + r.personId }}</strong>
+        <span class="muted">{{ r.spaceName }}{{ r.customerName ? ' · ' + r.customerName : '' }} · {{ r.currentAttendants }} of {{ r.roomCapacity }} seats used</span>
+        <span class="muted small">Requested by {{ r.requestedByEmail }} · {{ r.requestedAt | date:'d MMM, h:mm a' }}</span>
+      </div>
+      <div class="cap-request-actions">
+        <button class="btn btn-primary btn-sm" (click)="approveRequest(r)" [disabled]="decidingRequestId() !== null">{{ decidingRequestId() === r.id ? 'Working…' : 'Approve' }}</button>
+        <button class="btn btn-outline btn-sm" (click)="rejectRequest(r)" [disabled]="decidingRequestId() !== null">Reject</button>
+      </div>
+    </div>
+    }
+  </div>
+  }
+
   <div class="grid-container">
     <!-- Sidebar: Steps 1 & 2 -->
     <div class="sidebar-col">
@@ -48,9 +68,36 @@
       <div class="card">
         <div class="card-header-row">
           <div class="card-title">Step 3 - Users & Access Status</div>
-          <button class="btn btn-primary" [disabled]="!selectedBookingDetailId" (click)="openAddModal()">+ Add
-            User</button>
+          <button class="btn btn-primary" [disabled]="!selectedBookingDetailId" (click)="openAddModal()"
+            [title]="roomFull() ? 'This room is full. People you add are sent to an admin for approval.' : ''">{{ roomFull() ? '+ Request to Add User' : '+ Add User' }}</button>
         </div>
+        @if (roomFull()) {
+        <div class="room-full-note" role="status">This room is full ({{ attendants().length }} of {{ capacityInfo()?.roomCapacity }} seats). People you add now are sent to an admin for approval.</div>
+        }
+        @if (roomRequests().length) {
+        <div class="cap-requests">
+          <div class="cap-requests-title">Waiting for admin approval ({{ roomRequests().length }})</div>
+          @for (r of roomRequests(); track r.id) {
+          <div class="cap-request">
+            <div class="cap-request-main">
+              <strong>{{ r.personName || 'Person #' + r.personId }}</strong>
+              <span class="muted">Requested by {{ r.requestedByEmail }} · {{ r.requestedAt | date:'d MMM, h:mm a' }}</span>
+            </div>
+            <div class="cap-request-actions">
+              @if (canOverfill) {
+              <button class="btn btn-primary btn-sm" (click)="approveRequest(r)" [disabled]="decidingRequestId() !== null">{{ decidingRequestId() === r.id ? 'Working…' : 'Approve' }}</button>
+              <button class="btn btn-outline btn-sm" (click)="rejectRequest(r)" [disabled]="decidingRequestId() !== null">Reject</button>
+              } @else if (isMyRequest(r)) {
+              <span class="pill-waiting">Waiting</span>
+              <button class="btn btn-outline btn-sm" (click)="cancelRequest(r)" [disabled]="decidingRequestId() !== null">Withdraw</button>
+              } @else {
+              <span class="pill-waiting">Waiting</span>
+              }
+            </div>
+          </div>
+          }
+        </div>
+        }
 
         @if (selectedBookingDetailId && upcomingSuspension(); as u) {
         <div class="suspension-banner upcoming">
