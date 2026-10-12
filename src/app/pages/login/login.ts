@@ -1,3 +1,4 @@
+import { publicSiteUrl } from '../../utils/public-site';
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -46,6 +47,7 @@ export class Login {
       next: (res) => {
         this.loading.set(false);
         if (res.isSuccessful) {
+          if (!this.isStaff(res.data)) { this.sendCustomerToPublicSite(); return; }
           this.router.navigateByUrl(this.getRoleBasedRedirect(res.data));
         } else {
           const msg = res.message || 'Login failed.';
@@ -69,6 +71,7 @@ export class Login {
     this.authService.loginWithGoogle().subscribe({
       next: (res) => {
         this.socialLoading.set(null);
+        if (!this.isStaff(res.data)) { this.sendCustomerToPublicSite(); return; }
         this.router.navigateByUrl(this.getRoleBasedRedirect(res.data));
       },
       error: (err) => {
@@ -81,12 +84,10 @@ export class Login {
   }
 
   continueAsGuest() {
-    this.authService.continueAsGuest();
-    // Guests can't open protected pages (my-*, checkout, admin), so don't send them
-    // back to one; that would just bounce them to this login page again.
-    const redirect = this.getRedirectUrl();
-    this.router.navigateByUrl(this.authService.isProtectedUrl(redirect) ? '/' : redirect);
+    // The CMS is staff-only: guests browse the public website instead.
+    window.location.href = publicSiteUrl('/login');
   }
+
 
   openForgotPassword() {
     this.resetEmail = this.email;
@@ -127,6 +128,20 @@ export class Login {
         this.resetError.set(msg);
       }
     });
+  }
+
+  /** Super admin, admin, sales executive and receptionist use the CMS; everyone else is a customer. */
+  private isStaff(user?: any): boolean {
+    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist'];
+    const roles: string[] = user?.roles ?? [];
+    return roles.some(r => staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
+  }
+
+  /** Customers sign in on worknestpk.com: end the CMS session and send them there. */
+  private sendCustomerToPublicSite() {
+    this.error.set('This portal is for WorkNest staff. Taking you to worknestpk.com to sign in...');
+    const go = () => { window.location.href = publicSiteUrl('/login'); };
+    this.authService.logout$().subscribe({ next: go, error: go });
   }
 
   private getRoleBasedRedirect(user?: any): string {
