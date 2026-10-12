@@ -4,10 +4,14 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
+/** Matches the API rule (fee receipt SPs): an invoice is a WHT invoice when its type is 6 or it carries WHT. */
+const isWhtInvoice = (invoiceTypeId: number, whtAmount: number) => invoiceTypeId === 6 || whtAmount > 0;
+const invoiceTypeLabel = (invoiceTypeId: number, whtAmount: number) =>
+  isWhtInvoice(invoiceTypeId, whtAmount) ? 'WHT Invoice' : 'Standard Invoice';
+
 export interface UnpaidInvoiceDto {
   invoiceId: number;
   invoiceIdGuid: string;
-  invoiceIdGUID?: string;
   invoiceNumber: string;
   invoiceTypeId: number;
   invoiceTypeName: string;
@@ -22,7 +26,6 @@ export interface UnpaidInvoiceDto {
   companyId: number;
   branchId: number;
   issuedOn: string;
-  dueDate: string;
   dueOn: string;
   roomRentExclTax: number;
   serviceCharges: number;
@@ -36,29 +39,25 @@ export interface UnpaidInvoiceDto {
 
 export interface FeeReceiptAccountDto {
   accountId: number;
-  title: string;
   description: string;
-  code: string;
   shortDesc: string;
   accountNature: string;
   companyId: number;
   isCashInHand: boolean;
 }
 
+/** Body of POST /fee-receipts (FeeReceiptCreateDto). */
 export interface CreateFeeReceiptDto {
-  invoiceIdGUID?: string;
-  invoiceIdGuid?: string;
-  cashInHandAccountId?: number;
-  accountId?: number;
+  invoiceIdGUID: string;
+  cashInHandAccountId: number;
   receiptDate: string; // YYYY-MM-DD
   paymentType: string;
   remarks?: string | null;
 }
 
+/** Body of POST /fee-receipts/void (FeeReceiptVoidDto). */
 export interface VoidFeeReceiptDto {
-  id?: number;
-  receiptId?: number;
-  receiptGUID?: string;
+  id: number;
   voidReason: string;
 }
 
@@ -96,15 +95,12 @@ export interface FeeReceiptDetailDto extends FeeReceiptListItemDto {
   securityDepositAmount: number;
   grandTotal: number;
   companyId: number;
-  companyName: string;
   branchId: number;
-  branchName: string;
   invoiceIssuedOn: string | null;
-  invoiceDueDate: string | null;
+  invoiceDueOn: string | null;
   customerEmail: string;
   customerPhone: string;
-  spaceName: string;
-  spaceTypeName: string;
+  locationCity: string;
   updatedOn: string | null;
   updatedByName: string;
 }
@@ -123,6 +119,58 @@ export interface ApiResponse<T> {
   errors?: string[];
 }
 
+/** Maps a FeeReceiptDto (camelCase JSON) from list / get-by-id / create into the view model. */
+function mapReceipt(r: any): FeeReceiptDetailDto {
+  r = r ?? {};
+  const roomRentExclTax = Number(r.roomRentExclTax ?? 0);
+  const serviceCharges = Number(r.serviceCharges ?? 0);
+  const taxOnServiceCharges = Number(r.taxOnServiceCharges ?? 0);
+  const securityDepositAmount = Number(r.securityDepositAmount ?? 0);
+  const whtAmount = Number(r.whtAmount ?? 0);
+  const invoiceTypeId = Number(r.invoiceTypeId ?? 0);
+  return {
+    id: r.id ?? 0,
+    idGuid: r.idGUID ?? '',
+    code: r.code ?? '',
+    receiptDate: r.receiptDate ?? '',
+    customerIdGuid: r.customerIdGUID ?? '',
+    customerName: r.customerName ?? '',
+    customerCode: r.customerCode ?? '',
+    invoiceIdGuid: r.invoiceIdGUID ?? '',
+    invoiceNumber: r.invoiceNumber ?? '',
+    locationId: r.locationId ?? null,
+    locationName: r.locationName ?? '',
+    totalAmount: Number(r.totalAmount ?? 0),
+    paymentType: r.paymentType ?? 'Cash',
+    cashInHandAccountId: r.cashInHandAccountId ?? 0,
+    accountTitle: r.cashInHandAccountName ?? '',
+    status: Number(r.status ?? 1),
+    statusLabel: r.statusLabel ?? 'Active',
+    remarks: r.remarks ?? '',
+    voidReason: r.voidReason ?? '',
+    createdOn: r.createdOn ?? '',
+    createdByName: r.createdByName ?? '',
+    invoiceTypeId,
+    invoiceTypeName: invoiceTypeLabel(invoiceTypeId, whtAmount),
+    roomRentExclTax,
+    serviceCharges,
+    taxOnServiceCharges,
+    whtAmount,
+    securityDepositAmount,
+    // Fallback (invoice row missing): rebuild the gross total from its parts.
+    grandTotal: Number(r.invoiceGrandTotal ?? (roomRentExclTax + serviceCharges + taxOnServiceCharges + securityDepositAmount)),
+    companyId: Number(r.companyId ?? 0),
+    branchId: Number(r.branchId ?? 0),
+    invoiceIssuedOn: r.invoiceIssuedOn ?? null,
+    invoiceDueOn: r.invoiceDueOn ?? null,
+    customerEmail: r.customerEmail ?? '',
+    customerPhone: r.customerPhone ?? '',
+    locationCity: r.locationCity ?? '',
+    updatedOn: r.updatedOn ?? null,
+    updatedByName: r.updatedByName ?? ''
+  };
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -130,6 +178,7 @@ export class FeeReceiptService {
   private http = inject(HttpClient);
   private baseUrl = `${environment.apiUrl}/fee-receipts`;
 
+  /** locationId is optional: the API already limits location-bound users to their own locations. */
   getUnpaidInvoices(search?: string, locationId?: number | null, top: number = 30): Observable<UnpaidInvoiceDto[]> {
     let params = new HttpParams().set('top', top.toString());
     if (search && search.trim()) {
@@ -141,41 +190,38 @@ export class FeeReceiptService {
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/unpaid-invoices`, { params }).pipe(
       map(res => {
         const list = Array.isArray(res?.data) ? res.data : [];
-        return list.map((r: any) => {
-          const guid = r.invoiceIdGUID ?? r.invoiceIdGuid ?? r.InvoiceIdGUID ?? r.InvoiceIdGuid ?? '';
-          const custName = r.customerName ?? r.CustomerName ?? '';
-          const custCode = r.customerCode ?? r.CustomerCode ?? '';
-          const invNum = r.invoiceNumber ?? r.InvoiceNumber ?? '';
-          const display = r.displayName ?? r.DisplayName ?? `${custName}-${custCode}-${invNum}`;
-
+        return list.map((r: any): UnpaidInvoiceDto => {
+          const custName = r.customerName ?? '';
+          const custCode = r.customerCode ?? '';
+          const invNum = r.invoiceNumber ?? '';
+          const invoiceTypeId = Number(r.invoiceTypeId ?? 0);
+          const whtAmount = Number(r.whtAmount ?? 0);
           return {
-            invoiceId: r.invoiceId ?? r.InvoiceId ?? 0,
-            invoiceIdGuid: guid,
-            invoiceIdGUID: guid,
+            invoiceId: r.invoiceId ?? 0,
+            invoiceIdGuid: r.invoiceIdGUID ?? '',
             invoiceNumber: invNum,
-            invoiceTypeId: Number(r.invoiceTypeId ?? r.InvoiceTypeId ?? 1),
-            invoiceTypeName: r.invoiceTypeName ?? r.InvoiceTypeName ?? 'Standard Invoice',
-            customerIdGuid: r.customerIdGUID ?? r.customerIdGuid ?? r.CustomerIdGUID ?? '',
+            invoiceTypeId,
+            invoiceTypeName: invoiceTypeLabel(invoiceTypeId, whtAmount),
+            customerIdGuid: r.customerIdGUID ?? '',
             customerName: custName,
             customerCode: custCode,
-            customerEmail: r.customerEmail ?? r.CustomerEmail ?? '',
-            customerPhone: r.customerPhone ?? r.CustomerPhone ?? '',
-            bookingId: r.bookingId ?? r.BookingId ?? null,
-            locationId: r.locationId ?? r.LocationId ?? null,
-            locationName: r.locationName ?? r.LocationName ?? '',
-            companyId: Number(r.companyId ?? r.CompanyId ?? 0),
-            branchId: Number(r.branchId ?? r.BranchId ?? 0),
-            issuedOn: r.issuedOn ?? r.IssuedOn ?? '',
-            dueDate: r.dueOn ?? r.DueOn ?? r.dueDate ?? '',
-            dueOn: r.dueOn ?? r.DueOn ?? r.dueDate ?? '',
-            roomRentExclTax: Number(r.roomRentExclTax ?? r.RoomRentExclTax ?? 0),
-            serviceCharges: Number(r.serviceCharges ?? r.ServiceCharges ?? 0),
-            taxOnServiceCharges: Number(r.taxOnServiceCharges ?? r.TaxOnServiceCharges ?? 0),
-            whtAmount: Number(r.whtAmount ?? r.WHTAmount ?? 0),
-            securityDepositAmount: Number(r.securityDepositAmount ?? r.SecurityDepositAmount ?? 0),
-            grandTotal: Number(r.grandTotal ?? r.GrandTotal ?? 0),
-            netReceivableAmount: Number(r.netReceivableAmount ?? r.NetReceivableAmount ?? 0),
-            dropdownDisplay: display
+            customerEmail: r.customerEmail ?? '',
+            customerPhone: r.customerPhone ?? '',
+            bookingId: r.bookingId ?? null,
+            locationId: r.locationId ?? null,
+            locationName: r.locationName ?? '',
+            companyId: Number(r.companyId ?? 0),
+            branchId: Number(r.branchId ?? 0),
+            issuedOn: r.issuedOn ?? '',
+            dueOn: r.dueOn ?? '',
+            roomRentExclTax: Number(r.roomRentExclTax ?? 0),
+            serviceCharges: Number(r.serviceCharges ?? 0),
+            taxOnServiceCharges: Number(r.taxOnServiceCharges ?? 0),
+            whtAmount,
+            securityDepositAmount: Number(r.securityDepositAmount ?? 0),
+            grandTotal: Number(r.grandTotal ?? 0),
+            netReceivableAmount: Number(r.netReceivableAmount ?? 0),
+            dropdownDisplay: r.displayName || `${custName}-${custCode}-${invNum}`
           };
         });
       })
@@ -190,40 +236,24 @@ export class FeeReceiptService {
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/accounts`, { params }).pipe(
       map(res => {
         const list = Array.isArray(res?.data) ? res.data : [];
-        return list.map((r: any) => ({
-          accountId: r.accountId ?? r.AccountId ?? 0,
-          description: r.description ?? r.Description ?? '',
-          title: r.description ?? r.Description ?? r.title ?? '',
-          shortDesc: r.shortDesc ?? r.ShortDesc ?? '',
-          code: r.shortDesc ?? r.ShortDesc ?? r.code ?? '',
-          accountNature: r.accountNature ?? r.AccountNature ?? '',
-          companyId: Number(r.companyId ?? r.CompanyId ?? 0),
-          isCashInHand: !!(r.isCashInHand ?? r.IsCashInHand)
+        return list.map((r: any): FeeReceiptAccountDto => ({
+          accountId: r.accountId ?? 0,
+          description: r.description ?? '',
+          shortDesc: r.shortDesc ?? '',
+          accountNature: r.accountNature ?? '',
+          companyId: Number(r.companyId ?? 0),
+          isCashInHand: !!r.isCashInHand
         }));
       })
     );
   }
 
-  createReceipt(payload: CreateFeeReceiptDto): Observable<ApiResponse<FeeReceiptDetailDto>> {
-    const body = {
-      invoiceIdGUID: payload.invoiceIdGUID ?? payload.invoiceIdGuid,
-      invoiceIdGuid: payload.invoiceIdGUID ?? payload.invoiceIdGuid,
-      cashInHandAccountId: payload.cashInHandAccountId ?? payload.accountId,
-      accountId: payload.cashInHandAccountId ?? payload.accountId,
-      receiptDate: payload.receiptDate,
-      paymentType: payload.paymentType,
-      remarks: payload.remarks
-    };
-    return this.http.post<ApiResponse<FeeReceiptDetailDto>>(this.baseUrl, body);
+  /** Creates the receipt and returns it mapped like getReceiptById (ready for the print view). */
+  createReceipt(body: CreateFeeReceiptDto): Observable<FeeReceiptDetailDto> {
+    return this.http.post<ApiResponse<any>>(this.baseUrl, body).pipe(map(res => mapReceipt(res?.data)));
   }
 
-  voidReceipt(payload: VoidFeeReceiptDto): Observable<ApiResponse<any>> {
-    const body = {
-      id: payload.id ?? payload.receiptId,
-      receiptId: payload.receiptId ?? payload.id,
-      receiptGUID: payload.receiptGUID,
-      voidReason: payload.voidReason
-    };
+  voidReceipt(body: VoidFeeReceiptDto): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/void`, body);
   }
 
@@ -243,94 +273,18 @@ export class FeeReceiptService {
     return this.http.get<ApiResponse<any>>(this.baseUrl, { params: httpParams }).pipe(
       map(res => {
         const payload = res?.data;
-        const items = payload?.data ?? payload?.items ?? (Array.isArray(payload) ? payload : []);
-        const total = payload?.totalCount ?? payload?.total ?? items.length;
+        const items: any[] = Array.isArray(payload?.data) ? payload.data : [];
         return {
-          total,
+          total: Number(payload?.totalCount ?? items.length),
           page: payload?.page ?? params.page,
           limit: payload?.limit ?? params.limit,
-          items: items.map((r: any) => ({
-            id: r.id ?? r.Id ?? 0,
-            idGuid: r.idGUID ?? r.idGuid ?? r.IdGUID ?? '',
-            code: r.code ?? r.Code ?? '',
-            receiptDate: r.receiptDate ?? r.ReceiptDate ?? '',
-            customerIdGuid: r.customerIdGUID ?? r.customerIdGuid ?? '',
-            customerName: r.customerName ?? r.CustomerName ?? '',
-            customerCode: r.customerCode ?? r.CustomerCode ?? '',
-            invoiceIdGuid: r.invoiceIdGUID ?? r.invoiceIdGuid ?? '',
-            invoiceNumber: r.invoiceNumber ?? r.InvoiceNumber ?? '',
-            locationId: r.locationId ?? r.LocationId ?? null,
-            locationName: r.locationName ?? r.LocationName ?? '',
-            totalAmount: Number(r.totalAmount ?? r.TotalAmount ?? 0),
-            paymentType: r.paymentType ?? r.PaymentType ?? 'Cash',
-            cashInHandAccountId: r.cashInHandAccountId ?? r.CashInHandAccountId ?? 0,
-            accountTitle: r.cashInHandAccountName ?? r.accountTitle ?? r.AccountTitle ?? '',
-            status: Number(r.status ?? r.Status ?? 1),
-            statusLabel: r.statusLabel ?? r.StatusLabel ?? 'Active',
-            remarks: r.remarks ?? r.Remarks ?? '',
-            voidReason: r.voidReason ?? r.VoidReason ?? '',
-            createdOn: r.createdOn ?? r.CreatedOn ?? '',
-            createdByName: r.createdByName ?? r.CreatedByName ?? ''
-          }))
+          items: items.map(mapReceipt)
         };
       })
     );
   }
 
   getReceiptById(id: number): Observable<FeeReceiptDetailDto> {
-    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/${id}`).pipe(
-      map(res => {
-        const r = res?.data ?? {};
-        return {
-          id: r.id ?? r.Id ?? 0,
-          idGuid: r.idGUID ?? r.idGuid ?? r.IdGUID ?? '',
-          code: r.code ?? r.Code ?? '',
-          receiptDate: r.receiptDate ?? r.ReceiptDate ?? '',
-          customerIdGuid: r.customerIdGUID ?? r.customerIdGuid ?? '',
-          customerName: r.customerName ?? r.CustomerName ?? '',
-          customerCode: r.customerCode ?? r.CustomerCode ?? '',
-          invoiceIdGuid: r.invoiceIdGUID ?? r.invoiceIdGuid ?? '',
-          invoiceNumber: r.invoiceNumber ?? r.InvoiceNumber ?? '',
-          locationId: r.locationId ?? r.LocationId ?? null,
-          locationName: r.locationName ?? r.LocationName ?? '',
-          totalAmount: Number(r.totalAmount ?? r.TotalAmount ?? 0),
-          paymentType: r.paymentType ?? r.PaymentType ?? 'Cash',
-          cashInHandAccountId: r.cashInHandAccountId ?? r.CashInHandAccountId ?? 0,
-          accountTitle: r.cashInHandAccountName ?? r.accountTitle ?? r.AccountTitle ?? '',
-          status: Number(r.status ?? r.Status ?? 1),
-          statusLabel: r.statusLabel ?? r.StatusLabel ?? 'Active',
-          remarks: r.remarks ?? r.Remarks ?? '',
-          voidReason: r.voidReason ?? r.VoidReason ?? '',
-          createdOn: r.createdOn ?? r.CreatedOn ?? '',
-          createdByName: r.createdByName ?? r.CreatedByName ?? '',
-          invoiceTypeId: Number(r.invoiceTypeId ?? r.InvoiceTypeId ?? 1),
-          invoiceTypeName: r.invoiceTypeName ?? r.InvoiceTypeName ?? 'Standard Invoice',
-          roomRentExclTax: Number(r.roomRentExclTax ?? r.RoomRentExclTax ?? 0),
-          serviceCharges: Number(r.serviceCharges ?? r.ServiceCharges ?? 0),
-          taxOnServiceCharges: Number(r.taxOnServiceCharges ?? r.TaxOnServiceCharges ?? 0),
-          whtAmount: Number(r.whtAmount ?? r.WHTAmount ?? 0),
-          securityDepositAmount: Number(r.securityDepositAmount ?? r.SecurityDepositAmount ?? 0),
-          grandTotal: Number(r.grandTotal ?? r.GrandTotal ?? 0),
-          companyId: Number(r.companyId ?? r.CompanyId ?? 0),
-          companyName: r.companyName ?? r.CompanyName ?? 'WorkNest',
-          branchId: Number(r.branchId ?? r.BranchId ?? 0),
-          branchName: r.branchName ?? r.BranchName ?? '',
-          invoiceIssuedOn: r.invoiceIssuedOn ?? r.InvoiceIssuedOn ?? null,
-          invoiceDueDate: r.invoiceDueOn ?? r.InvoiceDueOn ?? null,
-          customerEmail: r.customerEmail ?? r.CustomerEmail ?? '',
-          customerPhone: r.customerPhone ?? r.CustomerPhone ?? '',
-          spaceName: r.spaceName ?? r.SpaceName ?? '',
-          spaceTypeName: r.spaceTypeName ?? r.SpaceTypeName ?? '',
-          updatedOn: r.updatedOn ?? r.UpdatedOn ?? null,
-          updatedByName: r.updatedByName ?? r.UpdatedByName ?? ''
-        };
-      })
-    );
-  }
-
-  getReceiptByGuid(guid: string): Observable<FeeReceiptDetailDto> {
-    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/guid/${guid}`).pipe(
-      map(res => res.data)
-    );
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/${id}`).pipe(map(res => mapReceipt(res?.data)));
   }
 }

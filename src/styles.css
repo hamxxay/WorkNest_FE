@@ -721,3 +721,13 @@ textarea.has-error,
 input.input-invalid {
   border-color: #ef4444 !important;
 }
+
+/* Fee Receipts print: triggerPrint() appends a copy of the receipt in .receipt-print-root and sets
+   body.printing-receipt, so only that copy prints (no clipping by the popup or the admin layout). */
+.receipt-print-root { display: none; }
+@media print {
+  body.printing-receipt > *:not(.receipt-print-root) { display: none !important; }
+  body.printing-receipt > .receipt-print-root { display: block !important; }
+  html:has(> body.printing-receipt),
+  body.printing-receipt { height: auto !important; overflow: visible !important; background: #fff !important; }
+}
