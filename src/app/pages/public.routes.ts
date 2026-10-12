@@ -4,7 +4,7 @@ import { Routes } from '@angular/router';
 export const PUBLIC_ROUTES: Routes = [
 
   // The CMS is staff-only: its root opens the staff login; public pages open on worknestpk.com.
-  { path: '', pathMatch: 'full', redirectTo: 'login' },
+  { path: '', pathMatch: 'full', redirectTo: '/login' },
 
   
 
