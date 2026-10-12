@@ -59,18 +59,26 @@
         <div class="settings-row">
           <div class="setting">
             <span class="mode-label">Access</span>
+            @if (canManage) {
             <div class="seg" role="radiogroup" aria-label="Who can join">
               <button [class.active]="s.filterPolicy === 'off'" (click)="askMode('off')" title="Anyone with the password can join">Normal</button>
               <button [class.active]="s.filterPolicy === 'allow'" (click)="askMode('allow')" title="Only the MACs in the list can join">Allowed devices only</button>
               <button [class.active]="s.filterPolicy === 'deny'" (click)="askMode('deny')" title="The MACs in the list can't join">Block listed devices</button>
             </div>
+            } @else {
+              <span class="speed-val" [class.on]="s.filterPolicy !== 'off'" title="Set by an admin">{{ modeText(s.filterPolicy) }}</span>
+            }
           </div>
           <div class="setting">
             <span class="mode-label">Name</span>
+            @if (canManage) {
             <div class="seg" role="radiogroup" aria-label="SSID name visibility">
               <button [class.active]="!s.hidden" (click)="askHidden(false)" title="Shown in the Wi-Fi list">Visible</button>
               <button [class.active]="s.hidden" (click)="askHidden(true)" title="Not shown; devices must type the name">Hidden</button>
             </div>
+            } @else {
+              <span class="speed-val" title="Set by an admin">{{ s.hidden ? 'Hidden' : 'Visible' }}</span>
+            }
           </div>
           <div class="setting">
             <span class="mode-label">Speed per device</span>
@@ -127,7 +135,8 @@
                       <td>{{ c.band || '—' }}</td>
                       <td class="num">
                         @if (isBlocked(s, c.mac)) { <span class="trend bad">Blocked</span> }
-                        @else { <button class="btn-sm btn-danger" (click)="askBlock(c)">Block</button> }
+                        @else if (canManage) { <button class="btn-sm btn-danger" (click)="askBlock(c)">Block</button> }
+                        @else { <span class="muted">—</span> }
                       </td>
                     </tr>
                   }
@@ -146,6 +155,7 @@
             }
           </p>
 
+          @if (canManage || s.filterPolicy === 'allow') {
           <form class="add-row" (ngSubmit)="askAdd()">
             <label class="fld"><span>MAC address</span>
               <input class="net-input mono" name="mac" placeholder="aa:bb:cc:dd:ee:ff" maxlength="17" [ngModel]="newMac()" (ngModelChange)="newMac.set($event)" autocomplete="off" />
@@ -165,9 +175,12 @@
             </label>
             <button class="btn-sm btn-primary add-btn" type="submit" [disabled]="!validMac(newMac()) || !newName().trim()">{{ s.filterPolicy === 'allow' ? 'Add allowed device' : s.filterPolicy === 'deny' ? 'Add blocked device' : 'Add device' }}</button>
           </form>
+          } @else {
+            <p class="muted small">Only an admin can add or remove devices on a block list.</p>
+          }
 
           @if (!s.macList.length) {
-            <div class="empty-state">No devices in the list yet. Add one above, or block a device from the Connected tab.</div>
+            <div class="empty-state">{{ canManage ? 'No devices in the list yet. Add one above, or block a device from the Connected tab.' : 'No devices in the list yet.' }}</div>
           } @else {
             <div class="table-container scroll">
               <table class="clean-table">
@@ -184,7 +197,7 @@
                         @else { <span class="trend bad">Blocked</span> }
                       </td>
                       <td class="num">
-                        @if (s.filterPolicy === 'deny') { <button class="btn-sm btn-outline" (click)="askUnblock(m)">Unblock</button> }
+                        @if (s.filterPolicy === 'deny') { @if (canManage) { <button class="btn-sm btn-outline" (click)="askUnblock(m)">Unblock</button> } }
                         @else { <button class="btn-sm btn-outline" (click)="askRemove(m)">Remove</button> }
                       </td>
                     </tr>

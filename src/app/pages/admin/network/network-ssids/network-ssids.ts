@@ -42,6 +42,12 @@ export class NetworkSsids implements OnInit, OnDestroy {
 
   /** Speed limits are set by super admins only (the API enforces it too). */
   readonly canLimitSpeed = this.auth.hasRole('super_admin');
+  /** Admins / super admins change access mode, name and blocking; sales executives only add / remove allowed devices. */
+  readonly canManage = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+
+  modeText(p: Policy): string {
+    return p === 'allow' ? 'Allowed devices only' : p === 'deny' ? 'Block listed devices' : 'Normal';
+  }
   private admin = inject(AdminService);
 
   /** UniFi speed profiles; the SSID's limit is chosen from these (or "No limit"). */
@@ -179,6 +185,7 @@ export class NetworkSsids implements OnInit, OnDestroy {
 
   // ---------- actions (all confirmed first) ----------
   askBlock(c: UnifiClient) {
+    if (!this.canManage) return;
     const s = this.selected()!;
     this.ask({
       action: 'block', mac: c.mac, name: c.name, danger: true,
@@ -191,6 +198,7 @@ export class NetworkSsids implements OnInit, OnDestroy {
     });
   }
   askUnblock(mac: string) {
+    if (!this.canManage) return;
     const s = this.selected()!;
     this.ask({ action: 'unblock', mac, danger: false, title: `Let ${this.nameOf(mac) || this.colon(mac)} join “${s.name}” again?`, text: 'The device can connect to this SSID again.' });
   }
@@ -220,6 +228,7 @@ export class NetworkSsids implements OnInit, OnDestroy {
     });
   }
   askMode(p: Policy) {
+    if (!this.canManage) return;
     const s = this.selected()!;
     if (p === s.filterPolicy) return;
     const onNow = s.clients.filter(c => p === 'allow' ? !s.macList.includes(this.colon(c.mac)) : p === 'deny' && s.macList.includes(this.colon(c.mac))).length;
@@ -236,6 +245,7 @@ export class NetworkSsids implements OnInit, OnDestroy {
   }
 
   askHidden(hidden: boolean) {
+    if (!this.canManage) return;
     const s = this.selected()!;
     if (hidden === s.hidden) return;
     this.ask({
