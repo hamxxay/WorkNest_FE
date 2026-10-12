@@ -3,7 +3,8 @@
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: #fff; z-index: 1001; overflow-y: auto; padding: 24px 24px 32px;
   box-shadow: -12px 0 32px rgba(15, 23, 42, 0.12); border-left: 1px solid #e2e8f0; box-sizing: border-box; animation: drawer-in 0.22s ease; }
 @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-.drawer-close { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; }
+/* Stays in the top-right corner while the drawer scrolls. */
+.drawer-close { position: sticky; top: 0; float: right; z-index: 5; width: 34px; height: 34px; margin: -8px -8px -34px 0; background: #fff; }
 .hero { display: flex; gap: 14px; align-items: flex-start; padding-right: 44px; }
 .hero-icon { width: 52px; height: 52px; border-radius: 14px; background: #f0fdfa; color: #0d9488; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .hero-main { flex: 1; min-width: 0; }

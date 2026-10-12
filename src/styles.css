@@ -350,6 +350,26 @@ select.form-input {
   background: var(--bg-secondary);
 }
 
+/* Every popup: the close button and the header stay visible while the popup's content scrolls.
+   The × floats in the top-right corner and sticks there (negative bottom margin: text doesn't wrap around it). */
+.modal-content > .modal-close,
+.modal-card > .modal-close {
+  position: sticky !important;
+  top: 12px;
+  float: right;
+  z-index: 20;
+  margin: -16px -16px -32px 8px;
+  background-color: rgba(255, 255, 255, 0.95);
+}
+.modal-content > .modal-header,
+.modal-card > .modal-header,
+.modal-card > .modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: #fff;
+}
+
 .modal-content h2 {
   font-size: 1.3rem;
   margin-bottom: 4px;
