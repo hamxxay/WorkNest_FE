@@ -1,30 +1,30 @@
-import { toPublicSiteGuard } from '../utils/public-site';
 import { Routes } from '@angular/router';
 
 export const PUBLIC_ROUTES: Routes = [
 
-  // The CMS is staff-only: its root opens the staff login; public pages open on worknestpk.com.
-  { path: '', pathMatch: 'full', redirectTo: '/login' },
+  // Home, Gallery, About and the other public pages open on the CMS itself (customer sign-up and
+  // My Bookings / Payments / Agreements still open on worknestpk.com: see auth.routes and user.routes).
+  { path: '', loadComponent: () => import('./home/home').then(m => m.Home) },
 
   
 
-  { path: 'gallery', loadComponent: () => import('./gallery/gallery').then(m => m.Gallery), canActivate: [toPublicSiteGuard] },
+  { path: 'gallery', loadComponent: () => import('./gallery/gallery').then(m => m.Gallery) },
 
   // { path: 'blogs', loadComponent: () => import('./blogs/blogs').then(m => m.Blogs) },
 
-  { path: 'about', loadComponent: () => import('./about/about').then(m => m.About), canActivate: [toPublicSiteGuard] },
+  { path: 'about', loadComponent: () => import('./about/about').then(m => m.About) },
 
-  { path: 'contact', loadComponent: () => import('./contact/contact').then(m => m.Contact), canActivate: [toPublicSiteGuard] },
+  { path: 'contact', loadComponent: () => import('./contact/contact').then(m => m.Contact) },
 
   // { path: 'booking', loadComponent: () => import('./booking/booking').then(m => m.Booking) },
 
-  { path: 'book-a-tour', loadComponent: () => import('./book-a-tour/book-a-tour').then(m => m.BookATour), canActivate: [toPublicSiteGuard] },
+  { path: 'book-a-tour', loadComponent: () => import('./book-a-tour/book-a-tour').then(m => m.BookATour) },
 
-  { path: 'service-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'service-policy' }, canActivate: [toPublicSiteGuard] },
-  { path: 'pricing-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'pricing-policy' }, canActivate: [toPublicSiteGuard] },
-  { path: 'refund-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'refund-policy' }, canActivate: [toPublicSiteGuard] },
-  { path: 'privacy-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'privacy-policy' }, canActivate: [toPublicSiteGuard] },
-  { path: 'terms-and-conditions', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'terms-and-conditions' }, canActivate: [toPublicSiteGuard] },
+  { path: 'service-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'service-policy' } },
+  { path: 'pricing-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'pricing-policy' } },
+  { path: 'refund-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'refund-policy' } },
+  { path: 'privacy-policy', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'privacy-policy' } },
+  { path: 'terms-and-conditions', loadComponent: () => import('./policies/policies').then(m => m.Policies), data: { slug: 'terms-and-conditions' } },
   { path: 'quotation/:id', loadComponent: () => import('./my-quotations/my-quotations').then(m => m.MyQuotations) }
 
 ];

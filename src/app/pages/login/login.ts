@@ -137,11 +137,24 @@ export class Login {
     return roles.some(r => staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
   }
 
-  /** Customers sign in on worknestpk.com: end the CMS session and send them there. */
+  /**
+   * Customers use worknestpk.com: hand the session over (they arrive there signed in) and end it here.
+   * The token goes after '#', which the browser never sends to a server; the site removes it on arrival.
+   */
   private sendCustomerToPublicSite() {
-    this.error.set('This portal is for WorkNest staff. Taking you to worknestpk.com to sign in...');
-    const go = () => { window.location.href = publicSiteUrl('/login'); };
+    this.error.set('This portal is for WorkNest staff. Taking you to worknestpk.com...');
+    const token = this.authService.getToken();
+    const url = token
+      ? `${publicSiteUrl(this.customerLandingPath())}#handoff=${encodeURIComponent(token)}`
+      : publicSiteUrl('/login');
+    const go = () => { window.location.replace(url); };
     this.authService.logout$().subscribe({ next: go, error: go });
+  }
+
+  /** A customer page asked for in ?redirect= (My Bookings / Payments / Agreements), otherwise the home page. */
+  private customerLandingPath(): string {
+    const redirect = this.route.snapshot.queryParamMap.get('redirect') || '';
+    return /^\/my-[a-z-]+(\?.*)?$/.test(redirect) ? redirect : '/';
   }
 
   private getRoleBasedRedirect(user?: any): string {
