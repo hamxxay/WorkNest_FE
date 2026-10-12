@@ -186,6 +186,23 @@
               @for (r of item[col.key]; track r) {
               <span class="role-tag">{{ r }}</span>
               }
+              } @else if (col.type === 'role' && entity === 'users' && isSuperAdmin) {
+              <!-- Super admin: the role is changed right here; the pill shows the current role. -->
+              <span class="status-picker" [class]="'status-picker role-pick-' + getRoleClass(item[col.key])">
+                <select (change)="changeUserRole(item, $any($event.target).value, $any($event.target), getRoleClass(item[col.key]))"
+                  aria-label="Change role" title="Change role">
+                  @if (!isAssignableRole(item[col.key])) {
+                  <option value="" disabled selected>{{ getRoleLabel(item[col.key]) }}</option>
+                  }
+                  @for (r of assignableRoles; track r.v) {
+                  <option [value]="r.v" [selected]="r.v === getRoleClass(item[col.key])">{{ r.l }}</option>
+                  }
+                </select>
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
               } @else if (col.type === 'role') {
               <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
                 }}</span>
@@ -491,16 +508,6 @@
               </button>
               }
               @if (entity === 'users') {
-              @if (isSuperAdmin) {
-              <select class="status-select role-select"
-                (change)="changeUserRole(item, $any($event.target).value); $any($event.target).value = ''"
-                [title]="'Current: ' + getRoleLabel(item.role)">
-                <option value="" disabled selected>Change Role</option>
-                @for (r of assignableRoles; track r.v) {
-                <option [value]="r.v">{{ r.l }}</option>
-                }
-              </select>
-              }
               <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive"
                 (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
                 @if (item.isActive) {
