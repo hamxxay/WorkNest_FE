@@ -53,6 +53,8 @@ export interface CreateFeeReceiptDto {
   receiptDate: string; // YYYY-MM-DD
   paymentType: string;
   remarks?: string | null;
+  depositorName: string;
+  depositorCnic: string; // 12345-1234567-1
 }
 
 /** Body of POST /fee-receipts/void (FeeReceiptVoidDto). */
@@ -103,6 +105,9 @@ export interface FeeReceiptDetailDto extends FeeReceiptListItemDto {
   locationCity: string;
   updatedOn: string | null;
   updatedByName: string;
+  /** Empty on receipts saved before the depositor fields were added. */
+  depositorName: string;
+  depositorCnic: string;
 }
 
 export interface FeeReceiptListResponse {
@@ -167,7 +172,9 @@ function mapReceipt(r: any): FeeReceiptDetailDto {
     customerPhone: r.customerPhone ?? '',
     locationCity: r.locationCity ?? '',
     updatedOn: r.updatedOn ?? null,
-    updatedByName: r.updatedByName ?? ''
+    updatedByName: r.updatedByName ?? '',
+    depositorName: r.depositorName ?? '',
+    depositorCnic: r.depositorCnic ?? ''
   };
 }
 

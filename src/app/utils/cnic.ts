@@ -41,6 +41,44 @@ export function onCnicInput(event: Event): string {
   return clean;
 }
 
+/** Strictly formatted CNIC: 12345-1234567-1 (what formatCnicMask produces once 13 digits are typed). */
+export const CNIC_FORMAT_PATTERN = /^\d{5}-\d{7}-\d$/;
+
+/**
+ * Input mask: keeps digits only (max 13) and inserts the dashes as 5-7-1,
+ * e.g. "3520212" -> "35202-12", "3520212345671" -> "35202-1234567-1".
+ * A dash is added only once the next digit is typed, so backspace is never blocked.
+ */
+export function formatCnicMask(value: string | null | undefined): string {
+  const d = String(value ?? '').replace(/\D/g, '').slice(0, 13);
+  if (d.length <= 5) return d;
+  if (d.length <= 12) return `${d.slice(0, 5)}-${d.slice(5)}`;
+  return `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}`;
+}
+
+/**
+ * (input) handler helper for a masked CNIC field: formats the element's value in place
+ * (keeping the caret after the same digit) and returns it, e.g.
+ * `(input)="cnic.set(onCnicMaskInput($event))"`.
+ */
+export function onCnicMaskInput(event: Event): string {
+  const input = event.target as HTMLInputElement;
+  const raw = input.value;
+  const masked = formatCnicMask(raw);
+  if (raw !== masked) {
+    const caret = input.selectionStart ?? raw.length;
+    const digitsBeforeCaret = raw.slice(0, caret).replace(/\D/g, '').length;
+    input.value = masked;
+    // Put the caret back after the same number of digits.
+    let pos = 0;
+    for (let seen = 0; pos < masked.length && seen < digitsBeforeCaret; pos++) {
+      if (/\d/.test(masked[pos])) seen++;
+    }
+    try { input.setSelectionRange(pos, pos); } catch { /* input type without selection support */ }
+  }
+  return masked;
+}
+
 /** Reactive-forms validator; empty passes (combine with Validators.required when needed). */
 export const cnicValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
   const v = String(control.value ?? '').trim();

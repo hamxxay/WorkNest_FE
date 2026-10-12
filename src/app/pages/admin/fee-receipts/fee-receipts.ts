@@ -14,6 +14,7 @@ import { ToastService } from '../../../services/toast.service';
 import { AuthService } from '../../../services/auth.service';
 import { LocationService } from '../../../services/location.service';
 import { localDateIso } from '../../../utils/dates';
+import { CNIC_FORMAT_PATTERN, CNIC_MAX_LENGTH, onCnicMaskInput } from '../../../utils/cnic';
 
 type LoadSource = 'invoices' | 'receipts' | 'accounts' | 'locations';
 
@@ -78,6 +79,15 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   remarks = signal<string>('');
   saving = signal(false);
 
+  // Depositor (person who paid): both required. Errors show once the field has been left.
+  depositorName = signal<string>('');
+  depositorCnic = signal<string>('');
+  depositorNameTouched = signal(false);
+  depositorCnicTouched = signal(false);
+  readonly depositorNameMaxLength = 150; // API / DepositorName NVARCHAR(150)
+  readonly cnicMaxLength = CNIC_MAX_LENGTH;
+  readonly onCnicMaskInput = onCnicMaskInput;
+
   // Search debouncer
   private invoiceSearch$ = new Subject<string>();
   private searchSub: Subscription | null = null;
@@ -133,11 +143,29 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     return '';
   });
 
+  /** Why the depositor name blocks Generate (empty when valid). */
+  depositorNameError = computed(() => {
+    const name = this.depositorName().trim();
+    if (!name) return 'Enter the depositor name.';
+    if (name.length < 2) return 'Depositor name must be at least 2 characters.';
+    if (name.length > this.depositorNameMaxLength) return `Depositor name cannot be longer than ${this.depositorNameMaxLength} characters.`;
+    return '';
+  });
+
+  /** Why the depositor CNIC blocks Generate (empty when valid). */
+  depositorCnicError = computed(() => {
+    const cnic = this.depositorCnic().trim();
+    if (!cnic) return 'Enter the depositor CNIC.';
+    if (!CNIC_FORMAT_PATTERN.test(cnic)) return 'Depositor CNIC must be in the format 12345-1234567-1.';
+    return '';
+  });
+
   canSave = computed(() => {
     if (this.saving()) return false;
     if (!this.selectedInvoice()) return false;
     if (this.loadingAccounts() || !this.selectedAccountId()) return false;
     if (!this.paymentType()) return false;
+    if (this.depositorNameError() || this.depositorCnicError()) return false;
     return !this.dateError() && !this.accountError();
   });
 
@@ -284,6 +312,10 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     this.paymentType.set('Cash');
     this.receiptDate.set(this.todayStr);
     this.remarks.set('');
+    this.depositorName.set('');
+    this.depositorCnic.set('');
+    this.depositorNameTouched.set(false);
+    this.depositorCnicTouched.set(false);
   }
 
   clearSelectedInvoice(): void {
@@ -322,6 +354,8 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
 
   // ── Save Receipt ──────────────────────────────────────────────────────────
   saveReceipt(): void {
+    this.depositorNameTouched.set(true);
+    this.depositorCnicTouched.set(true);
     if (!this.canSave()) return;
     const inv = this.selectedInvoice();
     if (!inv) return;
@@ -332,7 +366,9 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
       cashInHandAccountId: this.selectedAccountId()!,
       receiptDate: this.receiptDate(),
       paymentType: this.paymentType(),
-      remarks: this.remarks().trim() || null
+      remarks: this.remarks().trim() || null,
+      depositorName: this.depositorName().trim(),
+      depositorCnic: this.depositorCnic().trim()
     }).subscribe({
       next: (receipt) => {
         this.saving.set(false);
