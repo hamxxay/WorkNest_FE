@@ -575,9 +575,6 @@ export class AdminService {
   toggleAccessStatus(data: any): Observable<any> {
     return this.http.patch<any>(`${this.api}/access-status`, data);
   }
-  getHikvisionExport(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.api}/access-status/export`);
-  }
   // Long-running: the terminal waits for the finger / card / face before the request returns.
   // Challans (invoices) of the booking behind a booked space.
   getBookingChallans(bookingDetailId: number): Observable<any> {
