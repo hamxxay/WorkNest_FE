@@ -122,6 +122,11 @@ export class AccessDashboard implements OnInit, OnDestroy {
     });
   }
 
+  /** Whether a location id is in the loaded dropdown list (until the list loads, the saved name is shown as its own option). */
+  hasLocation(id: number): boolean {
+    return this.locations().some(l => l.id === id);
+  }
+
   /** Super admin: saves the machine's location, then updates the row in place. */
   setMachineLocation(m: any, value: string) {
     const locationId = value ? Number(value) : null;
