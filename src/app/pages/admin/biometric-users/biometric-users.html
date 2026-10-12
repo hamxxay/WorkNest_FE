@@ -403,9 +403,9 @@
   <div class="bio-pagination">
     <div class="bio-page-size-selector">
       <span>Rows per page:</span>
-      <select [value]="pageSize()" (change)="onPageSizeChange($event)" class="bio-page-select">
+      <select (change)="onPageSizeChange($event)" class="bio-page-select">
         @for (sz of pageSizeOptions; track sz) {
-        <option [value]="sz">{{ sz }}</option>
+        <option [value]="sz" [selected]="sz === pageSize()">{{ sz }}</option>
         }
       </select>
     </div>

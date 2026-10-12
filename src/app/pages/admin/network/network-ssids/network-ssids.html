@@ -75,9 +75,9 @@
           <div class="setting">
             <span class="mode-label">Speed per device</span>
             @if (canLimitSpeed) {
-              <select class="net-input speed-select" #profileSel [value]="s.speedProfile?.id ?? ''" (change)="pickProfile(profileSel.value, profileSel)" aria-label="Speed profile">
-                <option value="">No limit</option>
-                @for (p of profiles(); track p.id) { <option [value]="p.id">{{ profileLabel(p) }}</option> }
+              <select class="net-input speed-select" #profileSel (change)="pickProfile(profileSel.value, profileSel)" aria-label="Speed profile">
+                <option value="" [selected]="!s.speedProfile">No limit</option>
+                @for (p of profiles(); track p.id) { <option [value]="p.id" [selected]="p.id == s.speedProfile?.id">{{ profileLabel(p) }}</option> }
                 <option value="__new">+ New profile…</option>
               </select>
             } @else {
