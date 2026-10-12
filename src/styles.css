@@ -359,7 +359,27 @@ select.form-input {
   float: right;
   z-index: 20;
   margin: -16px -16px -32px 8px;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: inherit;
+  border-radius: 999px !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+/* Popups that open with a × and a title: the title is a header bar flush to the top edge, so nothing
+   scrolls into view above it; the popup's own top padding moves into the header. */
+.modal-content:has(> .modal-close + h2) {
+  padding-top: 0 !important;
+}
+.modal-content:has(> .modal-close + h2) > .modal-close {
+  top: 16px;
+  margin-top: 16px;
+  margin-bottom: -48px;
+}
+.modal-content > .modal-close + h2 {
+  position: sticky;
+  top: 0;
+  z-index: 19;
+  background-color: inherit;
+  padding-top: 30px;
+  padding-bottom: 12px;
 }
 .modal-content > .modal-header,
 .modal-card > .modal-header,
