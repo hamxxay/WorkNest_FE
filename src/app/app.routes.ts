@@ -34,6 +34,7 @@ export const routes: Routes = [
       { path: 'agreements',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'agreements' } },
       { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [adminGuard] },
       { path: 'invoices',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'invoices' } },
+      { path: 'fee-receipts', loadComponent: () => import('./pages/admin/fee-receipts/fee-receipts').then(m => m.FeeReceiptsComponent), canActivate: [adminGuard] },
 
       { path: 'contacts',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'contacts' } },
       { path: 'whatsapp',    loadComponent: () => import('./pages/admin/whatsapp-inbox/whatsapp-inbox').then(m => m.WhatsAppInbox) },

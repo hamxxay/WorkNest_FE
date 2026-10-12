@@ -157,7 +157,11 @@ export class DashboardOverview {
   attentionItems = computed<any[]>(() => {
     const d = this.data();
     if (!d) return [];
-    return this.tab() === 'overdue' ? d.overdueInvoices : this.tab() === 'ending' ? d.endingLeases : d.pendingBookings;
+    const list: any[] = this.tab() === 'overdue' ? d.overdueInvoices : this.tab() === 'ending' ? d.endingLeases : d.pendingBookings;
+    return (list || []).map(item => ({
+      ...item,
+      customer: (item?.customer || item?.customerName || item?.customerFullName || '').trim() || 'Customer'
+    }));
   });
 
   attentionTotal = computed(() => {

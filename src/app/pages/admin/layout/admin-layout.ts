@@ -79,6 +79,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
     { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },
     { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
+    { route: '/admin/fee-receipts', group: 'Finance',       label: 'Fee Receipts',        icon: 'receipt'         },
     { route: '/admin/contacts', group: 'Sales',       label: 'Tour Inquiries',    icon: 'contacts'        },
     { route: '/admin/complaints', group: 'Sales',     label: 'Complaints',        icon: 'complaints'      },
     { route: '/admin/whatsapp', group: 'Sales',       label: 'WhatsApp Inbox',    icon: 'whatsapp'        },
