@@ -120,7 +120,7 @@
           <span class="dot" [class.dot-on]="m.online" [class.dot-off]="!m.online"></span>
           <div class="list-main">
             <div class="list-title">{{ m.name }}</div>
-            <div class="list-sub">{{ m.grp || 'Ungrouped' }}{{ m.code ? ' · Room ' + m.code : '' }}{{ m.last_seen ? ' · seen ' + relStamp(m.last_seen) : '' }}{{ !canSetLocation && m.locationName ? ' · ' + m.locationName : '' }}</div>
+            <div class="list-sub">{{ m.grp || 'Ungrouped' }}{{ m.code ? ' · Room ' + m.code : '' }}{{ m.last_seen ? ' · seen ' + relStamp(m.last_seen) : '' }}</div>
           </div>
           @if (canSetLocation) {
           <select class="loc-select" (change)="setMachineLocation(m, $any($event.target).value)"

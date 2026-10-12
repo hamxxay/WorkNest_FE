@@ -521,26 +521,22 @@
 .fb-option span { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; color: #0f172a; }
 .fb-option small { color: #64748b; font-size: .78rem; }
 
-/* Status column dropdown: a pill that shows the current status, coloured by it. */
+/* Status column dropdown: a pill that shows the current status, coloured by it.
+   The select's own box is reset in styles.css (the admin-wide select style would otherwise draw over the pill). */
 .status-picker {
   --sp-bg: #f8fafc; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #94a3b8;
-  position: relative; display: inline-flex; align-items: center;
+  position: relative; display: inline-flex; align-items: center; height: 30px;
   background: var(--sp-bg); color: var(--sp-fg); border: 1px solid var(--sp-bd);
-  border-radius: 999px; transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+  border-radius: 999px; transition: box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
 }
 .status-picker::before {
-  content: ''; position: absolute; left: 11px; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--sp-dot); pointer-events: none;
+  content: ''; position: absolute; left: 12px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px;
+  border-radius: 50%; background: var(--sp-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 18%, transparent);
+  pointer-events: none;
 }
-.status-picker:hover { border-color: var(--sp-dot); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
-.status-picker:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 25%, transparent); border-color: var(--sp-dot); }
-.status-picker select {
-  appearance: none; -webkit-appearance: none; background: transparent; border: none; outline: none;
-  color: inherit; font: inherit; font-size: .8rem; font-weight: 600; line-height: 1.2;
-  padding: 6px 28px 6px 24px; cursor: pointer; border-radius: 999px; min-width: 104px;
-}
-.status-picker select option { color: #0f172a; background: #fff; font-weight: 500; }
-.status-picker-chevron { position: absolute; right: 10px; pointer-events: none; opacity: .75; }
+.status-picker:hover { border-color: var(--sp-dot); }
+.status-picker:focus-within { border-color: var(--sp-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 22%, transparent); }
+.status-picker-chevron { position: absolute; right: 11px; top: 50%; margin-top: -6px; pointer-events: none; opacity: .7; }
 
 .status-picker.status-pending, .status-picker.status-new, .status-picker.status-open {
   --sp-bg: #fffbeb; --sp-fg: #b45309; --sp-bd: #fde68a; --sp-dot: #f59e0b;

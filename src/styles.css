@@ -520,6 +520,26 @@ textarea.has-error,
   font-size: 0.8rem !important;
 }
 
+/* Status pill dropdown (manage tables): the pill draws the box, dot and chevron, so the select itself is bare.
+   Needs this specificity + !important to win over the admin-wide select rules above. */
+.admin-shell .status-picker select:not([multiple]):not([size]) {
+  height: 28px !important;
+  min-height: 28px;
+  line-height: 28px;
+  padding: 0 30px 0 27px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: transparent none !important;
+  box-shadow: none !important;
+  color: inherit;
+  font-size: 0.8rem !important;
+  font-weight: 600;
+  min-width: 118px;
+  cursor: pointer;
+}
+.admin-shell .status-picker select:focus { box-shadow: none !important; border: none !important; }
+.admin-shell .status-picker select option { color: #0f172a; background: #fff; font-weight: 500; }
+
 /* Buttons that sit next to filters line up with the 40px controls */
 .admin-shell .toolbar .btn,
 .admin-shell .filters .btn,
