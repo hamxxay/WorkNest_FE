@@ -19,8 +19,8 @@ export class BiometricUsers implements OnInit {
   private toastService = inject(ToastService);
   private auth = inject(AuthService);
 
-  /** Machine-admin users are only shown to admin / super admin (the API also withholds them). */
-  readonly canSeeMachineAdmins = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  /** Machine admins (device admins) are shown to super admins only; the API leaves them out for everyone else. */
+  readonly canSeeMachineAdmins = this.auth.hasRole('super_admin');
 
   loading = signal<boolean>(true);
   refreshing = signal<boolean>(false);
