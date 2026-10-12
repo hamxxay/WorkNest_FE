@@ -294,6 +294,55 @@
               <span class="fr-field-hint">Select the payment instrument.</span>
             </div>
 
+            <!-- Depositor Name -->
+            <div class="fr-form-group">
+              <label class="fr-label" for="fr-depositor-name">
+                Depositor name <span class="req">*</span>
+              </label>
+              <input
+                id="fr-depositor-name"
+                type="text"
+                class="fr-input"
+                [maxlength]="depositorNameMaxLength"
+                placeholder="Full name of the person paying"
+                autocomplete="off"
+                [value]="depositorName()"
+                (input)="depositorName.set($any($event.target).value)"
+                (blur)="depositorNameTouched.set(true)"
+                [class.input-invalid]="depositorNameTouched() && depositorNameError()"
+                [attr.aria-invalid]="depositorNameTouched() && !!depositorNameError()"
+              />
+              <span class="fr-field-hint">Person who deposited the payment.</span>
+              @if (depositorNameTouched() && depositorNameError()) {
+                <small class="field-error-text">{{ depositorNameError() }}</small>
+              }
+            </div>
+
+            <!-- Depositor CNIC -->
+            <div class="fr-form-group">
+              <label class="fr-label" for="fr-depositor-cnic">
+                Depositor CNIC <span class="req">*</span>
+              </label>
+              <input
+                id="fr-depositor-cnic"
+                type="text"
+                class="fr-input mono"
+                inputmode="numeric"
+                [maxlength]="cnicMaxLength"
+                placeholder="35202-1234567-1"
+                autocomplete="off"
+                [value]="depositorCnic()"
+                (input)="depositorCnic.set(onCnicMaskInput($event))"
+                (blur)="depositorCnicTouched.set(true)"
+                [class.input-invalid]="depositorCnicTouched() && depositorCnicError()"
+                [attr.aria-invalid]="depositorCnicTouched() && !!depositorCnicError()"
+              />
+              <span class="fr-field-hint">13 digits; dashes are added automatically.</span>
+              @if (depositorCnicTouched() && depositorCnicError()) {
+                <small class="field-error-text">{{ depositorCnicError() }}</small>
+              }
+            </div>
+
             <!-- Remarks -->
             <div class="fr-form-group span-2">
               <label class="fr-label">Remarks / Reference (Optional)</label>
@@ -681,6 +730,12 @@
               <div class="rc-item">Invoice Type: <span>{{ p.invoiceTypeName }}</span></div>
               <div class="rc-item">Payment Method: <strong>{{ p.paymentType }}</strong></div>
               <div class="rc-item">Account: <span>{{ p.accountTitle }}</span></div>
+              @if (p.depositorName) {
+                <div class="rc-item">Depositor: <strong>{{ p.depositorName }}</strong></div>
+              }
+              @if (p.depositorCnic) {
+                <div class="rc-item">Depositor CNIC: <span class="mono">{{ p.depositorCnic }}</span></div>
+              }
             </div>
           </div>
 
