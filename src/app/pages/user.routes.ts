@@ -1,3 +1,4 @@
+import { toPublicSiteGuard } from '../utils/public-site';
 import { Routes } from '@angular/router';
 import { authGuard } from '../guards/auth.guard';
 import { userGuard } from '../guards/user.guard';
@@ -25,13 +26,13 @@ export const USER_ROUTES: Routes = [
   {
     path: 'my-bookings',
     loadComponent: () => import('./my-bookings/my-bookings').then(m => m.MyBookings),
-    canActivate: [authGuard, userGuard]
+    canActivate: [toPublicSiteGuard] // customer pages live on worknestpk.com
   },
 
   {
     path: 'my-payments',
     loadComponent: () => import('./my-payments/my-payments').then(m => m.MyPayments),
-    canActivate: [authGuard, userGuard]
+    canActivate: [toPublicSiteGuard] // customer pages live on worknestpk.com
   },
   {
     path: 'my-meeting-rooms',
@@ -41,7 +42,7 @@ export const USER_ROUTES: Routes = [
   {
     path: 'my-agreements',
     loadComponent: () => import('./my-agreements/my-agreements').then(m => m.MyAgreements),
-    canActivate: [authGuard, userGuard]
+    canActivate: [toPublicSiteGuard] // customer pages live on worknestpk.com
   },
   {
     path: 'my-quotations',
