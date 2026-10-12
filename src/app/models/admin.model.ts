@@ -235,18 +235,6 @@ export interface BookingBillingSummary {
 }
 
 /**
- * PricingPlan entity - represents a subscription pricing tier.
- */
-export interface PricingPlan {
-  id: number;
-  name: string;
-  price?: number;
-  billingCycle?: string;
-  includesHours?: number;
-  isActive?: boolean;
-}
-
-/**
  * Membership entity - represents a user's active subscription.
  */
 export interface Membership {

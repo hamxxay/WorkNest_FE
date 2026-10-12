@@ -28,7 +28,6 @@ export const routes: Routes = [
       { path: 'spacetypes',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spacetypes' } },
       { path: 'spaces',      loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spaces' } },
       { path: 'bookings',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'bookings' } },
-      { path: 'pricing',     loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'pricing' } },
       { path: 'quotations',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'quotations' } },
       { path: 'payments',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'payments' } },
       { path: 'agreements',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'agreements' } },

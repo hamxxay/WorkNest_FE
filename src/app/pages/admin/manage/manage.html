@@ -433,17 +433,6 @@
                 </svg>
               </button>
               }
-              @if (entity === 'pricing') {
-              <button class="action-btn info" (click)="openPricingPlanSummary(item)" title="Plan Summary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 3v18h18" />
-                  <path d="M7 15v-3" />
-                  <path d="M12 15V9" />
-                  <path d="M17 15V6" />
-                </svg>
-              </button>
-              }
               @if (entity === 'payments') {
               @if (item.bookingId || item.BookingId) {
               <button class="action-btn" (click)="viewBillingChallan(item)" title="View Booking Challan & Details"
@@ -827,45 +816,6 @@
         } @else {
         <p class="history-empty">No reservations found.</p>
         }
-      </div>
-    </div>
-    }
-  </div>
-</div>
-}
-
-@if (showPlanModal()) {
-<div class="modal-overlay" (click)="closePlanModal()">
-  <div class="modal-content user-modal" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closePlanModal()">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18" />
-        <path d="m6 6 12 12" />
-      </svg>
-    </button>
-    <h2>Pricing Plan Summary</h2>
-    @if (planSummaryLoading()) {
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Loading...</p>
-    </div>
-    } @else if (planSummaryError()) {
-    <div class="alert-admin alert-error-admin">{{ planSummaryError() }}</div>
-    } @else if (planSummary(); as s) {
-    <div class="user-detail-grid">
-      <div class="user-line"><span>Plan</span><strong>{{ s.plan?.name }}</strong></div>
-      <div class="user-line"><span>Cycle</span><strong>{{ s.plan?.billingCycle }}</strong></div>
-      <div class="user-line"><span>{{ amountLabels['PricingPlan.price'] || 'Price' }}</span><strong>PKR {{
-          (s.plan?.price ?? 0) | number:'1.0-0' }}</strong></div>
-    </div>
-    <div class="history-section">
-      <h3>Stats</h3>
-      <div class="history-stats">
-        <div class="stat-card"><span>Total Subscribers</span><strong>{{ s.stats?.totalSubscribers ?? 0 }}</strong></div>
-        <div class="stat-card"><span>Active</span><strong>{{ s.stats?.activeSubscribers ?? 0 }}</strong></div>
-        <div class="stat-card"><span>Revenue</span><strong>PKR {{ (s.stats?.paidRevenue ?? 0) | number:'1.0-0'
-            }}</strong></div>
       </div>
     </div>
     }

@@ -8,7 +8,6 @@
 // - Space Types (office types like Private Office, Desk, etc.)
 // - Spaces (individual workspaces)
 // - Bookings (manage user bookings)
-// - Pricing Plans (subscription tiers)
 // - Memberships, Payments, Contacts, Gallery
 //
 // All endpoints require admin authentication (checked by adminGuard).
@@ -17,7 +16,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ApiResponse, User, Location, SpaceType, Space, Booking, PricingPlan, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
+import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
 @Injectable({ providedIn: 'root' })
@@ -214,26 +213,6 @@ export class AdminService {
   getBookingCalendar(spaceId: number, year: number, month: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/booking/calendar?spaceId=${spaceId}&year=${year}&month=${month}`);
   }
-
-  // ============= PRICING PLAN MANAGEMENT =============
-  
-  /** Retrieve pricing plans with optional paging/search. */
-  getPricingPlans(page?: number, limit?: number, search?: string): Observable<ApiResponse<PricingPlan[]>> {
-    const params = new URLSearchParams();
-    if (page != null) params.set('page', String(page));
-    if (limit != null) params.set('limit', String(limit));
-    if (search) params.set('search', search);
-    const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.http.get<ApiResponse<PricingPlan[]>>(`${this.api}/pricingplan${qs}`);
-  }
-  
-  /** Create a new pricing plan */
-  createPricingPlan(data: Partial<PricingPlan>): Observable<ApiResponse<PricingPlan>> { return this.http.post<ApiResponse<PricingPlan>>(`${this.api}/pricingplan`, data); }
-  updatePricingPlan(id: number, data: Partial<PricingPlan>): Observable<ApiResponse<PricingPlan>> { return this.http.put<ApiResponse<PricingPlan>>(`${this.api}/pricingplan/${id}`, data); }
-  deletePricingPlan(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/pricingplan/${id}`); }
-
-  /** Get pricing plan subscriber/revenue summary */
-  getPricingPlanSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/pricingplan/${id}/summary`); }
 
   // Plan Features
   getPlanFeatures(planId: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/planfeature/by-plan/${planId}`); }

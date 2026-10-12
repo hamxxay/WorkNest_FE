@@ -7,7 +7,7 @@ import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AmountFieldService } from '../../../services/amount-field.service';
-import { ASSIGNABLE_ROLES, BILLING_CYCLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
+import { ASSIGNABLE_ROLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
 import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { BookingBillingSummary } from '../../../models/admin.model';
@@ -125,10 +125,6 @@ export class Manage implements OnInit {
   spaceSummaryLoading = signal(false);
   readonly spaceSummaryError = signal('');
 
-  readonly showPlanModal = signal(false);
-  planSummary = signal<any>(null);
-  planSummaryLoading = signal(false);
-  readonly planSummaryError = signal('');
 
   readonly showPaymentModal = signal(false);
   paymentSummary = signal<any>(null);
@@ -4455,15 +4451,6 @@ export class Manage implements OnInit {
   }
   closeSpaceModal() { this.showSpaceModal.set(false); }
 
-  openPricingPlanSummary(item: any) {
-    this.showPlanModal.set(true); this.planSummaryLoading.set(true);
-    this.planSummaryError.set(''); this.planSummary.set(null);
-    this.admin.getPricingPlanSummary(item.idGuid).subscribe({
-      next: (res: any) => { this.planSummary.set(res?.data ?? res); this.planSummaryLoading.set(false); },
-      error: () => { this.planSummaryLoading.set(false); this.planSummaryError.set('Failed to load plan summary.'); }
-    });
-  }
-  closePlanModal() { this.showPlanModal.set(false); }
 
   openPaymentSummary(item: any) {
     this.showPaymentModal.set(true); this.paymentSummaryLoading.set(true);
@@ -4880,28 +4867,6 @@ export class Manage implements OnInit {
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
         statusOptions: ['Pending', 'Confirmed', 'No Show', 'Rejected', 'Cancelled'],
-      };
-
-      case 'pricing': return {
-        title: 'Pricing Plans',
-        columns: [
-          { key: 'name', label: 'Name' },
-          { key: 'price', label: this.lbl('PricingPlan', 'price'), type: 'currency' },
-          { key: 'billingCycle', label: 'Cycle' },
-          { key: 'includesHours', label: 'Hours' },
-          { key: 'isActive', label: 'Active', type: 'boolean' },
-        ],
-        fields: [
-          { key: 'name', label: 'Name', type: 'text' },
-          { key: 'price', label: this.lbl('PricingPlan', 'price'), type: 'number' },
-          { key: 'billingCycle', label: 'Billing Cycle', type: 'select', options: BILLING_CYCLES },
-          { key: 'includesHours', label: 'Includes Hours', type: 'number' },
-          { key: 'isActive', label: 'Active', type: 'checkbox' },
-        ],
-        getFn: (p, l, s) => this.admin.getPricingPlans(p, l, s),
-        createFn: (d) => this.admin.createPricingPlan(d),
-        updateFn: (id, d) => this.admin.updatePricingPlan(id, d),
-        deleteFn: (id) => this.admin.deletePricingPlan(id),
       };
 
       case 'payments': return {

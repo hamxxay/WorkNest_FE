@@ -72,7 +72,6 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/spacetypes', group: 'Spaces',     label: 'Space Types',       icon: 'spacetype'       },
     { route: '/admin/spaces', group: 'Spaces',         label: 'Spaces',            icon: 'spaces'          },
     { route: '/admin/bookings', group: 'Sales',       label: 'Bookings',          icon: 'bookings'        },
-    { route: '/admin/pricing', group: 'Finance',        label: 'Pricing',           icon: 'pricing'         },
     { route: '/admin/quotations', group: 'Sales',     label: 'Quotations',        icon: 'pricing'         },
     { route: '/admin/quotation-responses', group: 'Sales', label: 'Quotation Responses', icon: 'quotation-responses' },
     { route: '/admin/payments', group: 'Finance',       label: 'Payments',          icon: 'payments'        },
