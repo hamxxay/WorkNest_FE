@@ -85,10 +85,6 @@ export class AttendantManagement implements OnInit, OnDestroy {
   readonly estimatedSurcharge = signal(0);
   seatPrice = 0;
 
-  // Export Modal
-  readonly showExportModal = signal(false);
-  readonly exportDataJson = signal('');
-
   // Enroll Credential Modal (fingerprint / card / face on Hikvision terminals)
   devices = signal<HikDevice[]>([]);
   showEnrollModal = false;
@@ -526,16 +522,6 @@ export class AttendantManagement implements OnInit, OnDestroy {
     this.admin.removeAttendantFromBooking(this.selectedBookingDetailId!, personId).subscribe({
       next: () => this.loadAttendantsForSpace(),
       error: (err) => this.toast.error('Failed to remove attendant: ' + (err.error?.message || err.message))
-    });
-  }
-
-  openExportModal() {
-    this.admin.getHikvisionExport().subscribe({
-      next: (res: any) => {
-        this.exportDataJson.set(JSON.stringify(res, null, 2));
-        this.showExportModal.set(true);
-      },
-      error: (err) => this.toast.error('Failed to fetch export: ' + (err.error?.message || err.message))
     });
   }
 

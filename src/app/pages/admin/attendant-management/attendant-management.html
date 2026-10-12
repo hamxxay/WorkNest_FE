@@ -5,7 +5,6 @@
       <p class="subtitle">Manage company Users, room capacity overage billing, and Hikvision fingerprint access
         status.</p>
     </div>
-    <button class="btn btn-outline" (click)="openExportModal()"> Hikvision Export Preview</button>
   </div>
 
   @if (canOverfill && allRequests().length) {
@@ -525,19 +524,6 @@
       <button class="btn btn-warning" (click)="confirmOverCapacityAssignment()" [disabled]="assigningAttendant()">
         {{ assigningAttendant() ? 'Applying…' : 'Confirm & Apply Surcharge' }}
       </button>
-    </div>
-  </div>
-</div>
-}
-
-<!-- Modal: Hikvision Export Preview -->
-@if (showExportModal()) {
-<div class="modal-backdrop">
-  <div class="modal-card" style="max-width: 650px;">
-    <h3>Hikvision Export Preview</h3>
-    <pre class="json-code">{{ exportDataJson() }}</pre>
-    <div class="modal-actions">
-      <button class="btn btn-outline" (click)="showExportModal.set(false)">Close</button>
     </div>
   </div>
 </div>
