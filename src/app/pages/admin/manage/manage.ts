@@ -4366,17 +4366,21 @@ export class Manage implements OnInit {
     return str || 'general';
   }
 
-  changeUserRole(item: any, role: string) {
-    if (!role || !this.isSuperAdmin) return;
+  changeUserRole(item: any, role: string, select?: HTMLSelectElement, previous?: string) {
+    // Put the dropdown back on the current role when the change doesn't go through.
+    const revert = () => { if (select && previous) select.value = previous; };
+    if (!role || !this.isSuperAdmin) { revert(); return; }
     const userId = item.id ?? item.publicId ?? item.idGuid ?? item.idGUID ?? item.userId;
-    if (!userId) return;
+    if (!userId) { revert(); return; }
     const normalizedRole = this.normalizeRole(role);
+    if (previous && normalizedRole === previous) return;
     const locationId = (normalizedRole === 'super_admin' || normalizedRole === 'general')
       ? null
       : (item.locationId ? Number(item.locationId) : null);
 
     if ((normalizedRole === 'admin' || normalizedRole === 'sales_executive') && !locationId) {
       this.toast.show('Please edit user to assign a Location when setting Admin or Sales Executive role.', 'error');
+      revert();
       return;
     }
 
@@ -4389,6 +4393,7 @@ export class Manage implements OnInit {
       error: (err) => {
         const msg = err?.error?.message || err?.message || 'Failed to update role.';
         this.showError(msg);
+        revert();
       }
     });
   }
@@ -4397,6 +4402,12 @@ export class Manage implements OnInit {
     const r = this.normalizeRole(roleValue);
     const match = this.assignableRoles.find(opt => opt.v === r);
     return match ? match.l : String(roleValue || 'General User');
+  }
+
+  /** Whether a user's role is one of the roles the dropdown offers (otherwise it shows the role as a placeholder). */
+  isAssignableRole(roleValue: any): boolean {
+    const r = this.normalizeRole(roleValue);
+    return this.assignableRoles.some(x => x.v === r);
   }
 
   getRoleClass(roleValue: any): string {
