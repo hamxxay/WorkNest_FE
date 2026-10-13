@@ -1,344 +1,333 @@
-<div class="admin-page">
+<div class="admin-page audit-page">
+  <!-- Header -->
   <div class="page-header">
     <div>
+      <span class="page-eyebrow">Administration</span>
       <h1>Audit Log</h1>
-      <p>Immutable audit trail of database trigger events, entity changes, and application operations.</p>
+      <p>Every change to WorkNest records: what changed, who changed it and when.</p>
     </div>
     <div class="header-actions">
-      <span class="read-only-pill">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        READ-ONLY &bull; SUPER ADMIN
+      <span class="read-only-pill" title="This page can't change anything">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Read-only &middot; Super Admin
       </span>
     </div>
   </div>
 
-  <!-- Filters Card -->
+  <!-- Filters -->
   <div class="admin-card filter-card">
+    <div class="filter-head">
+      <div class="preset-chips" role="group" aria-label="Date range">
+        @for (preset of presets; track preset.label) {
+          <button type="button" class="preset-chip" [class.active]="activePreset() === preset.key && (preset.key !== '' || (!fromDate() && !toDate()))"
+            (click)="setPreset(preset.key)">{{ preset.label }}</button>
+        }
+      </div>
+      <label class="errors-toggle">
+        <input type="checkbox" [checked]="errorsOnly()" (change)="errorsOnly.set($any($event.target).checked)" />
+        <span class="switch" aria-hidden="true"></span>
+        <span>Errors only</span>
+      </label>
+    </div>
+
     <div class="filter-grid">
       <div class="form-group">
-        <label>From Date</label>
-        <input type="date" class="form-control" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" />
+        <label for="al-from">From</label>
+        <input id="al-from" type="date" class="form-control" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event); activePreset.set('')" />
       </div>
-
       <div class="form-group">
-        <label>To Date (Inclusive)</label>
-        <input type="date" class="form-control" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" />
+        <label for="al-to">To</label>
+        <input id="al-to" type="date" class="form-control" [ngModel]="toDate()" (ngModelChange)="toDate.set($event); activePreset.set('')" />
       </div>
-
       <div class="form-group">
-        <label>Operation</label>
-        <select class="form-control" [ngModel]="operation()" (ngModelChange)="operation.set($event)">
-          <option value="">All Operations</option>
-          <option value="I">Insert (I)</option>
-          <option value="U">Update (U)</option>
-          <option value="D">Delete (D)</option>
+        <label for="al-op">Action</label>
+        <select id="al-op" class="form-control" [ngModel]="operation()" (ngModelChange)="operation.set($event)">
+          <option value="">All actions</option>
+          <option value="I">Created</option>
+          <option value="U">Updated</option>
+          <option value="D">Deleted</option>
         </select>
       </div>
-
       <div class="form-group">
-        <label>Entity Name</label>
-        <select class="form-control" [ngModel]="entityName()" (ngModelChange)="entityName.set($event)">
-          <option value="">All Entities</option>
+        <label for="al-entity">Record type</label>
+        <select id="al-entity" class="form-control" [ngModel]="entityName()" (ngModelChange)="entityName.set($event)">
+          <option value="">All record types</option>
           @for (entity of filterOptions().entityNames; track entity) {
-            <option [value]="entity">{{ entity }}</option>
+            <option [value]="entity">{{ friendlyEntity(entity) }}</option>
           }
         </select>
       </div>
-
       <div class="form-group">
-        <label>User Email (Contains)</label>
-        <input type="text" class="form-control" placeholder="Search email..." [ngModel]="changedByUserEmail()" (ngModelChange)="changedByUserEmail.set($event)" />
+        <label for="al-by">Changed by</label>
+        <input id="al-by" type="text" class="form-control" placeholder="Email contains..." [ngModel]="changedByUserEmail()"
+          (ngModelChange)="changedByUserEmail.set($event)" (keyup.enter)="applyFilters()" />
       </div>
-
       <div class="form-group">
-        <label>Record ID (Exact)</label>
-        <input type="text" class="form-control" placeholder="Exact Record ID..." [ngModel]="recordId()" (ngModelChange)="recordId.set($event)" />
+        <label for="al-rec">Record ID</label>
+        <input id="al-rec" type="text" class="form-control" placeholder="e.g. 1024" [ngModel]="recordId()"
+          (ngModelChange)="recordId.set($event)" (keyup.enter)="applyFilters()" />
       </div>
-
       <div class="form-group">
-        <label>Source App</label>
-        <select class="form-control" [ngModel]="sourceApp()" (ngModelChange)="sourceApp.set($event)">
-          <option value="">All Sources</option>
+        <label for="al-src">Source</label>
+        <select id="al-src" class="form-control" [ngModel]="sourceApp()" (ngModelChange)="sourceApp.set($event)">
+          <option value="">All sources</option>
           @for (app of filterOptions().sourceApps; track app) {
             <option [value]="app">{{ app }}</option>
           }
         </select>
       </div>
-
-      <div class="toggle-group">
-        <label class="toggle-label">
-          <input type="checkbox" [checked]="errorsOnly()" (change)="errorsOnly.set($any($event.target).checked)" />
-          <span>Errors only (ErrorMessage IS NOT NULL)</span>
-        </label>
+      <div class="filter-actions">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="resetFilters()">Reset</button>
+        <button type="button" class="btn-admin btn-primary-admin" (click)="applyFilters()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search
+        </button>
       </div>
-    </div>
-
-    <div class="filter-actions">
-      <button type="button" class="btn-admin btn-outline-admin" (click)="resetFilters()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        Reset Filters
-      </button>
-      <button type="button" class="btn-admin btn-primary-admin" (click)="applyFilters()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-        Apply Filters
-      </button>
     </div>
   </div>
 
-  <!-- Grid Card -->
-  <div class="admin-card table-card">
-    <div class="card-toolbar">
-      <div class="toolbar-left">
-        Total Records: <strong>{{ totalCount() | number }}</strong>
-        <span class="meta-sep">&bull;</span>
-        Page <strong>{{ page() }}</strong> of <strong>{{ totalPages() }}</strong>
+  <!-- Results -->
+  <div class="admin-card results-card">
+    <div class="results-toolbar">
+      <div class="results-summary">
+        <span class="results-count"><strong>{{ totalCount() | number }}</strong> {{ totalCount() === 1 ? 'change' : 'changes' }}</span>
+        @for (f of activeFilters(); track f.key) {
+          <span class="filter-chip">
+            {{ f.label }}
+            <button type="button" (click)="clearFilter(f.key)" [attr.aria-label]="'Remove filter ' + f.label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </span>
+        }
       </div>
-      <div class="toolbar-right">
-        <div class="page-size-wrap">
-          <label>Page Size:</label>
-          <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)" class="form-control-sm">
-            @for (size of pageSizeOptions; track size) {
-              <option [value]="size">{{ size }} / page</option>
-            }
-          </select>
-        </div>
-      </div>
+      <label class="page-size-wrap">
+        Rows
+        <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
+          @for (size of pageSizeOptions; track size) {
+            <option [value]="size">{{ size }}</option>
+          }
+        </select>
+      </label>
     </div>
 
-    @if (loading()) {
-      <div class="loading-spinner">
-        <div class="spinner"></div>
-        <span>Loading audit log records...</span>
+    @if (loadError()) {
+      <div class="state-box state-error" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <strong>The audit log couldn't be loaded</strong>
+        <span>{{ loadError() }}</span>
+        <button type="button" class="btn-admin btn-outline-admin" (click)="loadAuditLogs()">Try again</button>
+      </div>
+    } @else if (loading()) {
+      <div class="skeleton-list" aria-busy="true" aria-label="Loading audit log">
+        @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+          <div class="skeleton-row"><span></span><span></span><span></span><span></span><span></span></div>
+        }
+      </div>
+    } @else if (items().length === 0) {
+      <div class="state-box">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6"/></svg>
+        <strong>No changes found</strong>
+        <span>Nothing matches these filters. Try a wider date range or clear a filter.</span>
+        @if (activeFilters().length) {
+          <button type="button" class="btn-admin btn-outline-admin" (click)="resetFilters()">Clear all filters</button>
+        }
       </div>
     } @else {
       <div class="table-wrap">
-        <table class="admin-table">
+        <table class="admin-table audit-table">
           <thead>
             <tr>
-              <th>Audit ID</th>
-              <th>Changed At (PKT)</th>
-              <th>Operation</th>
-              <th>Entity Name</th>
-              <th>Record ID</th>
-              <th>Changed By</th>
-              <th>Source App</th>
+              <th>When</th>
+              <th>Action</th>
+              <th>Record</th>
+              <th>Changed by</th>
+              <th class="col-source">Source</th>
               <th>Status</th>
-              <th style="text-align: right;">Action</th>
+              <th class="col-view"><span class="sr-only">Details</span></th>
             </tr>
           </thead>
           <tbody>
-            @if (items().length === 0) {
-              <tr>
-                <td colspan="9" class="empty-state">
-                  No audit log entries found matching the filter criteria.
+            @for (item of items(); track item.auditId) {
+              <tr class="audit-row" tabindex="0" (click)="openDetail(item.auditId)" (keydown)="onRowKey($event, item.auditId)"
+                [attr.aria-label]="'Open change ' + item.auditId">
+                <td class="col-when">
+                  <span class="when-date">{{ item.changedAt | date:'d MMM yyyy, HH:mm' }}</span>
+                  <span class="when-rel">{{ relativeTime(item.changedAtUtc) || ('#' + item.auditId) }}</span>
+                </td>
+                <td>
+                  <span class="op-badge" [ngClass]="getOperationBadgeClass(item.operation)">
+                    <i class="op-dot"></i>{{ operationText(item.operation) }}
+                  </span>
+                </td>
+                <td class="col-record">
+                  <span class="record-name">{{ friendlyEntity(item.entityName) }}</span>
+                  <span class="record-id">#{{ item.recordId || '-' }}</span>
+                </td>
+                <td class="col-by">
+                  @if (item.changedByUserEmail) {
+                    <span class="by-avatar">{{ initial(item.changedByUserEmail) }}</span>
+                    <span class="by-email" [title]="item.changedByUserEmail">{{ item.changedByUserEmail }}</span>
+                  } @else {
+                    <span class="by-avatar system" title="Changed by the database or a background job">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+                    </span>
+                    <span class="by-email muted">System</span>
+                  }
+                </td>
+                <td class="col-source"><span class="source-pill">{{ item.sourceApp || 'Database' }}</span></td>
+                <td>
+                  @if (item.hasError) {
+                    <span class="status-dot error">{{ item.errorSeverity || 'Error' }}</span>
+                  } @else {
+                    <span class="status-dot ok">OK</span>
+                  }
+                </td>
+                <td class="col-view">
+                  <span class="row-chevron" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                  </span>
                 </td>
               </tr>
-            } @else {
-              @for (item of items(); track item.auditId) {
-                <tr>
-                  <td class="cell-mono"><span class="id-badge">#{{ item.auditId }}</span></td>
-                  <td class="cell-date">
-                    <div class="date-primary">{{ item.changedAt | date:'yyyy-MM-dd' }}</div>
-                    <div class="time-secondary">{{ item.changedAt | date:'HH:mm:ss' }}</div>
-                  </td>
-                  <td>
-                    <span class="pill-badge" [ngClass]="getOperationBadgeClass(item.operation)">
-                      {{ item.operationLabel || item.operation }}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="entity-pill">{{ item.entityName || '-' }}</span>
-                  </td>
-                  <td class="cell-mono">
-                    <span class="record-id-badge">{{ item.recordId || '-' }}</span>
-                  </td>
-                  <td>
-                    <span class="user-email-text" [title]="item.changedByUserEmail || ''">{{ item.changedByUserEmail || '-' }}</span>
-                  </td>
-                  <td>
-                    <span class="source-pill">{{ item.sourceApp || 'Trigger / DB' }}</span>
-                  </td>
-                  <td>
-                    @if (item.hasError) {
-                      <span class="pill-badge badge-error">
-                        {{ item.errorSeverity || 'Error' }}
-                      </span>
-                    } @else {
-                      <span class="pill-badge badge-ok"><span class="status-dot-ok"></span>OK</span>
-                    }
-                  </td>
-                  <td style="text-align: right;">
-                    <button type="button" class="btn-detail-view" (click)="openDetail(item.auditId)">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              }
             }
           </tbody>
         </table>
       </div>
 
-      <!-- Pagination -->
-      <div class="admin-pagination">
-        <button type="button" class="btn-admin btn-outline-admin page-btn" [disabled]="!canPrev()" (click)="onPageChange(1)" title="First Page">&laquo;</button>
-        <button type="button" class="btn-admin btn-outline-admin page-btn" [disabled]="!canPrev()" (click)="onPageChange(page() - 1)" title="Previous Page">&lsaquo;</button>
-        <span class="page-indicator">Page <strong>{{ page() }}</strong> of <strong>{{ totalPages() }}</strong></span>
-        <button type="button" class="btn-admin btn-outline-admin page-btn" [disabled]="!canNext()" (click)="onPageChange(page() + 1)" title="Next Page">&rsaquo;</button>
-        <button type="button" class="btn-admin btn-outline-admin page-btn" [disabled]="!canNext()" (click)="onPageChange(totalPages())" title="Last Page">&raquo;</button>
+      <div class="results-footer">
+        <span class="range-text">Showing <strong>{{ rangeStart() | number }}&ndash;{{ rangeEnd() | number }}</strong> of {{ totalCount() | number }}</span>
+        <div class="pager">
+          <button type="button" class="page-btn" [disabled]="!canPrev()" (click)="onPageChange(1)" aria-label="First page">&laquo;</button>
+          <button type="button" class="page-btn" [disabled]="!canPrev()" (click)="onPageChange(page() - 1)" aria-label="Previous page">&lsaquo;</button>
+          <span class="page-indicator">Page {{ page() | number }} of {{ totalPages() | number }}</span>
+          <button type="button" class="page-btn" [disabled]="!canNext()" (click)="onPageChange(page() + 1)" aria-label="Next page">&rsaquo;</button>
+          <button type="button" class="page-btn" [disabled]="!canNext()" (click)="onPageChange(totalPages())" aria-label="Last page">&raquo;</button>
+        </div>
       </div>
     }
   </div>
 
-  <!-- Detail Modal -->
+  <!-- Detail -->
   @if (detailModalOpen()) {
     <div class="modal-overlay" (click)="closeDetail()">
-      <div class="modal-content modal-detail" (click)="$event.stopPropagation()">
-        <button type="button" class="modal-close" (click)="closeDetail()" aria-label="Close modal">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <div class="modal-content modal-detail" role="dialog" aria-modal="true" aria-labelledby="al-detail-title" (click)="$event.stopPropagation()">
+        <button type="button" class="modal-close" (click)="closeDetail()" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
 
         @if (detailLoading()) {
-          <div class="loading-spinner">
-            <div class="spinner"></div>
-            <span>Loading audit record details...</span>
+          <div class="skeleton-list detail-skeleton" aria-busy="true">
+            @for (i of [1, 2, 3, 4]; track i) {
+              <div class="skeleton-row"><span></span><span></span><span></span></div>
+            }
           </div>
         } @else if (selectedDetail(); as detail) {
-          <div class="modal-header">
-            <div class="modal-title-row">
-              <h2>Audit Record <span class="modal-id-tag">#{{ detail.auditId }}</span></h2>
-              <span class="pill-badge" [ngClass]="getOperationBadgeClass(detail.operation)">{{ detail.operationLabel || detail.operation }}</span>
-              @if (detail.entityName) {
-                <span class="entity-pill lg">{{ detail.entityName }}</span>
-              }
-            </div>
-            <p class="modal-meta">
-              Captured on {{ detail.changedAt | date:'yyyy-MM-dd HH:mm:ss' }} PKT ({{ detail.changedAtUtc | date:'yyyy-MM-dd HH:mm:ss' }} UTC)
+          <div class="detail-head">
+            <span class="op-badge lg" [ngClass]="getOperationBadgeClass(detail.operation)"><i class="op-dot"></i>{{ operationText(detail.operation) }}</span>
+            <h2 id="al-detail-title">{{ friendlyEntity(detail.entityName) }} <span class="muted">#{{ detail.recordId || '-' }}</span></h2>
+            <p class="detail-sub">
+              Change #{{ detail.auditId }} &middot; {{ detail.changedAt | date:'d MMM yyyy, HH:mm:ss' }} PKT
+              <span class="muted">({{ detail.changedAtUtc | date:'HH:mm:ss' }} UTC)</span>
             </p>
           </div>
 
-          <div class="detail-overview-grid">
-            <div class="overview-item">
-              <span>Operation</span>
-              <div>
-                <strong class="pill-badge" [ngClass]="getOperationBadgeClass(detail.operation)">{{ detail.operationLabel || detail.operation }}</strong>
-              </div>
+          <div class="detail-meta">
+            <div class="meta-item">
+              <span>Changed by</span>
+              <strong>{{ detail.changedByUserEmail || 'System (database / background job)' }}</strong>
             </div>
-            <div class="overview-item">
-              <span>Entity Name</span>
-              <strong class="cell-mono">{{ detail.entityName || '-' }}</strong>
+            <div class="meta-item">
+              <span>Source</span>
+              <strong>{{ detail.sourceApp || 'Database' }}</strong>
             </div>
-            <div class="overview-item">
-              <span>Record ID</span>
-              <strong class="cell-mono">{{ detail.recordId || '-' }}</strong>
+            <div class="meta-item">
+              <span>Table</span>
+              <strong class="mono">{{ detail.entityName || '-' }}</strong>
             </div>
-            <div class="overview-item">
-              <span>Changed By</span>
-              <strong>{{ detail.changedByUserEmail || '-' }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>Source App</span>
-              <strong>{{ detail.sourceApp || 'Trigger / DB' }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>Changed At (PKT)</span>
-              <strong>{{ detail.changedAt | date:'yyyy-MM-dd HH:mm:ss' }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>Changed At (UTC)</span>
-              <strong>{{ detail.changedAtUtc | date:'yyyy-MM-dd HH:mm:ss' }}</strong>
-            </div>
-            <div class="overview-item">
+            <div class="meta-item">
               <span>Status</span>
-              <div>
-                @if (detail.hasError) {
-                  <span class="pill-badge badge-error">{{ detail.errorSeverity || 'Error' }}</span>
-                } @else {
-                  <span class="pill-badge badge-ok"><span class="status-dot-ok"></span>Success</span>
-                }
-              </div>
+              @if (detail.hasError) {
+                <strong><span class="status-dot error">{{ detail.errorSeverity || 'Error' }}</span></strong>
+              } @else {
+                <strong><span class="status-dot ok">OK</span></strong>
+              }
             </div>
           </div>
 
           @if (detail.errorMessage || detail.hasError) {
-            <div class="alert-error-admin">
-              <div class="error-banner-header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>Error Encountered</span>
-                @if (detail.errorSeverity) {
-                  <span class="pill-badge badge-error sm">{{ detail.errorSeverity }}</span>
-                }
-              </div>
-              <div class="error-banner-body">
-                {{ detail.errorMessage || 'Unknown database or application error' }}
-              </div>
-            </div>
-
-            @if (detail.stackTrace) {
-              <div class="stacktrace-block">
-                <div class="section-subheading">Stack Trace</div>
-                <pre class="code-box-stacktrace">{{ detail.stackTrace }}</pre>
-              </div>
-            }
-          }
-
-          <!-- Changes & Values Diff -->
-          <div class="diff-section">
-            <div class="diff-header-row">
-              <div class="section-subheading">Field Changes &amp; Values</div>
-              @if (isJsonDiff()) {
-                <span class="diff-summary-tag">{{ diffRows().length }} fields compared</span>
+            <div class="error-panel">
+              <strong>Error</strong>
+              <p>{{ detail.errorMessage || 'The operation reported an error.' }}</p>
+              @if (detail.stackTrace) {
+                <details>
+                  <summary>Technical details</summary>
+                  <pre class="code-box">{{ detail.stackTrace }}</pre>
+                </details>
               }
             </div>
+          }
 
+          <div class="changes">
             @if (isJsonDiff()) {
-              <div class="table-wrap diff-table-wrap">
-                <table class="diff-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 26%;">Field</th>
-                      <th style="width: 37%;">Old Value</th>
-                      <th style="width: 37%;">New Value</th>
-                    </tr>
-                  </thead>
+              @if ((detail.operation || '').toUpperCase() === 'U') {
+                <h3>What changed @if (changedRows().length) { <span class="count">{{ changedRows().length }}</span> }</h3>
+                @if (changedRows().length) {
+                  <table class="diff-table">
+                    <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+                    <tbody>
+                      @for (row of changedRows(); track row.key) {
+                        <tr>
+                          <td class="field">{{ row.key }}</td>
+                          <td><span class="val before" [class.empty]="row.oldDisplay === 'empty'">{{ row.oldDisplay }}</span></td>
+                          <td><span class="val after" [class.empty]="row.newDisplay === 'empty'">{{ row.newDisplay }}</span></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  <div class="note">No values changed: the record was saved again with the same values.</div>
+                }
+                @if (unchangedRows().length) {
+                  <button type="button" class="link-btn" (click)="showUnchanged.set(!showUnchanged())">
+                    {{ showUnchanged() ? 'Hide' : 'Show' }} {{ unchangedRows().length }} unchanged {{ unchangedRows().length === 1 ? 'field' : 'fields' }}
+                  </button>
+                  @if (showUnchanged()) {
+                    <table class="diff-table plain">
+                      <tbody>
+                        @for (row of unchangedRows(); track row.key) {
+                          <tr><td class="field">{{ row.key }}</td><td><span class="val" [class.empty]="row.newDisplay === 'empty'">{{ row.newDisplay }}</span></td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                }
+              } @else {
+                <h3>{{ (detail.operation || '').toUpperCase() === 'D' ? 'Values when it was deleted' : 'Values when it was created' }}</h3>
+                <table class="diff-table plain">
                   <tbody>
                     @for (row of diffRows(); track row.key) {
-                      <tr [ngClass]="'diff-row-' + row.status">
-                        <td class="diff-key-cell">
-                          <span>{{ row.key }}</span>
-                          @if (row.status === 'changed') {
-                            <span class="diff-status-pill mod">MODIFIED</span>
-                          } @else if (row.status === 'added') {
-                            <span class="diff-status-pill add">ADDED</span>
-                          } @else if (row.status === 'removed') {
-                            <span class="diff-status-pill del">REMOVED</span>
+                      <tr>
+                        <td class="field">{{ row.key }}</td>
+                        <td>
+                          @if ((detail.operation || '').toUpperCase() === 'D') {
+                            <span class="val" [class.empty]="row.oldDisplay === 'empty'">{{ row.oldDisplay || 'empty' }}</span>
+                          } @else {
+                            <span class="val" [class.empty]="row.newDisplay === 'empty'">{{ row.newDisplay || 'empty' }}</span>
                           }
-                        </td>
-                        <td class="diff-val-cell old">
-                          <code>{{ row.oldValue }}</code>
-                        </td>
-                        <td class="diff-val-cell new">
-                          <code>{{ row.newValue }}</code>
                         </td>
                       </tr>
                     }
                   </tbody>
                 </table>
-              </div>
+              }
             } @else {
-              <!-- Fallback to side-by-side formatted blocks -->
+              <h3>Recorded values</h3>
               <div class="raw-values-grid">
-                <div class="raw-col">
-                  <div class="raw-col-title text-danger">
-                    <span class="col-dot red"></span> Old Values
-                  </div>
+                <div>
+                  <div class="raw-title">Before</div>
                   <pre class="code-box">{{ prettyOldJson() }}</pre>
                 </div>
-                <div class="raw-col">
-                  <div class="raw-col-title text-success">
-                    <span class="col-dot green"></span> New Values
-                  </div>
+                <div>
+                  <div class="raw-title">After</div>
                   <pre class="code-box">{{ prettyNewJson() }}</pre>
                 </div>
               </div>
