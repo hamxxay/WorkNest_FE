@@ -97,6 +97,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/network/internet', group: 'Network', label: 'Internet',         icon: 'net-internet'    },
     { route: '/admin/network/wifi', group: 'Network',     label: 'Wi-Fi',            icon: 'net-wifi'        },
     { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan', superAdminOnly: true },
+      { route: '/admin/audit-log', group: 'Administration', label: 'Audit Log', icon: 'audit', superAdminOnly: true },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
 

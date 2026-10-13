@@ -56,6 +56,7 @@ export const routes: Routes = [
       { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
       { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
+        { path: 'audit-log', loadComponent: () => import('./pages/admin/audit-log/audit-log').then(m => m.AuditLogComponent), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]
   },
