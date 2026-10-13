@@ -148,7 +148,8 @@ export class Login {
       ? `${publicSiteUrl(this.customerLandingPath())}#handoff=${encodeURIComponent(token)}`
       : publicSiteUrl('/login');
     const go = () => { window.location.replace(url); };
-    this.authService.logout$().subscribe({ next: go, error: go });
+    // keepApiSession: the token was just handed to worknestpk.com, so only this portal's session ends here.
+    this.authService.logout$({ keepApiSession: true }).subscribe({ next: go, error: go });
   }
 
   /** A customer page asked for in ?redirect= (My Bookings / Payments / Agreements), otherwise the home page. */

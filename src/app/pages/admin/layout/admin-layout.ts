@@ -264,7 +264,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   }
 
   logout() {
-    this.auth.logout();
-    this.router.navigate(['/login']);
+    // Go to /login once sign-out has finished (it first ends the API session, up to ~1.5 s).
+    this.auth.logout$().subscribe(() => this.router.navigate(['/login']));
   }
 }

@@ -39,6 +39,9 @@ export interface UserInfo {
   locationIds?: number[];
 }
 
+/** Sign-out waits at most this long for POST auth/logout before clearing the session anyway. */
+const LOGOUT_API_WAIT_MS = 1500;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -289,7 +292,39 @@ export class AuthService {
     this.user.set(null);
   }
 
-  logout$(): Observable<any> {
+  /**
+   * Signs out: first ends the API session (POST auth/logout, so the server revokes this token), then signs out
+   * of Firebase and clears the stored session. The API call never blocks sign-out: errors are ignored and it
+   * waits for the reply at most LOGOUT_API_WAIT_MS.
+   *
+   * keepApiSession: only for the hand-over to worknestpk.com (login page), which passes this same token on to
+   * the public site; revoking it there would sign the customer straight out again.
+   */
+  logout$(options: { keepApiSession?: boolean } = {}): Observable<any> {
+    const endApiSession$ = options.keepApiSession ? of(null) : this.endApiSession$();
+    return endApiSession$.pipe(switchMap(() => this.endLocalSession$()));
+  }
+
+  /**
+   * POST auth/logout with the current token. Emits once the API answered (or failed) or after LOGOUT_API_WAIT_MS,
+   * whichever comes first; the request itself is never cancelled, so a slow reply still reaches the server.
+   */
+  private endApiSession$(): Observable<null> {
+    const token = this.getToken();
+    if (!token) return of(null);
+
+    return new Observable<null>(subscriber => {
+      const done = () => { subscriber.next(null); subscriber.complete(); };
+      const timer = setTimeout(done, LOGOUT_API_WAIT_MS);
+      // Sent explicitly (not only by the interceptor) so the call always carries the token being signed out.
+      this.http.post(`${environment.apiUrl}/auth/logout`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).subscribe({ error: done, complete: done });
+      return () => clearTimeout(timer);
+    });
+  }
+
+  private endLocalSession$(): Observable<any> {
     if (!isFirebaseConfigured) {
       this.clearSession();
       return of(null);
