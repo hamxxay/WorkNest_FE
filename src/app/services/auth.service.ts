@@ -364,6 +364,20 @@ export class AuthService {
     return null;
   }
 
+  /** Location ids in the signed-in user's API token (location_ids, else location_id); [] when none. */
+  tokenLocationIds(): number[] {
+    const token = this.getToken();
+    if (!token) return [];
+    try {
+      const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const claims = JSON.parse(decodeURIComponent(escape(atob(part.padEnd(part.length + (4 - part.length % 4) % 4, '=')))));
+      const raw = claims['location_ids'] ?? claims['location_id'] ?? claims['LocationId'] ?? '';
+      return [...new Set(String(raw).split(',').map(s => Number(s.trim())).filter(n => n > 0))];
+    } catch {
+      return [];
+    }
+  }
+
   clearSession(): void {
     this.user.set(null);
     this.rolesVerified.set(false);
