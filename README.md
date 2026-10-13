@@ -104,18 +104,16 @@ Set `API_URL` in `.env` to the production API, then build with the production co
 npm run build -- --configuration production
 ```
 
-The site is written to `dist/work-nest/`. Upload the contents of that folder to the domain's folder on cPanel (the document root of cms.worknestpk.com).
+The site is written to `dist/work-nest/`. Upload the contents of that folder, including the hidden `.htaccess`, to the domain's folder on cPanel (the document root of cms.worknestpk.com).
 
-The repo has no `.htaccess`. Create one in the same folder so Apache serves `index.html` for app routes (otherwise refreshing `/admin/bookings` returns 404):
+`.htaccess` comes from `public/.htaccess` (Angular copies it into every build). It:
 
-```apache
-RewriteEngine On
-RewriteBase /
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-RewriteRule ^ index.html [L]
-```
+- redirects `http://` to `https://` (301) and sends `Strict-Transport-Security` on HTTPS answers;
+- serves `index.html` for app routes (without it, refreshing `/admin/bookings` returns 404);
+- sends the security headers (`X-Frame-Options`, a minimal `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) and turns off folder listings;
+- keeps `index.html` out of the browser cache and lets the hashed JS/CSS files be cached for a year.
+
+After an upload, `curl -sI https://cms.worknestpk.com/` should show those headers; if none appear, `mod_headers` is off on the server.
 
 The browser calls the API directly, so the API (WN_APIs) must list `https://cms.worknestpk.com` in its CORS allowed origins. If sign-in or any page fails with a CORS error in the browser console, check that setting first.
 
@@ -143,7 +141,7 @@ src/
     models/                     admin, hik-device, unifi types
     components/                 navbar, footer, toast host, WhatsApp button, policies
     utils/                      dates, phone, CNIC, discounts, space assignment
-public/                         favicon and images (copied into the build)
+public/                         favicon, images and .htaccess (copied into the build)
 set-env.js                      writes environment.ts from .env
 proxy.conf.json                 dev proxy for /api to localhost:5200
 ```
