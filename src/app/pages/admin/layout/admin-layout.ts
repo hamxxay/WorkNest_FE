@@ -1,4 +1,4 @@
-import { UnifiService } from '../../../services/unifi.service';
+﻿import { UnifiService } from '../../../services/unifi.service';
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
@@ -98,6 +98,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/network/wifi', group: 'Network',     label: 'Wi-Fi',            icon: 'net-wifi'        },
     { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan', superAdminOnly: true },
       { route: '/admin/audit-log', group: 'Administration', label: 'Audit Log', icon: 'audit', superAdminOnly: true },
+    { route: '/admin/login-history', group: 'Administration', label: 'Login History', icon: 'login-history', superAdminOnly: true },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
 
@@ -268,3 +269,4 @@ export class AdminLayout implements OnInit, OnDestroy {
     this.auth.logout$().subscribe(() => this.router.navigate(['/login']));
   }
 }
+
