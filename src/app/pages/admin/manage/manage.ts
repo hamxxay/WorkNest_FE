@@ -3123,10 +3123,10 @@ export class Manage implements OnInit {
       if (col.key === 'status') {
         const st = String(item.status || item.Status || 'AgreementSent');
         const labels: Record<string, string> = {
-          agreementsent: 'Sent', sent: 'Sent', signeduploaded: 'Signed copy received â€” verify',
-          emailfailed: 'Email failed â€” resend', signed: 'Signed', converted: 'Signed'
+          agreementsent: 'Sent', sent: 'Sent', signeduploaded: 'Signed copy received” verify',
+          emailfailed: 'Email failed ” resend', signed: 'Signed', converted: 'Signed'
         };
-        const label = (item.bookingId || item.BookingId) ? 'Signed Â· booking created' : (labels[st.toLowerCase()] ?? st);
+        const label = (item.bookingId || item.BookingId) ? 'Signed booking created' : (labels[st.toLowerCase()] ?? st);
         return this.eSignedAt(item) ? `${label} (e-signed)` : label;
       }
       if (col.key === 'createdOn') {
@@ -3285,7 +3285,7 @@ export class Manage implements OnInit {
         return Math.max(0, total - paid);
       }
       if (col.key === 'statusLabel') {
-        // The API resolves the label from dbo.OrderStatus (and legacy values) â€” show it, normalised.
+        // The API resolves the label from dbo.OrderStatus (and legacy values) ” show it, normalised.
         const label = String(item.statusLabel ?? item.StatusLabel ?? item.status ?? '').trim().toLowerCase();
         const map: Record<string, string> = {
           'paid': 'Paid', 'partial': 'Partial', 'overdue': 'Overdue', 'challan expire': 'Overdue',
@@ -4305,8 +4305,8 @@ export class Manage implements OnInit {
     const targetMap = this.entity === 'bookings' ? bookingStatusMap :
       this.entity === 'payments' ? paymentStatusMap :
         this.entity === 'complaints' ? complaintStatusMap :
-        this.entity === 'contacts' ? contactStatusMap :
-          this.entity === 'memberships' ? membershipStatusMap : bookingStatusMap;
+          this.entity === 'contacts' ? contactStatusMap :
+            this.entity === 'memberships' ? membershipStatusMap : bookingStatusMap;
 
     const sStr = String(status).trim().toLowerCase();
     const statusId = targetMap[sStr] ?? (isNaN(Number(status)) ? 1 : Number(status));
@@ -6260,7 +6260,7 @@ export class Manage implements OnInit {
     this.whtRateSvc.getAll().subscribe(list => this.initialInvoiceWhtRates.set(list.filter(o => o.id !== null)));
     // Only the invoice opened right after a signed agreement is dated on that agreement; any other is dated today.
     this.initialInvoiceIssuedOn.set(item.issuedOn ?? null);
-    // Show the server's own figures (proration, discount, tax, deposit) â€” not a browser-side estimate.
+    // Show the server's own figures (proration, discount, tax, deposit) ” not a browser-side estimate.
     this.loadInitialInvoicePreview(Number(bookingId), item.issuedOn ?? null);
     const targetEmail = item.customerEmail || item.userEmail || item.email || '';
     this.initialInvoiceRecipientEmail.set(targetEmail);

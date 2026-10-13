@@ -22,10 +22,10 @@
     <div class="sc-filter-row">
       <div class="sc-filter-group">
         <label>Location</label>
-        <select class="form-input-admin" [ngModel]="filterLocationId()"
-          (ngModelChange)="onLocationFilterChange($event)" [disabled]="!isSuperAdmin && !!userLocationId">
+        <select class="form-input-admin" [ngModel]="filterLocationId()" (ngModelChange)="onLocationFilterChange($event)"
+          [disabled]="!isSuperAdmin && !!userLocationId">
           @if (isSuperAdmin || !userLocationId) {
-            <option [ngValue]="null">All Locations</option>
+          <option [ngValue]="null">All Locations</option>
           }
           @for (l of locationOptions(); track l.v) {
           <option [value]="l.v">{{ l.l }}</option>
@@ -79,7 +79,8 @@
             <td>{{ cfg.totalSpaces }}</td>
             <td>{{ cfg.openingTime }}</td>
             <td>{{ cfg.closingTime }}</td>
-            <td>{{ cfg.price ? ('PKR ' + (cfg.price | number:'1.0-0') + ' / ' + (cfg.billingPeriodLabel || 'Month')) : '—' }}</td>
+            <td>{{ cfg.price ? ('PKR ' + (cfg.price | number:'1.0-0') + ' / ' + (cfg.billingPeriodLabel || 'Month')) :
+              '—' }}</td>
             <td>{{ cfg.securityDeposit ? ('PKR ' + (cfg.securityDeposit | number:'1.0-0')) : '—' }}</td>
             <td class="actions-cell">
               <button class="action-btn edit" (click)="openEdit(cfg)" title="Edit">
@@ -201,7 +202,7 @@
           <label>Billing Cycle</label>
           <select class="form-input-admin" [(ngModel)]="form.billingPeriodId" name="billingPeriodId">
             @for (bp of billingPeriods; track bp.id) {
-              <option [value]="bp.id">{{ bp.label }}</option>
+            <option [value]="bp.id">{{ bp.label }}</option>
             }
           </select>
         </div>
@@ -250,7 +251,8 @@
       </div>
       <div class="form-row-admin">
         <div class="form-group-admin">
-          <label>Deposit Account (Security Received) @if (isPrivate) { <span class="sc-required">required</span> }</label>
+          <label>Deposit Account (Security Received) @if (isPrivate) { <span class="sc-required">required</span>
+            }</label>
           @if (isPrivate) {
           <select class="form-input-admin" [(ngModel)]="form.depositAccountId" name="depositAccountId">
             <option [ngValue]="null">Select Account...</option>
@@ -259,7 +261,7 @@
             }
           </select>
           } @else {
-          <input class="form-input-admin" value="N/A â€” Private only" disabled
+          <input class="form-input-admin" value="N/A - Private only" disabled
             style="background:#f1f5f9;color:#94a3b8" />
           }
         </div>
@@ -296,12 +298,15 @@
 
 @if (showDiscardConfirm()) {
 <div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscard()">
-  <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;" (click)="$event.stopPropagation()">
-    <div style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-        <line x1="12" y1="9" x2="12" y2="13"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
+  <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;"
+    (click)="$event.stopPropagation()">
+    <div
+      style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
     </div>
     <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">Discard Unsaved Changes?</h3>
@@ -312,7 +317,8 @@
       <button type="button" class="btn-admin btn-outline-admin" style="flex:1" (click)="cancelDiscard()">
         Keep Editing
       </button>
-      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;" (click)="confirmDiscard()">
+      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;"
+        (click)="confirmDiscard()">
         Discard
       </button>
     </div>
