@@ -19,7 +19,7 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/fee-receipts',
   '/admin/bookings',
   '/admin/attendants',
-  // '/admin/staff-access' is admin-only: the API refuses sales executives (door cards and fingerprints).
+  '/admin/staff-access',
   '/admin/biometric-users',
   '/admin/machine-users',
   '/admin/contacts',
