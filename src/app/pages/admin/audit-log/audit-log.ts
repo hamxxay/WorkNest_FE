@@ -22,7 +22,9 @@ export interface DiffRow {
   standalone: true,
   imports: [CommonModule, FormsModule, DatePipe],
   templateUrl: './audit-log.html',
-  styleUrl: './audit-log.css'
+  // The shared admin page look (page padding, header, cards, table, buttons, modals) lives in the Manage page
+  // stylesheet; this page's own styles come after it.
+  styleUrls: ['../manage/manage.css', './audit-log.css']
 })
 export class AuditLogComponent implements OnInit {
   private auditService = inject(AuditLogService);
