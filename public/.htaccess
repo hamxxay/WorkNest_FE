@@ -1,0 +1,70 @@
+# ============================================================
+# cms.worknestpk.com on cPanel (Apache)
+# ============================================================
+# Angular copies this file from public/ into dist/work-nest/, so every build ships it. Upload it with the rest
+# (it is a hidden file: make sure the zip / File Manager upload includes it).
+
+# No folder listings: a folder without an index page (e.g. /images/) answers 403 instead of listing its files.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Plain HTTP goes to the same address on HTTPS (301), before any other rule.
+  #    /.well-known/ is left on HTTP so cPanel AutoSSL can still check the domain and renew the certificate.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+  # 2. Real files and folders (JS, CSS, images, favicon) are served as they are.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 3. Every other URL is an Angular page: serve index.html, so links, refreshes and deep links work.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Security headers on every response ("always": also on redirects and error pages).
+<IfModule mod_headers.c>
+  # Browsers use HTTPS only for this site for a year. Sent on HTTPS answers only (it is ignored over HTTP).
+  # No includeSubDomains: that would also bind every other subdomain to HTTPS.
+  Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
+
+  # No other site may show the portal in a frame (clickjacking). frame-ancestors below is the modern form.
+  Header always set X-Frame-Options "DENY"
+
+  # Only directives that cannot break the app: no framing, no <object>/<embed> plugins, <base> limited to this
+  # site, and any http:// sub-resource is fetched over https. Scripts, styles, fonts, Firebase sign-in
+  # (auth.worknestpk.com / Google) and the API are deliberately not restricted here.
+  Header always set Content-Security-Policy "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"
+
+  # Files are used only as the type the server says (a .js must really be JavaScript, a .css really CSS).
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Other sites only see "https://cms.worknestpk.com/" as the referrer, never the full page address. Keep it
+  # exactly strict-origin-when-cross-origin: the sign-in hand-over to worknestpk.com checks that the referrer's
+  # origin is https://cms.worknestpk.com.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # The portal uses no camera or microphone (face enrolment happens on the HIK terminals); location only for
+  # this site itself.
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+</IfModule>
+
+# index.html must never be cached, so users get the new version right after an upload.
+<Files "index.html">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </IfModule>
+</Files>
+
+# JS/CSS file names carry a content hash (a new build = new names), so browsers may keep them for a year.
+# cPanel serves .js as text/javascript, older servers as application/javascript: both are listed.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/javascript "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+</IfModule>
