@@ -488,7 +488,7 @@
                 </svg>
               </button>
               }
-              @if (config().updateFn && config().fields) {
+              @if (config().updateFn && config().fields && (entity !== 'users' || canEditUser(item))) {
               <button class="action-btn edit" (click)="openEdit(item)" title="Edit">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -496,7 +496,7 @@
                 </svg>
               </button>
               }
-              @if (entity === 'users') {
+              @if (entity === 'users' && canLockOrDeleteUser(item)) {
               <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive"
                 (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
                 @if (item.isActive) {
@@ -518,7 +518,7 @@
               <button class="btn-admin btn-outline-admin" style="padding:4px 10px;font-size:.8rem;white-space:nowrap"
                 (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Feedback</button>
               }
-              @if (config().deleteFn) {
+              @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
               <button class="action-btn delete" (click)="deleteItem(item)" title="Delete">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -713,7 +713,7 @@
         <div class="location-checklist">
           @for (loc of assignableUserLocations; track loc.v) {
           <label class="location-check">
-            <input type="checkbox" [checked]="isUserLocationChecked(loc.v)"
+            <input type="checkbox" [checked]="isUserLocationChecked(loc.v)" [disabled]="userLocationLocked"
               (change)="toggleUserLocation(loc.v, $any($event.target).checked)" />
             <span>{{ loc.l }}</span>
           </label>
@@ -722,7 +722,13 @@
           }
         </div>
         <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">
-          Sales Executives only — tick every location they may work in. Admins and Super Admins cover all locations.
+          @if (userLocationLocked) {
+          Your location. Users you add work here.
+          } @else if (isLocationBound) {
+          Tick one or more of your locations.
+          } @else {
+          Tick every location they may work in.
+          }
         </small>
         } @else if (field.type === 'select') {
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"

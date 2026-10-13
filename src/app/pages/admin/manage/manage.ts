@@ -970,18 +970,33 @@ export class Manage implements OnInit {
   }
 
   /** Locations an admin may assign to a user: all for a super admin, otherwise only the admin's own. */
+  /** The signed-in Admin's / Sales Executive's own locations: from the profile, else from the sign-in token. */
+  private get myLocationIds(): number[] {
+    const u = this.auth.user();
+    const fromProfile = (u?.locationIds?.length ? u.locationIds : [u?.locationId])
+      .filter(x => x != null && Number(x) > 0).map(Number);
+    return fromProfile.length ? [...new Set(fromProfile)] : this.auth.tokenLocationIds();
+  }
+
+  /** Locations the signed-in user may give: all for a Super Admin, only their own for an Admin. */
   get assignableUserLocations(): { v: any; l: string }[] {
     if (!this.isLocationBound) return this.locationOptions();
-    const own = new Set((this.auth.user()?.locationIds?.length ? this.auth.user()!.locationIds! : [this.auth.user()?.locationId])
-      .filter(x => x != null).map(Number));
+    const own = new Set(this.myLocationIds);
     return this.locationOptions().filter(l => own.has(Number(l.v)));
   }
 
+  /** An Admin with a single location: that location is fixed for the users they add or edit. */
+  get userLocationLocked(): boolean {
+    return this.isLocationBound && this.assignableUserLocations.length === 1;
+  }
+
   isUserLocationChecked(id: any): boolean {
+    if (this.userLocationLocked) return true;
     return (this.formData['locationIds'] || []).map(Number).includes(Number(id));
   }
 
   toggleUserLocation(id: any, checked: boolean): void {
+    if (this.userLocationLocked) return;
     const current: number[] = (this.formData['locationIds'] || []).map(Number);
     this.formData['locationIds'] = checked ? [...new Set([...current, Number(id)])] : current.filter(x => x !== Number(id));
   }
@@ -999,7 +1014,7 @@ export class Manage implements OnInit {
 
   get userLocationId(): number | null {
     if (!this.isLocationBound) return null;
-    return this.auth.user()?.locationId ?? null;
+    return this.auth.user()?.locationId ?? this.myLocationIds[0] ?? null;
   }
   assignableRoles = ASSIGNABLE_ROLES;
   /** Only a Super Admin creates Admins / Super Admins; an Admin creates Sales Executives and customers. */
@@ -1007,6 +1022,34 @@ export class Manage implements OnInit {
     return this.auth.hasRole('super_admin')
       ? ASSIGNABLE_ROLES
       : ASSIGNABLE_ROLES.filter(r => r.v === 'sales_executive' || r.v === 'general');
+  }
+
+  /** Users: the signed-in user's own row. */
+  isOwnAccount(item: any): boolean {
+    const me = (this.auth.getUser()?.email || '').trim().toLowerCase();
+    const email = String(item?.email ?? item?.Email ?? '').trim().toLowerCase();
+    return !!me && email === me;
+  }
+
+  /** Users: Admin and Super Admin accounts, which only a Super Admin manages. */
+  private isAdminAccount(item: any): boolean {
+    const role = this.normalizeRole(item?.role ?? item?.roleId ?? item?.RoleId);
+    return role === 'admin' || role === 'super_admin';
+  }
+
+  /** Users: a Super Admin edits everyone; an Admin edits their own profile and the users below them. */
+  canEditUser(item: any): boolean {
+    return this.isSuperAdmin || this.isOwnAccount(item) || !this.isAdminAccount(item);
+  }
+
+  /** Users: nobody locks or deletes their own account; an Admin can't lock or delete other Admins. */
+  canLockOrDeleteUser(item: any): boolean {
+    return !this.isOwnAccount(item) && (this.isSuperAdmin || !this.isAdminAccount(item));
+  }
+
+  /** Editing your own account as an Admin: name, phone etc. only (the API keeps your role and locations). */
+  private get editingOwnAccountAsAdmin(): boolean {
+    return !!this.editItem && !this.isSuperAdmin && this.isOwnAccount(this.editItem);
   }
   amountLabels: Record<string, string> = {};
 
@@ -3435,6 +3478,7 @@ export class Manage implements OnInit {
 
   openCreate() {
     this.editItem = null; this.formData = {}; this.error.set(''); this.showModal.set(true);
+    if (this.entity === 'users') this.config.set(this.buildConfig(this.entity)); // full form again (role, location)
     this.selectedAmenityIds = [];
     const boundLoc = this.userLocationId;
     if (this.isLocationBound && boundLoc) {
@@ -3778,6 +3822,8 @@ export class Manage implements OnInit {
         : (item.locationId != null ? [Number(item.locationId)] : []);
       if (!this.locationOptions().length) this.loadLocationOptions();
       if (!this.cityOptions().length) this.loadCityOptions();
+      // Own account as an Admin: the form leaves out role and location (rebuilt for this edit).
+      this.config.set(this.buildConfig(this.entity));
     }
     this.selectedAmenityIds = [];
     if (this.entity === 'customers') {
@@ -4004,16 +4050,18 @@ export class Manage implements OnInit {
         locationId = null;
         locationIds = [];
       } else {
+        if (this.isLocationBound) {
+          const mine = this.assignableUserLocations.map(l => Number(l.v));
+          locationIds = this.userLocationLocked ? mine : locationIds.filter(x => mine.includes(x));
+          locationId = locationId && locationIds.includes(locationId) ? locationId : (locationIds[0] ?? null);
+        }
         if (!locationId || locationId <= 0) {
-          if (this.isLocationBound && this.userLocationId) {
-            locationId = this.auth.user()!.locationId!;
-            locationIds = [Number(locationId)];
-          } else {
-            this.error.set(`Location is required for ${this.getRoleLabel(role)} role.`);
-            this.showError(this.error());
-            this.saving.set(false);
-            return;
-          }
+          this.error.set(this.isLocationBound
+            ? 'Choose at least one of your locations.'
+            : `Location is required for ${this.getRoleLabel(role)} role.`);
+          this.showError(this.error());
+          this.saving.set(false);
+          return;
         }
       }
 
@@ -4630,11 +4678,11 @@ export class Manage implements OnInit {
       if (!this.isLocationRole(role)) {
         this.formData['locationId'] = null;
         this.formData['locationIds'] = [];
-      } else {
-        if (this.isLocationBound && this.userLocationId) {
-          this.formData['locationId'] = this.auth.user()?.locationId;
-          if (!(this.formData['locationIds'] || []).length) this.formData['locationIds'] = [Number(this.auth.user()?.locationId)];
-        }
+      } else if (this.userLocationLocked) {
+        // One location: it is the only choice (shown ticked and fixed).
+        const only = Number(this.assignableUserLocations[0].v);
+        this.formData['locationId'] = only;
+        this.formData['locationIds'] = [only];
       }
     }
     if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar();
@@ -4738,8 +4786,11 @@ export class Manage implements OnInit {
           { key: 'name', label: 'Full Name', type: 'text', required: true },
           { key: 'email', label: 'Email Address', type: 'email', required: true },
           { key: 'password', label: 'Password', type: 'password', required: !this.editItem },
-          { key: 'role', label: 'Role', type: 'select', options: this.rolesICanAssign, required: true },
-          { key: 'locationId', label: 'Location', type: 'user-location-select' },
+          // Your own role and locations are set by a Super Admin, not on your own profile.
+          ...(this.editingOwnAccountAsAdmin ? [] : [
+            { key: 'role', label: 'Role', type: 'select', options: this.rolesICanAssign, required: true },
+            { key: 'locationId', label: 'Location', type: 'user-location-select' },
+          ]),
           { key: 'phone', label: 'Phone Number', type: 'text' },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
           { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions() },
