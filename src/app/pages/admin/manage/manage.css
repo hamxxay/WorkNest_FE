@@ -23,6 +23,7 @@
 .role-admin{background:rgba(13,148,136,.12);color:#0d9488}
 .role-general{background:rgba(100,116,139,.1);color:#475569}
 .role-sales_executive,.role-salesexecutive{background:rgba(37,99,235,.12);color:#2563eb}
+.role-ceo{background:rgba(15,23,42,.08);color:#0f172a}
 .role-select{border-color:#6366f1;color:#6366f1;min-width:120px}
 .action-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;transition:all .15s;font-size:14px}
 .action-btn.info{color:#3b82f6}.action-btn.info:hover{background:rgba(59,130,246,.08);border-color:#3b82f6}
@@ -577,6 +578,7 @@
 .status-picker.role-pick-admin { --sp-bg: #f0fdfa; --sp-fg: #0f766e; --sp-bd: #99f6e4; --sp-dot: #14b8a6; }
 .status-picker.role-pick-sales_executive { --sp-bg: #eff6ff; --sp-fg: #1d4ed8; --sp-bd: #bfdbfe; --sp-dot: #3b82f6; }
 .status-picker.role-pick-general { --sp-bg: #f8fafc; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #94a3b8; }
+.status-picker.role-pick-ceo { --sp-bg: #f1f5f9; --sp-fg: #0f172a; --sp-bd: #cbd5e1; --sp-dot: #0f766e; }
 
 /* ===================== Tour inquiry popups (Add inquiry, Inquiry type, Feedback) =====================
    One colour per inquiry Type (also on the list pill) and per feedback outcome:

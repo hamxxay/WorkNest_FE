@@ -6,6 +6,8 @@ export const ASSIGNABLE_ROLES: { v: string; l: string }[] = [
   { v: 'admin',           l: 'Admin' },
   { v: 'general',         l: 'General User' },
   { v: 'sales_executive', l: 'Sales Executive' },
+  // Sees every location on the CEO dashboard, view only. Only a Super Admin can give this role.
+  { v: 'ceo',             l: 'CEO' },
 ];
 
 export const BILLING_CYCLES: { v: string; l: string }[] = [

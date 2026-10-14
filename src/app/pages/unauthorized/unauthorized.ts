@@ -11,7 +11,9 @@ export class Unauthorized {
   constructor(private auth: AuthService, private router: Router) {}
 
   goHome() {
-    if (this.auth.hasRole('admin')) {
+    if (this.auth.isCeoOnly()) {
+      this.router.navigate(['/admin/ceo']);
+    } else if (this.auth.hasRole('admin')) {
       this.router.navigate(['/admin']);
     } else {
       this.router.navigate(['/']);
