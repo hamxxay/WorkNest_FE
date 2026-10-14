@@ -6,7 +6,7 @@ import { Subscription, filter } from 'rxjs';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
-import { SALES_EXECUTIVE_ROUTES, isSalesExecutiveUrl } from '../../../guards/admin.guard';
+import { CEO_HOME, SALES_EXECUTIVE_ROUTES, isCeoUrl, isSalesExecutiveUrl } from '../../../guards/admin.guard';
 
 @Component({
   selector: 'app-admin-layout',
@@ -24,6 +24,8 @@ export class AdminLayout implements OnInit, OnDestroy {
   isSuperAdmin = false;
   isAdmin = false;
   isSalesExecutive = false;
+  /** CEO: only the CEO dashboard in the sidebar, no badges or other staff calls (they would be refused). */
+  isCeo = false;
 
   public toastService = inject(ToastService);
   private auth = inject(AuthService);
@@ -65,6 +67,7 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   menuItems = [
     { route: '/admin', group: '',                label: 'Dashboard',         icon: 'dashboard'       },
+    { route: CEO_HOME, group: '',                 label: 'CEO dashboard',     icon: 'ceo', superAdminOnly: true },
     { route: '/admin/customers', group: 'Sales',      label: 'Customers',         icon: 'customers'       },
     { route: '/admin/kyc', group: 'Sales',            label: 'KYC Portal',        icon: 'kyc'             },
     { route: '/admin/users', group: 'Administration',          label: 'Users',             icon: 'users'           },
@@ -109,7 +112,15 @@ export class AdminLayout implements OnInit, OnDestroy {
     const isAdmin = this.auth.hasRole('admin');
     this.isAdmin = isAdmin || this.isSuperAdmin;
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
-    if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
+    this.isCeo = this.auth.isCeoOnly();
+    if (this.isCeo) {
+      this.userRole = 'CEO';
+      // Same rule as adminGuard: the CEO dashboard and nothing else.
+      this.menuItems = [{ route: CEO_HOME, group: '', label: 'CEO dashboard', icon: 'ceo' }];
+      if (!isCeoUrl(this.router.url)) {
+        this.router.navigate([CEO_HOME]);
+      }
+    } else if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
       // Same allow-list as adminGuard (challan-validity is super-admin only, so not listed).
       this.menuItems = this.menuItems.filter(item => SALES_EXECUTIVE_ROUTES.includes(item.route));
@@ -121,6 +132,8 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
+    // A CEO has no sidebar badges or network section (those APIs are staff-only).
+    if (this.isCeo) return;
     this.loadNetworkScope();
     this.loadBadges();
     this.pollTimer = setInterval(() => { if (!document.hidden) this.loadBadges(); }, AdminLayout.POLL_MS);
@@ -251,6 +264,7 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   /** "super_admin" -> "Super Admin" */
   get roleLabel(): string {
+    if ((this.userRole || '').toLowerCase() === 'ceo') return 'CEO';
     return (this.userRole || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 

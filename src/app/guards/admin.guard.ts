@@ -19,7 +19,6 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/fee-receipts',
   '/admin/bookings',
   '/admin/attendants',
-  '/admin/staff-access',
   '/admin/biometric-users',
   '/admin/machine-users',
   '/admin/contacts',
@@ -39,6 +38,15 @@ export function isSalesExecutiveUrl(url: string): boolean {
   return SALES_EXECUTIVE_ROUTES.some(p => path === p || (p !== '/admin' && path.startsWith(p + '/')));
 }
 
+/** The only admin page a CEO may open (the CEO dashboard). Shared with ceoGuard and the sidebar. */
+export const CEO_HOME = '/admin/ceo';
+
+/** True for the CEO dashboard (query/fragment ignored). */
+export function isCeoUrl(url: string): boolean {
+  const path = url.split(/[?#]/)[0];
+  return path === CEO_HOME || path.startsWith(CEO_HOME + '/');
+}
+
 // Used as both canActivate and canActivateChild on the /admin parent, so every
 // navigation between admin child routes is re-checked.
 export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) => {
@@ -52,6 +60,11 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
   const decide = (): boolean | UrlTree => {
     const isSalesExecutive = auth.hasRole('sales_executive');
     const isAdmin = auth.hasRole('admin') || auth.hasRole('super_admin');
+
+    // A CEO sees the CEO dashboard and nothing else: every other admin page sends them back to it.
+    if (auth.isCeoOnly()) {
+      return isCeoUrl(state.url) ? true : router.createUrlTree([CEO_HOME]);
+    }
 
     if (isSalesExecutive && !isAdmin) {
       if (isSalesExecutiveUrl(state.url)) {

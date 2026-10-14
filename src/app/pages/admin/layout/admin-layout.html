@@ -1,7 +1,7 @@
 ﻿<div class="admin-shell" [class.collapsed]="sidebarCollapsed">
   <aside class="sidebar">
     <div class="sidebar-header">
-      <a routerLink="/" class="sidebar-logo">
+      <a [routerLink]="isCeo ? '/admin/ceo' : '/'" class="sidebar-logo">
         <img src="images/Logo.png" alt="W" width="36" height="32" class="sidebar-logo-img" /><span class="logo-text">orkNest</span>
       </a>
       <button class="sidebar-toggle" (click)="toggleSidebar()">
@@ -21,6 +21,9 @@
             <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/admin' || item.route === '/admin/network'}" class="nav-item" [attr.title]="sidebarCollapsed ? (badgeCount(item.route) > 0 ? item.label + ' (' + badgeCount(item.route) + ' waiting)' : item.label) : null">
               <span class="nav-icon">
                 @switch (item.icon) {
+                  @case ('ceo') {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 6-6"/><path d="M16 7h4v4"/></svg>
+                  }
                   @case ('dashboard') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
                   }
@@ -129,6 +132,16 @@
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">
+        @if (isCeo) {
+          <!-- A CEO has no profile page: the card only shows who is signed in. -->
+          <div class="sidebar-profile-link static" [attr.title]="sidebarCollapsed ? getUserName() + ' (' + roleLabel + ')' : null">
+            <span class="sidebar-avatar">{{ getInitials() }}</span>
+            <div class="sidebar-user-info">
+              <span class="sidebar-user-name">{{ getUserName() }}</span>
+              <span class="sidebar-user-role">{{ roleLabel }}</span>
+            </div>
+          </div>
+        } @else {
         <a routerLink="/admin/profile" routerLinkActive="active" class="sidebar-profile-link"
           [attr.title]="sidebarCollapsed ? getUserName() + ' Â· ' + roleLabel + ' â€” My profile' : 'My profile'" aria-label="My profile">
           <span class="sidebar-avatar">{{ getInitials() }}</span>
@@ -137,6 +150,7 @@
             <span class="sidebar-user-role">{{ roleLabel }}</span>
           </div>
         </a>
+        }
         <button class="sidebar-logout" (click)="logout()" title="Log out" aria-label="Log out">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
         </button>

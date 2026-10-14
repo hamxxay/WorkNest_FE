@@ -8,5 +8,9 @@ export const userGuard: CanActivateFn = () => {
   if (auth.isAuthenticated() && auth.hasRole('admin')) {
     return router.createUrlTree(['/admin']);
   }
+  // A CEO only uses the CEO dashboard (no customer pages).
+  if (auth.isAuthenticated() && auth.isCeoOnly()) {
+    return router.createUrlTree(['/admin/ceo']);
+  }
   return true;
 };

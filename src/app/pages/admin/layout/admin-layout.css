@@ -430,6 +430,11 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* CEO: the card shows who is signed in but opens nothing */
+.sidebar-profile-link.static:hover {
+  background: none;
+}
+
 .sidebar-profile-link:focus-visible {
   outline: 2px solid #2dd4bf;
   outline-offset: 2px;
