@@ -1,7 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
+import {
+  DashError, DashErrorWording, DashParams, arr, describeDashboardError, getDashboardData, num, numOrNull, obj, percent, str,
+  strOrNull
+} from './dashboard-api';
 
 // ============================================================
 // CEO dashboard API (GET api/ceo/*, read-only). Shared contract with the API and the mobile app:
@@ -135,37 +139,15 @@ export interface CeoForecastMonth {
 }
 
 /** Query values; null / undefined / '' are left out of the request. */
-export type CeoParams = Record<string, string | number | boolean | null | undefined>;
+export type CeoParams = DashParams;
 
-/** A failed CEO request, worded for the page. */
-export interface CeoError {
-  status: number;
-  title: string;
-  message: string;
-  /** 503 from the API: the database script for the CEO dashboard has not been run yet. */
-  needsDbUpdate: boolean;
-}
+/** A failed CEO request, worded for the page (needsDbUpdate: 503, the CEO database script has not been run yet). */
+export type CeoError = DashError;
 
-// ---------- normalising helpers ----------
-const num = (v: unknown): number => {
-  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
-  return Number.isFinite(n) ? n : 0;
+const CEO_WORDING: DashErrorWording = {
+  name: 'CEO dashboard',
+  dbMessage: 'The CEO dashboard needs the database update before it can show figures. Ask the WorkNest team to run the latest database script, then refresh this page.'
 };
-const numOrNull = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : num(v));
-const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v));
-const strOrNull = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v));
-const arr = <T>(v: unknown, fn: (x: any) => T): T[] => (Array.isArray(v) ? v.filter(x => x != null).map(fn) : []);
-const obj = (v: unknown): any | null => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
-
-/** Rates may arrive as a fraction (0.82) or a percentage (82): always returns a percentage. */
-function percent(rate: unknown, part?: number, whole?: number): number {
-  const r = num(rate);
-  if (r > 0 && r <= 1 && part !== undefined && whole && whole > 0) {
-    const expected = (part / whole) * 100;
-    if (Math.abs(expected - r * 100) < Math.abs(expected - r)) return r * 100;
-  }
-  return r;
-}
 
 @Injectable({ providedIn: 'root' })
 export class CeoService {
@@ -201,57 +183,13 @@ export class CeoService {
 
   /** Wording for a failed request (used by every section and drill level). */
   static describeError(err: unknown): CeoError {
-    if (err && typeof err === 'object' && 'needsDbUpdate' in (err as any) && 'title' in (err as any)) return err as CeoError;
-    const http = err instanceof HttpErrorResponse ? err : null;
-    const status = http?.status ?? (err as any)?.status ?? -1;
-    const apiMessage: string = (http?.error && typeof http.error === 'object' ? http.error.message : null)
-      ?? (err as any)?.message ?? '';
-
-    if (status === 503) {
-      const db = /database|db update|not set up|table|script/i.test(apiMessage) || !apiMessage;
-      return db
-        ? {
-            status, needsDbUpdate: true, title: 'Database update needed',
-            message: 'The CEO dashboard needs the database update before it can show figures. Ask the WorkNest team to run the latest database script, then refresh this page.'
-          }
-        : { status, needsDbUpdate: false, title: 'Temporarily unavailable', message: apiMessage || 'The service is temporarily unavailable. Please try again in a few minutes.' };
-    }
-    if (status === 403) {
-      return { status, needsDbUpdate: false, title: 'No access', message: 'Your account cannot open the CEO dashboard. Ask a super admin to check your role.' };
-    }
-    if (status === 404) {
-      return { status, needsDbUpdate: false, title: 'Not available yet', message: 'The server does not have the CEO dashboard yet. It will work once the API update is live.' };
-    }
-    if (status === 0) {
-      return { status, needsDbUpdate: false, title: 'Cannot reach the server', message: 'Check your internet connection and try again.' };
-    }
-    return {
-      status, needsDbUpdate: false, title: 'Could not load',
-      message: apiMessage && apiMessage.length <= 300 ? apiMessage : 'Something went wrong. Please try again.'
-    };
+    return describeDashboardError(err, CEO_WORDING);
   }
 
   // ---------- transport ----------
 
   private get(url: string, params: CeoParams): Observable<any> {
-    let p = new HttpParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v === null || v === undefined || v === '') continue;
-      p = p.set(k, String(v));
-    }
-    return this.http.get<any>(url, { params: p }).pipe(
-      map(res => {
-        // Envelope { isSuccessful, data } like the rest of WN_APIs; a bare body is accepted too.
-        if (res && typeof res === 'object' && ('isSuccessful' in res || 'isSuccess' in res)) {
-          if (res.isSuccessful === false || res.isSuccess === false) {
-            throw { status: 200, needsDbUpdate: false, title: 'Could not load', message: str(res.message) || 'Something went wrong. Please try again.' } as CeoError;
-          }
-          return res.data ?? null;
-        }
-        return res ?? null;
-      }),
-      catchError(err => throwError(() => CeoService.describeError(err)))
-    );
+    return getDashboardData(this.http, url, params, err => CeoService.describeError(err));
   }
 
   // ---------- normalising ----------

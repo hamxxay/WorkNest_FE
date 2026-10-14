@@ -14,7 +14,7 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
 
@@ -57,6 +57,22 @@ export class AdminService {
   /** Deactivate an active user */
   deactivateUser(id: string): Observable<ApiResponse<void>> {
     return this.http.patch<ApiResponse<void>>(`${this.api}/user/${id}/deactivate`, {});
+  }
+
+  /** Roles as the database names them: GET api/roles -> [{ id, roleName, displayName }] (super admin / admin). */
+  getRoles(): Observable<{ id: number; roleName: string; displayName: string }[]> {
+    return this.http.get<any>(`${this.api}/roles`).pipe(
+      map(res => {
+        const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        return list
+          .filter((r: any) => r && (r.roleName ?? r.RoleName ?? r.name))
+          .map((r: any) => ({
+            id: Number(r.id ?? r.Id ?? 0),
+            roleName: String(r.roleName ?? r.RoleName ?? r.name),
+            displayName: String(r.displayName ?? r.DisplayName ?? '').trim()
+          }));
+      })
+    );
   }
 
   /** Update a user's role (SuperAdmin only) */

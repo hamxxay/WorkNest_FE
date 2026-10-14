@@ -5,35 +5,31 @@ import { DatePipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import {
   CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoMetric, CeoParams,
-  CeoPeriod, CeoQuotationRecord, CeoRecords, CeoService, CeoSpaceRecord
+  CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
+import type { SmLeaseRecord } from '../../../../services/sales-manager.service';
 import {
-  AGING_COLORS, AXIS_MONEY, Chart, DrillLevel, DrillRequest, GRID, INQUIRY_TYPES, LEGEND, SLATE_TRACK, TEAL, TEAL_DARK,
-  TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, count, fullMoney, inquiryTypeKey, money, pct,
-  pointerOnHover, ratio, statusTone
+  AGING_COLORS, AXIS_MONEY, Chart, DrillLevel, DrillMetricSpec, DrillRecords, DrillRequest, DrillSource, GRID, INQUIRY_TYPES,
+  LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, count, fullMoney,
+  inquiryTypeKey, money, pct, pointerOnHover, ratio, statusTone
 } from '../ceo-shared';
+
+type AnyLevel = DrillLevel<string, string>;
 
 interface Entry {
   uid: number;
-  level: DrillLevel;
+  level: AnyLevel;
   status: 'loading' | 'ok' | 'error';
   breakdown?: CeoBreakdown;
-  records?: CeoRecords;
+  records?: DrillRecords;
   error?: CeoError;
 }
 
-/** How each breakdown reads: what its rows are, number format, and where a row leads (level 3). */
-interface MetricSpec {
-  rowLabel: string;
-  money: boolean;
-  /** Derived % column (value2 / value or value / value2). */
-  derived?: { label: string; of: (r: CeoBreakdownRow) => number | null };
-  chart: 'grouped' | 'stacked-occupancy' | 'single';
-  vertical: boolean;
-  next: (params: CeoParams, row: CeoBreakdownRow) => DrillLevel;
-}
+/** Inquiry record; the Sales Manager API adds the follow-up date. */
+type InquiryRow = CeoInquiryRecord & { followUpOn?: string | null };
 
-const METRICS: Record<CeoMetric, MetricSpec> = {
+/** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
+const METRICS: Record<CeoMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
@@ -69,13 +65,14 @@ const METRICS: Record<CeoMetric, MetricSpec> = {
 };
 
 const RECORD_TITLES: Record<string, string> = {
-  invoices: 'Invoices', spaces: 'Spaces', bookings: 'Bookings', inquiries: 'Tour inquiries', quotations: 'Quotations'
+  invoices: 'Invoices', spaces: 'Spaces', bookings: 'Bookings', inquiries: 'Tour inquiries', quotations: 'Quotations',
+  leases: 'Expiring leases'
 };
 
 /**
- * Right-side drill-down drawer of the CEO dashboard. Level 2: a breakdown (small bar chart + table) from
- * GET api/ceo/breakdown; a row opens level 3: the matching records (GET api/ceo/records/*). Breadcrumb,
- * Back, Close and Escape. Read-only: no actions on any record.
+ * Right-side drill-down drawer of the CEO and Sales Manager dashboards. Level 2: a breakdown (small bar chart +
+ * table) from GET api/ceo/breakdown (or the `source` the page passes, e.g. api/sales-manager/breakdown); a row
+ * opens level 3: the matching records. Breadcrumb, Back, Close and Escape. Read-only: no actions on any record.
  */
 @Component({
   selector: 'app-ceo-drawer',
@@ -89,7 +86,9 @@ export class CeoDrawer {
   private host = inject(ElementRef<HTMLElement>);
 
   /** What to open (a new id opens it again from its first level); null = closed. */
-  request = input<DrillRequest | null>(null);
+  request = input<DrillRequest<string, string> | null>(null);
+  /** Where the levels come from; null = the CEO API. */
+  source = input<DrillSource | null>(null);
   period = input<CeoPeriod>('month');
   /** The dashboard's location filter; a level's own locationId wins. */
   locationId = input<number | null>(null);
@@ -106,9 +105,17 @@ export class CeoDrawer {
   open = computed(() => !!this.request() && this.entries().length > 0);
   crumbs = computed(() => [this.request()?.root ?? '', ...this.entries().map(e => e.level.crumb)].filter(Boolean));
 
-  spec = computed<MetricSpec | null>(() => {
+  private readonly ceoSource: DrillSource = {
+    metrics: METRICS,
+    breakdown: (metric, params) => this.ceo.getBreakdown(metric as CeoMetric, params),
+    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params),
+    describeError: err => CeoService.describeError(err)
+  };
+  private src = computed<DrillSource>(() => this.source() ?? this.ceoSource);
+
+  spec = computed<DrillMetricSpec | null>(() => {
     const e = this.current();
-    return e?.level.kind === 'breakdown' ? METRICS[e.level.metric] : null;
+    return e?.level.kind === 'breakdown' ? this.src().metrics[e.level.metric] ?? null : null;
   });
 
   title = computed(() => {
@@ -168,7 +175,7 @@ export class CeoDrawer {
 
   // ---------- navigation ----------
 
-  private push(level: DrillLevel) {
+  private push(level: AnyLevel) {
     const entry: Entry = { uid: ++this.uid, level, status: 'loading' };
     this.entries.update(list => [...list, entry]);
     this.load(entry);
@@ -213,7 +220,8 @@ export class CeoDrawer {
   openRow(row: CeoBreakdownRow) {
     const e = this.current();
     if (!e || e.level.kind !== 'breakdown' || !row.key) return;
-    this.push(METRICS[e.level.metric].next(e.level.params, row));
+    const spec = this.src().metrics[e.level.metric];
+    if (spec) this.push(spec.next(e.level.params, row));
   }
 
   private reset() {
@@ -232,15 +240,16 @@ export class CeoDrawer {
     this.sub?.unsubscribe();
     this.patch(entry.uid, { status: 'loading', error: undefined });
     const params: CeoParams = { period: this.period(), locationId: this.locationId(), ...entry.level.params };
+    const src = this.src();
     if (entry.level.kind === 'breakdown') {
-      this.sub = this.ceo.getBreakdown(entry.level.metric, params).subscribe({
+      this.sub = src.breakdown(entry.level.metric, params).subscribe({
         next: b => this.patch(entry.uid, { status: 'ok', breakdown: b }),
-        error: (err: CeoError) => this.patch(entry.uid, { status: 'error', error: CeoService.describeError(err) })
+        error: (err: unknown) => this.patch(entry.uid, { status: 'error', error: src.describeError(err) })
       });
     } else {
-      this.sub = this.ceo.getRecords(entry.level.records, params).subscribe({
+      this.sub = src.records(entry.level.records, params).subscribe({
         next: r => this.patch(entry.uid, { status: 'ok', records: r }),
-        error: (err: CeoError) => this.patch(entry.uid, { status: 'error', error: CeoService.describeError(err) })
+        error: (err: unknown) => this.patch(entry.uid, { status: 'error', error: src.describeError(err) })
       });
     }
   }
@@ -263,8 +272,13 @@ export class CeoDrawer {
       count: rows.reduce((a, r) => a + (r.count ?? 0), 0)
     };
   });
+  /** The two values are in different units (a count and an amount): only the first one sets the bar widths. */
+  private mixedUnits = computed(() => {
+    const s = this.spec();
+    return !!s && s.money2 !== undefined && s.money2 !== s.money;
+  });
   /** Bar widths in the table, relative to the biggest row. */
-  maxValue = computed(() => Math.max(1, ...this.rows().map(r => Math.max(r.value, r.value2 ?? 0))));
+  maxValue = computed(() => Math.max(1, ...this.rows().map(r => (this.mixedUnits() ? r.value : Math.max(r.value, r.value2 ?? 0)))));
 
   fmt(v: number | null | undefined): string {
     if (v === null || v === undefined) return '-';
@@ -273,6 +287,16 @@ export class CeoDrawer {
   fmtFull(v: number | null | undefined): string {
     if (v === null || v === undefined) return '';
     return this.spec()?.money ? fullMoney(v) : count(v);
+  }
+  /** Second value: its own format when the metric says so, else the same as the first. */
+  private money2(): boolean { const s = this.spec(); return !!(s?.money2 ?? s?.money); }
+  fmt2(v: number | null | undefined): string {
+    if (v === null || v === undefined) return '-';
+    return this.money2() ? money(v) : count(v);
+  }
+  fmtFull2(v: number | null | undefined): string {
+    if (v === null || v === undefined) return '';
+    return this.money2() ? fullMoney(v) : count(v);
   }
   derivedText(v: number | null | undefined): string {
     return v === null || v === undefined ? '-' : pct(v);
@@ -291,8 +315,11 @@ export class CeoDrawer {
   invoiceRows = computed(() => this.recordsOf<CeoInvoiceRecord>('invoices'));
   spaceRows = computed(() => this.recordsOf<CeoSpaceRecord>('spaces'));
   bookingRows = computed(() => this.recordsOf<CeoBookingRecord>('bookings'));
-  inquiryRows = computed(() => this.recordsOf<CeoInquiryRecord>('inquiries'));
+  inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
   quotationRows = computed(() => this.recordsOf<CeoQuotationRecord>('quotations'));
+  leaseRows = computed(() => this.recordsOf<SmLeaseRecord>('leases'));
+  /** Follow-up column on inquiry lists that carry a follow-up date (Sales Manager API). */
+  inquiryFollowUp = computed(() => this.inquiryRows().some(r => !!r.followUpOn));
 
   private recordsOf<T>(kind: string): T[] {
     const e = this.current();
@@ -343,11 +370,11 @@ export class CeoDrawer {
     this.chart = null;
   }
 
-  private renderChart(canvas: HTMLCanvasElement, metric: CeoMetric, data: CeoBreakdown) {
+  private renderChart(canvas: HTMLCanvasElement, metric: string, data: CeoBreakdown) {
     this.destroyChart();
-    if (!canvas.isConnected || !data.rows.length) return;
+    const spec = this.src().metrics[metric];
+    if (!canvas.isConnected || !data.rows.length || !spec) return;
     applyChartDefaults();
-    const spec = METRICS[metric];
     const rows = data.rows;
     const labels = rows.map(r => (r.label.length > 18 ? r.label.slice(0, 17) + '…' : r.label));
     const fmt = (v: number) => (spec.money ? fullMoney(v) : count(v));

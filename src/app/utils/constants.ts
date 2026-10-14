@@ -8,7 +8,20 @@ export const ASSIGNABLE_ROLES: { v: string; l: string }[] = [
   { v: 'sales_executive', l: 'Sales Executive' },
   // Sees every location on the CEO dashboard, view only. Only a Super Admin can give this role.
   { v: 'ceo',             l: 'CEO' },
+  // Sees the sales dashboard for their own location(s), view only. Only a Super Admin can give this role.
+  { v: 'sales_manager',   l: 'Sales Manager' },
 ];
+
+/**
+ * Fallback label for a role name ("sales_executive" -> "Sales Executive"). The real labels come from the
+ * database (auth/me roleDisplayName, GET api/roles); this is only used when the API sent none.
+ */
+export function roleLabelFor(role: string | null | undefined): string {
+  const key = String(role ?? '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+  const known = ASSIGNABLE_ROLES.find(r => r.v.replace(/_/g, '') === key);
+  if (known) return known.l;
+  return String(role ?? '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 export const BILLING_CYCLES: { v: string; l: string }[] = [
   { v: 'Monthly',   l: 'Monthly' },

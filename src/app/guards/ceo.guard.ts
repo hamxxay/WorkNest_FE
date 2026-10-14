@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { Router, CanActivateFn, UrlTree } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { SALES_MANAGER_HOME } from './admin.guard';
 
 /**
  * CEO dashboard (/admin/ceo): the CEO, and super admins (who may check what the CEO sees).
@@ -18,6 +19,7 @@ export const ceoGuard: CanActivateFn = (_route, state) => {
 
   const decide = (): boolean | UrlTree => {
     if (auth.hasRole('ceo') || auth.hasRole('super_admin')) return true;
+    if (auth.isSalesManagerOnly()) return router.createUrlTree([SALES_MANAGER_HOME]);
     if (auth.hasRole('admin') || auth.hasRole('sales_executive')) return router.createUrlTree(['/admin/dashboard']);
     return router.createUrlTree(['/unauthorized']);
   };

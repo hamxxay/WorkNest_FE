@@ -1,7 +1,7 @@
 ﻿<div class="admin-shell" [class.collapsed]="sidebarCollapsed">
   <aside class="sidebar">
     <div class="sidebar-header">
-      <a [routerLink]="isCeo ? '/admin/ceo' : '/'" class="sidebar-logo">
+      <a [routerLink]="dashboardHome ?? '/'" class="sidebar-logo">
         <img src="images/Logo.png" alt="W" width="36" height="32" class="sidebar-logo-img" /><span class="logo-text">orkNest</span>
       </a>
       <button class="sidebar-toggle" (click)="toggleSidebar()">
@@ -23,6 +23,9 @@
                 @switch (item.icon) {
                   @case ('ceo') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 6-6"/><path d="M16 7h4v4"/></svg>
+                  }
+                  @case ('sales-dash') {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg>
                   }
                   @case ('dashboard') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
@@ -132,8 +135,8 @@
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">
-        @if (isCeo) {
-          <!-- A CEO has no profile page: the card only shows who is signed in. -->
+        @if (dashboardHome) {
+          <!-- A CEO / Sales Manager has no profile page: the card only shows who is signed in. -->
           <div class="sidebar-profile-link static" [attr.title]="sidebarCollapsed ? getUserName() + ' (' + roleLabel + ')' : null">
             <span class="sidebar-avatar">{{ getInitials() }}</span>
             <div class="sidebar-user-info">

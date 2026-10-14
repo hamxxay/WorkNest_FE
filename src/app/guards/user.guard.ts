@@ -12,5 +12,9 @@ export const userGuard: CanActivateFn = () => {
   if (auth.isAuthenticated() && auth.isCeoOnly()) {
     return router.createUrlTree(['/admin/ceo']);
   }
+  // A Sales Manager only uses the sales dashboard.
+  if (auth.isAuthenticated() && auth.isSalesManagerOnly()) {
+    return router.createUrlTree(['/admin/sales-manager']);
+  }
   return true;
 };

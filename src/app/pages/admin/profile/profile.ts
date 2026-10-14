@@ -47,7 +47,8 @@ export class AdminProfile implements OnInit {
           this.loadError.set('Could not load your profile.');
         } else {
           this.email = data.email ?? this.auth.getUser()?.email ?? '';
-          this.role = this.formatRole(data.role ?? data.roles?.[0] ?? '');
+          // The database's wording of the role (WN_Roles.DisplayName) when the API sends it.
+          this.role = String(data.roleDisplayName ?? '').trim() || this.formatRole(data.role ?? data.roles?.[0] ?? '');
           this.name = this.savedName = data.name ?? '';
           this.phone = this.savedPhone = data.phone ?? '';
           if (data.locationId) this.loadLocationName(Number(data.locationId));

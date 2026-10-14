@@ -742,7 +742,7 @@
         } @else if (field.type === 'user-location-select' && getRoleClass(formData['role']) === 'ceo') {
         <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations. A CEO sees the CEO dashboard for every location, view only.</div>
         } @else if (field.type === 'user-location-select' && !isLocationRole(formData['role'])) {
-        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only Admins and Sales Executives are limited to specific locations).</div>
+        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only Admins, Sales Executives and Sales Managers are limited to specific locations).</div>
         } @else if (field.type === 'user-location-select') {
         <div class="location-checklist">
           @for (loc of assignableUserLocations; track loc.v) {

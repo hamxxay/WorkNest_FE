@@ -13,6 +13,8 @@ export class Unauthorized {
   goHome() {
     if (this.auth.isCeoOnly()) {
       this.router.navigate(['/admin/ceo']);
+    } else if (this.auth.isSalesManagerOnly()) {
+      this.router.navigate(['/admin/sales-manager']);
     } else if (this.auth.hasRole('admin')) {
       this.router.navigate(['/admin']);
     } else {

@@ -47,6 +47,15 @@ export function isCeoUrl(url: string): boolean {
   return path === CEO_HOME || path.startsWith(CEO_HOME + '/');
 }
 
+/** The only admin page a Sales Manager may open (the sales dashboard). Shared with salesManagerGuard and the sidebar. */
+export const SALES_MANAGER_HOME = '/admin/sales-manager';
+
+/** True for the sales dashboard (query/fragment ignored). */
+export function isSalesManagerUrl(url: string): boolean {
+  const path = url.split(/[?#]/)[0];
+  return path === SALES_MANAGER_HOME || path.startsWith(SALES_MANAGER_HOME + '/');
+}
+
 // Used as both canActivate and canActivateChild on the /admin parent, so every
 // navigation between admin child routes is re-checked.
 export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) => {
@@ -64,6 +73,11 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
     // A CEO sees the CEO dashboard and nothing else: every other admin page sends them back to it.
     if (auth.isCeoOnly()) {
       return isCeoUrl(state.url) ? true : router.createUrlTree([CEO_HOME]);
+    }
+
+    // Same for a Sales Manager: the sales dashboard only.
+    if (auth.isSalesManagerOnly()) {
+      return isSalesManagerUrl(state.url) ? true : router.createUrlTree([SALES_MANAGER_HOME]);
     }
 
     if (isSalesExecutive && !isAdmin) {

@@ -27,6 +27,7 @@ import {
   isFirebaseConfigured,
 } from './firebase';
 import { environment } from '../../environments/environment';
+import { roleLabelFor } from '../utils/constants';
 
 export interface UserInfo {
   email: string;
@@ -35,8 +36,10 @@ export interface UserInfo {
   displayName?: string;
   photoURL?: string;
   locationId?: number | null;
-  /** All locations an Admin / Sales Executive is assigned to; locationId is the active one. */
+  /** All locations an Admin / Sales Executive / Sales Manager is assigned to; locationId is the active one. */
   locationIds?: number[];
+  /** The role's name as the database words it (WN_Roles.DisplayName, from auth/me), e.g. "Sales Manager". */
+  roleDisplayName?: string;
 }
 
 /** Sign-out waits at most this long for POST auth/logout before clearing the session anyway. */
@@ -152,9 +155,10 @@ export class AuthService {
           email: data?.email || email,
           userId: data?.id || data?.userId || '',
           roles: roles.length ? roles : ['customer'],
-          displayName: data?.name || email.split('@')[0],
+          displayName: String(data?.name ?? '').trim() || email.split('@')[0],
           locationId: data?.locationId != null ? Number(data.locationId) : null,
-          locationIds: Array.isArray(data?.locationIds) ? data.locationIds.map(Number) : []
+          locationIds: Array.isArray(data?.locationIds) ? data.locationIds.map(Number) : [],
+          roleDisplayName: String(data?.roleDisplayName ?? '').trim() || undefined
         };
         localStorage.setItem(this.userKey, JSON.stringify(userInfo));
         this.user.set(userInfo);
@@ -376,6 +380,9 @@ export class AuthService {
     if (this.isCeoOnly()) {
       return '/admin/ceo';
     }
+    if (this.isSalesManagerOnly()) {
+      return '/admin/sales-manager';
+    }
     if (this.hasRole('sales_executive')) {
       return '/admin/dashboard';
     }
@@ -394,9 +401,30 @@ export class AuthService {
       && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive');
   }
 
-  /** Admins and sales executives only see their own location(s); super admins see every location. */
+  /**
+   * A Sales Manager (role "sales_manager") sees only their sales dashboard, read-only, for their own location(s).
+   * Only when the user has no other staff role (a CEO keeps the CEO dashboard).
+   */
+  isSalesManagerOnly(): boolean {
+    return this.hasRole('sales_manager')
+      && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive') && !this.hasRole('ceo');
+  }
+
+  /** CEO or Sales Manager: one read-only dashboard and no other page. */
+  isDashboardOnly(): boolean {
+    return this.isCeoOnly() || this.isSalesManagerOnly();
+  }
+
+  /** Admins, sales executives and sales managers only see their own location(s); super admins see every location. */
   isLocationBound(): boolean {
-    return !this.hasRole('super_admin') && (this.hasRole('admin') || this.hasRole('sales_executive'));
+    return !this.hasRole('super_admin')
+      && (this.hasRole('admin') || this.hasRole('sales_executive') || this.hasRole('sales_manager'));
+  }
+
+  /** The signed-in user's role as the database words it (auth/me), else a label made from the role name. */
+  roleLabel(): string {
+    const u = this.user();
+    return u?.roleDisplayName?.trim() || roleLabelFor(u?.roles?.[0]);
   }
 
   hasRole(role?: string): boolean {
@@ -447,9 +475,10 @@ export class AuthService {
   /** Cached user with staff roles removed: used when the API could not confirm the roles. */
   private withoutStaffRoles(cached: UserInfo | null): UserInfo | null {
     if (!cached) return null;
-    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo'];
+    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo', 'salesmanager'];
     const roles = (cached.roles || []).filter(r => !staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
-    return { ...cached, roles };
+    // The stored role label belonged to a role that is now dropped.
+    return roles.length === (cached.roles || []).length ? { ...cached, roles } : { ...cached, roles, roleDisplayName: undefined };
   }
 
   /** Keeps the session but drops unconfirmed staff roles (in memory only; the next load retries auth/me). */
@@ -494,6 +523,9 @@ export class AuthService {
               email: data.email || fallbackUser?.email || email,
               userId: data.id || data.userId || fallbackUser?.userId || '',
               roles,
+              // The name in WorkNest (WN_Users.Name) wins over the sign-in provider's name or the email prefix.
+              displayName: String(data.name ?? '').trim() || fallbackUser?.displayName,
+              roleDisplayName: String(data.roleDisplayName ?? '').trim() || undefined,
               locationId: data.locationId ?? fallbackUser?.locationId ?? null,
               locationIds: Array.isArray(data.locationIds) ? data.locationIds.map(Number) : (fallbackUser?.locationIds ?? [])
             };
@@ -539,12 +571,16 @@ export class AuthService {
         const apiPayload = this.extractApiPayload(apiResponse);
         // Roles count as verified only when the API response carried them (not Firebase claims alone).
         const apiRoles = this.extractRoles(apiPayload, []);
-        const hydratedUser = userInfo
+        const apiName = String(apiPayload?.name ?? '').trim();
+        const apiRoleLabel = String(apiPayload?.roleDisplayName ?? '').trim();
+        const hydratedUser: UserInfo | null = userInfo
           ? {
               ...userInfo,
               email: apiPayload?.email || userInfo.email,
               userId: apiPayload?.userId || apiPayload?.id || userInfo.userId,
-              roles: this.extractRoles(apiPayload, userInfo.roles)
+              roles: this.extractRoles(apiPayload, userInfo.roles),
+              ...(apiName ? { displayName: apiName } : {}),
+              ...(apiRoleLabel ? { roleDisplayName: apiRoleLabel } : {})
             }
           : null;
 
@@ -610,6 +646,8 @@ export class AuthService {
     return {
       ...fallback,
       ...primary,
+      // An empty name from the sign-in provider never hides the stored one (WorkNest's own name after auth/me).
+      displayName: primary.displayName || fallback.displayName,
       roles: primary.roles?.length ? primary.roles : (fallback.roles?.length ? fallback.roles : [])
     };
   }
@@ -834,6 +872,31 @@ export class AuthService {
   /** Name, email, phone, role and location from the API (GET auth/me). */
   getMyProfile(): Observable<any> {
     return this.http.get<any>(`${environment.apiUrl}/auth/me`).pipe(map(res => res?.data ?? null));
+  }
+
+  /**
+   * Picks up the name and role label from auth/me (WN_Users.Name, WN_Roles.DisplayName), e.g. right after a
+   * sign-in whose response did not carry the label. Roles are left as they are, and a failure changes nothing.
+   */
+  refreshProfileLabels(): void {
+    if (!this.getToken() || this.isGuest()) return;
+    this.getMyProfile().subscribe({
+      next: data => {
+        const current = this.user();
+        if (!current || !data) return;
+        const name = String(data.name ?? '').trim();
+        const roleLabel = String(data.roleDisplayName ?? '').trim();
+        if ((!name || name === current.displayName) && (!roleLabel || roleLabel === current.roleDisplayName)) return;
+        const updated: UserInfo = {
+          ...current,
+          ...(name ? { displayName: name } : {}),
+          ...(roleLabel ? { roleDisplayName: roleLabel } : {})
+        };
+        this.user.set(updated);
+        localStorage.setItem(this.userKey, JSON.stringify(updated));
+      },
+      error: () => { /* labels are cosmetic: keep what is shown */ }
+    });
   }
 
   /** Saves the user's own name and phone; the sidebar picks up the new name. */
