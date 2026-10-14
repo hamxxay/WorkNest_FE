@@ -6,7 +6,7 @@ import { ToastService } from '../../../services/toast.service';
 import { HikDeviceService } from '../../../services/hik-device.service';
 import { AuthService } from '../../../services/auth.service';
 import { HikDevice } from '../../../models/hik-device.model';
-import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
+import { CNIC_MAX_LENGTH, cnicError, onCnicInput, onCnicMaskInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, onPhoneInput, phoneError } from '../../../utils/phone';
 
 type EnrollType = 'fingerprint' | 'card' | 'face';
@@ -19,7 +19,7 @@ const INVOICE_GRACE_DAYS = 7;
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './attendant-management.html',
-  styleUrl: './attendant-management.css'
+  styleUrls: ['../../../styles/form-popup.css', './attendant-management.css']
 })
 export class AttendantManagement implements OnInit, OnDestroy {
   private admin = inject(AdminService);
@@ -76,6 +76,78 @@ export class AttendantManagement implements OnInit, OnDestroy {
   /** ID Number typing: when the ID type is CNIC, only digits and '-' are kept. */
   onIdNumberInput(event: Event) {
     if (this.newIdType === 'CNIC') this.newIdNumber = onCnicInput(event);
+  }
+
+  // Add by CNIC: customers add their employees online (pending); sales check the CNIC at the branch, which
+  // verifies the request and adds the person to the booking (POST bookings/{id}/attendants/by-cnic).
+  /** Sales executives start with the CNIC check; admins start with the full form (CNIC check one click away). */
+  readonly cnicFirst = !this.canOverfill && this.auth.hasRole('sales_executive');
+  addStep: 'cnic' | 'form' = 'form';
+  lookupCnic = '';
+  readonly onCnicMaskInput = onCnicMaskInput;
+  readonly lookupTried = signal(false);
+  readonly lookupBusy = signal(false);
+  /** Why the check did not add anyone; `manual` offers the full form (404 not found, 503 database update pending). */
+  readonly lookupProblem = signal<{ text: string; manual: boolean } | null>(null);
+  /** The person who was verified and added, with the API's message. */
+  readonly lookupAdded = signal<{ person: any; message: string } | null>(null);
+
+  /** Popup subtitle: room, customer and seats used. */
+  get addModalContext(): string {
+    const c = this.customers().find(x => String(x.id) === String(this.selectedCustomerId));
+    const cap = this.capacityInfo();
+    return [
+      this.selectedSpace?.spaceName,
+      c ? (c.company || c.name || c.email) : '',
+      cap?.roomCapacity > 0 ? `${this.attendants().length} of ${cap.roomCapacity} seats used` : ''
+    ].filter(Boolean).join(' · ');
+  }
+
+  findByCnic() {
+    if (this.lookupBusy() || !this.selectedBookingDetailId) return;
+    this.lookupTried.set(true);
+    this.lookupProblem.set(null);
+    if (cnicError(this.lookupCnic, true)) return; // shown under the field
+    const bId = this.selectedBookingDetailId;
+    this.lookupBusy.set(true);
+    this.admin.addAttendantByCnic(bId, this.lookupCnic.trim()).subscribe({
+      next: (res: any) => {
+        this.lookupBusy.set(false);
+        this.lookupAdded.set({
+          person: res?.data ?? res ?? {},
+          message: res?.message || 'Employee verified and added. Now add their fingerprint or face.'
+        });
+        if (this.selectedBookingDetailId === bId) this.loadAttendantsForSpace();
+      },
+      error: (err: any) => {
+        this.lookupBusy.set(false);
+        const msg: string | undefined = err?.error?.message;
+        const manual = err?.status === 404 || err?.status === 503 || err?.error?.data?.canAddManually === true;
+        let text: string;
+        if (err?.status === 404) text = msg || 'No employee with this CNIC was added by the customer for this booking.';
+        else if (err?.status === 503) text = 'Finding employees by CNIC needs the database update, which is not done yet. Add the person manually for now.';
+        else if (err?.status === 409) text = msg || 'This person is already on this booking.';
+        else if (!err?.status) text = 'The server could not be reached. Check your connection and try again.';
+        else text = msg || `The CNIC could not be checked (error ${err.status}).`;
+        this.lookupProblem.set({ text, manual });
+      }
+    });
+  }
+
+  /** Full form (new person / someone already on this company), with the CNIC typed so far filled in. */
+  addManually() {
+    this.addStep = 'form';
+    this.addMode = 'new';
+    if (!this.newIdNumber && !cnicError(this.lookupCnic, true)) {
+      this.newIdType = 'CNIC';
+      this.newIdNumber = this.lookupCnic.trim();
+    }
+  }
+
+  findByCnicInstead() {
+    this.addStep = 'cnic';
+    this.lookupTried.set(false);
+    this.lookupProblem.set(null);
   }
 
   // Warning Modal
@@ -299,6 +371,11 @@ export class AttendantManagement implements OnInit, OnDestroy {
     this.newIdType = 'CNIC';
     this.newIdNumber = '';
     this.selectedExistingPersonId = null;
+    this.addStep = this.cnicFirst ? 'cnic' : 'form';
+    this.lookupCnic = '';
+    this.lookupTried.set(false);
+    this.lookupProblem.set(null);
+    this.lookupAdded.set(null);
     this.showAddModal = true;
   }
 

@@ -555,6 +555,13 @@ export class AdminService {
   assignAttendantToBooking(bookingDetailId: number, data: any): Observable<any> {
     return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/attendants`, data);
   }
+  /**
+   * Sales check an employee the customer added online: finds the pending request on this booking with that CNIC,
+   * marks it verified and adds the person to the booking. 404 = no such request (add manually), 409 = already on it.
+   */
+  addAttendantByCnic(bookingDetailId: number, idNumber: string): Observable<any> {
+    return this.http.post<any>(`${this.api}/bookings/${bookingDetailId}/attendants/by-cnic`, { idNumber });
+  }
   removeAttendantFromBooking(bookingDetailId: number, personId: number): Observable<any> {
     return this.http.delete<any>(`${this.api}/bookings/${bookingDetailId}/attendants/${personId}`);
   }

@@ -41,7 +41,8 @@ interface EntityConfig {
   selector: 'app-manage',
   imports: [CommonModule, FormsModule, DatePipe, WhtInvoiceFields],
   templateUrl: './manage.html',
-  styleUrl: './manage.css'
+  // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
+  styleUrls: ['../../../styles/form-popup.css', './manage.css']
 })
 export class Manage implements OnInit {
   billingPeriods: any[] = [];
@@ -3481,6 +3482,7 @@ export class Manage implements OnInit {
 
   openCreate() {
     if (this.entity === 'contacts') { this.openAddInquiry(); return; }
+    if (this.entity === 'complaints') { this.openAddComplaint(); return; }
     this.editItem = null; this.formData = {}; this.error.set(''); this.showModal.set(true);
     if (this.entity === 'users') this.config.set(this.buildConfig(this.entity)); // full form again (role, location)
     this.selectedAmenityIds = [];
@@ -4969,7 +4971,8 @@ export class Manage implements OnInit {
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdOn', label: 'Date', type: 'date' },
         ],
-        // Staff can add a complaint received by phone, walk-in or email.
+        // Staff can add a complaint received by phone, walk-in or email. Add Complaint opens its own popup
+        // (openAddComplaint); these fields give its branch / category choices and createFn is what it saves with.
         fields: [
           { key: 'customerName', label: 'Customer Name', type: 'text' },
           { key: 'phoneNumber', label: 'Phone (WhatsApp)', type: 'text' },
@@ -5225,6 +5228,74 @@ export class Manage implements OnInit {
         fail(err?.name === 'TimeoutError'
           ? 'The server did not answer. Check your connection and try again.'
           : err?.error?.message || err?.error?.errors?.[0] || `Could not add the inquiry${err?.status ? ` (error ${err.status})` : ''}.`);
+      }
+    });
+  }
+
+  // New complaint (its own popup). Same API call, payload and rules as the generic Complaints form it replaces:
+  // createFn (POST api/complaints) with the fields that were filled in (+ locationId for a location-bound user),
+  // phone optional but valid when given; category and description required (the API rejects them empty).
+  readonly showAddComplaint = signal(false);
+  readonly addComplaintSaving = signal(false);
+  readonly addComplaintError = signal('');
+  /** Set by the first Save: from then on the required fields show their message inline. */
+  readonly addComplaintTried = signal(false);
+  addComplaint = { customerName: '', phoneNumber: '', email: '', branch: '', category: '', description: '' };
+
+  /** Branch / category choices: the Complaints form config (categories match the WhatsApp bot's list). */
+  complaintOptions(key: 'branch' | 'category'): { v: string; l: string }[] {
+    return (this.config().fields || []).find(f => f.key === key)?.options ?? [];
+  }
+
+  openAddComplaint() {
+    this.addComplaint = { customerName: '', phoneNumber: '', email: '', branch: '', category: '', description: '' };
+    this.addComplaintError.set('');
+    this.addComplaintTried.set(false);
+    this.showAddComplaint.set(true);
+  }
+
+  /** Asks before throwing away what was typed (as the generic form did). */
+  closeAddComplaint() {
+    if (this.addComplaintSaving()) return;
+    const dirty = Object.values(this.addComplaint).some(v => v.trim() !== '');
+    this.requestDiscardableClose(dirty, () => this.showAddComplaint.set(false));
+  }
+
+  complaintFieldError(key: 'phoneNumber' | 'category' | 'description'): string | null {
+    const f = this.addComplaint;
+    if (key === 'phoneNumber') return phoneError(f.phoneNumber, false);
+    if (!this.addComplaintTried()) return null;
+    if (key === 'category') return f.category.trim() ? null : 'Choose the complaint category.';
+    return f.description.trim() ? null : 'Describe the issue.';
+  }
+
+  saveAddComplaint() {
+    if (this.addComplaintSaving()) return;
+    this.addComplaintTried.set(true);
+    this.addComplaintError.set('');
+    if (this.complaintFieldError('phoneNumber') || this.complaintFieldError('category') || this.complaintFieldError('description')) return;
+
+    // Same body as before: only the fields that were filled in, as typed (the API trims them).
+    const payload: any = {};
+    const boundLoc = this.userLocationId;
+    if (this.isLocationBound && boundLoc) payload.locationId = boundLoc;
+    for (const [k, v] of Object.entries(this.addComplaint)) if (v !== '') payload[k] = v;
+
+    this.addComplaintSaving.set(true);
+    this.config().createFn!(payload).subscribe({
+      next: (res: any) => {
+        this.addComplaintSaving.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
+          this.addComplaintError.set(res.message || res.errorMessage || res.ErrorMessage || res.error || 'The complaint could not be saved.');
+          return;
+        }
+        this.showAddComplaint.set(false);
+        this.showSuccess(res?.message || 'Complaint added.');
+        this.load();
+      },
+      error: (e: any) => {
+        this.addComplaintSaving.set(false);
+        this.addComplaintError.set(e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'The complaint could not be saved.');
       }
     });
   }
