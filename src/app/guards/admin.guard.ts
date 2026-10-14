@@ -19,7 +19,6 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/fee-receipts',
   '/admin/bookings',
   '/admin/attendants',
-  '/admin/staff-access',
   '/admin/biometric-users',
   '/admin/machine-users',
   '/admin/contacts',
