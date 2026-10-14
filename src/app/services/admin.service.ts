@@ -344,11 +344,13 @@ export class AdminService {
 
 
   // Contact Messages
-  getContacts(page?: number, limit?: number, search?: string): Observable<ApiResponse<Contact[]>> {
+  /** type: Website | WhatsApp | WalkIn | Reference (empty = all). */
+  getContacts(page?: number, limit?: number, search?: string, type?: string): Observable<ApiResponse<Contact[]>> {
       const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    if (type) params.set('type', type);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
@@ -368,9 +370,14 @@ export class AdminService {
   saveContactFeedback(id: number | string, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(String(id))}/feedback`, data);
   }
-  /** Tour inquiry entered by staff (phone / walk-in): saved like the website's "Book a Tour" form. */
-  createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null }): Observable<ApiResponse<any>> {
+  /** Tour inquiry entered by staff: Type WalkIn or Reference (referenceName empty = the staff member). */
+  createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null;
+    inquiryType: 'WalkIn' | 'Reference'; referenceName?: string | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/book-tour`, data);
+  }
+  /** Change an inquiry's Type (Website | WhatsApp | WalkIn | Reference) by its public id. */
+  updateContactInquiryType(publicId: string, data: { inquiryType: string; referenceName?: string | null }): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(publicId)}/inquiry-type`, data);
   }
   deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
 
