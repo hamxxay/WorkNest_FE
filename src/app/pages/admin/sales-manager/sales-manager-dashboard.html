@@ -422,7 +422,7 @@
                 <ol class="bar-list">
                   @for (r of q()!.notInterestedReasons; track r.reason; let i = $index) {
                     <li>
-                      <button type="button" class="bar-row" (click)="openNotInterested()">
+                      <button type="button" class="bar-row" (click)="openNotInterested(r.reason)">
                         <span class="rank">{{ i + 1 }}</span>
                         <span class="bar-main">
                           <span class="bar-label">{{ r.reason }}</span>

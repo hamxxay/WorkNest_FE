@@ -394,8 +394,10 @@ export class SalesManagerDashboard {
     this.openRecords('Tour inquiries', 'Follow-ups due', 'inquiries', { outcome: 'followup_due' });
   }
 
-  openNotInterested() {
-    this.openRecords('Tour inquiries', 'Not interested', 'inquiries', { outcome: 'not_interested' });
+  /** A reason opens only the inquiries closed with that reason (the API groups reasons case-insensitively). */
+  openNotInterested(reason?: string) {
+    this.openRecords('Tour inquiries', reason ? `Not interested: ${reason}` : 'Not interested', 'inquiries',
+      reason ? { outcome: 'not_interested', reason } : { outcome: 'not_interested' });
   }
 
   openRevenueMonth(i: number) {
