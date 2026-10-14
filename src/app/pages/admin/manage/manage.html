@@ -161,13 +161,18 @@
             @for (col of config().columns; track col.key) {
             <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
               @if (entity === 'contacts' && col.key === 'inquiryType') {
-              <!-- Click the Type to change it (no extra button, so the row's actions keep fitting). -->
-              <button type="button" class="type-edit" (click)="openContactType(item)" title="Change the type">
+              <!-- The Type and a pencil to change it (clicking either opens the Inquiry type popup). -->
+              <button type="button" class="type-edit" (click)="openContactType(item)"
+                [attr.aria-label]="'Change type: ' + (item.inquiryType ? inquiryTypeLabel(item.inquiryType) : 'not set')">
                 @if (item.inquiryType) {
                 <span class="type-pill" [class]="'type-pill type-' + item.inquiryType.toLowerCase()">{{ inquiryTypeLabel(item.inquiryType) }}</span>
                 } @else {
-                <span class="type-pill type-unset">Set type</span>
+                <span class="type-pill type-unset">Not set</span>
                 }
+                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
+                </svg>
               </button>
               @if (item.referenceName) {
               <small class="type-ref">{{ item.referenceName }}</small>
@@ -4400,88 +4405,221 @@
 </div>
 }
 <!-- Tour inquiry feedback -->
+<!-- ===================== Tour inquiry popups (Add inquiry, Type, Feedback) ===================== -->
+<!-- One icon per inquiry Type / feedback outcome; the same colour is used in the list pill and the popups. -->
+<ng-template #inqIcon let-name>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    @switch (name) {
+    @case ('Website') { <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /> }
+    @case ('WhatsApp') { <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" /><path d="M8 12h.01" /><path d="M12 12h.01" /><path d="M16 12h.01" /> }
+    @case ('WalkIn') { <path d="M13 4h3a2 2 0 0 1 2 2v14" /><path d="M2 20h3" /><path d="M13 20h9" /><path d="M10 12v.01" /><path d="M13 4.56v16.16a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z" /> }
+    @case ('Reference') { <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6" /><path d="M22 11h-6" /> }
+    @case ('not_interested') { <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /> }
+    @case ('future_prospect') { <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h5" /><path d="M17.5 17.5 16 16.3V14" /><circle cx="16" cy="16" r="6" /> }
+    @case ('converted') { <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="m9 15 2 2 4-4" /> }
+    @case ('inquiry') { <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 8h8" /><path d="M8 12h5" /> }
+    @case ('feedback') { <rect width="8" height="4" x="8" y="2" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="m9 14 2 2 4-4" /> }
+    @case ('type') { <path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z" /><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /> }
+    @case ('close') { <path d="M18 6 6 18" /><path d="m6 6 12 12" /> }
+    }
+  </svg>
+</ng-template>
+
+<!-- Add inquiry -->
+@if (showAddInquiry()) {
+<div class="modal-overlay" (click)="showAddInquiry.set(false)">
+  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqAddTitle" (click)="$event.stopPropagation()"
+    (ngSubmit)="saveAddInquiry()" novalidate>
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'inquiry' }" /></span>
+      <div>
+        <h2 id="inqAddTitle">Add tour inquiry</h2>
+        <p>For a customer who walked in or was referred. WhatsApp and website inquiries come in on their own.</p>
+      </div>
+      <button type="button" class="inq-close" (click)="showAddInquiry.set(false)" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Where did this inquiry come from?</legend>
+        <div class="inq-choice-grid two">
+          <label class="inq-choice src-walkin" [class.selected]="addInquiry.type === 'WalkIn'">
+            <input type="radio" name="addInqType" value="WalkIn" [(ngModel)]="addInquiry.type" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'WalkIn' }" /></span>
+            <span class="inq-choice-text"><strong>Walk-In</strong><small>Visited or called in</small></span>
+          </label>
+          <label class="inq-choice src-reference" [class.selected]="addInquiry.type === 'Reference'">
+            <input type="radio" name="addInqType" value="Reference" [(ngModel)]="addInquiry.type" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'Reference' }" /></span>
+            <span class="inq-choice-text"><strong>Reference</strong><small>Someone referred them</small></span>
+          </label>
+        </div>
+      </fieldset>
+
+      @if (addInquiry.type === 'Reference') {
+      <div class="inq-field">
+        <label for="inqRefName">Referred by <span class="req">*</span></label>
+        <input id="inqRefName" class="form-input-admin" type="text" maxlength="200" name="addInqRef"
+          [(ngModel)]="addInquiry.referenceName" placeholder="Name of the person who referred them" />
+        <small class="inq-hint">Filled in with your name. Change it if someone else referred the customer.</small>
+      </div>
+      }
+
+      <div class="inq-grid">
+        <div class="inq-field">
+          <label for="inqName">Full name <span class="req">*</span></label>
+          <input id="inqName" class="form-input-admin" type="text" maxlength="200" name="addInqName"
+            [(ngModel)]="addInquiry.fullName" autocomplete="off" />
+        </div>
+        <div class="inq-field">
+          <label for="inqPhone">Phone</label>
+          <input id="inqPhone" class="form-input-admin" type="tel" name="addInqPhone" [maxlength]="phoneMaxLength"
+            [(ngModel)]="addInquiry.phone" placeholder="e.g. 03001234567" autocomplete="off" />
+        </div>
+      </div>
+      <div class="inq-field">
+        <label for="inqEmail">Email <span class="req">*</span></label>
+        <input id="inqEmail" class="form-input-admin" type="email" maxlength="255" name="addInqEmail"
+          [(ngModel)]="addInquiry.email" autocomplete="off" />
+      </div>
+      <div class="inq-field">
+        <label for="inqNotes">Notes</label>
+        <textarea id="inqNotes" class="form-input-admin" rows="3" maxlength="1000" name="addInqNotes"
+          [(ngModel)]="addInquiry.notes" placeholder="What they are looking for, seats, preferred branch..."></textarea>
+      </div>
+
+      @if (addInquiryError()) {
+      <p class="inq-error" role="alert">{{ addInquiryError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="showAddInquiry.set(false)">Cancel</button>
+      <button type="submit" class="btn-admin btn-primary-admin" [disabled]="addInquirySaving()">
+        {{ addInquirySaving() ? 'Adding…' : 'Add inquiry' }}
+      </button>
+    </footer>
+  </form>
+</div>
+}
+
+<!-- Change the Type -->
 @if (showContactType() && contactTypeItem; as ti) {
 <div class="modal-overlay" (click)="showContactType.set(false)">
-  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px;width:100%">
-    <button class="modal-close" (click)="showContactType.set(false)" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-      </svg>
-    </button>
-    <h2>Inquiry Type</h2>
-    <p style="margin:0 0 14px;color:#475569;font-size:.9rem"><strong>{{ ti.fullName }}</strong> · {{ ti.phone }}</p>
-
-    @for (o of inquiryTypeOptions; track o.v) {
-    <label class="fb-option" [class.active]="contactTypeValue === o.v">
-      <input type="radio" name="inqType" [value]="o.v" [(ngModel)]="contactTypeValue" />
-      <span><strong>{{ o.l }}</strong></span>
-    </label>
-    @if (o.v === 'Reference' && contactTypeValue === 'Reference') {
-    <input class="form-input-admin" type="text" maxlength="200" [(ngModel)]="contactTypeReference" name="inqRef"
-      placeholder="Who referred the customer" style="width:100%;margin:6px 0 10px" />
-    }
-    }
-
-    @if (contactTypeError()) {
-    <div style="color:#b91c1c;font-size:.85rem;margin-top:10px">{{ contactTypeError() }}</div>
-    }
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button class="btn-admin btn-outline-admin" (click)="showContactType.set(false)">Cancel</button>
-      <button class="btn-admin btn-primary-admin" (click)="saveContactType()" [disabled]="contactTypeSaving()">
-        {{ contactTypeSaving() ? 'Saving…' : 'Save' }}
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqTypeTitle" (click)="$event.stopPropagation()">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'type' }" /></span>
+      <div>
+        <h2 id="inqTypeTitle">Inquiry type</h2>
+        <p>{{ inquiryContactLine(ti) }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="showContactType.set(false)" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Where did this inquiry come from?</legend>
+        <div class="inq-choice-grid two">
+          @for (o of inquiryTypeOptions; track o.v) {
+          <label class="inq-choice" [class]="'inq-choice src-' + o.v.toLowerCase()" [class.selected]="contactTypeValue === o.v">
+            <input type="radio" name="inqType" [value]="o.v" [(ngModel)]="contactTypeValue" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: o.v }" /></span>
+            <span class="inq-choice-text"><strong>{{ o.l }}</strong></span>
+          </label>
+          }
+        </div>
+      </fieldset>
+      @if (contactTypeValue === 'Reference') {
+      <div class="inq-field">
+        <label for="inqTypeRef">Referred by <span class="req">*</span></label>
+        <input id="inqTypeRef" class="form-input-admin" type="text" maxlength="200" name="inqRef"
+          [(ngModel)]="contactTypeReference" placeholder="Name of the person who referred them" />
+      </div>
+      }
+      @if (contactTypeError()) {
+      <p class="inq-error" role="alert">{{ contactTypeError() }}</p>
+      }
     </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="showContactType.set(false)">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactType()" [disabled]="contactTypeSaving()">
+        {{ contactTypeSaving() ? 'Saving…' : 'Save type' }}
+      </button>
+    </footer>
   </div>
 </div>
 }
 
+<!-- Feedback -->
 @if (showContactFeedback() && contactFeedbackItem; as fi) {
 <div class="modal-overlay" (click)="showContactFeedback.set(false)">
-  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;width:100%">
-    <button class="modal-close" (click)="showContactFeedback.set(false)" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-      </svg>
-    </button>
-    <h2>Inquiry Feedback</h2>
-    <p style="margin:0 0 14px;color:#475569;font-size:.9rem"><strong>{{ fi.fullName }}</strong> · {{ fi.email }}</p>
-
-    <label class="fb-option" [class.active]="contactFeedbackOutcome === 'not_interested'">
-      <input type="radio" name="fbOutcome" value="not_interested" [(ngModel)]="contactFeedbackOutcome" />
-      <span><strong>Not interested</strong><small>Give the reason. The inquiry is closed.</small></span>
-    </label>
-    @if (contactFeedbackOutcome === 'not_interested') {
-    <textarea class="form-input-admin" rows="3" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbReason"
-      placeholder="Reason (e.g. budget, chose another provider)" style="width:100%;margin:6px 0 10px"></textarea>
-    }
-
-    <label class="fb-option" [class.active]="contactFeedbackOutcome === 'future_prospect'">
-      <input type="radio" name="fbOutcome" value="future_prospect" [(ngModel)]="contactFeedbackOutcome" />
-      <span><strong>Future prospect</strong><small>Pick a date. You will be alerted on that date.</small></span>
-    </label>
-    @if (contactFeedbackOutcome === 'future_prospect') {
-    <input class="form-input-admin" type="date" [min]="today" [(ngModel)]="contactFeedbackDate" name="fbDate"
-      style="width:100%;margin:6px 0 4px" />
-    <textarea class="form-input-admin" rows="2" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbNote"
-      placeholder="Note (optional)" style="width:100%;margin:4px 0 10px"></textarea>
-    }
-
-    <label class="fb-option" [class.active]="contactFeedbackOutcome === 'converted'">
-      <input type="radio" name="fbOutcome" value="converted" [(ngModel)]="contactFeedbackOutcome" />
-      <span><strong>Conversion into quotation</strong><small>Opens Create Quotation for this customer. The inquiry is marked converted when the quotation is saved.</small></span>
-    </label>
-
-    @if (contactFeedbackError()) {
-    <div style="color:#b91c1c;font-size:.85rem;margin-top:10px">{{ contactFeedbackError() }}</div>
-    }
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button class="btn-admin btn-outline-admin" (click)="showContactFeedback.set(false)">Cancel</button>
-      <button class="btn-admin btn-primary-admin" (click)="saveContactFeedback()" [disabled]="contactFeedbackSaving()">
-        {{ contactFeedbackOutcome === 'converted' ? 'Send Quotation' : (contactFeedbackSaving() ? 'Saving…' : 'Save') }}
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqFbTitle" (click)="$event.stopPropagation()">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'feedback' }" /></span>
+      <div>
+        <h2 id="inqFbTitle">Inquiry feedback</h2>
+        <p>{{ inquiryContactLine(fi) }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="showContactFeedback.set(false)" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>What happened with this inquiry?</legend>
+        <div class="inq-choice-grid">
+          <label class="inq-choice out-not_interested" [class.selected]="contactFeedbackOutcome === 'not_interested'">
+            <input type="radio" name="fbOutcome" value="not_interested" [(ngModel)]="contactFeedbackOutcome" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'not_interested' }" /></span>
+            <span class="inq-choice-text"><strong>Not interested</strong><small>Give the reason. The inquiry is closed.</small></span>
+          </label>
+          @if (contactFeedbackOutcome === 'not_interested') {
+          <div class="inq-choice-extra">
+            <textarea class="form-input-admin" rows="3" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbReason"
+              placeholder="Reason, e.g. budget or chose another provider" aria-label="Reason"></textarea>
+          </div>
+          }
+
+          <label class="inq-choice out-future_prospect" [class.selected]="contactFeedbackOutcome === 'future_prospect'">
+            <input type="radio" name="fbOutcome" value="future_prospect" [(ngModel)]="contactFeedbackOutcome" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'future_prospect' }" /></span>
+            <span class="inq-choice-text"><strong>Future prospect</strong><small>Pick a date. You will be reminded on that day.</small></span>
+          </label>
+          @if (contactFeedbackOutcome === 'future_prospect') {
+          <div class="inq-choice-extra">
+            <label class="inq-mini-label" for="fbDate">Follow up on</label>
+            <input id="fbDate" class="form-input-admin" type="date" [min]="today" [(ngModel)]="contactFeedbackDate" name="fbDate" />
+            <textarea class="form-input-admin" rows="2" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbNote"
+              placeholder="Note (optional)" aria-label="Note"></textarea>
+          </div>
+          }
+
+          <label class="inq-choice out-converted" [class.selected]="contactFeedbackOutcome === 'converted'">
+            <input type="radio" name="fbOutcome" value="converted" [(ngModel)]="contactFeedbackOutcome" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'converted' }" /></span>
+            <span class="inq-choice-text"><strong>Convert to quotation</strong><small>Opens Create Quotation for this customer. The inquiry is marked converted once the quotation is saved.</small></span>
+          </label>
+        </div>
+      </fieldset>
+
+      @if (contactFeedbackError()) {
+      <p class="inq-error" role="alert">{{ contactFeedbackError() }}</p>
+      }
     </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="showContactFeedback.set(false)">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactFeedback()" [disabled]="contactFeedbackSaving()">
+        {{ contactFeedbackOutcome === 'converted' ? 'Create quotation' : (contactFeedbackSaving() ? 'Saving…' : 'Save feedback') }}
+      </button>
+    </footer>
   </div>
 </div>
 }
