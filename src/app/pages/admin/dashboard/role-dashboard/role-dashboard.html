@@ -203,11 +203,11 @@
     </div>
   }
 
-  <!-- ===================== Super admin: staff & system ===================== -->
-  @if (role() === 'super_admin' && (staff() || system())) {
+  <!-- ===================== Super admin: staff ===================== -->
+  @if (role() === 'super_admin' && staff()) {
     <div class="ins-grid">
       @if (staff(); as st) {
-        <div class="dash-panel span-7">
+        <div class="dash-panel span-12">
           <div class="panel-head">
             <div><h3>Staff overview</h3><p class="panel-sub">Quotations each admin and sales executive created {{ periodWord() }}</p></div>
             <a class="panel-link top" routerLink="/admin/users">Manage users →</a>
@@ -241,36 +241,6 @@
               </table>
             </div>
           }
-        </div>
-      }
-
-      @if (system(); as sy) {
-        <div class="dash-panel span-5">
-          <div class="panel-head"><div><h3>System health</h3><p class="panel-sub">Background jobs and integrations</p></div></div>
-          <ul class="health">
-            <li>
-              <span class="dot" [class.ok]="sy.hikSyncEnabled && sy.hikJobs.length" [class.bad]="!sy.hikSyncEnabled"></span>
-              <div><strong>Door machine sync</strong><span>{{ sy.hikSyncEnabled ? 'Running on this server' : 'Turned off (HikSync:Enabled)' }}</span></div>
-            </li>
-            @for (j of sy.hikJobs; track j.job) {
-              <li class="sub">
-                <span class="dot" [class.ok]="j.lastOk === true" [class.bad]="j.lastOk === false" [class.run]="j.running"></span>
-                <div><strong>{{ jobLabel(j.job) }}</strong><span>{{ j.running ? 'running now' : 'last run ' + ago(j.lastFinishedAt) }}{{ j.lastOk === false && j.lastResult ? ' · ' + j.lastResult : '' }}</span></div>
-              </li>
-            }
-            <li>
-              <span class="dot" [class.ok]="!sy.machinesOffline" [class.bad]="sy.machinesOffline > 0"></span>
-              <div><strong>Door machines</strong><span>{{ sy.machines - sy.machinesOffline }} of {{ sy.machines }} online · last seen {{ ago(sy.lastMachineSeen) }}</span></div>
-            </li>
-            <li>
-              <span class="dot" [class.ok]="sy.whatsAppConfigured" [class.bad]="!sy.whatsAppConfigured"></span>
-              <div><strong>WhatsApp bot</strong><span>{{ sy.whatsAppConfigured ? 'Connected' : 'Not configured' }} · last message {{ ago(sy.lastWhatsAppMessage) }}</span></div>
-            </li>
-            <li>
-              <span class="dot" [class.ok]="!sy.emailFailed" [class.bad]="sy.emailFailed > 0"></span>
-              <div><strong>Invoice e-mails</strong><span>{{ sy.emailPending }} queued · {{ sy.emailFailed }} failed</span></div>
-            </li>
-          </ul>
         </div>
       }
     </div>
