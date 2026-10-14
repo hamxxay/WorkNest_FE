@@ -1,0 +1,55 @@
+/* The sales dashboard uses the CEO dashboard's stylesheet (ceo-dashboard.css, loaded first) for its cards,
+   panels, charts, tables and states. Only the pieces the CEO page does not have are here. */
+
+/* ---------- header ---------- */
+.dash-kicker { margin: 0 0 4px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #0f766e; }
+.scope-note { margin: 8px 0 0; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #475569; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 11px 3px 9px; }
+.scope-note svg { color: #1d4ed8; flex-shrink: 0; }
+
+/* ---------- grid widths the CEO page does not use ---------- */
+.span-7 { grid-column: span 7; }
+.span-5 { grid-column: span 5; }
+
+/* ---------- compact funnel (fits a narrow panel) ---------- */
+.funnel-compact { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.stage-row { width: 100%; display: flex; flex-direction: column; gap: 7px; padding: 10px; border: none; background: none; border-radius: 10px; font-family: inherit; color: inherit; cursor: pointer; text-align: left; transition: background .12s; }
+.stage-row:hover { background: #f8fafc; }
+.stage-row:hover .row-go, .stage-row:focus-visible .row-go { color: #0d9488; transform: translateX(2px); }
+.stage-row:hover .funnel-fill { filter: brightness(0.94); }
+.stage-row:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
+.stage-top { display: flex; align-items: baseline; gap: 10px; }
+.stage-label { flex: 1; min-width: 0; font-size: 0.86rem; font-weight: 600; color: #0f172a; }
+.stage-count { font-size: 1rem; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+.stage-row .funnel-track { height: 14px; }
+.stage-step { font-size: 0.74rem; color: #64748b; }
+
+/* ---------- team ---------- */
+.team-rate { display: block; margin-top: 6px; font-size: 0.74rem; color: #64748b; }
+.person .rank { margin-right: -2px; }
+.person-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.person-locs { font-size: 0.72rem; color: #94a3b8; max-width: 180px; }
+.muted { color: #cbd5e1; }
+.cmp-table .pill { display: inline-block; }
+
+/* ---------- inquiries ---------- */
+.reason-fill { background: #fb7185; }
+.due-fill { background: #f59e0b; }
+.followups { display: flex; flex-direction: column; }
+.due-hero { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: 12px; background: #fffbeb; border: 1px solid #fde68a; }
+.due-hero strong { font-size: 2rem; font-weight: 800; line-height: 1; color: #b45309; letter-spacing: -0.02em; }
+.due-hero span { flex: 1; min-width: 120px; font-size: 0.86rem; font-weight: 600; color: #92400e; }
+.due-hero.none { background: #f0fdf4; border-color: #bbf7d0; }
+.due-hero.none strong { color: #047857; }
+.due-hero.none span { color: #166534; }
+.due-btn { margin-top: 0; height: 34px; }
+.due-sub { margin: 14px 0 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+
+/* ---------- renewals ---------- */
+.mini-legend .lg-bar.rev { background: #0d9488; }
+.mini-legend .lg-bar.exp { background: #fcd34d; }
+.cmp-table .link-btn { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1280px) {
+  .span-7, .span-5 { grid-column: span 12; }
+}

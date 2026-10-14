@@ -106,7 +106,7 @@
                         <span class="row-bar" aria-hidden="true"><span [style.width.%]="(r.value / maxValue()) * 100"></span></span>
                       </th>
                       <td class="num" [title]="fmtFull(r.value)">{{ fmt(r.value) }}</td>
-                      @if (hasValue2()) { <td class="num" [title]="fmtFull(r.value2)">{{ fmt(r.value2) }}</td> }
+                      @if (hasValue2()) { <td class="num" [title]="fmtFull2(r.value2)">{{ fmt2(r.value2) }}</td> }
                       @if (hasCount()) { <td class="num">{{ r.count === null ? '-' : count(r.count) }}</td> }
                       @if (spec()?.derived; as d) {
                         <td class="num">{{ derivedText(d.of(r)) }}</td>
@@ -124,7 +124,7 @@
                     <tr>
                       <th scope="row">Total</th>
                       <td class="num" [title]="fmtFull(totals().value)">{{ fmt(totals().value) }}</td>
-                      @if (hasValue2()) { <td class="num" [title]="fmtFull(totals().value2)">{{ fmt(totals().value2) }}</td> }
+                      @if (hasValue2()) { <td class="num" [title]="fmtFull2(totals().value2)">{{ fmt2(totals().value2) }}</td> }
                       @if (hasCount()) { <td class="num">{{ count(totals().count) }}</td> }
                       @if (spec()?.derived) { <td class="num">{{ derivedText(derivedTotal()) }}</td> }
                       @if (canOpenRows()) { <td class="col-go"></td> }
@@ -201,7 +201,7 @@
                 }
                 @case ('inquiries') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Received</th><th scope="col">Feedback</th></tr></thead>
+                    <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Received</th>@if (inquiryFollowUp()) { <th scope="col">Follow-up</th> }<th scope="col">Feedback</th></tr></thead>
                     <tbody>
                       @for (r of inquiryRows(); track r.inquiryId || $index) {
                         <tr>
@@ -212,7 +212,33 @@
                           </td>
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                           <td>@if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} } @else { - }</td>
+                          @if (inquiryFollowUp()) {
+                            <td>
+                              @if (r.followUpOn) {
+                                {{ r.followUpOn | date:'d MMM y' }}
+                                @if ((daysFrom(r.followUpOn) ?? 1) <= 0) { <small class="late">{{ daysFrom(r.followUpOn) === 0 ? 'Due today' : -(daysFrom(r.followUpOn) ?? 0) + 'd overdue' }}</small> }
+                              } @else { - }
+                            </td>
+                          }
                           <td><span class="clip wide" [title]="r.feedback">{{ r.feedback || '-' }}</span></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+                @case ('leases') {
+                  <table class="dr-table records">
+                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">Monthly rent</th></tr></thead>
+                    <tbody>
+                      @for (r of leaseRows(); track r.bookingId || $index) {
+                        <tr>
+                          <th scope="row"><strong class="clip">{{ r.customer || '-' }}</strong>@if (r.bookingId) { <small>Booking #{{ r.bookingId }}</small> }</th>
+                          <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
+                          <td>
+                            @if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }
+                            @if (r.daysLeft !== null) { <small [class.late]="r.daysLeft <= 14">{{ r.daysLeft === 0 ? 'Ends today' : r.daysLeft + (r.daysLeft === 1 ? ' day left' : ' days left') }}</small> }
+                          </td>
+                          <td class="num" [title]="fullMoney(r.monthlyAmount)">{{ money(r.monthlyAmount) }}</td>
                         </tr>
                       }
                     </tbody>

@@ -1,17 +1,62 @@
+import { Observable } from 'rxjs';
 import { Chart } from '../access/access-shared';
-import { CeoMetric, CeoParams, CeoPeriod, CeoRecordKind } from '../../../services/ceo.service';
+import { CeoBreakdown, CeoBreakdownRow, CeoError, CeoMetric, CeoParams, CeoPeriod, CeoRecordKind } from '../../../services/ceo.service';
 
 export { Chart };
 
-// ---------- drill-down ----------
+// ---------- drill-down (shared by the CEO and Sales Manager dashboards) ----------
 
-/** One drawer level: a breakdown (level 2) or a records list (level 3). */
-export type DrillLevel =
-  | { kind: 'breakdown'; metric: CeoMetric; params: CeoParams; crumb: string }
-  | { kind: 'records'; records: CeoRecordKind; params: CeoParams; crumb: string };
+/**
+ * One drawer level: a breakdown (level 2) or a records list (level 3). M / R are the dashboard's metric and
+ * record names (the CEO ones by default).
+ */
+export type DrillLevel<M extends string = CeoMetric, R extends string = CeoRecordKind> =
+  | { kind: 'breakdown'; metric: M; params: CeoParams; crumb: string }
+  | { kind: 'records'; records: R; params: CeoParams; crumb: string };
 
 /** Opens the drawer: `root` is the first breadcrumb ("Revenue"), `level` the first level shown. */
-export interface DrillRequest { id: number; root: string; level: DrillLevel; }
+export interface DrillRequest<M extends string = CeoMetric, R extends string = CeoRecordKind> {
+  id: number; root: string; level: DrillLevel<M, R>;
+}
+
+/** How a breakdown (level 2) reads: what its rows are, number format, and where a row leads (level 3). */
+export interface DrillMetricSpec {
+  rowLabel: string;
+  money: boolean;
+  /** Format of the second value when it differs from the first (e.g. lease count vs their monthly rent). */
+  money2?: boolean;
+  /** Derived % column (value2 / value or value / value2). */
+  derived?: { label: string; of: (r: CeoBreakdownRow) => number | null };
+  chart: 'grouped' | 'stacked-occupancy' | 'single';
+  vertical: boolean;
+  next: (params: CeoParams, row: CeoBreakdownRow) => DrillLevel<string, string>;
+}
+
+/** A records list (level 3): rows hold at most 200 (newest first), total is the full count. */
+export interface DrillRecords { title: string; total: number; rows: unknown[]; }
+
+/** Where the drawer gets its data: the CEO API by default, the Sales Manager API on that dashboard. */
+export interface DrillSource {
+  metrics: Record<string, DrillMetricSpec>;
+  breakdown(metric: string, params: CeoParams): Observable<CeoBreakdown>;
+  records(kind: string, params: CeoParams): Observable<DrillRecords>;
+  describeError(err: unknown): CeoError;
+}
+
+/** KPI card on a dashboard. */
+export interface DashKpi {
+  key: string;
+  label: string;
+  value: string;
+  full?: string;
+  sub: string;
+  tone: 'ok' | 'warn' | 'danger' | 'neutral';
+  trend?: Trend | null;
+  vs?: string;
+  /** What a click does; none = a plain figure. */
+  action?: () => void;
+  actionLabel?: string;
+}
 
 // ---------- formatting (same format as the admin dashboard) ----------
 
@@ -60,6 +105,34 @@ export function monthLong(ym: string): string {
 
 export function periodWord(p: CeoPeriod): string {
   return p === 'year' ? 'year' : p === 'quarter' ? 'quarter' : 'month';
+}
+
+/** "Good morning" / "Good afternoon" / "Good evening" for the current hour. */
+export function greetingNow(): string {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/**
+ * First name for the greeting. The WorkNest name's first word as it is ("CEO1", "Luqman"); only when there is
+ * no name and the email has to stand in is it tidied ("ahmad.luqman205@..." -> "Ahmad").
+ */
+export function firstNameOf(user: { displayName?: string; email?: string } | null | undefined): string {
+  const name = (user?.displayName || '').trim();
+  const prefix = (user?.email || '').split('@')[0].trim();
+  if (name && name.toLowerCase() !== prefix.toLowerCase()) return name.split(/\s+/)[0];
+  const raw = prefix || name || 'there';
+  const first = raw.split(/[\s._-]+/)[0].replace(/\d+$/, '') || raw;
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+/** Whole days from today to an ISO date (negative = past); null when there is no valid date. */
+export function daysUntil(date: string | null | undefined): number | null {
+  if (!date) return null;
+  const d = new Date(date.length <= 10 ? date + 'T00:00:00' : date);
+  if (isNaN(d.getTime())) return null;
+  const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - t.getTime()) / 86400000);
 }
 
 export interface Trend { text: string; dir: 'up' | 'down' | 'flat'; good: boolean; }

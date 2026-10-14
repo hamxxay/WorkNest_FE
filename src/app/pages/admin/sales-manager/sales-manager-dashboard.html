@@ -1,0 +1,582 @@
+<div class="ceo-page sm-page">
+  <!-- Header: greeting, period, location -->
+  <header class="dash-header">
+    <div class="dash-header-text">
+      <p class="dash-kicker">Sales dashboard</p>
+      <h1>{{ greeting() }}, {{ firstName() }}</h1>
+      <p class="dash-meta">
+        <span>{{ today | date:'EEEE, d MMMM y' }}</span>
+        <span class="dot-sep" aria-hidden="true"></span>
+        <span>{{ periodTitle() }}</span>
+        <span class="dot-sep" aria-hidden="true"></span>
+        <span class="loc-chip">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          {{ locationName() }}
+        </span>
+        <span class="view-only">View only</span>
+      </p>
+      <p class="scope-note">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        Tour inquiries include all branches
+      </p>
+    </div>
+    <div class="dash-header-actions">
+      <div class="period-seg" role="group" aria-label="Period">
+        @for (p of periods; track p.key) {
+          <button type="button" [class.active]="period() === p.key" [attr.aria-pressed]="period() === p.key" (click)="setPeriod(p.key)">{{ p.label }}</button>
+        }
+      </div>
+      <label class="loc-select" [class.disabled]="!locations().length">
+        <svg class="loc-ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span class="sr-only">Location</span>
+        <select (change)="setLocation($any($event.target).value)" [disabled]="!locations().length">
+          <option value="" [selected]="!locationId()">{{ allLabel }}</option>
+          @for (l of locations(); track l.locationId) {
+            <option [value]="l.locationId" [selected]="l.locationId === locationId()">{{ l.name }}</option>
+          }
+        </select>
+      </label>
+      <span class="updated" aria-live="polite">
+        @if (loading() || refreshing()) { Updating… } @else if (lastUpdated()) { Updated {{ updatedAgo() }} }
+      </span>
+      <button type="button" class="icon-btn" (click)="refresh()" [disabled]="loading() || refreshing()" title="Refresh" aria-label="Refresh the dashboard">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading() || refreshing()" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI card (clickable when it leads somewhere) -->
+  <ng-template #kpiBody let-k>
+    <span class="kpi-label">{{ k.label }}</span>
+    <span class="kpi-value">{{ k.value }}</span>
+    <span class="kpi-foot">
+      @if (k.trend) {
+        <span class="trend" [class.good]="k.trend.good" [class.bad]="!k.trend.good" [class.flat]="k.trend.dir === 'flat'">
+          @if (k.trend.dir === 'up') {
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+            <span class="sr-only">up</span>
+          } @else if (k.trend.dir === 'down') {
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            <span class="sr-only">down</span>
+          }
+          {{ k.trend.text }}
+        </span>
+        <span class="kpi-sub">{{ k.vs }}</span>
+      } @else {
+        <span class="kpi-sub">{{ k.sub }}</span>
+      }
+    </span>
+    @if (k.trend) { <span class="kpi-sub kpi-sub-2">{{ k.sub }}</span> }
+  </ng-template>
+  <ng-template #kpiCard let-k>
+    @if (k.action) {
+      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()" [title]="k.full || ''">
+        <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
+        <span class="sr-only">{{ k.actionLabel }}</span>
+        <svg class="kpi-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+      </button>
+    } @else {
+      <div [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+        <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
+      </div>
+    }
+  </ng-template>
+
+  <ng-template #chartIcon>
+    <span class="chart-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span>
+  </ng-template>
+  <ng-template #okIcon>
+    <span class="chart-empty-icon ok"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+  </ng-template>
+  <ng-template #chevron>
+    <svg class="row-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+  </ng-template>
+
+  @if (loading()) {
+    <!-- First load -->
+    <div class="sk-section"><span class="sk sk-h2"></span></div>
+    <div class="kpi-grid kpi-3">
+      @for (i of [1,2,3]; track i) {
+        <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+      }
+    </div>
+    <div class="ins-grid">
+      <div class="dash-panel span-4"><span class="sk sk-line w60"></span><span class="sk sk-block"></span></div>
+      <div class="dash-panel span-8"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+    </div>
+  } @else if (error() && !data()) {
+    <div class="dash-panel page-state" [class.db]="error()!.needsDbUpdate" role="alert">
+      <span class="state-icon">
+        @if (error()!.needsDbUpdate) {
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        }
+      </span>
+      <h2>{{ error()!.title }}</h2>
+      <p>{{ error()!.message }}</p>
+      <button type="button" class="btn-ghost" (click)="refresh()">Try again</button>
+    </div>
+  } @else if (data()) {
+    @if (error(); as err) {
+      <div class="refresh-error" role="status">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        <span><strong>{{ err.title }}.</strong> {{ err.message }} Showing the figures from {{ updatedAgo() }}.</span>
+        <button type="button" class="link-btn" (click)="refresh()">Try again</button>
+      </div>
+    }
+
+    <div class="sections" [class.is-refreshing]="refreshing()" [attr.aria-busy]="refreshing()">
+
+      <!-- ===================== SALES FUNNEL ===================== -->
+      <section class="dash-section" aria-labelledby="sm-h-funnel">
+        <div class="section-title">
+          <h2 id="sm-h-funnel">Sales funnel</h2>
+          <span>From tour inquiry to booking · {{ periodTitle() }}</span>
+        </div>
+        @if (!f()) {
+          <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No funnel figures yet</strong><span>Quotations and bookings show up here once they are in the system.</span></div>
+        } @else {
+          <div class="kpi-grid kpi-3">
+            @for (k of funnelKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+          </div>
+
+          <div class="ins-grid">
+            <!-- Stages -->
+            <div class="dash-panel span-4 full-md focus-target" id="panel-funnel" tabindex="-1">
+              <div class="panel-head">
+                <div>
+                  <h3>Stages</h3>
+                  <p class="panel-sub">Created this {{ word() }} · select a stage for its records</p>
+                </div>
+              </div>
+              @if (!f()!.stages.length || funnelEmpty()) {
+                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>Nothing in the funnel this {{ word() }}</strong><span>Inquiries, quotations and bookings show up here as they come in.</span></div>
+              } @else {
+                <ol class="funnel-compact">
+                  @for (s of f()!.stages; track s.stage; let i = $index) {
+                    <li>
+                      <button type="button" class="stage-row" (click)="openStage(s)">
+                        <span class="stage-top">
+                          <span class="stage-label">{{ s.label }}</span>
+                          <strong class="stage-count">{{ count(s.count) }}</strong>
+                          <ng-container *ngTemplateOutlet="chevron" />
+                        </span>
+                        <span class="funnel-track"><span class="funnel-fill" [style.width.%]="(s.count / funnelMax()) * 100" [style.background]="funnelColor(i)"></span></span>
+                        @if (stepText(i)) { <span class="stage-step">{{ stepText(i) }}</span> }
+                      </button>
+                    </li>
+                  }
+                </ol>
+                <p class="note">Conversion = bookings / quotations created this {{ word() }}. Inquiries cover every branch.</p>
+              }
+            </div>
+
+            <!-- 12 months -->
+            <div class="dash-panel span-8">
+              <div class="panel-head">
+                <div>
+                  <h3>Quotations &amp; bookings</h3>
+                  <p class="panel-sub">Last 12 months · select a month for the locations behind it</p>
+                </div>
+                <div class="head-side">
+                  <div class="head-stats">
+                    <div><span>Quotations</span><strong>{{ count(funnelTotals().quotations) }}</strong></div>
+                    <div><span>Bookings</span><strong>{{ count(funnelTotals().bookings) }}</strong></div>
+                    <div><span>Booked</span><strong [title]="fullMoney(funnelTotals().value)">{{ money(funnelTotals().value) }}</strong></div>
+                  </div>
+                  @if (!funnelChartEmpty()) {
+                    <button type="button" class="view-toggle" (click)="funnelTable.set(!funnelTable())" [attr.aria-pressed]="funnelTable()">{{ funnelTable() ? 'Chart' : 'Table' }}</button>
+                  }
+                </div>
+              </div>
+              <div class="chart-box h-lg chart-nav" [class.hidden]="funnelTable()"
+                [attr.tabindex]="funnelChartEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
+                aria-label="Quotations, accepted and bookings by month. Arrow keys move between months, Enter opens the month."
+                (keydown)="funnelNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && funnelNav.focus()" (blur)="funnelNav.clear()">
+                <canvas #funnelCanvas aria-hidden="true"></canvas>
+                @if (funnelChartEmpty()) {
+                  <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No quotations in the last 12 months</strong><span>The chart fills in as quotations are made.</span></div>
+                }
+              </div>
+              @if (funnelTable()) {
+                <div class="table-scroll">
+                  <table class="cmp-table compact">
+                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Quotations</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Bookings</th><th scope="col" class="num">Booked value</th></tr></thead>
+                    <tbody>
+                      @for (x of f()!.months; track x.month; let i = $index) {
+                        <tr class="clickable" (click)="openFunnelMonth(i)">
+                          <th scope="row"><button type="button" class="row-btn" (click)="openFunnelMonth(i); $event.stopPropagation()">{{ monthLong(x.month) }}</button></th>
+                          <td class="num">{{ count(x.quotations) }}</td>
+                          <td class="num">{{ count(x.accepted) }}</td>
+                          <td class="num">{{ count(x.bookings) }}</td>
+                          <td class="num" [title]="fullMoney(x.bookedValue)">{{ money(x.bookedValue) }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- ===================== TEAM PERFORMANCE ===================== -->
+      <section class="dash-section" aria-labelledby="sm-h-team">
+        <div class="section-title">
+          <h2 id="sm-h-team">Team performance</h2>
+          <span>Ranked by converted value · {{ periodTitle() }}</span>
+        </div>
+        @if (!t() || teamEmpty()) {
+          <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No team figures yet</strong><span>Sales executives and admins show up here with their quotations.</span></div>
+        } @else {
+          @if (t()!.perLocation.length) {
+            <div class="team-cards">
+              @for (l of t()!.perLocation; track l.locationId || $index) {
+                <div class="team-card">
+                  <div class="team-card-head">
+                    <strong>{{ l.name }}</strong>
+                    <span>{{ l.salesExecutives }} sales exec{{ l.salesExecutives === 1 ? '' : 's' }}</span>
+                  </div>
+                  <div class="team-nums">
+                    <div><span>Quotations</span><strong>{{ count(l.quotations) }}</strong></div>
+                    <div><span>Converted</span><strong>{{ count(l.converted) }}</strong></div>
+                    <div><span>Value</span><strong [title]="fullMoney(l.convertedValue)">{{ money(l.convertedValue) }}</strong></div>
+                  </div>
+                  <span class="mini-track wide" aria-hidden="true"><span class="mini-fill" [style.width.%]="l.quotations ? (l.converted / l.quotations) * 100 : 0"></span></span>
+                  <span class="team-rate">{{ l.quotations ? pct((l.converted / l.quotations) * 100) + ' converted' : 'No quotations yet' }}</span>
+                </div>
+              }
+            </div>
+          }
+
+          <div class="dash-panel table-panel">
+            <div class="panel-head">
+              <div>
+                <h3>People</h3>
+                <p class="panel-sub">Sales executives and admins · select a person for their last 6 months</p>
+              </div>
+              @if (teamFollowUps()) {
+                <div class="head-stats">
+                  <div><span>Follow-ups due</span><strong class="warn">{{ count(teamFollowUps()) }}</strong></div>
+                </div>
+              }
+            </div>
+            @if (!people().length) {
+              <div class="empty"><strong>No sales executives or admins yet</strong></div>
+            } @else {
+              <div class="table-scroll">
+                <table class="cmp-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Name</th>
+                      <th scope="col" class="num">Inquiries</th><th scope="col" class="num">Quotations</th>
+                      <th scope="col" class="num">Accepted</th><th scope="col" class="num">Converted</th>
+                      <th scope="col">Conversion</th><th scope="col" class="num">Converted value</th>
+                      <th scope="col" class="num">Follow-ups due</th>
+                      <th scope="col" class="col-go"><span class="sr-only">Open</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of people(); track p.userId || $index; let i = $index) {
+                      <tr class="clickable" (click)="openPerson(p.userId, p.name)">
+                        <th scope="row">
+                          <span class="person">
+                            <span class="rank" [attr.aria-label]="'Rank ' + (i + 1)">{{ i + 1 }}</span>
+                            <span class="person-avatar" aria-hidden="true">{{ (p.name || '?').charAt(0).toUpperCase() }}</span>
+                            <span class="person-main">
+                              <button type="button" class="row-btn" (click)="openPerson(p.userId, p.name); $event.stopPropagation()">{{ p.name }}</button>
+                              <span class="person-meta">
+                                @if (p.role) { <small class="role-tag" [class.admin]="p.role.toLowerCase().includes('admin')">{{ p.role }}</small> }
+                                @if (p.locations) { <small class="person-locs clip">{{ p.locations }}</small> }
+                              </span>
+                            </span>
+                          </span>
+                        </th>
+                        <td class="num">{{ count(p.inquiriesHandled) }}</td>
+                        <td class="num">{{ count(p.quotations) }}</td>
+                        <td class="num">{{ count(p.accepted) }}</td>
+                        <td class="num">{{ count(p.converted) }}</td>
+                        <td>
+                          <div class="mini-bar">
+                            <span class="mini-track"><span class="mini-fill" [style.width.%]="p.conversionRate > 100 ? 100 : p.conversionRate"></span></span>
+                            <span>{{ p.quotations ? pct(p.conversionRate) : '-' }}</span>
+                          </div>
+                        </td>
+                        <td class="num" [title]="fullMoney(p.convertedValue)">{{ money(p.convertedValue) }}</td>
+                        <td class="num">
+                          @if (p.followUpsDue) { <span class="pill warn">{{ count(p.followUpsDue) }}</span> } @else { <span class="muted">0</span> }
+                        </td>
+                        <td class="col-go"><ng-container *ngTemplateOutlet="chevron" /></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- ===================== TOUR INQUIRIES ===================== -->
+      <section class="dash-section" aria-labelledby="sm-h-inq">
+        <div class="section-title">
+          <h2 id="sm-h-inq">Tour inquiries</h2>
+          <span>All branches (inquiries have no location) · {{ periodTitle() }}</span>
+        </div>
+        @if (!q()) {
+          <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No tour inquiry figures yet</strong><span>Website, WhatsApp, walk-in and reference inquiries show up here.</span></div>
+        } @else {
+          <div class="kpi-grid kpi-5">
+            @for (k of inquiryKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+          </div>
+
+          <div class="ins-grid">
+            <!-- 12 months, stacked by type -->
+            <div class="dash-panel span-8">
+              <div class="panel-head">
+                <div>
+                  <h3>Inquiries by month</h3>
+                  <p class="panel-sub">Last 12 months by type · select a month for its inquiries</p>
+                </div>
+                @if (!inquiryChartEmpty()) {
+                  <div class="head-side">
+                    <button type="button" class="view-toggle" (click)="inquiryTable.set(!inquiryTable())" [attr.aria-pressed]="inquiryTable()">{{ inquiryTable() ? 'Chart' : 'Table' }}</button>
+                  </div>
+                }
+              </div>
+              <div class="chart-box h-lg chart-nav" [class.hidden]="inquiryTable()"
+                [attr.tabindex]="inquiryChartEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
+                aria-label="Tour inquiries by month and type. Arrow keys move between months, Enter opens the month."
+                (keydown)="inquiriesNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && inquiriesNav.focus()" (blur)="inquiriesNav.clear()">
+                <canvas #inquiriesCanvas aria-hidden="true"></canvas>
+                @if (inquiryChartEmpty()) {
+                  <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No tour inquiries in the last 12 months</strong><span>The chart fills in as inquiries come in.</span></div>
+                }
+              </div>
+              @if (inquiryTable()) {
+                <div class="table-scroll">
+                  <table class="cmp-table compact">
+                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Website</th><th scope="col" class="num">WhatsApp</th><th scope="col" class="num">Walk-In</th><th scope="col" class="num">Reference</th><th scope="col" class="num">Not set</th><th scope="col" class="num">Total</th></tr></thead>
+                    <tbody>
+                      @for (x of q()!.months; track x.month; let i = $index) {
+                        <tr class="clickable" (click)="openInquiryMonth(i)">
+                          <th scope="row"><button type="button" class="row-btn" (click)="openInquiryMonth(i); $event.stopPropagation()">{{ monthLong(x.month) }}</button></th>
+                          <td class="num">{{ x.website }}</td>
+                          <td class="num">{{ x.whatsApp }}</td>
+                          <td class="num">{{ x.walkIn }}</td>
+                          <td class="num">{{ x.reference }}</td>
+                          <td class="num">{{ x.notSet }}</td>
+                          <td class="num"><strong>{{ inquiryMonthTotal(x) }}</strong></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+
+            <!-- By type -->
+            <div class="dash-panel span-4 full-md">
+              <div class="panel-head">
+                <div>
+                  <h3>By type</h3>
+                  <p class="panel-sub">{{ count(inquiryTypeTotal()) }} this {{ word() }} · select a type for the last 6 months</p>
+                </div>
+              </div>
+              @if (!inquiryTypeTotal()) {
+                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No tour inquiries this {{ word() }}</strong><span>Website, WhatsApp, walk-in and reference inquiries show up here.</span></div>
+              } @else {
+                <ul class="bar-list">
+                  @for (t of q()!.byType; track t.type) {
+                    <li>
+                      <button type="button" class="bar-row" (click)="openInquiryType(t.type, t.label)">
+                        <span class="bar-main">
+                          <span class="bar-label"><i class="type-dot" [style.background]="typeStyle(t.type).fg" aria-hidden="true"></i>{{ t.label }}</span>
+                          <span class="bar-track"><span class="bar-fill" [style.width.%]="(t.count / inquiryTypeMax()) * 100" [style.background]="typeStyle(t.type).fg"></span></span>
+                        </span>
+                        <span class="bar-value"><strong>{{ count(t.count) }}</strong><small>{{ pct((t.count / inquiryTypeTotal()) * 100) }}</small></span>
+                        <ng-container *ngTemplateOutlet="chevron" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+
+            <!-- Not-interested reasons -->
+            <div class="dash-panel span-6">
+              <div class="panel-head">
+                <div>
+                  <h3>Why they were not interested</h3>
+                  <p class="panel-sub">Top reasons this {{ word() }} · select one for the not-interested inquiries</p>
+                </div>
+                @if (q()!.notInterested) {
+                  <div class="head-stats"><div><span>Not interested</span><strong>{{ count(q()!.notInterested) }}</strong></div></div>
+                }
+              </div>
+              @if (!q()!.notInterestedReasons.length) {
+                <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No not-interested inquiries this {{ word() }}</strong><span>Reasons given in the inquiry feedback show up here.</span></div>
+              } @else {
+                <ol class="bar-list">
+                  @for (r of q()!.notInterestedReasons; track r.reason; let i = $index) {
+                    <li>
+                      <button type="button" class="bar-row" (click)="openNotInterested()">
+                        <span class="rank">{{ i + 1 }}</span>
+                        <span class="bar-main">
+                          <span class="bar-label">{{ r.reason }}</span>
+                          <span class="bar-track"><span class="bar-fill reason-fill" [style.width.%]="(r.count / reasonMax()) * 100"></span></span>
+                        </span>
+                        <span class="bar-value"><strong>{{ count(r.count) }}</strong>@if (q()!.notInterested) { <small>{{ pct(ratio(r.count, q()!.notInterested)) }}</small> }</span>
+                        <ng-container *ngTemplateOutlet="chevron" />
+                      </button>
+                    </li>
+                  }
+                </ol>
+              }
+            </div>
+
+            <!-- Follow-ups due -->
+            <div class="dash-panel span-6 followups">
+              <div class="panel-head">
+                <div>
+                  <h3>Follow-ups due</h3>
+                  <p class="panel-sub">Future prospects whose follow-up date is today or earlier, still open</p>
+                </div>
+              </div>
+              <div class="due-hero" [class.none]="!q()!.followUpsDue">
+                <strong>{{ count(q()!.followUpsDue) }}</strong>
+                <span>{{ q()!.followUpsDue === 1 ? 'inquiry to follow up' : 'inquiries to follow up' }}</span>
+                <button type="button" class="btn-ghost due-btn" (click)="openFollowUps()">Open the list</button>
+              </div>
+              @if (peopleWithFollowUps().length) {
+                <p class="due-sub">By person (your team)</p>
+                <ul class="bar-list">
+                  @for (p of peopleWithFollowUps(); track p.userId || $index) {
+                    <li>
+                      <button type="button" class="bar-row" (click)="openPerson(p.userId, p.name)">
+                        <span class="bar-main">
+                          <span class="bar-label">{{ p.name }}</span>
+                          <span class="bar-track"><span class="bar-fill due-fill" [style.width.%]="(p.followUpsDue / followUpMax()) * 100"></span></span>
+                        </span>
+                        <span class="bar-value"><strong>{{ count(p.followUpsDue) }}</strong></span>
+                        <ng-container *ngTemplateOutlet="chevron" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- ===================== RENEWALS & REVENUE ===================== -->
+      <section class="dash-section" aria-labelledby="sm-h-ren">
+        <div class="section-title">
+          <h2 id="sm-h-ren">Renewals &amp; revenue</h2>
+          <span>Leases up for renewal and revenue from new bookings · {{ periodTitle() }}</span>
+        </div>
+        @if (!r()) {
+          <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No renewal figures yet</strong><span>Leases and new bookings show up here once they are in the system.</span></div>
+        } @else {
+          <div class="kpi-grid kpi-3">
+            @for (k of renewalKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+          </div>
+
+          <div class="ins-grid">
+            <!-- Leases expiring -->
+            <div class="dash-panel span-5 focus-target" id="panel-expiring" tabindex="-1">
+              <div class="panel-head">
+                <div>
+                  <h3>Leases expiring</h3>
+                  <p class="panel-sub">Next 90 days, soonest first · renewal pipeline</p>
+                </div>
+                @if (r()!.expiring.length) {
+                  <div class="head-stats">
+                    <div><span>Leases</span><strong class="warn">{{ count(r()!.expiringCount) }}</strong></div>
+                    <div><span>Monthly rent</span><strong [title]="fullMoney(r()!.expiringMonthlyValue)">{{ money(r()!.expiringMonthlyValue) }}</strong></div>
+                  </div>
+                }
+              </div>
+              @if (!r()!.expiring.length) {
+                <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No leases end in the next 90 days</strong><span>Nothing up for renewal.</span></div>
+              } @else {
+                <ul class="lease-list">
+                  @for (l of r()!.expiring; track l.bookingId || $index) {
+                    <li>
+                      <span class="lease-avatar" aria-hidden="true">{{ (l.customer || '?').charAt(0).toUpperCase() }}</span>
+                      <span class="lease-main">
+                        <strong>{{ l.customer }}</strong>
+                        <span>{{ l.space }}@if (l.location) { · {{ l.location }} }</span>
+                      </span>
+                      <span class="lease-side">
+                        <strong [title]="fullMoney(l.monthlyAmount) + ' a month'">{{ money(l.monthlyAmount) }}</strong>
+                        <span class="pill" [class.danger]="l.daysLeft <= 14" [class.warn]="l.daysLeft > 14 && l.daysLeft <= 45" [title]="'Ends ' + (l.endOn | date:'d MMM y')">
+                          {{ l.endOn | date:'d MMM' }} · {{ daysText(l.daysLeft) }}
+                        </span>
+                      </span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+
+            <!-- Revenue + expiring by month -->
+            <div class="dash-panel span-7 focus-target" id="panel-revenue" tabindex="-1">
+              <div class="panel-head">
+                <div>
+                  <h3>New-booking revenue &amp; leases ending</h3>
+                  <p class="panel-sub">By month · select a month for the locations behind it</p>
+                </div>
+                @if (!revenueChartEmpty()) {
+                  <div class="head-side">
+                    <button type="button" class="view-toggle" (click)="renewTable.set(!renewTable())" [attr.aria-pressed]="renewTable()">{{ renewTable() ? 'Chart' : 'Table' }}</button>
+                  </div>
+                }
+              </div>
+              <div class="occ-stack" [class.hidden]="renewTable()">
+                <div class="chart-nav" [attr.tabindex]="revenueChartEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
+                  aria-label="New-booking revenue by month. Arrow keys move between months, Enter opens the month."
+                  (keydown)="revenueNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && revenueNav.focus()" (blur)="revenueNav.clear()">
+                  <span class="mini-legend"><i class="lg-bar rev" aria-hidden="true"></i>New-booking revenue</span>
+                  <div class="chart-box h-occ"><canvas #revenueCanvas aria-hidden="true"></canvas></div>
+                </div>
+                <div class="chart-nav" [attr.tabindex]="revenueChartEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
+                  aria-label="Leases ending by month. Arrow keys move between months, Enter opens the month."
+                  (keydown)="expiringNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && expiringNav.focus()" (blur)="expiringNav.clear()">
+                  <span class="mini-legend"><i class="lg-bar exp" aria-hidden="true"></i>Leases ending</span>
+                  <div class="chart-box h-bk"><canvas #expiringCanvas aria-hidden="true"></canvas></div>
+                </div>
+                @if (revenueChartEmpty()) {
+                  <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No new bookings or ending leases in this range</strong><span>The chart fills in as bookings are invoiced.</span></div>
+                }
+              </div>
+              @if (renewTable()) {
+                <div class="table-scroll">
+                  <table class="cmp-table compact">
+                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">New-booking revenue</th><th scope="col" class="num">Leases ending</th></tr></thead>
+                    <tbody>
+                      @for (x of r()!.months; track x.month; let i = $index) {
+                        <tr>
+                          <th scope="row">{{ monthLong(x.month) }}</th>
+                          <td class="num"><button type="button" class="link-btn" (click)="openRevenueMonth(i)" [title]="fullMoney(x.newBookingRevenue)">{{ money(x.newBookingRevenue) }}</button></td>
+                          <td class="num"><button type="button" class="link-btn" (click)="openRenewalsMonth(i)">{{ count(x.expiring) }}</button></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    </div>
+  }
+
+  <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
+
+  <app-ceo-drawer [request]="drill()" [period]="period()" [locationId]="locationId()" [source]="drillSource" (closed)="closeDrill()" />
+</div>

@@ -8,8 +8,8 @@ import {
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import {
   AGING_COLORS, AGING_FALLBACK, AXIS_MONEY, Chart, ChartKeyNav, DrillLevel, DrillRequest, GRID, INQUIRY_TYPES, LEGEND, TEAL,
-  TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, fullMoney, inquiryTypeKey, money,
-  monthLong, monthShort, pct, periodWord, pointerOnHover, ratio, trend
+  TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, firstNameOf, fullMoney, inquiryTypeKey,
+  money, monthLong, monthShort, pct, periodWord, pointerOnHover, ratio, trend
 } from './ceo-shared';
 
 interface Kpi {
@@ -174,12 +174,8 @@ export class CeoDashboard {
     return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   });
 
-  firstName = computed(() => {
-    const u = this.auth.user();
-    const raw = (u?.displayName || u?.email?.split('@')[0] || 'there').trim();
-    const first = raw.split(/[\s._-]+/)[0].replace(/\d+$/, '') || raw;
-    return first.charAt(0).toUpperCase() + first.slice(1);
-  });
+  /** The WorkNest name's first word as it is ("CEO1"); a tidied email prefix only when there is no name. */
+  firstName = computed(() => firstNameOf(this.auth.user()));
 
   locationName = computed(() => {
     const id = this.locationId();

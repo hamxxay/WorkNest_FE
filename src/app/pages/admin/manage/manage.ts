@@ -1002,10 +1002,10 @@ export class Manage implements OnInit {
     this.formData['locationIds'] = checked ? [...new Set([...current, Number(id)])] : current.filter(x => x !== Number(id));
   }
 
-  /** Roles that are tied to location(s): admin and sales executive (super admins and customers are not). */
+  /** Roles that are tied to location(s): admin, sales executive and sales manager (super admins, CEOs and customers are not). */
   isLocationRole(role: any): boolean {
     const r = this.normalizeRole(role);
-    return r === 'admin' || r === 'sales_executive';
+    return r === 'admin' || r === 'sales_executive' || r === 'sales_manager';
   }
 
   /** Admins and sales executives are limited to their own location(s); super admins are not. */
@@ -1017,12 +1017,49 @@ export class Manage implements OnInit {
     if (!this.isLocationBound) return null;
     return this.auth.user()?.locationId ?? this.myLocationIds[0] ?? null;
   }
-  assignableRoles = ASSIGNABLE_ROLES;
-  /** Only a Super Admin creates Admins / Super Admins / CEOs; an Admin creates Sales Executives and customers. */
+  /**
+   * Roles the pickers offer, worded by the database (GET api/roles), in the API's order. Only roles this page
+   * knows the rules for (ASSIGNABLE_ROLES, keyed by role name); the constants themselves when the call fails.
+   */
+  private roleOptions = signal<{ v: string; l: string }[]>(ASSIGNABLE_ROLES);
+  /** Database label per role name, for every role (also ones the picker does not offer). */
+  private roleNames = signal<Record<string, string>>({});
+  /** Role id -> role name, for rows that carry only a RoleId. */
+  private roleIds: Record<string, string> = {};
+  get assignableRoles(): { v: string; l: string }[] { return this.roleOptions(); }
+  /** Only a Super Admin creates Admins / Super Admins / CEOs / Sales Managers; an Admin creates Sales Executives and customers. */
   get rolesICanAssign(): { v: string; l: string }[] {
     return this.auth.hasRole('super_admin')
-      ? ASSIGNABLE_ROLES
-      : ASSIGNABLE_ROLES.filter(r => r.v === 'sales_executive' || r.v === 'general');
+      ? this.roleOptions()
+      : this.roleOptions().filter(r => r.v === 'sales_executive' || r.v === 'general');
+  }
+
+  /** Users page: role labels from the database; the form is rebuilt so its picker gets them too. */
+  private loadRoles() {
+    this.admin.getRoles().subscribe({
+      next: roles => {
+        const names: Record<string, string> = {};
+        const ids: Record<string, string> = {};
+        for (const r of roles) {
+          const key = this.normalizeRole(r.roleName);
+          if (r.displayName) names[key] = r.displayName;
+          if (r.id > 0) ids[String(r.id)] = key;
+        }
+        this.roleIds = ids;
+        this.roleNames.set(names);
+        const known = new Map(ASSIGNABLE_ROLES.map(r => [r.v, r.l]));
+        const seen = new Set<string>();
+        const options = roles
+          .map(r => this.normalizeRole(r.roleName))
+          .filter(key => known.has(key) && !seen.has(key) && !!seen.add(key))
+          .map(key => ({ v: key, l: names[key] || known.get(key)! }));
+        // A role the API left out keeps its constant entry, so nobody loses an option they had.
+        for (const r of ASSIGNABLE_ROLES) if (!seen.has(r.v)) options.push({ v: r.v, l: names[r.v] || r.l });
+        this.roleOptions.set(options);
+        if (this.entity === 'users') this.config.set(this.buildConfig(this.entity));
+      },
+      error: () => { /* keep the built-in labels */ }
+    });
   }
 
   /** Users: the signed-in user's own row. */
@@ -1032,10 +1069,10 @@ export class Manage implements OnInit {
     return !!me && email === me;
   }
 
-  /** Users: Admin, Super Admin and CEO accounts, which only a Super Admin manages. */
+  /** Users: Admin, Super Admin, CEO and Sales Manager accounts, which only a Super Admin manages. */
   private isAdminAccount(item: any): boolean {
     const role = this.normalizeRole(item?.role ?? item?.roleId ?? item?.RoleId);
-    return role === 'admin' || role === 'super_admin' || role === 'ceo';
+    return role === 'admin' || role === 'super_admin' || role === 'ceo' || role === 'sales_manager';
   }
 
   /** Users: a Super Admin edits everyone; an Admin edits their own profile and the users below them. */
@@ -1140,7 +1177,7 @@ export class Manage implements OnInit {
         }
         if (this.entity === 'customers' || this.entity === 'users') {
           this.loadCityOptions();
-          if (this.entity === 'users') this.loadLocationOptions();
+          if (this.entity === 'users') { this.loadLocationOptions(); this.loadRoles(); }
         }
 
         if (this.entity === 'locations') {
@@ -4052,7 +4089,7 @@ export class Manage implements OnInit {
       }
 
       if (!this.isLocationRole(role)) {
-        // Admins and Sales Executives are tied to locations; Super Admins and customers are not.
+        // Admins, Sales Executives and Sales Managers are tied to locations; Super Admins, CEOs and customers are not.
         locationId = null;
         locationIds = [];
       } else {
@@ -4414,6 +4451,9 @@ export class Manage implements OnInit {
     if (str === '14' || str === 'general' || str === 'general_user') return 'general';
     if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'sales_executive';
     if (str === '17' || str === 'ceo') return 'ceo';
+    if (str === '18' || str === 'salesmanager' || str === 'sales_manager') return 'sales_manager';
+    // Another role id: its name from GET api/roles.
+    if (/^\d+$/.test(str) && this.roleIds?.[str]) return this.roleIds[str];
     return str || 'general';
   }
 
@@ -4430,8 +4470,8 @@ export class Manage implements OnInit {
       ? null
       : (item.locationId ? Number(item.locationId) : null);
 
-    if ((normalizedRole === 'admin' || normalizedRole === 'sales_executive') && !locationId) {
-      this.toast.show('Please edit user to assign a Location when setting Admin or Sales Executive role.', 'error');
+    if (this.isLocationRole(normalizedRole) && !locationId) {
+      this.toast.show(`Please edit the user to assign a location when giving the ${this.getRoleLabel(normalizedRole)} role.`, 'error');
       revert();
       return;
     }
@@ -4452,6 +4492,8 @@ export class Manage implements OnInit {
 
   getRoleLabel(roleValue: any): string {
     const r = this.normalizeRole(roleValue);
+    const fromDb = this.roleNames()[r];
+    if (fromDb) return fromDb;
     const match = this.assignableRoles.find(opt => opt.v === r);
     return match ? match.l : String(roleValue || 'General User');
   }

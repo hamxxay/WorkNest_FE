@@ -6,7 +6,10 @@ import { Subscription, filter } from 'rxjs';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
-import { CEO_HOME, SALES_EXECUTIVE_ROUTES, isCeoUrl, isSalesExecutiveUrl } from '../../../guards/admin.guard';
+import {
+  CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isCeoUrl, isSalesExecutiveUrl, isSalesManagerUrl
+} from '../../../guards/admin.guard';
+import { roleLabelFor } from '../../../utils/constants';
 
 @Component({
   selector: 'app-admin-layout',
@@ -26,6 +29,10 @@ export class AdminLayout implements OnInit, OnDestroy {
   isSalesExecutive = false;
   /** CEO: only the CEO dashboard in the sidebar, no badges or other staff calls (they would be refused). */
   isCeo = false;
+  /** Sales Manager: only the sales dashboard in the sidebar, no badges or other staff calls (same reason). */
+  isSalesManager = false;
+  /** CEO / Sales Manager: their one dashboard (logo link, no profile page); null for everyone else. */
+  dashboardHome: string | null = null;
 
   public toastService = inject(ToastService);
   private auth = inject(AuthService);
@@ -68,6 +75,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   menuItems = [
     { route: '/admin', group: '',                label: 'Dashboard',         icon: 'dashboard'       },
     { route: CEO_HOME, group: '',                 label: 'CEO dashboard',     icon: 'ceo', superAdminOnly: true },
+    { route: SALES_MANAGER_HOME, group: '',       label: 'Sales dashboard',   icon: 'sales-dash', superAdminOnly: true },
     { route: '/admin/customers', group: 'Sales',      label: 'Customers',         icon: 'customers'       },
     { route: '/admin/kyc', group: 'Sales',            label: 'KYC Portal',        icon: 'kyc'             },
     { route: '/admin/users', group: 'Administration',          label: 'Users',             icon: 'users'           },
@@ -113,12 +121,22 @@ export class AdminLayout implements OnInit, OnDestroy {
     this.isAdmin = isAdmin || this.isSuperAdmin;
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     this.isCeo = this.auth.isCeoOnly();
+    this.isSalesManager = this.auth.isSalesManagerOnly();
     if (this.isCeo) {
       this.userRole = 'CEO';
+      this.dashboardHome = CEO_HOME;
       // Same rule as adminGuard: the CEO dashboard and nothing else.
       this.menuItems = [{ route: CEO_HOME, group: '', label: 'CEO dashboard', icon: 'ceo' }];
       if (!isCeoUrl(this.router.url)) {
         this.router.navigate([CEO_HOME]);
+      }
+    } else if (this.isSalesManager) {
+      this.userRole = 'sales_manager';
+      this.dashboardHome = SALES_MANAGER_HOME;
+      // Same rule as adminGuard: the sales dashboard and nothing else.
+      this.menuItems = [{ route: SALES_MANAGER_HOME, group: '', label: 'Sales dashboard', icon: 'sales-dash' }];
+      if (!isSalesManagerUrl(this.router.url)) {
+        this.router.navigate([SALES_MANAGER_HOME]);
       }
     } else if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
@@ -132,8 +150,10 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
-    // A CEO has no sidebar badges or network section (those APIs are staff-only).
-    if (this.isCeo) return;
+    // The role's database label (auth/me) when the sign-in response did not bring it.
+    if (!this.auth.getUser()?.roleDisplayName) this.auth.refreshProfileLabels();
+    // A CEO / Sales Manager has no sidebar badges or network section (those APIs are staff-only).
+    if (this.dashboardHome) return;
     this.loadNetworkScope();
     this.loadBadges();
     this.pollTimer = setInterval(() => { if (!document.hidden) this.loadBadges(); }, AdminLayout.POLL_MS);
@@ -262,10 +282,9 @@ export class AdminLayout implements OnInit, OnDestroy {
     }
   }
 
-  /** "super_admin" -> "Super Admin" */
+  /** The role as the database words it (auth/me roleDisplayName); else made from the role name ("super_admin" -> "Super Admin"). */
   get roleLabel(): string {
-    if ((this.userRole || '').toLowerCase() === 'ceo') return 'CEO';
-    return (this.userRole || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return this.auth.getUser()?.roleDisplayName?.trim() || roleLabelFor(this.userRole);
   }
 
   getUserName(): string {

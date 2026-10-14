@@ -110,7 +110,7 @@
               </div>
               } @else {
               <div class="profile-roles">
-                @for (role of roles(); track role) {
+                @for (role of roleLabels(); track role) {
                 <span class="role-badge">{{ role }}</span>
                 }
               </div>
@@ -138,6 +138,17 @@
                 CEO dashboard
               </a>
               }
+              @if (authService.isSalesManagerOnly()) {
+              <a class="profile-menu-link admin-link" routerLink="/admin/sales-manager"
+                (click)="profileOpen.set(false); closeMobile()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 3v18h18" />
+                  <path d="M7 15l4-4 3 3 5-6" />
+                </svg>
+                Sales dashboard
+              </a>
+              }
               @if (authService.hasRole('sales_executive')) {
               <a class="profile-menu-link admin-link" routerLink="/admin/quotations"
                 (click)="profileOpen.set(false); closeMobile()">
@@ -151,7 +162,7 @@
                 Sales Executive Panel
               </a>
               }
-              @if (!authService.isCeoOnly()) {
+              @if (!authService.isDashboardOnly()) {
               <a class="profile-menu-link" routerLink="/my-bookings" (click)="profileOpen.set(false); closeMobile()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

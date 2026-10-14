@@ -2,6 +2,7 @@ import { Component, signal, computed, Signal, HostListener, ElementRef, OnDestro
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
+import { roleLabelFor } from '../../utils/constants';
 
 @Component({
   selector: 'app-navbar',
@@ -44,6 +45,13 @@ export class Navbar implements OnDestroy {
 
   email = computed(() => this.user()?.email || '');
   roles = computed(() => this.user()?.roles || []);
+  /** Role badges: the database's wording (auth/me roleDisplayName), else a label made from each role name. */
+  roleLabels = computed(() => {
+    const u = this.user();
+    if (!u) return [];
+    const db = u.roleDisplayName?.trim();
+    return db ? [db] : (u.roles || []).map((r: string) => roleLabelFor(r));
+  });
   isGuest = computed(() => this.authService.isGuest());
   loggedIn = computed(() => !!this.user());
   overHero = computed(() => this.currentUrl() === '/' && !this.scrolled() && !this.mobileOpen());
