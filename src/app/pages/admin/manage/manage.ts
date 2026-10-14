@@ -3480,6 +3480,7 @@ export class Manage implements OnInit {
 
 
   openCreate() {
+    if (this.entity === 'contacts') { this.openAddInquiry(); return; }
     this.editItem = null; this.formData = {}; this.error.set(''); this.showModal.set(true);
     if (this.entity === 'users') this.config.set(this.buildConfig(this.entity)); // full form again (role, location)
     this.selectedAmenityIds = [];
@@ -3507,10 +3508,6 @@ export class Manage implements OnInit {
     }
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
-    if (this.entity === 'contacts') {
-      this.formData.inquiryType = 'WalkIn';
-      this.formData.referenceName = this.myDisplayName();   // Reference: prefilled with the staff member, editable
-    }
     if (this.entity === 'users') {
       this.formData.role = 'general';
       if (this.isLocationBound && this.userLocationId) {
@@ -3998,14 +3995,6 @@ export class Manage implements OnInit {
         this.saving.set(false);
         return;
       }
-    }
-
-    // Tour inquiry of Type Reference: who referred the customer.
-    if (this.entity === 'contacts' && this.formData.inquiryType === 'Reference' && !(this.formData.referenceName || '').trim()) {
-      this.error.set('Enter the reference name.');
-      this.showError('Enter the reference name.');
-      this.saving.set(false);
-      return;
     }
 
     // Plain-text phone fields (Users, Complaints, Tour Inquiries): if entered (or required) it must be valid.
@@ -5013,10 +5002,8 @@ export class Manage implements OnInit {
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdAt', label: 'Date', type: 'date' },
         ],
-        // Staff add Walk-In or Reference inquiries; WhatsApp and Website ones are created by the chatbot / website.
+        // Add Inquiry opens its own form (openAddInquiry); createFn is what it saves with.
         fields: [
-          { key: 'inquiryType', label: 'Type', type: 'select', required: true, options: [{ v: 'WalkIn', l: 'Walk-In' }, { v: 'Reference', l: 'Reference' }] },
-          { key: 'referenceName', label: 'Reference name', type: 'text', required: true },
           { key: 'fullName', label: 'Full Name', type: 'text', required: true },
           { key: 'email', label: 'Email', type: 'email', required: true },
           { key: 'phone', label: 'Phone', type: 'text' },
@@ -5188,6 +5175,56 @@ export class Manage implements OnInit {
 
   inquiryTypeLabel(value: string | null | undefined): string {
     return this.inquiryTypeOptions.find(o => o.v === value)?.l ?? '-';
+  }
+
+  /** "Name · phone" for popup headers (email when there is no phone; "-" placeholders left out). */
+  inquiryContactLine(item: any): string {
+    const clean = (v: any) => (v && v !== '-' ? String(v).trim() : '');
+    return [clean(item?.fullName), clean(item?.phone) || clean(item?.email)].filter(Boolean).join(' · ');
+  }
+
+  // Add Inquiry (its own form: where it came from first, then the customer's details)
+  readonly showAddInquiry = signal(false);
+  readonly addInquirySaving = signal(false);
+  readonly addInquiryError = signal('');
+  addInquiry = { type: 'WalkIn' as 'WalkIn' | 'Reference', referenceName: '', fullName: '', phone: '', email: '', notes: '' };
+  openAddInquiry() {
+    this.addInquiry = { type: 'WalkIn', referenceName: this.myDisplayName(), fullName: '', phone: '', email: '', notes: '' };
+    this.addInquiryError.set('');
+    this.showAddInquiry.set(true);
+  }
+
+  saveAddInquiry() {
+    if (this.addInquirySaving()) return;
+    const f = this.addInquiry;
+    const fail = (msg: string) => { this.addInquiryError.set(msg); };
+    if (f.type === 'Reference' && !f.referenceName.trim()) return fail('Enter who referred this customer.');
+    if (!f.fullName.trim()) return fail('Enter the customer\'s full name.');
+    if (!f.email.trim()) return fail('Enter the customer\'s email.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return fail('Enter a valid email address.');
+    const phoneMsg = phoneError(f.phone, false);
+    if (phoneMsg) return fail(phoneMsg);
+
+    this.addInquirySaving.set(true);
+    this.addInquiryError.set('');
+    this.admin.createTourInquiry({
+      fullName: f.fullName.trim(), email: f.email.trim(),
+      phone: f.phone.trim() || null, message: f.notes.trim() || null,
+      inquiryType: f.type, referenceName: f.type === 'Reference' ? f.referenceName.trim() : null
+    }).pipe(timeout(30000)).subscribe({
+      next: () => {
+        this.addInquirySaving.set(false);
+        this.showAddInquiry.set(false);
+        this.showSuccess('Inquiry added.');
+        this.load();
+      },
+      error: (err: any) => {
+        this.addInquirySaving.set(false);
+        fail(err?.name === 'TimeoutError'
+          ? 'The server did not answer. Check your connection and try again.'
+          : err?.error?.message || err?.error?.errors?.[0] || `Could not add the inquiry${err?.status ? ` (error ${err.status})` : ''}.`);
+      }
+    });
   }
 
   private myDisplayName(): string {

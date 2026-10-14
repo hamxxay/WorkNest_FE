@@ -524,8 +524,11 @@
 .type-pill.type-walkin { background: #fff7ed; color: #c2410c; }
 .type-pill.type-reference { background: #f5f3ff; color: #6d28d9; }
 .type-ref { display: block; margin-top: 3px; font-size: .75rem; color: #64748b; }
-.type-edit { background: none; border: none; padding: 0; cursor: pointer; }
-.type-edit:hover .type-pill { box-shadow: 0 0 0 2px #99f6e4; }
+.type-edit { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 2px; border-radius: 999px; cursor: pointer; }
+.type-pencil { color: #94a3b8; flex-shrink: 0; transition: color .15s; }
+.type-edit:hover .type-pencil, .type-edit:focus-visible .type-pencil { color: #0d9488; }
+.type-edit:hover .type-pill { box-shadow: 0 0 0 2px #ccfbf1; }
+.type-edit:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
 .type-pill.type-unset { background: #fff; color: #64748b; border: 1px dashed #cbd5e1; font-weight: 500; }
 .type-filter { margin-left: 10px; }
 .col-key-fullName { min-width: 130px; }
@@ -574,3 +577,71 @@
 .status-picker.role-pick-admin { --sp-bg: #f0fdfa; --sp-fg: #0f766e; --sp-bd: #99f6e4; --sp-dot: #14b8a6; }
 .status-picker.role-pick-sales_executive { --sp-bg: #eff6ff; --sp-fg: #1d4ed8; --sp-bd: #bfdbfe; --sp-dot: #3b82f6; }
 .status-picker.role-pick-general { --sp-bg: #f8fafc; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #94a3b8; }
+
+/* ===================== Tour inquiry popups (Add inquiry, Inquiry type, Feedback) =====================
+   One colour per inquiry Type (also on the list pill) and per feedback outcome:
+   Website blue, WhatsApp green, Walk-In orange, Reference violet; not interested rose, future prospect amber,
+   converted teal. */
+.inq-modal { --inq-ink: #0f172a; --inq-text: #334155; --inq-muted: #64748b; --inq-line: #e2e8f0; --inq-soft: #f8fafc; --inq-teal: #0d9488;
+  width: min(580px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: #fff;
+  border-radius: 18px; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45), 0 0 0 1px rgba(15, 23, 42, .04); overflow: hidden;
+  animation: inqIn .18s ease-out; text-align: left; }
+@keyframes inqIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .inq-modal { animation: none; } }
+
+.inq-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 24px 18px; border-bottom: 1px solid #f1f5f9; }
+.inq-head-icon { flex: 0 0 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: #f0fdfa; color: var(--inq-teal); }
+.inq-head h2 { margin: 0; padding: 0; border: none; font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; color: var(--inq-ink); }
+.inq-head p { margin: 3px 0 0; font-size: .85rem; line-height: 1.45; color: var(--inq-muted); }
+.inq-close { margin-left: auto; flex: 0 0 34px; height: 34px; display: grid; place-items: center; border: none; border-radius: 10px;
+  background: transparent; color: #94a3b8; cursor: pointer; transition: background .15s, color .15s; }
+.inq-close:hover { background: #f1f5f9; color: var(--inq-ink); }
+.inq-close:focus-visible { outline: 2px solid var(--inq-teal); outline-offset: 1px; }
+
+.inq-body { padding: 20px 24px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.inq-field { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: none; min-width: 0; }
+.inq-field > label, .inq-field > legend { padding: 0; font-size: .8rem; font-weight: 600; color: var(--inq-text); }
+.inq-field > legend { margin-bottom: 8px; }
+.inq-field .req { color: #e11d48; }
+.inq-field .form-input-admin { width: 100%; box-sizing: border-box; }
+.inq-hint { font-size: .75rem; color: var(--inq-muted); }
+.inq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.inq-mini-label { font-size: .75rem; font-weight: 600; color: var(--inq-muted); }
+
+.inq-choice-grid { display: flex; flex-direction: column; gap: 10px; }
+.inq-choice-grid.two { display: grid; grid-template-columns: 1fr 1fr; }
+.inq-choice { --c: #475569; --c-soft: #f1f5f9; position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border: 1.5px solid var(--inq-line); border-radius: 14px; background: #fff; cursor: pointer;
+  transition: border-color .15s, background .15s, box-shadow .15s; }
+.inq-choice:hover { border-color: #cbd5e1; background: var(--inq-soft); }
+.inq-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.inq-choice:has(input:focus-visible) { outline: 2px solid var(--c); outline-offset: 2px; }
+.inq-choice-icon { flex: 0 0 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--c-soft); color: var(--c); }
+.inq-choice-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inq-choice-text strong { font-size: .9rem; color: var(--inq-ink); }
+.inq-choice-text small { font-size: .78rem; line-height: 1.4; color: var(--inq-muted); }
+.inq-choice::after { content: ''; margin-left: auto; flex: 0 0 18px; height: 18px; box-sizing: border-box; border-radius: 50%;
+  border: 2px solid #cbd5e1; background: #fff; transition: border .15s; }
+.inq-choice.selected { border-color: var(--c); background: var(--c-soft); box-shadow: 0 1px 0 rgba(15, 23, 42, .02); }
+.inq-choice.selected::after { border: 5px solid var(--c); }
+.inq-choice-extra { display: flex; flex-direction: column; gap: 8px; margin: -2px 0 2px; padding: 12px 14px; border-radius: 12px; background: var(--inq-soft); }
+.inq-choice-extra .form-input-admin { width: 100%; box-sizing: border-box; background: #fff; }
+
+.src-website { --c: #1d4ed8; --c-soft: #eff6ff; }
+.src-whatsapp { --c: #047857; --c-soft: #ecfdf5; }
+.src-walkin { --c: #c2410c; --c-soft: #fff7ed; }
+.src-reference { --c: #6d28d9; --c-soft: #f5f3ff; }
+.out-not_interested { --c: #be123c; --c-soft: #fff1f2; }
+.out-future_prospect { --c: #b45309; --c-soft: #fffbeb; }
+.out-converted { --c: #0f766e; --c-soft: #f0fdfa; }
+
+.inq-error { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff1f2; color: #be123c; font-size: .83rem; }
+.inq-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; padding: 14px 24px; border-top: 1px solid #f1f5f9; background: var(--inq-soft); }
+
+@media (max-width: 560px) {
+  .inq-grid, .inq-choice-grid.two { grid-template-columns: 1fr; }
+  .inq-head { padding: 18px 18px 14px; }
+  .inq-body { padding: 16px 18px 6px; }
+  .inq-foot { padding: 12px 18px; }
+  .inq-foot .btn-admin { flex: 1; justify-content: center; }
+}
