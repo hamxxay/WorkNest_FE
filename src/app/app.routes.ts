@@ -1,6 +1,7 @@
 ﻿import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
+import { ceoGuard } from './guards/ceo.guard';
 
 export const routes: Routes = [
 
@@ -19,6 +20,8 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadComponent: () => import('./pages/admin/dashboard/dashboard').then(m => m.Dashboard) },
+      // CEO dashboard: the only page a CEO can open (adminGuard keeps them here); super admins may open it too.
+      { path: 'ceo',       loadComponent: () => import('./pages/admin/ceo/ceo-dashboard').then(m => m.CeoDashboard), canActivate: [ceoGuard] },
       { path: 'profile',   loadComponent: () => import('./pages/admin/profile/profile').then(m => m.AdminProfile) },
       { path: 'customers',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'customers' } },
       { path: 'kyc',         loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
