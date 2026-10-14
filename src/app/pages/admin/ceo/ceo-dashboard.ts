@@ -113,9 +113,11 @@ export class CeoDashboard {
   load() {
     this.sub?.unsubscribe();
     if (this.data()) this.refreshing.set(true); else this.loading.set(true);
+    const key = this.selectionKey();
     this.sub = this.ceo.getDashboard(this.period(), this.locationId()).subscribe({
       next: d => {
         this.data.set(d);
+        this.dataKey = key;
         this.error.set(null);
         this.loading.set(false);
         this.refreshing.set(false);
@@ -129,11 +131,17 @@ export class CeoDashboard {
       },
       error: (err: CeoError) => {
         this.error.set(CeoService.describeError(err));
+        // Figures of another period / location would be misleading: keep them only for a plain refresh.
+        if (this.dataKey !== key) { this.data.set(null); this.dataKey = ''; this.destroyCharts(); }
         this.loading.set(false);
         this.refreshing.set(false);
       }
     });
   }
+
+  /** Period + location the figures on screen belong to. */
+  private dataKey = '';
+  private selectionKey(): string { return `${this.period()}|${this.locationId() ?? ''}`; }
 
   loadForecast() {
     this.forecastSub?.unsubscribe();
@@ -179,9 +187,11 @@ export class CeoDashboard {
     return this.locations().find(l => l.locationId === id)?.name ?? 'Selected location';
   });
 
+  /** Labels follow the figures on screen (while a new period loads, the old figures keep their own words). */
+  private shownPeriod = computed<CeoPeriod>(() => this.data()?.period ?? this.period());
   periodTitle = computed(() => this.data()?.periodLabel
-    || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.period()]);
-  word = computed(() => periodWord(this.period()));
+    || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.shownPeriod()]);
+  word = computed(() => periodWord(this.shownPeriod()));
 
   updatedAgo = computed(() => {
     const at = this.lastUpdated();
@@ -484,7 +494,7 @@ export class CeoDashboard {
           }
         },
         scales: {
-          x: { grid: { display: false }, border: { display: false } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
           y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: AXIS_MONEY }
         }
       }
@@ -581,7 +591,7 @@ export class CeoDashboard {
           }
         },
         scales: {
-          x: { grid: { display: false }, border: { display: false } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
           y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { precision: 0, padding: 8, maxTicksLimit: 4 } }
         }
       }

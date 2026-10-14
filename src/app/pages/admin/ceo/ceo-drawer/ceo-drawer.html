@@ -1,5 +1,5 @@
 @if (open()) {
-<div class="drawer-backdrop" (click)="close()" aria-hidden="true"></div>
+<div class="drawer-backdrop" (click)="close()" (wheel)="$event.preventDefault()" aria-hidden="true"></div>
 <aside class="drawer" #panel role="dialog" aria-modal="true" aria-labelledby="ceo-drawer-title" tabindex="-1">
   <header class="drawer-head">
     <div class="drawer-nav">
@@ -147,7 +147,7 @@
               @switch (recordKind()) {
                 @case ('invoices') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th><th scope="col" class="num">Total</th><th scope="col" class="num">Paid</th><th scope="col" class="num">Balance</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th><th scope="col" class="num">Total</th><th scope="col" class="num">Balance</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
@@ -157,8 +157,7 @@
                             @if (r.dueOn) { {{ r.dueOn | date:'d MMM y' }} } @else { - }
                             @if (r.balance > 0 && (daysFrom(r.dueOn) ?? 0) < 0) { <small class="late">{{ -(daysFrom(r.dueOn) ?? 0) }}d overdue</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}</td>
-                          <td class="num" [title]="fullMoney(r.paid)">{{ money(r.paid) }}</td>
+                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small></td>
                           <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}</td>
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>

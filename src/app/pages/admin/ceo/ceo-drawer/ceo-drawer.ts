@@ -36,7 +36,7 @@ interface MetricSpec {
 const METRICS: Record<CeoMetric, MetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
-    derived: { label: 'Collected', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
+    derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
     next: (p, r) => ({ kind: 'records', records: 'invoices', params: { month: p['month'], locationId: r.key }, crumb: r.label })
   },
   'aging': {
@@ -115,7 +115,8 @@ export class CeoDrawer {
     const e = this.current();
     if (!e) return '';
     if (e.level.kind === 'breakdown') return e.breakdown?.title || `${this.request()?.root ?? ''}: ${e.level.crumb}`;
-    return e.records?.title || `${RECORD_TITLES[e.level.records] ?? 'Records'}: ${e.level.crumb}`;
+    const base = RECORD_TITLES[e.level.records] ?? 'Records';
+    return e.records?.title || (e.level.crumb.toLowerCase() === base.toLowerCase() ? base : `${base}: ${e.level.crumb}`);
   });
 
   private uid = 0;

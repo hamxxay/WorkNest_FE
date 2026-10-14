@@ -233,15 +233,23 @@
                 <ol class="bar-list">
                   @for (c of m()!.topCustomers; track c.customerId || $index; let i = $index) {
                     <li>
-                      <button type="button" class="bar-row" (click)="openCustomer(c.customerId, c.name)">
+                      <ng-template #customerBody>
                         <span class="rank">{{ i + 1 }}</span>
                         <span class="bar-main">
                           <span class="bar-label">{{ c.name }}</span>
                           <span class="bar-track"><span class="bar-fill" [style.width.%]="(c.amount / topMax()) * 100"></span></span>
                         </span>
                         <span class="bar-value"><strong [title]="fullMoney(c.amount)">{{ money(c.amount) }}</strong><small>{{ count(c.invoices) }} invoice{{ c.invoices === 1 ? '' : 's' }}</small></span>
-                        <ng-container *ngTemplateOutlet="chevron" />
-                      </button>
+                      </ng-template>
+                      @if (c.customerId) {
+                        <button type="button" class="bar-row" (click)="openCustomer(c.customerId, c.name)">
+                          <ng-container *ngTemplateOutlet="customerBody" />
+                          <ng-container *ngTemplateOutlet="chevron" />
+                        </button>
+                      } @else {
+                        <!-- Not linked to a customer record: nothing to open. -->
+                        <div class="bar-row static"><ng-container *ngTemplateOutlet="customerBody" /><span class="row-go-space"></span></div>
+                      }
                     </li>
                   }
                 </ol>
@@ -249,7 +257,7 @@
             </div>
 
             <!-- 3-month outlook (GET api/dashboard/forecast) -->
-            <div class="dash-panel span-6">
+            <div class="dash-panel span-6 full-md">
               <div class="panel-head">
                 <div>
                   <h3>Next 3 months</h3>
@@ -416,7 +424,7 @@
             </div>
 
             <!-- Leases expiring -->
-            <div class="dash-panel span-6">
+            <div class="dash-panel span-6 full-md">
               <div class="panel-head">
                 <div>
                   <h3>Leases expiring</h3>
@@ -503,7 +511,7 @@
             </div>
 
             <!-- Inquiries by type -->
-            <div class="dash-panel span-4">
+            <div class="dash-panel span-4 full-md">
               <div class="panel-head">
                 <div>
                   <h3>Tour inquiries by type</h3>

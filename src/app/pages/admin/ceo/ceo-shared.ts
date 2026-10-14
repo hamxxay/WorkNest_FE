@@ -19,7 +19,7 @@ export interface DrillRequest { id: number; root: string; level: DrillLevel; }
 export function money(v: number | null | undefined): string {
   const n = Number(v || 0);
   const a = Math.abs(n);
-  if (a >= 1_000_000) return `PKR ${(n / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2).replace(/\.0+$/, '')}M`;
+  if (a >= 1_000_000) return `PKR ${parseFloat((n / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2))}M`;
   if (a >= 1_000) return `PKR ${(n / 1_000).toFixed(a >= 100_000 ? 0 : 1).replace(/\.0$/, '')}K`;
   return `PKR ${Math.round(n).toLocaleString()}`;
 }
@@ -117,7 +117,7 @@ export function statusTone(status: string | null | undefined): 'ok' | 'bad' | 'w
   const s = String(status || '').toLowerCase();
   if (!s) return 'neutral';
   if (/overdue|reject|cancel|expire|lost|declin|void|terminat/.test(s)) return 'bad';
-  if (/paid|convert|accept|active|confirm|occupied|won|complete|signed|closed/.test(s)) return 'ok';
+  if (/paid|convert|accept|active|confirm|occupied|won|complete|signed|closed|resolv/.test(s)) return 'ok';
   if (/pending|open|sent|draft|partial|due|new|follow|progress|unpaid|hold/.test(s)) return 'warn';
   return 'neutral';
 }

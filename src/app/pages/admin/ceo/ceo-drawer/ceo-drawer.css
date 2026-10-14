@@ -7,7 +7,7 @@
 }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 1001;
-  width: min(720px, 100vw);
+  width: min(760px, 100vw);
   display: flex; flex-direction: column;
   background: #f8fafc;
   box-shadow: -18px 0 48px rgba(15, 23, 42, 0.18);
@@ -52,7 +52,7 @@
 .drawer-sub { margin: 2px 0 0; font-size: 0.82rem; color: #64748b; }
 
 /* ---------- body ---------- */
-.drawer-body { flex: 1; overflow-y: auto; padding: 18px 22px 28px; }
+.drawer-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 18px 22px 28px; }
 
 .bd-chart {
   position: relative; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 14px;
@@ -79,7 +79,11 @@
 .dr-table small.late { color: #b91c1c; font-weight: 600; }
 .dr-table strong { color: #0f172a; font-weight: 700; }
 .dr-table tbody th strong { display: block; }
-.clip { display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* level 3: one line per cell; the table scrolls sideways inside its card when it must */
+.dr-table.records { font-size: 0.8rem; }
+.dr-table.records thead th, .dr-table.records tbody th, .dr-table.records tbody td { padding: 10px 11px; white-space: nowrap; }
+.dr-table.records thead th:first-child, .dr-table.records tbody th { padding-left: 14px; }
+.clip { display: block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clip.wide { max-width: 220px; }
 
 /* level 2 rows open level 3 */
