@@ -184,7 +184,7 @@
                 }
                 @case ('bookings') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Amount' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of bookingRows(); track r.bookingId || $index) {
                         <tr>
@@ -192,7 +192,8 @@
                           <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
                           <td>@if (r.startOn) { {{ r.startOn | date:'d MMM y' }} } @else { - }</td>
                           <td>@if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }</td>
-                          <td class="num" [title]="fullMoney(r.totalAmount)">{{ money(r.totalAmount) }}</td>
+                          @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
+                          @else { <td class="num" [title]="fullMoney(r.totalAmount)">{{ money(r.totalAmount) }}</td> }
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }
@@ -228,7 +229,7 @@
                 }
                 @case ('leases') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">Monthly rent</th></tr></thead>
+                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">Desks</th></tr></thead>
                     <tbody>
                       @for (r of leaseRows(); track r.bookingId || $index) {
                         <tr>
@@ -238,7 +239,7 @@
                             @if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }
                             @if (r.daysLeft !== null) { <small [class.late]="r.daysLeft <= 14">{{ r.daysLeft === 0 ? 'Ends today' : r.daysLeft + (r.daysLeft === 1 ? ' day left' : ' days left') }}</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.monthlyAmount)">{{ money(r.monthlyAmount) }}</td>
+                          <td class="num">{{ count(r.desks) }}</td>
                         </tr>
                       }
                     </tbody>
@@ -246,14 +247,15 @@
                 }
                 @case ('quotations') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Quotation</th><th scope="col">Customer</th><th scope="col">Created by</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Quotation</th><th scope="col">Customer</th><th scope="col">Created by</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Total' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of quotationRows(); track r.quotationId || $index) {
                         <tr>
                           <th scope="row"><strong>{{ r.quotationNumber || '-' }}</strong><small>@if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} }</small></th>
                           <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
                           <td><span class="clip">{{ r.createdBy || '-' }}</span></td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}</td>
+                          @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
+                          @else { <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}</td> }
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }

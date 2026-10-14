@@ -7,7 +7,7 @@ import {
   CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoMetric, CeoParams,
   CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
-import type { SmLeaseRecord } from '../../../../services/sales-manager.service';
+import type { SmBookingRecord, SmLeaseRecord, SmQuotationRecord } from '../../../../services/sales-manager.service';
 import {
   AGING_COLORS, AXIS_MONEY, Chart, DrillLevel, DrillMetricSpec, DrillRecords, DrillRequest, DrillSource, GRID, INQUIRY_TYPES,
   LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, count, fullMoney,
@@ -27,6 +27,9 @@ interface Entry {
 
 /** Inquiry record; the Sales Manager API adds the follow-up date. */
 type InquiryRow = CeoInquiryRecord & { followUpOn?: string | null };
+/** Booking / quotation record: an amount from the CEO API, desks from the Sales Manager API. */
+type BookingRow = Omit<CeoBookingRecord, 'totalAmount'> & Partial<Pick<CeoBookingRecord, 'totalAmount'> & Pick<SmBookingRecord, 'desks'>>;
+type QuotationRow = Omit<CeoQuotationRecord, 'total'> & Partial<Pick<CeoQuotationRecord, 'total'> & Pick<SmQuotationRecord, 'desks'>>;
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
 const METRICS: Record<CeoMetric, DrillMetricSpec> = {
@@ -112,6 +115,8 @@ export class CeoDrawer {
     describeError: err => CeoService.describeError(err)
   };
   private src = computed<DrillSource>(() => this.source() ?? this.ceoSource);
+  /** Records count desks instead of amounts (Sales Manager). */
+  desks = computed(() => !!this.src().desks);
 
   spec = computed<DrillMetricSpec | null>(() => {
     const e = this.current();
@@ -275,7 +280,7 @@ export class CeoDrawer {
   /** The two values are in different units (a count and an amount): only the first one sets the bar widths. */
   private mixedUnits = computed(() => {
     const s = this.spec();
-    return !!s && s.money2 !== undefined && s.money2 !== s.money;
+    return !!s && (!!s.separateUnits || (s.money2 !== undefined && s.money2 !== s.money));
   });
   /** Bar widths in the table, relative to the biggest row. */
   maxValue = computed(() => Math.max(1, ...this.rows().map(r => (this.mixedUnits() ? r.value : Math.max(r.value, r.value2 ?? 0)))));
@@ -314,9 +319,9 @@ export class CeoDrawer {
 
   invoiceRows = computed(() => this.recordsOf<CeoInvoiceRecord>('invoices'));
   spaceRows = computed(() => this.recordsOf<CeoSpaceRecord>('spaces'));
-  bookingRows = computed(() => this.recordsOf<CeoBookingRecord>('bookings'));
+  bookingRows = computed(() => this.recordsOf<BookingRow>('bookings'));
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
-  quotationRows = computed(() => this.recordsOf<CeoQuotationRecord>('quotations'));
+  quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
   leaseRows = computed(() => this.recordsOf<SmLeaseRecord>('leases'));
   /** Follow-up column on inquiry lists that carry a follow-up date (Sales Manager API). */
   inquiryFollowUp = computed(() => this.inquiryRows().some(r => !!r.followUpOn));

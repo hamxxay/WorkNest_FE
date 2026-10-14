@@ -25,6 +25,8 @@ export interface DrillMetricSpec {
   money: boolean;
   /** Format of the second value when it differs from the first (e.g. lease count vs their monthly rent). */
   money2?: boolean;
+  /** The two values count different things (e.g. leases and their desks): only the first sets the bar widths. */
+  separateUnits?: boolean;
   /** Derived % column (value2 / value or value / value2). */
   derived?: { label: string; of: (r: CeoBreakdownRow) => number | null };
   chart: 'grouped' | 'stacked-occupancy' | 'single';
@@ -41,6 +43,8 @@ export interface DrillSource {
   breakdown(metric: string, params: CeoParams): Observable<CeoBreakdown>;
   records(kind: string, params: CeoParams): Observable<DrillRecords>;
   describeError(err: unknown): CeoError;
+  /** Records show desks instead of amounts (the Sales Manager dashboard shows no money). */
+  desks?: boolean;
 }
 
 /** KPI card on a dashboard. */
