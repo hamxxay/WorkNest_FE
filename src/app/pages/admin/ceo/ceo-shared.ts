@@ -116,6 +116,9 @@ export function inquiryTypeKey(type: string | null | undefined): string {
 export function statusTone(status: string | null | undefined): 'ok' | 'bad' | 'warn' | 'neutral' {
   const s = String(status || '').toLowerCase();
   if (!s) return 'neutral';
+  // Negative words first: "unpaid" contains "paid" and "inactive" contains "active".
+  if (/unpaid|un paid|not paid|partial/.test(s)) return 'warn';
+  if (/inactive|unconfirm/.test(s)) return 'neutral';
   if (/overdue|reject|cancel|expire|lost|declin|void|terminat/.test(s)) return 'bad';
   if (/paid|convert|accept|active|confirm|occupied|won|complete|signed|closed|resolv/.test(s)) return 'ok';
   if (/pending|open|sent|draft|partial|due|new|follow|progress|unpaid|hold/.test(s)) return 'warn';
