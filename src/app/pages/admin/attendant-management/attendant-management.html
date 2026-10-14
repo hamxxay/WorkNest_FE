@@ -307,80 +307,192 @@
   </div>
 </div>
 
-<!-- Modal: Add Attendant -->
-@if (showAddModal) {
-<div class="modal-backdrop">
-  <div class="modal-card">
-    <h3>Add User to Space</h3>
-    <div class="form-group">
-      <label>Mode</label>
-      <select class="form-control" [(ngModel)]="addMode">
-        <option value="new">Create New Person Identity</option>
-        <option value="existing">Assign Existing Company User</option>
-      </select>
-    </div>
-
-    @if (addMode === 'existing') {
-    <div class="form-group">
-      <label>Company User</label>
-      <select class="form-control" [(ngModel)]="selectedExistingPersonId">
-        <option [value]="null">-- Select Attendant --</option>
-        @for (p of existingCompanyAttendants(); track p.personId) {
-        <option [value]="p.personId">{{ p.name }} ({{ p.idType }}: {{ p.idNumber }})</option>
-        }
-      </select>
-    </div>
-    } @else {
-    <div class="form-group">
-      <label>Full Name</label>
-      <input type="text" class="form-control" [(ngModel)]="newName" placeholder="John Doe">
-    </div>
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" class="form-control" [(ngModel)]="newEmail" placeholder="john@company.com">
-    </div>
-    <div class="form-group">
-      <label>Phone</label>
-      <input type="tel" class="form-control" [(ngModel)]="newPhone" #newPhoneCtrl="ngModel" [maxlength]="phoneMaxLength"
-        inputmode="tel" placeholder="+92 300 1234567" (input)="newPhone = onPhoneInput($event)"
-        [class.input-invalid]="newPhoneCtrl.touched && phoneError(newPhone, true)">
-      @if (newPhoneCtrl.touched && phoneError(newPhone, true); as msg) { <small class="field-error-text">{{ msg }}</small> }
-    </div>
-    <div class="grid-2">
-      <div class="form-group">
-        <label>ID Type</label>
-        <select class="form-control" [(ngModel)]="newIdType">
-          <option value="CNIC">CNIC</option>
-          <option value="Passport">Passport</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>ID Number</label>
-        <input type="text" class="form-control" [(ngModel)]="newIdNumber" #idNumCtrl="ngModel"
-          [attr.maxlength]="newIdType === 'CNIC' ? cnicMaxLength : null"
-          [attr.inputmode]="newIdType === 'CNIC' ? 'numeric' : null"
-          [placeholder]="newIdType === 'CNIC' ? '61101-1234567-1' : ''" (input)="onIdNumberInput($event)"
-          [class.input-invalid]="newIdType === 'CNIC' && idNumCtrl.touched && cnicError(newIdNumber)">
-        @if (newIdType === 'CNIC' && idNumCtrl.touched && cnicError(newIdNumber); as msg) { <small class="field-error-text">{{ msg }}</small> }
-      </div>
-    </div>
+<!-- Popup icons (same set and style as the CMS form popups) -->
+<ng-template #amIcon let-name>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    @switch (name) {
+    @case ('add-person') { <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6" /><path d="M22 11h-6" /> }
+    @case ('new') { <circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /> }
+    @case ('existing') { <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /> }
+    @case ('check') { <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /> }
+    @case ('fingerprint') { <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" /><path d="M14 13.12c0 2.38 0 6.38-1 8.88" /><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" /><path d="M2 12a10 10 0 0 1 18-6" /><path d="M2 16h.01" /><path d="M21.8 16c.2-2 .131-5.354 0-6" /><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" /><path d="M8.65 22c.21-.66.45-1.32.57-2" /><path d="M9 6.8a6 6 0 0 1 9 5.2v2" /> }
+    @case ('card') { <rect width="20" height="14" x="2" y="5" rx="2" /><path d="M2 10h20" /> }
+    @case ('face') { <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><path d="M9 9h.01" /><path d="M15 9h.01" /> }
+    @case ('clock') { <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /> }
+    @case ('alert') { <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /> }
+    @case ('close') { <path d="M18 6 6 18" /><path d="m6 6 12 12" /> }
     }
+  </svg>
+</ng-template>
 
-    <div class="modal-actions">
-      <button class="btn btn-outline" (click)="closeAddModal()">Cancel</button>
-      <button class="btn btn-primary" (click)="submitAddAttendant()" [disabled]="savingAttendant()">
-        {{ savingAttendant() ? 'Saving…' : 'Proceed' }}
+<!-- Modal: Add person to space. Sales executives start with the CNIC check of an employee the customer added
+     online; the full form (new person / someone already on this company) is the admins' default and the
+     sales' fallback ("Add manually"). -->
+@if (showAddModal) {
+<div class="inq-overlay">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="amAddTitle">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'add-person' }" /></span>
+      <div>
+        <h2 id="amAddTitle">Add person to space</h2>
+        <p>{{ addModalContext }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeAddModal()" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
+    </header>
+
+    @if (addStep === 'cnic') {
+    <div class="inq-body">
+      @if (lookupAdded(); as added) {
+      <p class="inq-success" role="status">
+        <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'check' }" />
+        <span>{{ added.message }}</span>
+      </p>
+      <dl class="inq-details">
+        <div><dt>Name</dt><dd>{{ added.person.name || '-' }}</dd></div>
+        <div><dt>Phone</dt><dd>{{ added.person.phone || '-' }}</dd></div>
+        <div><dt>Email</dt><dd>{{ added.person.email || '-' }}</dd></div>
+        <div><dt>{{ added.person.idType || 'CNIC' }}</dt><dd>{{ added.person.idNumber || lookupCnic }}</dd></div>
+      </dl>
+      <p class="inq-hint">They are now in the list on this page. Use Fingerprint, Face or Card there to give them door access.</p>
+      } @else {
+      <p class="inq-lead">Customers add their employees online. Enter the employee's CNIC to check it and add them to this space.</p>
+      <div class="inq-field">
+        <label for="amCnic">CNIC <span class="req">*</span></label>
+        <input id="amCnic" class="form-input-admin" type="text" inputmode="numeric" [maxlength]="cnicMaxLength"
+          placeholder="61101-1234567-1" autocomplete="off" [(ngModel)]="lookupCnic" #lookupCtrl="ngModel"
+          (input)="lookupCnic = onCnicMaskInput($event)" (keyup.enter)="findByCnic()" [disabled]="lookupBusy()"
+          [class.input-invalid]="(lookupCtrl.touched || lookupTried()) && cnicError(lookupCnic, true)">
+        @if ((lookupCtrl.touched || lookupTried()) && cnicError(lookupCnic, true); as msg) { <small class="field-error-text">{{ msg }}</small> }
+      </div>
+      @if (lookupProblem(); as p) {
+      @if (p.manual) {
+      <div class="inq-note warn inq-note-actions" role="alert">
+        <span>{{ p.text }}</span>
+        <button type="button" class="btn-admin btn-outline-admin" (click)="addManually()">Add manually</button>
+      </div>
+      } @else {
+      <p class="inq-error" role="alert">{{ p.text }}</p>
+      }
+      }
+      }
     </div>
+    <footer class="inq-foot">
+      @if (lookupAdded()) {
+      <button type="button" class="btn-admin btn-primary-admin" (click)="closeAddModal()">Done</button>
+      } @else {
+      @if (!cnicFirst) {
+      <button type="button" class="inq-link inq-foot-start" (click)="addManually()">Full form</button>
+      }
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeAddModal()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="findByCnic()" [disabled]="lookupBusy()">
+        {{ lookupBusy() ? 'Checking…' : 'Find and add' }}
+      </button>
+      }
+    </footer>
+    } @else {
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Who are you adding?</legend>
+        <div class="inq-choice-grid two">
+          <label class="inq-choice teal" [class.selected]="addMode === 'new'">
+            <input type="radio" name="amAddMode" value="new" [(ngModel)]="addMode" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'new' }" /></span>
+            <span class="inq-choice-text"><strong>New person</strong><small>Not on this company yet</small></span>
+          </label>
+          <label class="inq-choice blue" [class.selected]="addMode === 'existing'">
+            <input type="radio" name="amAddMode" value="existing" [(ngModel)]="addMode" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'existing' }" /></span>
+            <span class="inq-choice-text"><strong>Someone already on this company</strong><small>Pick from the company's people</small></span>
+          </label>
+        </div>
+      </fieldset>
+
+      @if (addMode === 'existing') {
+      <div class="inq-field">
+        <label for="amExisting">Person <span class="req">*</span></label>
+        <select id="amExisting" class="form-input-admin" [(ngModel)]="selectedExistingPersonId">
+          <option [value]="null">-- Select Attendant --</option>
+          @for (p of existingCompanyAttendants(); track p.personId) {
+          <option [value]="p.personId">{{ p.name }} ({{ p.idType }}: {{ p.idNumber }})</option>
+          }
+        </select>
+        @if (!existingCompanyAttendants().length) {
+        <small class="inq-hint">No one is on this company yet. Choose New person.</small>
+        }
+      </div>
+      } @else {
+      <div class="inq-field">
+        <label for="amName">Full name <span class="req">*</span></label>
+        <input id="amName" type="text" class="form-input-admin" [(ngModel)]="newName" placeholder="John Doe" autocomplete="off">
+      </div>
+      <div class="inq-grid">
+        <div class="inq-field">
+          <label for="amEmail">Email <span class="req">*</span></label>
+          <input id="amEmail" type="email" class="form-input-admin" [(ngModel)]="newEmail" placeholder="john@company.com" autocomplete="off">
+        </div>
+        <div class="inq-field">
+          <label for="amPhone">Phone <span class="req">*</span></label>
+          <input id="amPhone" type="tel" class="form-input-admin" [(ngModel)]="newPhone" #newPhoneCtrl="ngModel" [maxlength]="phoneMaxLength"
+            inputmode="tel" placeholder="+92 300 1234567" (input)="newPhone = onPhoneInput($event)" autocomplete="off"
+            [class.input-invalid]="newPhoneCtrl.touched && phoneError(newPhone, true)">
+          @if (newPhoneCtrl.touched && phoneError(newPhone, true); as msg) { <small class="field-error-text">{{ msg }}</small> }
+        </div>
+      </div>
+      <div class="inq-grid id-grid">
+        <div class="inq-field">
+          <label for="amIdType">ID type</label>
+          <select id="amIdType" class="form-input-admin" [(ngModel)]="newIdType">
+            <option value="CNIC">CNIC</option>
+            <option value="Passport">Passport</option>
+          </select>
+        </div>
+        <div class="inq-field">
+          <label for="amIdNumber">ID number <span class="req">*</span></label>
+          <input id="amIdNumber" type="text" class="form-input-admin" [(ngModel)]="newIdNumber" #idNumCtrl="ngModel" autocomplete="off"
+            [attr.maxlength]="newIdType === 'CNIC' ? cnicMaxLength : null"
+            [attr.inputmode]="newIdType === 'CNIC' ? 'numeric' : null"
+            [placeholder]="newIdType === 'CNIC' ? '61101-1234567-1' : ''" (input)="onIdNumberInput($event)"
+            [class.input-invalid]="newIdType === 'CNIC' && idNumCtrl.touched && cnicError(newIdNumber)">
+          @if (newIdType === 'CNIC' && idNumCtrl.touched && cnicError(newIdNumber); as msg) { <small class="field-error-text">{{ msg }}</small> }
+        </div>
+      </div>
+      }
+
+      @if (roomFull()) {
+      <p class="inq-note warn">This room is full, so an admin is asked to approve adding this person.</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="inq-link inq-foot-start" (click)="findByCnicInstead()">{{ cnicFirst ? 'Back to CNIC check' : 'Find by CNIC' }}</button>
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeAddModal()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="submitAddAttendant()" [disabled]="savingAttendant()">
+        {{ savingAttendant() ? 'Saving…' : 'Add person' }}
+      </button>
+    </footer>
+    }
   </div>
 </div>
 }
 
 <!-- Modal: Enroll Fingerprint / Card / Face (confirm prompt → capture on the booked room's machine) -->
 @if (showEnrollModal) {
-<div class="modal-backdrop">
-  <div class="modal-card" style="max-width: 520px;">
-    <h3>{{ enrollTitle }} — {{ enrollAttendant?.name }}</h3>
+<div class="inq-overlay">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="amEnrollTitle">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: enrollType }" /></span>
+      <div>
+        <h2 id="amEnrollTitle">{{ enrollTitle }}</h2>
+        <p>{{ enrollAttendant?.name }}{{ selectedSpace?.spaceName ? ' · ' + selectedSpace.spaceName : '' }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeEnrollModal()" [disabled]="enrolling()" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+    <div class="inq-body flow">
 
     @if (captureBlockedReason; as reason) {
     <div class="warning-alert">{{ reason }}</div>
@@ -451,23 +563,34 @@
     </div>
     }
 
-    <div class="modal-actions">
-      <button class="btn btn-outline" (click)="closeEnrollModal()" [disabled]="enrolling()">{{ enrollResult()?.ok ? 'Done' : 'Cancel' }}</button>
+    </div>
+    <footer class="inq-foot">
+      <button class="btn-admin btn-outline-admin" (click)="closeEnrollModal()" [disabled]="enrolling()">{{ enrollResult()?.ok ? 'Done' : 'Cancel' }}</button>
       @if (!enrollResult()?.ok) {
-      <button class="btn btn-primary" (click)="startEnroll()" [disabled]="enrolling() || !!captureBlockedReason">
+      <button class="btn-admin btn-primary-admin" (click)="startEnroll()" [disabled]="enrolling() || !!captureBlockedReason">
         {{ enrolling() ? 'Waiting for machine…' : (enrollResult() ? 'Try Again' : 'OK') }}
       </button>
       }
-    </div>
+    </footer>
   </div>
 </div>
 }
 
 <!-- Modal: Extend access while the challan is unpaid -->
 @if (showExtendModal()) {
-<div class="modal-backdrop">
-  <div class="modal-card" style="max-width: 480px;">
-    <h3>Temporary Access</h3>
+<div class="inq-overlay">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="amExtendTitle">
+    <header class="inq-head">
+      <span class="inq-head-icon warn"><ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'clock' }" /></span>
+      <div>
+        <h2 id="amExtendTitle">Temporary access</h2>
+        <p>{{ selectedSpace?.spaceName }}{{ suspension()?.invoiceNumber ? ' · challan ' + suspension()?.invoiceNumber : '' }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeExtendModal()" [disabled]="extending()" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+    <div class="inq-body flow">
     @if (!extendResult() || extendResult()?.error) {
     <p class="text-muted enroll-hint">
       Door access for this booking is restored temporarily until the date you choose, even though the challan is unpaid.
@@ -499,32 +622,44 @@
       }
     </div>
     }
-    <div class="modal-actions">
-      <button class="btn btn-outline" (click)="closeExtendModal()" [disabled]="extending()">{{ extendResult() && !extendResult()?.error ? 'Done' : 'Cancel' }}</button>
-      @if (!extendResult() || extendResult()?.error) {
-      <button class="btn btn-warning" (click)="submitExtend()" [disabled]="extending()">{{ extending() ? 'Restoring access…' : 'Give Temporary Access' }}</button>
-      }
     </div>
+    <footer class="inq-foot">
+      <button class="btn-admin btn-outline-admin" (click)="closeExtendModal()" [disabled]="extending()">{{ extendResult() && !extendResult()?.error ? 'Done' : 'Cancel' }}</button>
+      @if (!extendResult() || extendResult()?.error) {
+      <button class="btn-admin btn-warning-admin" (click)="submitExtend()" [disabled]="extending()">{{ extending() ? 'Restoring access…' : 'Give Temporary Access' }}</button>
+      }
+    </footer>
   </div>
 </div>
 }
 
 <!-- Modal: Over Capacity Warning -->
 @if (showWarningModal()) {
-<div class="modal-backdrop">
-  <div class="modal-card">
-    <h3 style="color: #f59e0b;">Room Capacity Reached</h3>
+<div class="inq-overlay">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="amWarnTitle">
+    <header class="inq-head">
+      <span class="inq-head-icon warn"><ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'alert' }" /></span>
+      <div>
+        <h2 id="amWarnTitle">Room capacity reached</h2>
+        <p>{{ selectedSpace?.spaceName }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="showWarningModal.set(false)" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+    <div class="inq-body flow">
     <div class="warning-alert">
       <p>{{ warningModalText() }}</p>
     </div>
     <p><small class="text-muted">Surcharge calculation: ExcessSeatCount 0.5 SeatPrice. Surcharges remain
         snapshot-billed for the active cycle once applied.</small></p>
-    <div class="modal-actions">
-      <button class="btn btn-outline" (click)="showWarningModal.set(false)">Cancel</button>
-      <button class="btn btn-warning" (click)="confirmOverCapacityAssignment()" [disabled]="assigningAttendant()">
+    </div>
+    <footer class="inq-foot">
+      <button class="btn-admin btn-outline-admin" (click)="showWarningModal.set(false)">Cancel</button>
+      <button class="btn-admin btn-warning-admin" (click)="confirmOverCapacityAssignment()" [disabled]="assigningAttendant()">
         {{ assigningAttendant() ? 'Applying…' : 'Confirm & Apply Surcharge' }}
       </button>
-    </div>
+    </footer>
   </div>
 </div>
 }
