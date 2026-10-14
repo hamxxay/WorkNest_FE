@@ -328,6 +328,9 @@ export class CeoDashboard {
     const f = this.s()?.funnel ?? [];
     if (i === 0) return '';
     if (!f[i - 1]?.count) return '-';
+    // A later stage can be bigger than the one before it (most quotations don't start as tour inquiries):
+    // a share over 100% would only confuse, so none is shown then.
+    if (f[i].count > f[i - 1].count) return '';
     return `${pct(ratio(f[i].count, f[i - 1].count))} of ${f[i - 1].label.toLowerCase()}`;
   }
 
