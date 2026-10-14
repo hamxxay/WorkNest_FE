@@ -517,6 +517,18 @@
 /* Tour inquiry feedback options */
 .fb-option { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
 .fb-option.active { border-color: #0d9488; background: #f0fdfa; }
+/* Tour inquiry Type: pill (+ who referred, for Reference) and the filter next to the search box. */
+.type-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; background: #f1f5f9; color: #334155; }
+.type-pill.type-website { background: #eff6ff; color: #1d4ed8; }
+.type-pill.type-whatsapp { background: #ecfdf5; color: #047857; }
+.type-pill.type-walkin { background: #fff7ed; color: #c2410c; }
+.type-pill.type-reference { background: #f5f3ff; color: #6d28d9; }
+.type-ref { display: block; margin-top: 3px; font-size: .75rem; color: #64748b; }
+.type-edit { background: none; border: none; padding: 0; cursor: pointer; }
+.type-edit:hover .type-pill { box-shadow: 0 0 0 2px #99f6e4; }
+.type-pill.type-unset { background: #fff; color: #64748b; border: 1px dashed #cbd5e1; font-weight: 500; }
+.type-filter { margin-left: 10px; }
+.col-key-fullName { min-width: 130px; }
 .fb-option input { margin-top: 3px; accent-color: #0d9488; }
 .fb-option span { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; color: #0f172a; }
 .fb-option small { color: #64748b; font-size: .78rem; }

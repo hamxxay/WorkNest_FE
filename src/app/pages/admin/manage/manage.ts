@@ -3064,7 +3064,10 @@ export class Manage implements OnInit {
               feedbackReason: c.feedbackReason ?? c.FeedbackReason ?? null,
               followUpOn: c.followUpOn ?? c.FollowUpOn ?? null,
               followUpDue: !!(c.followUpDue ?? c.FollowUpDue),
-              quotationId: c.quotationId ?? c.QuotationId ?? null
+              quotationId: c.quotationId ?? c.QuotationId ?? null,
+              publicId: c.publicId ?? c.PublicId ?? null,
+              inquiryType: c.inquiryType ?? c.InquiryType ?? null,
+              referenceName: c.referenceName ?? c.ReferenceName ?? null
             };
           });
           // Follow-ups that are due come first so they are seen.
@@ -3504,6 +3507,10 @@ export class Manage implements OnInit {
     }
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
+    if (this.entity === 'contacts') {
+      this.formData.inquiryType = 'WalkIn';
+      this.formData.referenceName = this.myDisplayName();   // Reference: prefilled with the staff member, editable
+    }
     if (this.entity === 'users') {
       this.formData.role = 'general';
       if (this.isLocationBound && this.userLocationId) {
@@ -3991,6 +3998,14 @@ export class Manage implements OnInit {
         this.saving.set(false);
         return;
       }
+    }
+
+    // Tour inquiry of Type Reference: who referred the customer.
+    if (this.entity === 'contacts' && this.formData.inquiryType === 'Reference' && !(this.formData.referenceName || '').trim()) {
+      this.error.set('Enter the reference name.');
+      this.showError('Enter the reference name.');
+      this.saving.set(false);
+      return;
     }
 
     // Plain-text phone fields (Users, Complaints, Tour Inquiries): if entered (or required) it must be valid.
@@ -4992,14 +5007,16 @@ export class Manage implements OnInit {
           { key: 'company', label: 'Company' },
           { key: 'email', label: 'Email' },
           { key: 'phone', label: 'Phone' },
-          { key: 'subject', label: 'Subject / Type' },
+          { key: 'inquiryType', label: 'Type' },   // replaces Subject (always "Book Tour" here); other subjects show under the Type
           { key: 'message', label: 'Message' },
           { key: 'feedback', label: 'Feedback' },
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'createdAt', label: 'Date', type: 'date' },
         ],
-        // Staff can add an inquiry taken by phone / walk-in; saved like a website "Book a Tour" request.
+        // Staff add Walk-In or Reference inquiries; WhatsApp and Website ones are created by the chatbot / website.
         fields: [
+          { key: 'inquiryType', label: 'Type', type: 'select', required: true, options: [{ v: 'WalkIn', l: 'Walk-In' }, { v: 'Reference', l: 'Reference' }] },
+          { key: 'referenceName', label: 'Reference name', type: 'text', required: true },
           { key: 'fullName', label: 'Full Name', type: 'text', required: true },
           { key: 'email', label: 'Email', type: 'email', required: true },
           { key: 'phone', label: 'Phone', type: 'text' },
@@ -5008,9 +5025,11 @@ export class Manage implements OnInit {
         createLabel: 'Add Inquiry',
         createFn: (d) => this.admin.createTourInquiry({
           fullName: (d.fullName || '').trim(), email: (d.email || '').trim(),
-          phone: (d.phone || '').trim() || null, message: (d.message || '').trim() || null
+          phone: (d.phone || '').trim() || null, message: (d.message || '').trim() || null,
+          inquiryType: d.inquiryType === 'Reference' ? 'Reference' : 'WalkIn',
+          referenceName: d.inquiryType === 'Reference' ? (d.referenceName || '').trim() || null : null
         }),
-        getFn: (p, l, s) => this.admin.getContacts(p, l, s),
+        getFn: (p, l, s) => this.admin.getContacts(p, l, s, this.contactTypeFilter || undefined),
         statusFn: (id, status) => this.admin.updateContactStatus(id, status),
         statusOptions: ['New', 'InProgress', 'Resolved'],
         deleteFn: (id) => this.admin.deleteContact(id),
@@ -5148,6 +5167,75 @@ export class Manage implements OnInit {
     return this.quotationSelectedSlots.has(slot.start);
   }
 
+  // ---------- Tour inquiry Type ----------
+  /** Type filter on the Tour Inquiries page: '' = all, else Website | WhatsApp | WalkIn | Reference. */
+  contactTypeFilter = '';
+  readonly inquiryTypeOptions = [
+    { v: 'Website', l: 'Website' }, { v: 'WhatsApp', l: 'WhatsApp' },
+    { v: 'WalkIn', l: 'Walk-In' }, { v: 'Reference', l: 'Reference' },
+  ];
+  readonly showContactType = signal(false);
+  readonly contactTypeSaving = signal(false);
+  readonly contactTypeError = signal('');
+  contactTypeItem: any = null;
+  contactTypeValue = 'WalkIn';
+  contactTypeReference = '';
+
+  /** Tour inquiries are "Book Tour" / "book_tour"; anything else (a contact message) is shown under the Type. */
+  isTourSubject(subject: string | null | undefined): boolean {
+    return /book.?tour/i.test(subject || '');
+  }
+
+  inquiryTypeLabel(value: string | null | undefined): string {
+    return this.inquiryTypeOptions.find(o => o.v === value)?.l ?? '-';
+  }
+
+  private myDisplayName(): string {
+    const u: any = this.auth.user();
+    return (u?.displayName || u?.name || u?.email || '').trim();
+  }
+
+  onContactTypeFilter(value: string) {
+    this.contactTypeFilter = value || '';
+    this.page.set(1);
+    this.load();
+  }
+
+  openContactType(item: any) {
+    this.contactTypeItem = item;
+    this.contactTypeValue = item?.inquiryType || 'WalkIn';
+    this.contactTypeReference = item?.referenceName || this.myDisplayName();
+    this.contactTypeError.set('');
+    this.showContactType.set(true);
+  }
+
+  saveContactType() {
+    const item = this.contactTypeItem;
+    const publicId = item?.publicId ?? item?.PublicId;
+    if (this.contactTypeSaving()) return;
+    if (!publicId) { this.contactTypeError.set('This inquiry could not be identified. Refresh the page and try again.'); return; }
+    const reference = this.contactTypeValue === 'Reference' ? this.contactTypeReference.trim() : '';
+    if (this.contactTypeValue === 'Reference' && !reference) { this.contactTypeError.set('Enter the reference name.'); return; }
+
+    this.contactTypeSaving.set(true);
+    this.contactTypeError.set('');
+    this.admin.updateContactInquiryType(String(publicId), { inquiryType: this.contactTypeValue, referenceName: reference || null })
+      .pipe(timeout(30000)).subscribe({
+        next: () => {
+          this.contactTypeSaving.set(false);
+          this.showContactType.set(false);
+          this.showSuccess('Type saved.');
+          this.load();
+        },
+        error: (err: any) => {
+          this.contactTypeSaving.set(false);
+          this.contactTypeError.set(err?.name === 'TimeoutError'
+            ? 'The server did not answer. Check your connection and try again.'
+            : err?.error?.message || `Could not save the type${err?.status ? ` (error ${err.status})` : ''}.`);
+        }
+      });
+  }
+
   // ---------- Tour inquiry feedback ----------
   readonly showContactFeedback = signal(false);
   readonly contactFeedbackSaving = signal(false);
@@ -5164,7 +5252,7 @@ export class Manage implements OnInit {
     switch (item?.feedbackOutcome) {
       case 'not_interested': return 'Not interested' + (item.feedbackReason ? ` – ${item.feedbackReason}` : '');
       case 'future_prospect': return item.followUpDue
-        ? `⏰ Follow-up due (${fmt(item.followUpOn)})`
+        ? `Follow-up due (${fmt(item.followUpOn)})`
         : `Future prospect – follow up ${item.followUpOn ? fmt(item.followUpOn) : ''}`;
       case 'converted': return 'Converted to quotation' + (item.quotationId ? ` #${item.quotationId}` : '');
       default: return '-';

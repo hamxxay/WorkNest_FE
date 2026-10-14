@@ -99,6 +99,17 @@
           style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px">&times;</button>
         }
       </div>
+      @if (entity === 'contacts') {
+      <label class="page-size-wrap type-filter">
+        <span>Type</span>
+        <select [ngModel]="contactTypeFilter" (ngModelChange)="onContactTypeFilter($event)" aria-label="Filter by type">
+          <option value="">All types</option>
+          @for (o of inquiryTypeOptions; track o.v) {
+          <option [value]="o.v">{{ o.l }}</option>
+          }
+        </select>
+      </label>
+      }
       <div class="toolbar-right">
         <label class="page-size-wrap">
           <span>Show</span>
@@ -149,7 +160,22 @@
           <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
             @for (col of config().columns; track col.key) {
             <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
-              @if (col.type === 'image') {
+              @if (entity === 'contacts' && col.key === 'inquiryType') {
+              <!-- Click the Type to change it (no extra button, so the row's actions keep fitting). -->
+              <button type="button" class="type-edit" (click)="openContactType(item)" title="Change the type">
+                @if (item.inquiryType) {
+                <span class="type-pill" [class]="'type-pill type-' + item.inquiryType.toLowerCase()">{{ inquiryTypeLabel(item.inquiryType) }}</span>
+                } @else {
+                <span class="type-pill type-unset">Set type</span>
+                }
+              </button>
+              @if (item.referenceName) {
+              <small class="type-ref">{{ item.referenceName }}</small>
+              }
+              @if (item.subject && !isTourSubject(item.subject)) {
+              <small class="type-ref">{{ item.subject }}</small>
+              }
+              } @else if (col.type === 'image') {
               <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
               } @else if (canEditStatus(col)) {
               <!-- Status is changed right here: the pill shows the current status and is coloured by it. -->
@@ -605,7 +631,8 @@
       </div>
       }
       @for (field of config().fields; track field.key) {
-      @if (entity !== 'customers' || field.key !== 'company' || formData.customerType === 'Company') {
+      @if ((entity !== 'customers' || field.key !== 'company' || formData.customerType === 'Company')
+        && (entity !== 'contacts' || field.key !== 'referenceName' || formData.inquiryType === 'Reference')) {
       <div class="form-group-admin">
         <label>
           {{ field.label }}
@@ -4373,6 +4400,42 @@
 </div>
 }
 <!-- Tour inquiry feedback -->
+@if (showContactType() && contactTypeItem; as ti) {
+<div class="modal-overlay" (click)="showContactType.set(false)">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px;width:100%">
+    <button class="modal-close" (click)="showContactType.set(false)" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Inquiry Type</h2>
+    <p style="margin:0 0 14px;color:#475569;font-size:.9rem"><strong>{{ ti.fullName }}</strong> · {{ ti.phone }}</p>
+
+    @for (o of inquiryTypeOptions; track o.v) {
+    <label class="fb-option" [class.active]="contactTypeValue === o.v">
+      <input type="radio" name="inqType" [value]="o.v" [(ngModel)]="contactTypeValue" />
+      <span><strong>{{ o.l }}</strong></span>
+    </label>
+    @if (o.v === 'Reference' && contactTypeValue === 'Reference') {
+    <input class="form-input-admin" type="text" maxlength="200" [(ngModel)]="contactTypeReference" name="inqRef"
+      placeholder="Who referred the customer" style="width:100%;margin:6px 0 10px" />
+    }
+    }
+
+    @if (contactTypeError()) {
+    <div style="color:#b91c1c;font-size:.85rem;margin-top:10px">{{ contactTypeError() }}</div>
+    }
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn-admin btn-outline-admin" (click)="showContactType.set(false)">Cancel</button>
+      <button class="btn-admin btn-primary-admin" (click)="saveContactType()" [disabled]="contactTypeSaving()">
+        {{ contactTypeSaving() ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  </div>
+</div>
+}
+
 @if (showContactFeedback() && contactFeedbackItem; as fi) {
 <div class="modal-overlay" (click)="showContactFeedback.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;width:100%">
