@@ -373,6 +373,9 @@ export class AuthService {
   }
 
   getPostLoginRedirect(): string {
+    if (this.isCeoOnly()) {
+      return '/admin/ceo';
+    }
     if (this.hasRole('sales_executive')) {
       return '/admin/dashboard';
     }
@@ -380,6 +383,15 @@ export class AuthService {
       return '/admin';
     }
     return '/dashboard';
+  }
+
+  /**
+   * A CEO (role "ceo") sees every location but only the CEO dashboard, read-only. Only when the user has no
+   * other staff role: a super admin, admin or sales executive keeps their own pages.
+   */
+  isCeoOnly(): boolean {
+    return this.hasRole('ceo')
+      && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive');
   }
 
   /** Admins and sales executives only see their own location(s); super admins see every location. */
@@ -435,7 +447,7 @@ export class AuthService {
   /** Cached user with staff roles removed: used when the API could not confirm the roles. */
   private withoutStaffRoles(cached: UserInfo | null): UserInfo | null {
     if (!cached) return null;
-    const staff = ['admin', 'superadmin', 'salesexecutive'];
+    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo'];
     const roles = (cached.roles || []).filter(r => !staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
     return { ...cached, roles };
   }

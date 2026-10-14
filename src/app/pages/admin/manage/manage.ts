@@ -1017,7 +1017,7 @@ export class Manage implements OnInit {
     return this.auth.user()?.locationId ?? this.myLocationIds[0] ?? null;
   }
   assignableRoles = ASSIGNABLE_ROLES;
-  /** Only a Super Admin creates Admins / Super Admins; an Admin creates Sales Executives and customers. */
+  /** Only a Super Admin creates Admins / Super Admins / CEOs; an Admin creates Sales Executives and customers. */
   get rolesICanAssign(): { v: string; l: string }[] {
     return this.auth.hasRole('super_admin')
       ? ASSIGNABLE_ROLES
@@ -1031,10 +1031,10 @@ export class Manage implements OnInit {
     return !!me && email === me;
   }
 
-  /** Users: Admin and Super Admin accounts, which only a Super Admin manages. */
+  /** Users: Admin, Super Admin and CEO accounts, which only a Super Admin manages. */
   private isAdminAccount(item: any): boolean {
     const role = this.normalizeRole(item?.role ?? item?.roleId ?? item?.RoleId);
-    return role === 'admin' || role === 'super_admin';
+    return role === 'admin' || role === 'super_admin' || role === 'ceo';
   }
 
   /** Users: a Super Admin edits everyone; an Admin edits their own profile and the users below them. */
@@ -4411,6 +4411,7 @@ export class Manage implements OnInit {
     if (str === '2' || str === 'admin' || str === 'administrator') return 'admin';
     if (str === '14' || str === 'general' || str === 'general_user') return 'general';
     if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'sales_executive';
+    if (str === '17' || str === 'ceo') return 'ceo';
     return str || 'general';
   }
 
@@ -4422,7 +4423,8 @@ export class Manage implements OnInit {
     if (!userId) { revert(); return; }
     const normalizedRole = this.normalizeRole(role);
     if (previous && normalizedRole === previous) return;
-    const locationId = (normalizedRole === 'super_admin' || normalizedRole === 'general')
+    // Super Admins, CEOs (every location) and customers have no location.
+    const locationId = (normalizedRole === 'super_admin' || normalizedRole === 'general' || normalizedRole === 'ceo')
       ? null
       : (item.locationId ? Number(item.locationId) : null);
 
