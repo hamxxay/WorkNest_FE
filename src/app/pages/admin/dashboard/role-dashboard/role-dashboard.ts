@@ -12,7 +12,7 @@ interface Tile { key: string; label: string; value: string; sub: string; link: s
  * Dashboard sections that differ by role (GET api/dashboard/role).
  * Sales executive: sales pipeline, tour inquiries & follow-ups, renewals, collections.
  * Admin: team & service (branch operations and finance come from the overview above it).
- * Super admin: team & service, location comparison, staff overview, system health.
+ * Super admin: team & service, location comparison, staff overview.
  */
 @Component({
   selector: 'app-role-dashboard',
@@ -62,7 +62,6 @@ export class RoleDashboard {
   team = computed(() => this.data()?.team ?? null);
   locations = computed<any[]>(() => this.data()?.locations ?? []);
   staff = computed(() => this.data()?.staff ?? null);
-  system = computed(() => this.data()?.system ?? null);
 
   // ---------- sales executive ----------
   salesTiles = computed<Tile[]>(() => {
@@ -132,19 +131,4 @@ export class RoleDashboard {
     return inv > 0 ? Math.round((col / inv) * 100) : 0;
   }
 
-  jobLabel(job: string): string {
-    const map: Record<string, string> = { online: 'Machine status', maintenance: 'Maintenance', events: 'Event copy', watch: 'Access watch', clock: 'Clock sync' };
-    return map[(job || '').toLowerCase()] ?? job;
-  }
-  ago(iso: string | null | undefined): string {
-    if (!iso) return 'never';
-    const ms = Date.now() - new Date(iso).getTime();
-    if (isNaN(ms)) return '—';
-    const m = Math.round(ms / 60000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m} min ago`;
-    const h = Math.round(m / 60);
-    if (h < 48) return `${h} h ago`;
-    return `${Math.round(h / 24)} days ago`;
-  }
 }
