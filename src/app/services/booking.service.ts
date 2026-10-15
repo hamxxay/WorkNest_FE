@@ -63,18 +63,25 @@ export class BookingService {
     return this.http.get<any>(`${this.apiUrl}/available-spaces?${params.toString()}`);
   }
 
-  getSmartAvailableSpaces(categoryCode: string, startOn: string, endOn: string, capacity?: number): Observable<any> {
+  /**
+   * GET booking/smart/available: free spaces of a category for the period. locationId: only that location's spaces
+   * (the location of the card the customer chose); without it, every location.
+   */
+  getSmartAvailableSpaces(categoryCode: string, startOn: string, endOn: string, capacity?: number, locationId?: number | null): Observable<any> {
     const p = new URLSearchParams({ categoryCode, startOn, endOn });
     if (capacity) p.set('capacity', String(capacity));
+    if (locationId && locationId > 0) p.set('locationId', String(locationId));
     return this.http.get<any>(`${this.apiUrl}/smart/available?${p.toString()}`);
   }
 
+  /** POST booking/smart: books a free space of the category; locationId keeps it at the location the customer chose. */
   createSmart(booking: {
     categoryCode: string;
     startDateTime: string;
     endDateTime: string;
     capacity?: number;
     notes?: string;
+    locationId?: number | null;
   }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/smart`, booking);
   }

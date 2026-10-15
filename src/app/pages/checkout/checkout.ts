@@ -218,6 +218,8 @@ export class Checkout implements OnInit {
           endDateTime:         p.endDateTime,
           capacity:      p.capacity ?? undefined,
           notes:         p.notes || paymentMethod,
+          // The location of the card the customer chose (no location = any, as before).
+          locationId:    p.locationId ?? null,
         })
       : this.bookingService.create({
           spaceId: p.spaceId,

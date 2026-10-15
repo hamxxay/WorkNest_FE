@@ -4,8 +4,8 @@ import {
 import { DatePipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import {
-  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoMetric, CeoParams,
-  CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
+  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoLeaseRecord, CeoMetric,
+  CeoParams, CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
 import type {
   SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
@@ -32,6 +32,8 @@ type InquiryRow = CeoInquiryRecord & { followUpOn?: string | null };
 /** Booking / quotation record: an amount from the CEO API, desks from the Sales Manager API. */
 type BookingRow = Omit<CeoBookingRecord, 'totalAmount'> & Partial<Pick<CeoBookingRecord, 'totalAmount'> & Pick<SmBookingRecord, 'desks'>>;
 type QuotationRow = Omit<CeoQuotationRecord, 'total'> & Partial<Pick<CeoQuotationRecord, 'total'> & Pick<SmQuotationRecord, 'desks'>>;
+/** Lease record: desks from the Sales Manager API, the monthly rent from the CEO API (records/leases). */
+type LeaseRow = Omit<SmLeaseRecord, 'desks'> & Partial<Pick<SmLeaseRecord, 'desks'> & Pick<CeoLeaseRecord, 'monthlyAmount'>>;
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
 const METRICS: Record<CeoMetric, DrillMetricSpec> = {
@@ -231,6 +233,14 @@ export class CeoDrawer {
     if (spec) this.push(spec.next(e.level.params, row));
   }
 
+  /** The second list a level 2 row offers (its link under the row) -> level 3. */
+  openSecondary(row: CeoBreakdownRow) {
+    const e = this.current();
+    if (!e || e.level.kind !== 'breakdown' || !row.key) return;
+    const alt = this.src().metrics[e.level.metric]?.secondary?.(e.level.params, row);
+    if (alt) this.push(alt.level);
+  }
+
   private reset() {
     this.sub?.unsubscribe();
     this.destroyChart();
@@ -271,6 +281,26 @@ export class CeoDrawer {
   hasValue2 = computed(() => !!this.current()?.breakdown?.value2Label || this.rows().some(r => r.value2 !== null));
   hasCount = computed(() => this.rows().some(r => r.count !== null));
   canOpenRows = computed(() => this.rows().some(r => !!r.key));
+  /** The second list each row offers (same order as rows), null where none. */
+  secondaries = computed(() => {
+    const e = this.current();
+    const spec = this.spec();
+    if (!spec?.secondary || e?.level.kind !== 'breakdown') return this.rows().map(() => null);
+    const params = e.level.params;
+    return this.rows().map(r => (r.key ? spec.secondary!(params, r) : null));
+  });
+  /** The line under the table. */
+  hintText = computed(() => {
+    const e = this.current();
+    const spec = this.spec();
+    return spec?.hint && e?.level.kind === 'breakdown' ? spec.hint(e.level.params) : 'Select a row to see the records behind it.';
+  });
+  /** What a row opens, for screen readers. */
+  rowAction(r: CeoBreakdownRow): string {
+    const e = this.current();
+    const spec = this.spec();
+    return spec?.nextLabel && e?.level.kind === 'breakdown' ? spec.nextLabel(e.level.params, r) : 'Open ' + r.label;
+  }
   totals = computed(() => {
     const rows = this.rows();
     return {
@@ -324,7 +354,7 @@ export class CeoDrawer {
   bookingRows = computed(() => this.recordsOf<BookingRow>('bookings'));
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
   quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
-  leaseRows = computed(() => this.recordsOf<SmLeaseRecord>('leases'));
+  leaseRows = computed(() => this.recordsOf<LeaseRow>('leases'));
   complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
   /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
   highlight = computed<number | null>(() => {
@@ -353,6 +383,13 @@ export class CeoDrawer {
   /** "Today", "1 day", "12 days". */
   ageText(days: number | null): string {
     return days === null ? '' : days <= 0 ? 'Today' : days === 1 ? '1 day' : `${count(days)} days`;
+  }
+
+  /** "Ends today", "1 day left", "12 days left", "Ended 3 days ago". */
+  leaseDaysText(days: number): string {
+    if (days === 0) return 'Ends today';
+    if (days < 0) return `Ended ${count(-days)} day${days === -1 ? '' : 's'} ago`;
+    return `${count(days)} day${days === 1 ? '' : 's'} left`;
   }
 
   /** Whole days from today to an ISO date (negative = past). */

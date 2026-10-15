@@ -3,8 +3,8 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  SalesManagerService, SmComplaintCategory, SmComplaints, SmDashboard, SmError, SmFunnelStage, SmInquiryMonth, SmLocation, SmMetric,
-  SmOldComplaint, SmPeriod, SmRecordKind
+  SalesManagerService, SmComplaintBranch, SmComplaintCategory, SmComplaints, SmDashboard, SmError, SmFunnelStage, SmInquiryMonth,
+  SmLocation, SmMetric, SmOldComplaint, SmPeriod, SmRecordKind
 } from '../../../services/sales-manager.service';
 import { CeoDrawer } from '../ceo/ceo-drawer/ceo-drawer';
 import {
@@ -348,6 +348,10 @@ export class SalesManagerDashboard {
   // ---------- Tour inquiries (the manager's locations; no branch = "All my locations" only) ----------
 
   q = computed(() => this.data()?.inquiries ?? null);
+  /** The note under the Tour inquiries heading: before the database update BR_02 the figures count every branch. */
+  inquiriesNote = computed(() => this.data()?.inquiriesAllBranches
+    ? 'Counts inquiries from every branch until database update BR_02 is run'
+    : `Inquiries without a branch show under ${this.allLabel}`);
 
   inquiryKpis = computed<SmKpi[]>(() => {
     const q = this.q();
@@ -501,6 +505,20 @@ export class SalesManagerDashboard {
     return `${c.category}: ${c.open} open, ${c.inProgress} in progress, ${c.total} new this ${this.cmpWord()}. Open its complaints`;
   }
 
+  /**
+   * By branch ('' = no branch, WhatsApp): worth showing when the complaints span more than one branch or include some
+   * without a branch (with one location chosen it would only repeat that branch).
+   */
+  cmpShowsBranches = computed(() => {
+    const b = this.cmp()?.byBranch ?? [];
+    return b.filter(x => x.branch).length > 1 || b.some(x => !x.branch);
+  });
+  /** Bars of the branch list: open + in progress, against the busiest branch. */
+  cmpBranchMax = computed(() => Math.max(1, ...(this.cmp()?.byBranch ?? []).map(b => b.open + b.inProgress)));
+  cmpBranchLabel(b: SmComplaintBranch): string {
+    return `${b.label}: ${b.open} open, ${b.inProgress} in progress, ${b.total} new this ${this.cmpWord()}. Open its complaints`;
+  }
+
   cmpChartEmpty = computed(() => !(this.cmp()?.months ?? []).some(m => m.created > 0 || m.resolved > 0));
   cmpMonthTotals = computed(() => {
     const m = this.cmp()?.months ?? [];
@@ -582,6 +600,11 @@ export class SalesManagerDashboard {
 
   openComplaintCategory(category: string) {
     this.openComplaints(category, { category });
+  }
+
+  /** A branch: every complaint of it (branch=none for the complaints without a branch). */
+  openComplaintBranch(b: SmComplaintBranch) {
+    this.openComplaints(b.label, { branch: b.branch || 'none' });
   }
 
   /** A month of the complaints chart: the complaints raised that month. */

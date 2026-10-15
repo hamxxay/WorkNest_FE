@@ -103,6 +103,10 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .link-btn { background: none; border: none; color: #0d9488; font-weight: 600; cursor: pointer; padding: 0; font-family: inherit; font-size: inherit; }
 .link-btn:hover { text-decoration: underline; }
 .note { margin: 12px 0 0; font-size: 0.75rem; color: #94a3b8; }
+/* A note under a section title: what its figures include (pill, info icon). */
+.scope-note { margin: 8px 0 0; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #475569; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 11px 3px 9px; }
+.scope-note svg { color: #1d4ed8; flex-shrink: 0; }
+.section-note { margin: -4px 0 16px; }
 
 /* ---------- charts ---------- */
 .chart-box { position: relative; width: 100%; }
@@ -167,6 +171,7 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .funnel-row:hover { background: #f8fafc; }
 .funnel-row:hover .row-go, .funnel-row:focus-visible .row-go { color: #0d9488; transform: translateX(2px); }
 .funnel-label { font-size: 0.86rem; font-weight: 600; color: #0f172a; }
+.funnel-scope { display: block; margin-top: 1px; font-size: 0.7rem; font-weight: 500; color: #64748b; }
 .funnel-track { display: block; height: 26px; border-radius: 6px; background: #f8fafc; overflow: hidden; }
 .funnel-fill { display: block; height: 100%; min-width: 4px; border-radius: 6px; transition: width .4s ease; }
 .funnel-row:hover .funnel-fill { filter: brightness(0.94); }

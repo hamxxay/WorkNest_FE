@@ -1,10 +1,8 @@
 /* The sales dashboard uses the CEO dashboard's stylesheet (ceo-dashboard.css, loaded first) for its cards,
-   panels, charts, tables and states. Only the pieces the CEO page does not have are here. */
+   panels, charts, tables, states and scope notes. Only the pieces the CEO page does not have are here. */
 
 /* ---------- header ---------- */
 .dash-kicker { margin: 0 0 4px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #0f766e; }
-.scope-note { margin: 8px 0 0; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #475569; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 11px 3px 9px; }
-.scope-note svg { color: #1d4ed8; flex-shrink: 0; }
 
 /* ---------- grid widths the CEO page does not use ---------- */
 .span-7 { grid-column: span 7; }
@@ -57,7 +55,6 @@
 .kpi-card.has-accent::after { background: var(--kpi-accent); }
 .cmp-section { transition: opacity .2s ease; }
 .cmp-section.is-refreshing { opacity: .55; pointer-events: none; }
-.section-note { margin: -4px 0 16px; }
 .cmp-state .state-icon { width: 44px; height: 44px; margin-bottom: 6px; }
 .cmp-state.db .state-icon { background: #fef3c7; color: #b45309; }
 .cmp-state span:not(.state-icon) { max-width: 520px; line-height: 1.5; }

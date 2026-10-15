@@ -36,6 +36,15 @@ export interface DrillMetricSpec {
   chart: 'grouped' | 'stacked-occupancy' | 'single';
   vertical: boolean;
   next: (params: CeoParams, row: CeoBreakdownRow) => DrillLevel<string, string>;
+  /** What a row opens, for screen readers ("Open the leases ending in Nov 2026 at I-8"); default "Open <row>". */
+  nextLabel?: (params: CeoParams, row: CeoBreakdownRow) => string;
+  /**
+   * A second list a row offers next to the one it opens (e.g. the leases ending that month next to its bookings),
+   * shown as a link under the row; null for none.
+   */
+  secondary?: (params: CeoParams, row: CeoBreakdownRow) => { label: string; level: DrillLevel<string, string> } | null;
+  /** The line under the table; default "Select a row to see the records behind it." */
+  hint?: (params: CeoParams) => string;
 }
 
 /** A records list (level 3): rows hold at most 200 (newest first), total is the full count. */
