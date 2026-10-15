@@ -70,13 +70,13 @@
   </ng-template>
   <ng-template #kpiCard let-k>
     @if (k.action) {
-      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()" [title]="k.full || ''">
+      <button type="button" [class]="'kpi-card clickable tone-' + k.tone + (k.accent ? ' has-accent' : '')" [style.--kpi-accent]="k.accent || null" (click)="k.action()" [title]="k.full || ''">
         <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
         <span class="sr-only">{{ k.actionLabel }}</span>
         <svg class="kpi-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
       </button>
     } @else {
-      <div [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+      <div [class]="'kpi-card tone-' + k.tone + (k.accent ? ' has-accent' : '')" [style.--kpi-accent]="k.accent || null" [title]="k.full || ''">
         <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
       </div>
     }
@@ -568,6 +568,232 @@
       </section>
     </div>
   }
+
+
+  <!-- ===================== COMPLAINTS (own endpoint: a failure here leaves the rest alone) ===================== -->
+  <section class="dash-section cmp-section" aria-labelledby="sm-h-cmp" [class.is-refreshing]="cmpRefreshing()" [attr.aria-busy]="cmpLoading() || cmpRefreshing()">
+    <div class="section-title">
+      <h2 id="sm-h-cmp">Complaints</h2>
+      <span>{{ isSuperAdmin ? 'Customer complaints at every location' : 'Customer complaints at your locations' }} · {{ cmpPeriodTitle() }}</span>
+    </div>
+    <p class="scope-note section-note">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      Complaints without a branch (WhatsApp) show under {{ allLabel }}
+    </p>
+
+    @if (cmpLoading()) {
+      <div class="kpi-grid kpi-4" aria-hidden="true">
+        @for (i of [1,2,3,4]; track i) {
+          <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+        }
+      </div>
+      <div class="ins-grid" aria-hidden="true">
+        <div class="dash-panel span-8"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+        <div class="dash-panel span-4 full-md"><span class="sk sk-line w60"></span><span class="sk sk-block"></span></div>
+      </div>
+      <span class="sr-only">Loading the complaints</span>
+    } @else if (cmpError() && !cmp()) {
+      <div class="dash-panel section-empty cmp-state" [class.db]="cmpError()!.needsDbUpdate" role="alert">
+        <span class="state-icon">
+          @if (cmpError()!.needsDbUpdate) {
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          }
+        </span>
+        <strong>{{ cmpError()!.title }}</strong>
+        <span>{{ cmpError()!.message }}</span>
+        <button type="button" class="btn-ghost" (click)="loadComplaints()">Try again</button>
+      </div>
+    } @else if (!cmp()) {
+      <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No complaint figures yet</strong><span>Customer complaints show up here once they are in the system.</span></div>
+    } @else {
+      @if (cmpError(); as err) {
+        <div class="refresh-error" role="status">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          <span><strong>{{ err.title }}.</strong> {{ err.message }} Showing the complaints from {{ cmpUpdatedAgo() }}.</span>
+          <button type="button" class="link-btn" (click)="loadComplaints()">Try again</button>
+        </div>
+      }
+
+      @if (cmpEmpty()) {
+        <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No complaints</strong><span>No customer complaints at {{ locationName() }}. New ones show up here.</span></div>
+      } @else {
+        <div class="kpi-grid kpi-4">
+          @for (k of cmpKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+        </div>
+
+        <div class="ins-grid">
+          <!-- Where complaints stand now -->
+          <div class="dash-panel span-12">
+            <div class="panel-head">
+              <div>
+                <h3>Where they stand</h3>
+                <p class="panel-sub">Every complaint right now · select a status for its complaints</p>
+              </div>
+              <div class="head-stats">
+                <div><span>Open &amp; in progress</span><strong [class.warn]="cmp()!.activeTotal > 0"><button type="button" class="link-btn stat-link" (click)="openComplaints('Open & in progress', { status: 'active' })" [attr.aria-label]="'Open the ' + cmp()!.activeTotal + ' open and in-progress complaints'">{{ count(cmp()!.activeTotal) }}</button></strong></div>
+                <div><span>In all</span><strong>{{ count(cmpTotal()) }}</strong></div>
+              </div>
+            </div>
+            <!-- Mouse view; the status tiles below are the keyboard / screen reader view. -->
+            <div class="cmp-bar" aria-hidden="true">
+              @if (!cmpTotal()) {
+                <span class="cmp-bar-empty"></span>
+              } @else {
+                @for (st of cmpStatuses(); track st.key) {
+                  @if (st.count > 0) {
+                    <button type="button" tabindex="-1" class="cmp-seg" [style.flex-grow]="st.count" [style.background]="st.bar" [title]="st.label + ': ' + count(st.count)" (click)="openComplaintStatus(st.key)"></button>
+                  }
+                }
+              }
+            </div>
+            <ul class="cmp-legend">
+              @for (st of cmpStatuses(); track st.key) {
+                <li>
+                  <button type="button" class="cmp-tile" (click)="openComplaintStatus(st.key)" [attr.aria-label]="st.label + ' (' + st.hint + '): ' + st.count + '. Open these complaints'">
+                    <span class="cmp-tile-top"><i class="type-dot" [style.background]="st.bar" aria-hidden="true"></i>{{ st.label }}<ng-container *ngTemplateOutlet="chevron" /></span>
+                    <strong>{{ count(st.count) }}</strong>
+                    <small>{{ st.hint }}@if (cmpTotal()) { · {{ pct(st.share) }} }</small>
+                  </button>
+                </li>
+              }
+            </ul>
+          </div>
+
+          <!-- Raised & resolved by month -->
+          <div class="dash-panel span-8">
+            <div class="panel-head">
+              <div>
+                <h3>Complaints by month</h3>
+                <p class="panel-sub">Raised and resolved, last 12 months · select a month for the complaints raised</p>
+              </div>
+              <div class="head-side">
+                <div class="head-stats">
+                  <div><span>Raised</span><strong>{{ count(cmpMonthTotals().created) }}</strong></div>
+                  <div><span>Resolved</span><strong>{{ count(cmpMonthTotals().resolved) }}</strong></div>
+                </div>
+                @if (!cmpChartEmpty()) {
+                  <button type="button" class="view-toggle" (click)="cmpTable.set(!cmpTable())" [attr.aria-pressed]="cmpTable()">{{ cmpTable() ? 'Chart' : 'Table' }}</button>
+                }
+              </div>
+            </div>
+            <div class="chart-box h-lg chart-nav" [class.hidden]="cmpTable()"
+              [attr.tabindex]="cmpChartEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
+              aria-label="Complaints raised and resolved by month. Arrow keys move between months, Enter opens the complaints raised that month."
+              (keydown)="complaintsNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && complaintsNav.focus()" (blur)="complaintsNav.clear()">
+              <canvas #complaintsCanvas aria-hidden="true"></canvas>
+              @if (cmpChartEmpty()) {
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No complaints in the last 12 months</strong><span>The chart fills in as complaints come in.</span></div>
+              }
+            </div>
+            @if (cmpTable()) {
+              <div class="table-scroll">
+                <table class="cmp-table compact">
+                  <thead><tr><th scope="col">Month</th><th scope="col" class="num">Raised</th><th scope="col" class="num">Resolved</th></tr></thead>
+                  <tbody>
+                    @for (x of cmp()!.months; track x.month; let i = $index) {
+                      <tr class="clickable" (click)="openComplaintMonth(i)">
+                        <th scope="row"><button type="button" class="row-btn" (click)="openComplaintMonth(i); $event.stopPropagation()">{{ monthLong(x.month) }}</button></th>
+                        <td class="num">{{ count(x.created) }}</td>
+                        <td class="num">{{ count(x.resolved) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+
+          <!-- By category -->
+          <div class="dash-panel span-4 full-md">
+            <div class="panel-head">
+              <div>
+                <h3>By category</h3>
+                <p class="panel-sub">Open and in progress now, new this {{ cmpWord() }} · select a category for its complaints</p>
+              </div>
+            </div>
+            @if (!cmp()!.byCategory.length) {
+              <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No complaints this {{ cmpWord() }}</strong><span>Categories show up here as complaints come in.</span></div>
+            } @else {
+              <div class="cmp-key" aria-hidden="true">
+                <span><i class="type-dot" [style.background]="complaintStyle('open').bar"></i>Open</span>
+                <span><i class="type-dot" [style.background]="complaintStyle('in_progress').bar"></i>In progress</span>
+              </div>
+              <ul class="bar-list">
+                @for (c of cmp()!.byCategory; track c.category) {
+                  <li>
+                    <button type="button" class="bar-row" (click)="openComplaintCategory(c.category)" [attr.aria-label]="cmpCategoryLabel(c)">
+                      <span class="bar-main">
+                        <span class="bar-label">{{ c.category }}</span>
+                        <span class="bar-track cmp-track">
+                          <span class="cmp-fill" [style.width.%]="(c.open / cmpCategoryMax()) * 100" [style.background]="complaintStyle('open').bar"></span>
+                          <span class="cmp-fill" [style.width.%]="(c.inProgress / cmpCategoryMax()) * 100" [style.background]="complaintStyle('in_progress').bar"></span>
+                        </span>
+                      </span>
+                      <span class="bar-value">
+                        <strong [class.cmp-active]="c.open + c.inProgress > 0">{{ count(c.open + c.inProgress) }} active</strong>
+                        <small>{{ count(c.total) }} new</small>
+                      </span>
+                      <ng-container *ngTemplateOutlet="chevron" />
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+
+          <!-- Oldest still open -->
+          <div class="dash-panel span-12 table-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Oldest open complaints</h3>
+                <p class="panel-sub">Open and in progress, oldest first · select one to see it with the complaints like it</p>
+              </div>
+              @if (cmp()!.activeTotal) {
+                <div class="head-side">
+                  <button type="button" class="view-toggle" (click)="openComplaints('Open & in progress', { status: 'active' })">All {{ count(cmp()!.activeTotal) }} open &amp; in progress</button>
+                </div>
+              }
+            </div>
+            @if (!cmp()!.oldestActive.length) {
+              <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No open complaints</strong><span>Every complaint is resolved or closed.</span></div>
+            } @else {
+              <div class="table-scroll">
+                <table class="cmp-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Complaint</th><th scope="col">Customer</th><th scope="col">Category</th><th scope="col">Branch</th>
+                      <th scope="col">Status</th><th scope="col">Age</th>
+                      <th scope="col" class="col-go"><span class="sr-only">Open</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (c of cmp()!.oldestActive; track c.complaintId || $index) {
+                      <tr class="clickable" (click)="openOldComplaint(c)">
+                        <th scope="row">
+                          <span class="cmp-no">
+                            <button type="button" class="row-btn" (click)="openOldComplaint(c); $event.stopPropagation()">{{ c.complaintNo || '-' }}</button>
+                            @if (c.createdOn) { <small>{{ c.createdOn | date:'d MMM y' }}</small> }
+                          </span>
+                        </th>
+                        <td><span class="clip">{{ c.customerName || '-' }}</span></td>
+                        <td><span class="clip">{{ c.category }}</span></td>
+                        <td>@if (c.branch) { {{ c.branch }} } @else { <span class="muted-text">No branch</span> }</td>
+                        <td><span class="status-chip" [style.background]="complaintStyle(c.status).bg" [style.color]="complaintStyle(c.status).fg">{{ complaintStyle(c.status).label }}</span></td>
+                        <td><span class="pill" [class.warn]="c.ageDays >= 3 && c.ageDays < 7" [class.danger]="c.ageDays >= 7">{{ ageText(c.ageDays) }}</span></td>
+                        <td class="col-go"><ng-container *ngTemplateOutlet="chevron" /></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+  </section>
 
   <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
 
