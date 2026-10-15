@@ -13,8 +13,9 @@ import { CeoBreakdown, CeoInquiryRecord, CeoPeriod } from './ceo.service';
 // mobile app (salesmgr contract, 14 Oct 2026): dashboard -> breakdown (drill level 2) -> records (level 3).
 // No money at all (sm-desks contract): every figure is a count of desks, quotations, bookings or leases.
 // Desks of a booking / quotation = its capacity, else its space's capacity; meeting rooms count 0 desks.
-// Everything is limited to the manager's locations (or the chosen locationId), except tour inquiries, which
-// have no location and cover every branch. Complaints (sm-complaints contract, 15 Oct 2026) have their own
+// Everything is limited to the manager's locations (or the chosen locationId). Tour inquiries too (by their branch,
+// WN_Contacts.LocationId); inquiries without a branch count only when no location is chosen ("All my locations"),
+// the same rule as complaints. Complaints (sm-complaints contract, 15 Oct 2026) have their own
 // endpoint, so the rest of the dashboard keeps working when only they fail. Every response is normalised
 // here, so a missing field shows as an empty state on the page instead of breaking it.
 // ============================================================
@@ -59,7 +60,7 @@ export interface SmTeamLocation {
 }
 export interface SmTeam { people: SmPerson[]; perLocation: SmTeamLocation[]; }
 
-// ---------- Tour inquiries (every branch) ----------
+// ---------- Tour inquiries (the manager's locations; no branch = "All my locations" only) ----------
 export interface SmInquiryType { type: string; label: string; count: number; }
 export interface SmReason { reason: string; count: number; }
 export interface SmInquiryMonth {

@@ -534,6 +534,11 @@
 .type-edit:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
 .type-pill.type-unset { background: #fff; color: #64748b; border: 1px dashed #cbd5e1; font-weight: 500; }
 .type-filter { margin-left: 10px; }
+/* Tour Inquiries / Complaints: Type and Location filters kept together between the search box and the page size. */
+.toolbar-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.toolbar-filters .type-filter { margin-left: 0; }
+/* Branch of a tour inquiry / complaint (no branch = .type-unset, "No branch"). */
+.type-pill.branch-pill { background: #f0fdfa; color: #0f766e; }
 .col-key-fullName { min-width: 130px; }
 .fb-option input { margin-top: 3px; accent-color: #0d9488; }
 .fb-option span { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; color: #0f172a; }

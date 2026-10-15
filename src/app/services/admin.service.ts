@@ -360,22 +360,29 @@ export class AdminService {
 
 
   // Contact Messages
-  /** type: Website | WhatsApp | WalkIn | Reference (empty = all). */
-  getContacts(page?: number, limit?: number, search?: string, type?: string): Observable<ApiResponse<Contact[]>> {
+  /** type: Website | WhatsApp | WalkIn | Reference (empty = all). locationId: one branch (empty = every branch the user sees). */
+  getContacts(page?: number, limit?: number, search?: string, type?: string, locationId?: number | null): Observable<ApiResponse<Contact[]>> {
       const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (type) params.set('type', type);
+    if (locationId) params.set('locationId', String(locationId));
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
   updateContactStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status`, { statusId }); }
   // Complaints (WhatsApp chatbot + entered by staff)
-  getComplaints(page?: number, limit?: number, search?: string): Observable<any> {
+  /** locationId: one branch (empty = every branch the user sees). */
+  getComplaints(page?: number, limit?: number, search?: string, locationId?: number | null): Observable<any> {
     const params: any = { page: page || 1, limit: limit || 10 };
     if (search) params.search = search;
+    if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/complaints`, { params });
+  }
+  /** Set or change a complaint's branch (a dbo.WN_Locations id; saved as its name in WN_Complaints.Branch). */
+  updateComplaintBranch(id: number, locationId: number): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/complaints/${id}/branch`, { locationId });
   }
   createComplaint(data: any): Observable<ApiResponse<any>> { return this.http.post<ApiResponse<any>>(`${this.api}/complaints`, data); }
   /** status: open | in_progress | resolved | closed. Resolved asks the customer on WhatsApp to confirm. */
@@ -388,8 +395,12 @@ export class AdminService {
   }
   /** Tour inquiry entered by staff: Type WalkIn or Reference (referenceName empty = the staff member). */
   createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null;
-    inquiryType: 'WalkIn' | 'Reference'; referenceName?: string | null }): Observable<ApiResponse<any>> {
+    inquiryType: 'WalkIn' | 'Reference'; referenceName?: string | null; locationId?: number | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/book-tour`, data);
+  }
+  /** Set or change an inquiry's branch (a dbo.WN_Locations id) by its public id. */
+  updateContactLocation(publicId: string, locationId: number): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(publicId)}/location`, { locationId });
   }
   /** Change an inquiry's Type (Website | WhatsApp | WalkIn | Reference) by its public id. */
   updateContactInquiryType(publicId: string, data: { inquiryType: string; referenceName?: string | null }): Observable<ApiResponse<any>> {

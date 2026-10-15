@@ -42,6 +42,8 @@
 .inq-lead { margin: 0; font-size: .87rem; line-height: 1.5; color: var(--inq-text); }
 .inq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .inq-grid.id-grid { grid-template-columns: 150px 1fr; }
+/* A field that takes the whole row of a two-column grid. */
+.inq-grid > .inq-span { grid-column: 1 / -1; }
 .inq-mini-label { font-size: .75rem; font-weight: 600; color: var(--inq-muted); }
 /* Small heading over a group of fields ("Customer", "Complaint"). */
 .inq-section { display: flex; align-items: center; gap: 10px; margin: 2px 0 -4px; font-size: .7rem; font-weight: 700; letter-spacing: .08em;
@@ -55,6 +57,9 @@
 .inq-modal textarea.form-input-admin { resize: vertical; line-height: 1.5; }
 .inq-modal .form-input-admin::placeholder { color: #94a3b8; }
 .inq-modal .form-input-admin.input-invalid { border-color: #ef4444 !important; }
+/* A value that is shown but fixed (e.g. a one-location user's branch). */
+.inq-modal .form-input-admin[readonly] { background: var(--inq-soft); color: var(--inq-text); cursor: default; }
+.inq-modal select.form-input-admin:disabled { background: var(--inq-soft); color: var(--inq-muted); }
 
 /* Choice cards (radio buttons): one per option, icon + title + one line. */
 .inq-choice-grid { display: flex; flex-direction: column; gap: 10px; }

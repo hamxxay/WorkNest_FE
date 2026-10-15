@@ -5,6 +5,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
+import { ContactService } from '../../../services/contact.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AmountFieldService } from '../../../services/amount-field.service';
 import { ASSIGNABLE_ROLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
@@ -1113,6 +1114,7 @@ export class Manage implements OnInit {
   private agreementSvc = inject(AgreementService);
   private whtRateSvc = inject(WhtRateService);
   private toast = inject(ToastService);
+  private contactSvc = inject(ContactService);
   private cdr = inject(ChangeDetectorRef);
 
   showError(msg: string, title: string = 'Error') {
@@ -1175,6 +1177,7 @@ export class Manage implements OnInit {
           this.totalCount.set(0);
           this.page.set(1);
           this.searchQuery = '';
+          this.branchFilter = '';
           this.loading.set(true);
         }
         this.entity = newEntity;
@@ -1198,6 +1201,7 @@ export class Manage implements OnInit {
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
         if (this.entity === 'invoices') this.loadSpaceInventoryForConfig();
         if (this.entity === 'quotations') this.openQuotationFromInquiryParams();
+        if (this.entity === 'contacts' || this.entity === 'complaints') this.loadItemBranches();
       });
     });
   }
@@ -3080,6 +3084,8 @@ export class Manage implements OnInit {
             ...c,
             customerName: c.customerName || '-',
             phoneNumber: c.phoneNumber || '-',
+            branch: String(c.branch ?? c.Branch ?? '').trim() || null,
+            locationId: Number(c.locationId ?? c.LocationId) || null,
             status: statusLabel[c.status] || c.status,
             sourceLabel: (c.source === 'whatsapp' ? 'WhatsApp' : 'Manual') + (c.isFollowUp && c.previousComplaintNo ? ` · follow-up of ${c.previousComplaintNo}` : ''),
             replyLabel: c.resolutionResponse === 'persists' ? 'Issue persists' : c.resolutionResponse === 'resolved' ? 'Confirmed resolved'
@@ -3116,7 +3122,9 @@ export class Manage implements OnInit {
               quotationId: c.quotationId ?? c.QuotationId ?? null,
               publicId: c.publicId ?? c.PublicId ?? null,
               inquiryType: c.inquiryType ?? c.InquiryType ?? null,
-              referenceName: c.referenceName ?? c.ReferenceName ?? null
+              referenceName: c.referenceName ?? c.ReferenceName ?? null,
+              locationId: Number(c.locationId ?? c.LocationId) || null,
+              locationName: String(c.locationName ?? c.LocationName ?? '').trim() || null
             };
           });
           // Follow-ups that are due come first so they are seen.
@@ -5019,6 +5027,7 @@ export class Manage implements OnInit {
           { key: 'complaintNo', label: 'Complaint #' },
           { key: 'customerName', label: 'Customer' },
           { key: 'phoneNumber', label: 'Phone' },
+          { key: 'branch', label: 'Branch' },
           { key: 'category', label: 'Category' },
           { key: 'description', label: 'Description' },
           { key: 'sourceLabel', label: 'Source' },
@@ -5027,12 +5036,12 @@ export class Manage implements OnInit {
           { key: 'createdOn', label: 'Date', type: 'date' },
         ],
         // Staff can add a complaint received by phone, walk-in or email. Add Complaint opens its own popup
-        // (openAddComplaint); these fields give its branch / category choices and createFn is what it saves with.
+        // (openAddComplaint); these fields give its category choices and createFn is what it saves with.
+        // Its branch choices come from the database (itemBranches).
         fields: [
           { key: 'customerName', label: 'Customer Name', type: 'text' },
           { key: 'phoneNumber', label: 'Phone (WhatsApp)', type: 'text' },
           { key: 'email', label: 'Email', type: 'email' },
-          { key: 'branch', label: 'Branch', type: 'select', options: [{ v: 'I-8', l: 'I-8' }, { v: 'F-7', l: 'F-7' }] },
           {
             key: 'category', label: 'Category', type: 'select', required: true, options: [
               { v: 'Internet / WiFi', l: 'Internet / WiFi' }, { v: 'Electricity / AC', l: 'Electricity / AC' },
@@ -5044,7 +5053,7 @@ export class Manage implements OnInit {
         ],
         createLabel: 'Add Complaint',
         createFn: (d) => this.admin.createComplaint(d),
-        getFn: (p, l, s) => this.admin.getComplaints(p, l, s),
+        getFn: (p, l, s) => this.admin.getComplaints(p, l, s, Number(this.branchFilter) || null),
         statusFn: (id, statusId) => this.admin.updateComplaintStatus(id, ['', 'open', 'in_progress', 'resolved', 'closed'][statusId] || 'open'),
         statusOptions: ['Open', 'In Progress', 'Resolved', 'Closed'],
       };
@@ -5057,6 +5066,7 @@ export class Manage implements OnInit {
           { key: 'email', label: 'Email' },
           { key: 'phone', label: 'Phone' },
           { key: 'inquiryType', label: 'Type' },   // replaces Subject (always "Book Tour" here); other subjects show under the Type
+          { key: 'locationName', label: 'Location' },
           { key: 'message', label: 'Message' },
           { key: 'feedback', label: 'Feedback' },
           { key: 'status', label: 'Status', type: 'status' },
@@ -5076,7 +5086,7 @@ export class Manage implements OnInit {
           inquiryType: d.inquiryType === 'Reference' ? 'Reference' : 'WalkIn',
           referenceName: d.inquiryType === 'Reference' ? (d.referenceName || '').trim() || null : null
         }),
-        getFn: (p, l, s) => this.admin.getContacts(p, l, s, this.contactTypeFilter || undefined),
+        getFn: (p, l, s) => this.admin.getContacts(p, l, s, this.contactTypeFilter || undefined, Number(this.branchFilter) || null),
         statusFn: (id, status) => this.admin.updateContactStatus(id, status),
         statusOptions: ['New', 'InProgress', 'Resolved'],
         deleteFn: (id) => this.admin.deleteContact(id),
@@ -5247,10 +5257,12 @@ export class Manage implements OnInit {
   readonly showAddInquiry = signal(false);
   readonly addInquirySaving = signal(false);
   readonly addInquiryError = signal('');
-  addInquiry = { type: 'WalkIn' as 'WalkIn' | 'Reference', referenceName: '', fullName: '', phone: '', email: '', notes: '' };
+  addInquiry = { type: 'WalkIn' as 'WalkIn' | 'Reference', referenceName: '', fullName: '', phone: '', email: '', notes: '',
+    locationId: null as number | null };
   openAddInquiry() {
-    this.addInquiry = { type: 'WalkIn', referenceName: this.myDisplayName(), fullName: '', phone: '', email: '', notes: '' };
+    this.addInquiry = { type: 'WalkIn', referenceName: this.myDisplayName(), fullName: '', phone: '', email: '', notes: '', locationId: null };
     this.addInquiryError.set('');
+    this.ensureItemBranches();
     this.showAddInquiry.set(true);
   }
 
@@ -5258,6 +5270,8 @@ export class Manage implements OnInit {
     if (this.addInquirySaving()) return;
     const f = this.addInquiry;
     const fail = (msg: string) => { this.addInquiryError.set(msg); };
+    const branch = this.chosenItemBranch(f.locationId);
+    if (!branch) return fail(this.itemBranchesMissing ? this.itemBranchesMissingText : 'Choose the branch.');
     if (f.type === 'Reference' && !f.referenceName.trim()) return fail('Enter who referred this customer.');
     if (!f.fullName.trim()) return fail('Enter the customer\'s full name.');
     if (!f.email.trim()) return fail('Enter the customer\'s email.');
@@ -5270,7 +5284,8 @@ export class Manage implements OnInit {
     this.admin.createTourInquiry({
       fullName: f.fullName.trim(), email: f.email.trim(),
       phone: f.phone.trim() || null, message: f.notes.trim() || null,
-      inquiryType: f.type, referenceName: f.type === 'Reference' ? f.referenceName.trim() : null
+      inquiryType: f.type, referenceName: f.type === 'Reference' ? f.referenceName.trim() : null,
+      locationId: branch.id
     }).pipe(timeout(30000)).subscribe({
       next: () => {
         this.addInquirySaving.set(false);
@@ -5288,38 +5303,48 @@ export class Manage implements OnInit {
   }
 
   // New complaint (its own popup). Same API call, payload and rules as the generic Complaints form it replaces:
-  // createFn (POST api/complaints) with the fields that were filled in (+ locationId for a location-bound user),
-  // phone optional but valid when given; category and description required (the API rejects them empty).
+  // createFn (POST api/complaints) with the fields that were filled in, phone optional but valid when given;
+  // category and description required (the API rejects them empty). The branch is required too: its name
+  // (WN_Complaints.Branch) and its location id are both sent.
   readonly showAddComplaint = signal(false);
   readonly addComplaintSaving = signal(false);
   readonly addComplaintError = signal('');
   /** Set by the first Save: from then on the required fields show their message inline. */
   readonly addComplaintTried = signal(false);
-  addComplaint = { customerName: '', phoneNumber: '', email: '', branch: '', category: '', description: '' };
+  addComplaint = { customerName: '', phoneNumber: '', email: '', category: '', description: '' };
+  /** The branch picked in the dropdown (unused when the user has one location: it is fixed to that). */
+  addComplaintLocationId: number | null = null;
 
-  /** Branch / category choices: the Complaints form config (categories match the WhatsApp bot's list). */
-  complaintOptions(key: 'branch' | 'category'): { v: string; l: string }[] {
+  /** Category choices: the Complaints form config (they match the WhatsApp bot's list). */
+  complaintOptions(key: 'category'): { v: string; l: string }[] {
     return (this.config().fields || []).find(f => f.key === key)?.options ?? [];
   }
 
   openAddComplaint() {
-    this.addComplaint = { customerName: '', phoneNumber: '', email: '', branch: '', category: '', description: '' };
+    this.addComplaint = { customerName: '', phoneNumber: '', email: '', category: '', description: '' };
+    this.addComplaintLocationId = null;
     this.addComplaintError.set('');
     this.addComplaintTried.set(false);
+    this.ensureItemBranches();
     this.showAddComplaint.set(true);
   }
 
   /** Asks before throwing away what was typed (as the generic form did). */
   closeAddComplaint() {
     if (this.addComplaintSaving()) return;
-    const dirty = Object.values(this.addComplaint).some(v => v.trim() !== '');
+    const dirty = Object.values(this.addComplaint).some(v => v.trim() !== '')
+      || (!this.fixedItemBranch && this.addComplaintLocationId != null);
     this.requestDiscardableClose(dirty, () => this.showAddComplaint.set(false));
   }
 
-  complaintFieldError(key: 'phoneNumber' | 'category' | 'description'): string | null {
+  complaintFieldError(key: 'phoneNumber' | 'branch' | 'category' | 'description'): string | null {
     const f = this.addComplaint;
     if (key === 'phoneNumber') return phoneError(f.phoneNumber, false);
     if (!this.addComplaintTried()) return null;
+    if (key === 'branch') {
+      if (this.chosenItemBranch(this.addComplaintLocationId)) return null;
+      return this.itemBranchesMissing ? this.itemBranchesMissingText : 'Choose the branch.';
+    }
     if (key === 'category') return f.category.trim() ? null : 'Choose the complaint category.';
     return f.description.trim() ? null : 'Describe the issue.';
   }
@@ -5328,12 +5353,14 @@ export class Manage implements OnInit {
     if (this.addComplaintSaving()) return;
     this.addComplaintTried.set(true);
     this.addComplaintError.set('');
-    if (this.complaintFieldError('phoneNumber') || this.complaintFieldError('category') || this.complaintFieldError('description')) return;
+    if (this.complaintFieldError('phoneNumber') || this.complaintFieldError('branch')
+      || this.complaintFieldError('category') || this.complaintFieldError('description')) return;
+    const branch = this.chosenItemBranch(this.addComplaintLocationId);
+    if (!branch) return;
 
-    // Same body as before: only the fields that were filled in, as typed (the API trims them).
-    const payload: any = {};
-    const boundLoc = this.userLocationId;
-    if (this.isLocationBound && boundLoc) payload.locationId = boundLoc;
+    // Same body as before: only the fields that were filled in, as typed (the API trims them),
+    // plus the branch: its name (saved in WN_Complaints.Branch) and its location id.
+    const payload: any = { branch: branch.name, locationId: branch.id };
     for (const [k, v] of Object.entries(this.addComplaint)) if (v !== '') payload[k] = v;
 
     this.addComplaintSaving.set(true);
@@ -5399,6 +5426,145 @@ export class Manage implements OnInit {
             : err?.error?.message || `Could not save the type${err?.status ? ` (error ${err.status})` : ''}.`);
         }
       });
+  }
+
+  // ---------- Branch of tour inquiries and complaints ----------
+  // Each inquiry / complaint belongs to a branch (dbo.WN_Locations); the API shows staff tied to locations only their
+  // branches' items plus the ones with no branch. Staff set or change the branch from the list.
+
+  /**
+   * Branches this user works with, from the database (GET api/location/all: the active locations; the API already
+   * limits a location-bound user to their own). Used by the list filter, the branch popup and the add forms.
+   */
+  readonly itemBranches = signal<{ id: number; name: string }[]>([]);
+  readonly itemBranchesState = signal<'idle' | 'loading' | 'ready'>('idle');
+  /** List filter: '' = every branch the user sees, else a location id. */
+  branchFilter = '';
+
+  private loadItemBranches() {
+    this.itemBranchesState.set('loading');
+    this.contactSvc.getLocations().subscribe(rows => {
+      const own = this.isLocationBound ? new Set(this.myLocationIds) : null;
+      this.itemBranches.set(own?.size ? rows.filter(r => own.has(r.id)) : rows);
+      this.itemBranchesState.set('ready');
+    });
+  }
+
+  /** Loads the branches again when an earlier load failed (an add form is being opened). */
+  private ensureItemBranches() {
+    if (this.itemBranchesState() !== 'loading' && !this.itemBranches().length) this.loadItemBranches();
+  }
+
+  /** The filter is only worth showing when the user sees more than one branch. */
+  get showBranchFilter(): boolean {
+    return this.itemBranches().length > 1;
+  }
+
+  /** A location-bound user with one location: their branch is fixed in the add forms (shown, not changeable). */
+  get fixedItemBranch(): { id: number; name: string } | null {
+    const list = this.itemBranches();
+    return this.isLocationBound && list.length === 1 ? list[0] : null;
+  }
+
+  /** True once the branches were asked for and none came back (the add forms cannot be saved without one). */
+  get itemBranchesMissing(): boolean {
+    return this.itemBranchesState() === 'ready' && !this.itemBranches().length;
+  }
+  readonly itemBranchesMissingText = 'The branches could not be loaded. Close this form and open it again.';
+
+  /** The branch an add form saves with: the fixed one, else the one picked in the dropdown. */
+  private chosenItemBranch(pickedId: number | null): { id: number; name: string } | null {
+    return this.fixedItemBranch ?? this.itemBranches().find(b => b.id === Number(pickedId)) ?? null;
+  }
+
+  onBranchFilter(value: string) {
+    this.branchFilter = value || '';
+    this.page.set(1);
+    this.load();
+  }
+
+  /** The row's branch id: an inquiry's LocationId; a complaint's, else its Branch name matched to a location. */
+  itemBranchId(item: any): number | null {
+    if (item?.locationId) return Number(item.locationId);
+    const name = this.entity === 'complaints' ? String(item?.branch ?? '').trim().toLowerCase() : '';
+    return name ? this.itemBranches().find(b => b.name.trim().toLowerCase() === name)?.id ?? null : null;
+  }
+
+  /** The row's branch name ('' = no branch). */
+  itemBranchName(item: any): string {
+    const name = this.entity === 'complaints' ? item?.branch : item?.locationName;
+    if (name) return String(name);
+    const id = this.itemBranchId(item);
+    return id ? this.itemBranches().find(b => b.id === id)?.name ?? `Location ${id}` : '';
+  }
+
+  /** The pencil: shown when the row has no branch, or when the user has another branch to move it to. */
+  canSetItemBranch(item: any): boolean {
+    const list = this.itemBranches();
+    const current = this.itemBranchId(item);
+    return list.length > 1 || (list.length === 1 && list[0].id !== current);
+  }
+
+  /** Popup header: "Complaint # · customer · phone" / the inquiry's "name · phone". */
+  itemBranchLine(item: any): string {
+    if (this.entity !== 'complaints') return this.inquiryContactLine(item);
+    const clean = (v: any) => (v && v !== '-' ? String(v).trim() : '');
+    return [clean(item?.complaintNo), clean(item?.customerName), clean(item?.phoneNumber)].filter(Boolean).join(' · ');
+  }
+
+  readonly showItemBranch = signal(false);
+  readonly itemBranchSaving = signal(false);
+  readonly itemBranchError = signal('');
+  itemBranchItem: any = null;
+  itemBranchValue: number | null = null;
+
+  openItemBranch(item: any) {
+    this.itemBranchItem = item;
+    const current = this.itemBranchId(item);
+    const list = this.itemBranches();
+    this.itemBranchValue = current ?? (list.length === 1 ? list[0].id : null);
+    this.itemBranchError.set('');
+    this.showItemBranch.set(true);
+  }
+
+  closeItemBranch() {
+    if (!this.itemBranchSaving()) this.showItemBranch.set(false);
+  }
+
+  saveItemBranch() {
+    const item = this.itemBranchItem;
+    const locationId = Number(this.itemBranchValue) || 0;
+    if (this.itemBranchSaving() || !item) return;
+    if (!locationId) { this.itemBranchError.set('Choose the branch.'); return; }
+    if (locationId === this.itemBranchId(item)) { this.showItemBranch.set(false); return; }
+
+    const isInquiry = this.entity === 'contacts';
+    const key = isInquiry ? (item.publicId ?? item.PublicId) : (item.id ?? item.Id);
+    if (!key) { this.itemBranchError.set(`This ${isInquiry ? 'inquiry' : 'complaint'} could not be identified. Refresh the page and try again.`); return; }
+    const request = isInquiry
+      ? this.admin.updateContactLocation(String(key), locationId)
+      : this.admin.updateComplaintBranch(Number(key), locationId);
+
+    this.itemBranchSaving.set(true);
+    this.itemBranchError.set('');
+    request.pipe(timeout(30000)).subscribe({
+      next: (res: any) => {
+        this.itemBranchSaving.set(false);
+        if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false)) {
+          this.itemBranchError.set(res.message || 'The branch could not be saved.');
+          return;
+        }
+        this.showItemBranch.set(false);
+        this.showSuccess(isInquiry ? 'Location saved.' : 'Branch saved.');
+        this.load();
+      },
+      error: (err: any) => {
+        this.itemBranchSaving.set(false);
+        this.itemBranchError.set(err?.name === 'TimeoutError'
+          ? 'The server did not answer. Check your connection and try again.'
+          : err?.error?.message || `Could not save the branch${err?.status ? ` (error ${err.status})` : ''}.`);
+      }
+    });
   }
 
   // ---------- Tour inquiry feedback ----------

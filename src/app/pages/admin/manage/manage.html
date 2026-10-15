@@ -99,6 +99,8 @@
           style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px">&times;</button>
         }
       </div>
+      @if (entity === 'contacts' || entity === 'complaints') {
+      <div class="toolbar-filters">
       @if (entity === 'contacts') {
       <label class="page-size-wrap type-filter">
         <span>Type</span>
@@ -109,6 +111,21 @@
           }
         </select>
       </label>
+      }
+      @if (showBranchFilter) {
+      <!-- Only when the user sees more than one branch (the API scopes the list to theirs). -->
+      <label class="page-size-wrap type-filter">
+        <span>{{ entity === 'contacts' ? 'Location' : 'Branch' }}</span>
+        <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)"
+          [attr.aria-label]="entity === 'contacts' ? 'Filter by location' : 'Filter by branch'">
+          <option value="">{{ entity === 'contacts' ? 'All locations' : 'All branches' }}</option>
+          @for (b of itemBranches(); track b.id) {
+          <option [value]="b.id">{{ b.name }}</option>
+          }
+        </select>
+      </label>
+      }
+      </div>
       }
       <div class="toolbar-right">
         <label class="page-size-wrap">
@@ -179,6 +196,27 @@
               }
               @if (item.subject && !isTourSubject(item.subject)) {
               <small class="type-ref">{{ item.subject }}</small>
+              }
+              } @else if ((entity === 'contacts' && col.key === 'locationName') || (entity === 'complaints' && col.key === 'branch')) {
+              <!-- The branch and a pencil to set / change it (opens the branch popup). No branch = seen by every branch. -->
+              @let branchName = itemBranchName(item);
+              @if (canSetItemBranch(item)) {
+              <button type="button" class="type-edit" (click)="openItemBranch(item)"
+                [attr.aria-label]="branchName ? 'Change branch: ' + branchName : 'Set branch'">
+                @if (branchName) {
+                <span class="type-pill branch-pill">{{ branchName }}</span>
+                } @else {
+                <span class="type-pill type-unset">No branch</span>
+                }
+                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
+                </svg>
+              </button>
+              } @else if (branchName) {
+              <span class="type-pill branch-pill">{{ branchName }}</span>
+              } @else {
+              <span class="type-pill type-unset">No branch</span>
               }
               } @else if (col.type === 'image') {
               <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
@@ -4425,6 +4463,7 @@
     @case ('type') { <path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z" /><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /> }
     @case ('close') { <path d="M18 6 6 18" /><path d="m6 6 12 12" /> }
     @case ('complaint') { <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 7v3" /><path d="M12 13h.01" /> }
+    @case ('branch') { <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" /> }
     }
   </svg>
 </ng-template>
@@ -4462,6 +4501,28 @@
         </div>
       </fieldset>
 
+      <div class="inq-field">
+        @if (fixedItemBranch; as fb) {
+        <label for="inqBranch">Branch</label>
+        <input id="inqBranch" class="form-input-admin" type="text" [value]="fb.name" readonly />
+        <small class="inq-hint">Your location. The inquiry goes to its staff.</small>
+        } @else {
+        <label for="inqBranch">Branch <span class="req">*</span></label>
+        <select id="inqBranch" class="form-input-admin" name="addInqBranch" [(ngModel)]="addInquiry.locationId"
+          [disabled]="itemBranchesState() === 'loading'">
+          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a branch' }}</option>
+          @for (b of itemBranches(); track b.id) {
+          <option [ngValue]="b.id">{{ b.name }}</option>
+          }
+        </select>
+        @if (itemBranchesMissing) {
+        <small class="field-error-text">{{ itemBranchesMissingText }}</small>
+        } @else {
+        <small class="inq-hint">The inquiry goes to this branch's staff.</small>
+        }
+        }
+      </div>
+
       @if (addInquiry.type === 'Reference') {
       <div class="inq-field">
         <label for="inqRefName">Referred by <span class="req">*</span></label>
@@ -4491,7 +4552,7 @@
       <div class="inq-field">
         <label for="inqNotes">Notes</label>
         <textarea id="inqNotes" class="form-input-admin" rows="3" maxlength="1000" name="addInqNotes"
-          [(ngModel)]="addInquiry.notes" placeholder="What they are looking for, seats, preferred branch..."></textarea>
+          [(ngModel)]="addInquiry.notes" placeholder="What they are looking for, seats, budget..."></textarea>
       </div>
 
       @if (addInquiryError()) {
@@ -4553,6 +4614,55 @@
       <button type="button" class="btn-admin btn-outline-admin" (click)="showContactType.set(false)">Cancel</button>
       <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactType()" [disabled]="contactTypeSaving()">
         {{ contactTypeSaving() ? 'Saving…' : 'Save type' }}
+      </button>
+    </footer>
+  </div>
+</div>
+}
+
+<!-- Set / change the branch of an inquiry or a complaint -->
+@if (showItemBranch() && itemBranchItem; as bi) {
+<div class="modal-overlay" (click)="closeItemBranch()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="itemBranchTitle" (click)="$event.stopPropagation()">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
+      <div>
+        <h2 id="itemBranchTitle">{{ entity === 'contacts' ? 'Inquiry location' : 'Complaint branch' }}</h2>
+        <p>{{ itemBranchLine(bi) }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeItemBranch()" [disabled]="itemBranchSaving()" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Which branch should handle it?</legend>
+        <div class="inq-choice-grid two">
+          @for (b of itemBranches(); track b.id) {
+          <label class="inq-choice teal" [class.selected]="itemBranchValue === b.id">
+            <input type="radio" name="itemBranch" [value]="b.id" [(ngModel)]="itemBranchValue" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
+            <span class="inq-choice-text">
+              <strong>{{ b.name }}</strong>
+              @if (itemBranchId(bi) === b.id) { <small>Current branch</small> }
+            </span>
+          </label>
+          }
+        </div>
+      </fieldset>
+      @if (!itemBranchId(bi)) {
+      <p class="inq-note">Without a branch, the staff of every branch see it. Once set, it goes to that branch's staff.</p>
+      }
+      @if (itemBranchError()) {
+      <p class="inq-error" role="alert">{{ itemBranchError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeItemBranch()" [disabled]="itemBranchSaving()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveItemBranch()" [disabled]="itemBranchSaving() || !itemBranchValue">
+        {{ itemBranchSaving() ? 'Saving…' : 'Save branch' }}
       </button>
     </footer>
   </div>
@@ -4661,23 +4771,35 @@
           <small class="field-error-text">{{ msg }}</small>
           }
         </div>
-        <div class="inq-field">
+        <div class="inq-field inq-span">
           <label for="cmpEmail">Email</label>
           <input id="cmpEmail" class="form-input-admin" type="email" maxlength="256" name="cmpEmail"
             [(ngModel)]="addComplaint.email" autocomplete="off" />
         </div>
-        <div class="inq-field">
-          <label for="cmpBranch">Branch</label>
-          <select id="cmpBranch" class="form-input-admin" name="cmpBranch" [(ngModel)]="addComplaint.branch">
-            <option value="">Not specified</option>
-            @for (o of complaintOptions('branch'); track o.v) {
-            <option [value]="o.v">{{ o.l }}</option>
-            }
-          </select>
-        </div>
       </div>
 
       <div class="inq-section">Complaint</div>
+      <div class="inq-field">
+        @if (fixedItemBranch; as fb) {
+        <label for="cmpBranch">Branch</label>
+        <input id="cmpBranch" class="form-input-admin" type="text" [value]="fb.name" readonly />
+        <small class="inq-hint">Your location. The complaint goes to its staff.</small>
+        } @else {
+        <label for="cmpBranch">Branch <span class="req">*</span></label>
+        <select id="cmpBranch" class="form-input-admin" name="cmpBranch" [(ngModel)]="addComplaintLocationId"
+          [disabled]="itemBranchesState() === 'loading'" [class.input-invalid]="!!complaintFieldError('branch')">
+          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a branch' }}</option>
+          @for (b of itemBranches(); track b.id) {
+          <option [ngValue]="b.id">{{ b.name }}</option>
+          }
+        </select>
+        @if (complaintFieldError('branch'); as msg) {
+        <small class="field-error-text">{{ msg }}</small>
+        } @else if (itemBranchesMissing) {
+        <small class="field-error-text">{{ itemBranchesMissingText }}</small>
+        }
+        }
+      </div>
       <fieldset class="inq-field">
         <legend>Category <span class="req">*</span></legend>
         <div class="inq-chips" [class.invalid]="!!complaintFieldError('category')">
