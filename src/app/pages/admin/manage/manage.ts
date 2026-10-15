@@ -21,6 +21,7 @@ import { catchError } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso } from '../../../utils/dates';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
+import { InquiryRef, inquiryKey, inquiryRef, inquiryRefParam, inquirySource, parseInquiryRefParam } from '../../../utils/inquiry-ref';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -3122,6 +3123,13 @@ export class Manage implements OnInit {
               followUpDue: !!(c.followUpDue ?? c.FollowUpDue),
               quotationId: c.quotationId ?? c.QuotationId ?? null,
               publicId: c.publicId ?? c.PublicId ?? null,
+              // Old website bookings (WN_BookTour) and newer inquiries (WN_Contacts) can have the same id: the row is
+              // tracked by its key and written by public id (or id + source); only WN_Contacts rows can be changed.
+              source: inquirySource(c),
+              rowKey: inquiryKey(c),
+              canChangeBranch: (c.canChangeBranch ?? c.CanChangeBranch) ?? inquirySource(c) === 'contact',
+              canChangeType: (c.canChangeType ?? c.CanChangeType) ?? inquirySource(c) === 'contact',
+              isNew: c.isNew ?? c.IsNew ?? null,
               inquiryType: c.inquiryType ?? c.InquiryType ?? null,
               referenceName: c.referenceName ?? c.ReferenceName ?? null,
               locationId: Number(c.locationId ?? c.LocationId) || null,
@@ -4337,7 +4345,7 @@ export class Manage implements OnInit {
 
   deleteItem(item: any) {
     if (!confirm('Delete this item?')) return;
-    const id = item.bookingId ?? item.idGuid ?? item.idGUID ?? item.id;
+    const id = this.entity === 'contacts' ? inquiryRef(item) : item.bookingId ?? item.idGuid ?? item.idGUID ?? item.id;
     this.config().deleteFn!(id).subscribe({
       next: () => this.load(),
       error: (e: any) => this.showError(e?.error?.message ?? e?.error?.ErrorMessage ?? e?.message ?? 'Failed to delete item.')
@@ -4384,6 +4392,8 @@ export class Manage implements OnInit {
       revert();
       return;
     }
+    // Tour inquiries: by public id (or id + source), never by the id alone (two inquiries can share it).
+    const target: any = this.entity === 'contacts' ? inquiryRef(item) : rawId;
 
     // WN_BookingStatuses: 3 Rejected, 5 Pending, 6 No Show, 33 Confirmed, 86 Cancelled
     const bookingStatusMap: Record<string, number> = {
@@ -4425,7 +4435,7 @@ export class Manage implements OnInit {
 
     const statusFn = this.config().statusFn;
     if (statusFn) {
-      statusFn(rawId, statusId).subscribe({
+      statusFn(target, statusId).subscribe({
         next: (res: any) => {
           if (res && (res.isSuccessful === false || res.isSuccess === false || res.success === false || res.hasError)) {
             const err = res.message || res.errorMessage || res.error || 'Server rejected status update';
@@ -5088,9 +5098,9 @@ export class Manage implements OnInit {
           referenceName: d.inquiryType === 'Reference' ? (d.referenceName || '').trim() || null : null
         }),
         getFn: (p, l, s) => this.admin.getContacts(p, l, s, this.contactTypeFilter || undefined, Number(this.branchFilter) || null),
-        statusFn: (id, status) => this.admin.updateContactStatus(id, status),
+        statusFn: (ref: InquiryRef, status) => this.admin.updateContactStatus(ref, status),
         statusOptions: ['New', 'InProgress', 'Resolved'],
-        deleteFn: (id) => this.admin.deleteContact(id),
+        deleteFn: (ref: InquiryRef) => this.admin.deleteContact(ref),
       };
 
       case 'quotation-responses': return {
@@ -5501,6 +5511,8 @@ export class Manage implements OnInit {
 
   /** The pencil: shown when the row has no branch, or when the user has another branch to move it to. */
   canSetItemBranch(item: any): boolean {
+    // Old website bookings (WN_BookTour) can't get a branch until QA_05 copies them (the API's canChangeBranch).
+    if (this.entity === 'contacts' && item?.canChangeBranch === false) return false;
     const list = this.itemBranches();
     const current = this.itemBranchId(item);
     return list.length > 1 || (list.length === 1 && list[0].id !== current);
@@ -5577,7 +5589,7 @@ export class Manage implements OnInit {
   contactFeedbackReason = '';
   contactFeedbackDate = '';
   /** Inquiry being converted: set when Create Quotation is opened from it, linked when the quotation is saved. */
-  private pendingInquiryId: number | null = null;
+  private pendingInquiryId: InquiryRef | null = null;
 
   contactFeedbackText(item: any): string {
     const fmt = (d: string) => { const x = new Date(d + 'T00:00:00'); return isNaN(x.getTime()) ? d : x.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); };
@@ -5599,9 +5611,10 @@ export class Manage implements OnInit {
   /** Public ids of the inquiries whose WhatsApp message is being fetched. */
   readonly whatsAppBusy = signal<ReadonlySet<string>>(new Set());
 
-  /** True when the inquiry has a phone number (the list shows "-" when there is none). */
+  /** True when the inquiry has a real phone number (the list shows "-" when there is none). */
   hasInquiryPhone(item: any): boolean {
-    return /\d/.test(String(item?.phone ?? ''));
+    // The API's phone rule: old website bookings can hold other text there ("Tour: 2026-06-26 02:").
+    return isValidPhone(String(item?.phone ?? '').trim());
   }
 
   isWhatsAppBusy(item: any): boolean {
@@ -5659,19 +5672,26 @@ export class Manage implements OnInit {
 
   saveContactFeedback() {
     const item = this.contactFeedbackItem;
-    // Number id when the list has it; otherwise the inquiry's public id (some databases return only that).
-    const id: number | string = Number(item?.id ?? item?.Id ?? item?.contactId ?? item?.ContactId) || (item?.publicId ?? item?.PublicId ?? '');
+    // By public id (unique), or id + source for an old row without one: an old website booking and a newer
+    // inquiry can have the same id.
+    const ref = inquiryRef(item);
     if (this.contactFeedbackSaving()) return;
-    if (!id) { this.contactFeedbackError.set('This inquiry could not be identified. Refresh the page and try again.'); return; }
+    if (!ref.publicId && !ref.id) { this.contactFeedbackError.set('This inquiry could not be identified. Refresh the page and try again.'); return; }
     const outcome = this.contactFeedbackOutcome;
     if (!outcome) { this.contactFeedbackError.set('Choose an option.'); return; }
+    if (outcome === 'converted' && item?.feedbackOutcome === 'converted') {
+      this.contactFeedbackError.set(item.quotationId
+        ? `This inquiry was already converted to quotation #${item.quotationId}.`
+        : 'This inquiry was already converted to a quotation.');
+      return;
+    }
     if (outcome === 'not_interested' && !this.contactFeedbackReason.trim()) { this.contactFeedbackError.set('Enter the reason.'); return; }
     if (outcome === 'future_prospect' && !this.contactFeedbackDate) { this.contactFeedbackError.set('Choose the follow-up date.'); return; }
     if (outcome === 'converted') { this.startQuotationFromInquiry(item); return; }
 
     this.contactFeedbackSaving.set(true);
     this.contactFeedbackError.set('');
-    this.admin.saveContactFeedback(id, {
+    this.admin.saveContactFeedback(ref, {
       outcome,
       reason: this.contactFeedbackReason.trim() || null,
       followUpOn: outcome === 'future_prospect' ? this.contactFeedbackDate : null
@@ -5696,7 +5716,7 @@ export class Manage implements OnInit {
     this.showContactFeedback.set(false);
     this.router.navigate(['/admin/quotations'], {
       queryParams: {
-        fromInquiry: item.id ?? item.Id,
+        fromInquiry: inquiryRefParam(inquiryRef(item)),
         name: item.fullName && item.fullName !== '-' ? item.fullName : null,
         email: item.email && item.email !== '-' ? item.email : null
       }
@@ -5706,7 +5726,7 @@ export class Manage implements OnInit {
   /** Called on the Quotations page: if opened from an inquiry, open Create Quotation prefilled. */
   private openQuotationFromInquiryParams() {
     const qp = this.route.snapshot.queryParamMap;
-    const inquiryId = Number(qp.get('fromInquiry'));
+    const inquiryId = parseInquiryRefParam(qp.get('fromInquiry'));
     if (!inquiryId) return;
     this.openAdminQuotationForm();
     this.pendingInquiryId = inquiryId;   // after opening: a form opened any other way is not linked

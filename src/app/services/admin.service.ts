@@ -14,8 +14,9 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { InquiryRef, inquiryPath } from '../utils/inquiry-ref';
 import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
@@ -371,7 +372,12 @@ export class AdminService {
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
-  updateContactStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status`, { statusId }); }
+  /** Status of one inquiry, by its public id (or id + source: old rows can share an id, see utils/inquiry-ref). */
+  updateContactStatus(ref: InquiryRef, statusId: number): Observable<ApiResponse<any>> {
+    const path = inquiryPath(ref, 'status');
+    if (!path) return throwError(() => ({ error: { message: 'This inquiry could not be identified. Refresh the page and try again.' } }));
+    return this.http.patch<ApiResponse<any>>(`${this.api}/${path}`, { statusId });
+  }
   // Complaints (WhatsApp chatbot + entered by staff)
   /** locationId: one branch (empty = every branch the user sees). */
   getComplaints(page?: number, limit?: number, search?: string, locationId?: number | null): Observable<any> {
@@ -390,8 +396,10 @@ export class AdminService {
     return this.http.patch<ApiResponse<any>>(`${this.api}/complaints/${id}/status`, { status });
   }
   /** Feedback on a tour inquiry: not_interested (reason) | future_prospect (followUpOn yyyy-MM-dd) | converted (quotationId). */
-  saveContactFeedback(id: number | string, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(String(id))}/feedback`, data);
+  saveContactFeedback(ref: InquiryRef, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
+    const path = inquiryPath(ref, 'feedback');
+    if (!path) return throwError(() => ({ error: { message: 'This inquiry could not be identified. Refresh the page and try again.' } }));
+    return this.http.post<ApiResponse<any>>(`${this.api}/${path}`, data);
   }
   /** Tour inquiry entered by staff: Type WalkIn or Reference (referenceName empty = the staff member). */
   createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null;
@@ -406,7 +414,11 @@ export class AdminService {
   updateContactInquiryType(publicId: string, data: { inquiryType: string; referenceName?: string | null }): Observable<ApiResponse<any>> {
     return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(publicId)}/inquiry-type`, data);
   }
-  deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
+  deleteContact(ref: InquiryRef): Observable<ApiResponse<any>> {
+    const path = inquiryPath(ref, '');
+    if (!path) return throwError(() => ({ error: { message: 'This inquiry could not be identified. Refresh the page and try again.' } }));
+    return this.http.delete<ApiResponse<any>>(`${this.api}/${path}`);
+  }
 
   // Floors
   getFloors(locationId?: number): Observable<ApiResponse<any[]>> {
