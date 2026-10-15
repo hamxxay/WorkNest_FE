@@ -256,6 +256,11 @@
   flex: 1;
   overflow-y: auto;
   background: #f8fafc;
+  /* The scroll box is the containing block for absolutely positioned content. Without it such an element
+     (e.g. a dashboard's screen-reader live region at the end of the page) is placed against the page itself,
+     escapes this scroll box and makes the whole window scrollable: in Safari the sidebar and content
+     scroll away and leave a blank area. */
+  position: relative;
 }
 
 /* Sidebar user block: one tidy row — avatar, name + role, logout icon */
