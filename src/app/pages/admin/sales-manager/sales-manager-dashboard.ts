@@ -7,16 +7,27 @@ import {
 } from '../../../services/sales-manager.service';
 import { CeoDrawer } from '../ceo/ceo-drawer/ceo-drawer';
 import {
-  AXIS_MONEY, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
-  applyChartDefaults, count, firstNameOf, fullMoney, greetingNow, inquiryTypeKey, money, monthLong, monthShort, pct,
-  periodWord, pointerOnHover, ratio, trend
+  Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP, Trend,
+  applyChartDefaults, count, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort, pct, periodWord,
+  pointerOnHover, ratio, trend
 } from '../ceo/ceo-shared';
-import { SM_METRICS, SmDrillLevel } from './sales-manager-drill';
+import { SM_METRICS, SmDrillLevel, desks } from './sales-manager-drill';
 
-type ChartKey = 'funnel' | 'inquiries' | 'revenue' | 'expiring';
+type ChartKey = 'funnel' | 'inquiries' | 'desks';
 
-/** Same y-axis width on the stacked revenue / expiring charts, so their months line up. */
-const Y_AXIS_WIDTH = (scale: any) => { scale.width = 52; };
+/** A KPI card; `unit` follows the figure in smaller type when the label does not say what it counts ("6 desks"). */
+interface SmKpi extends DashKpi { unit?: string; }
+
+/** "+85", "-3", "0" (net desks). */
+function signed(n: number): string {
+  return n > 0 ? `+${count(n)}` : n < 0 ? `-${count(-n)}` : '0';
+}
+
+/** Change in desks vs the previous period ("12 desks" up / down). */
+function deskTrend(now: number, prev: number): Trend | null {
+  const t = trend(now, prev, 'n');
+  return t && t.dir !== 'flat' ? { ...t, text: desks(Math.abs(now - prev)) } : t;
+}
 
 /** The inquiry types of the stacked chart, in the Tour Inquiries order, with the month field each one reads. */
 const INQUIRY_SERIES: { key: string; field: Exclude<keyof SmInquiryMonth, 'month'> }[] = [
@@ -25,6 +36,12 @@ const INQUIRY_SERIES: { key: string; field: Exclude<keyof SmInquiryMonth, 'month
   { key: 'walkin', field: 'walkIn' },
   { key: 'reference', field: 'reference' },
   { key: 'notset', field: 'notSet' }
+];
+
+/** Desks booked & desks ending by month: teal for booked, amber for ending (as the lease pills). */
+const DESK_SERIES = [
+  { field: 'bookedDesks' as const, label: 'Desks booked', color: TEAL, hover: TEAL_DARK },
+  { field: 'endingDesks' as const, label: 'Desks ending', color: '#fcd34d', hover: '#f59e0b' }
 ];
 
 /** Funnel chart series (counts): light to dark teal, as the funnel stages. */
@@ -38,7 +55,8 @@ const FUNNEL_SERIES = [
  * Sales dashboard (/admin/sales-manager): the Sales Manager's funnel, team, tour inquiries and renewals for this
  * month / quarter / year, all their locations or one (super admins: every location). Tour inquiries have no
  * location, so that section always covers every branch. Every chart and list drills down in the shared side
- * drawer (breakdown, then records). Read-only. Data: GET api/sales-manager/dashboard.
+ * drawer (breakdown, then records). Read-only, and no money anywhere: sales are counted in desks.
+ * Data: GET api/sales-manager/dashboard.
  */
 @Component({
   selector: 'app-sales-manager-dashboard',
@@ -53,8 +71,7 @@ export class SalesManagerDashboard {
   private auth = inject(AuthService);
   private host = inject(ElementRef<HTMLElement>);
 
-  readonly money = money;
-  readonly fullMoney = fullMoney;
+  readonly desks = desks;
   readonly pct = pct;
   readonly count = count;
   readonly monthLong = monthLong;
@@ -85,7 +102,8 @@ export class SalesManagerDashboard {
     metrics: SM_METRICS,
     breakdown: (metric, params) => this.sm.getBreakdown(metric as SmMetric, params),
     records: (kind, params) => this.sm.getRecords(kind as SmRecordKind, params),
-    describeError: err => SalesManagerService.describeError(err)
+    describeError: err => SalesManagerService.describeError(err),
+    desks: true
   };
 
   /** Every location seen so far (the list stays complete while one location is selected). */
@@ -100,8 +118,7 @@ export class SalesManagerDashboard {
 
   private funnelCanvas = viewChild<ElementRef<HTMLCanvasElement>>('funnelCanvas');
   private inquiriesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('inquiriesCanvas');
-  private revenueCanvas = viewChild<ElementRef<HTMLCanvasElement>>('revenueCanvas');
-  private expiringCanvas = viewChild<ElementRef<HTMLCanvasElement>>('expiringCanvas');
+  private desksCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desksCanvas');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -196,7 +213,7 @@ export class SalesManagerDashboard {
     return this.f()?.stages.find(s => s.stage.toLowerCase() === key)?.count ?? 0;
   }
 
-  funnelKpis = computed<DashKpi[]>(() => {
+  funnelKpis = computed<SmKpi[]>(() => {
     const f = this.f();
     if (!f) return [];
     const w = this.word();
@@ -212,15 +229,15 @@ export class SalesManagerDashboard {
         action: () => this.focusPanel('panel-funnel'), actionLabel: 'Show the sales funnel'
       },
       {
-        key: 'quoted', label: `Quoted this ${w}`, value: money(f.quotedValue), full: fullMoney(f.quotedValue),
+        key: 'quoted', label: `Desks quoted this ${w}`, value: count(f.quotedDesks), full: desks(f.quotedDesks),
         sub: `${count(quotations)} quotation${quotations === 1 ? '' : 's'}`, tone: 'neutral',
         action: () => this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' }),
         actionLabel: 'Open the quotations'
       },
       {
-        key: 'booked', label: `Booked this ${w}`, value: money(f.bookedValue), full: fullMoney(f.bookedValue),
-        sub: `${money(f.bookedValuePrev)} last ${w}`, tone: 'neutral',
-        trend: trend(f.bookedValue, f.bookedValuePrev, '%'), vs: `vs last ${w}`,
+        key: 'booked', label: `Desks booked this ${w}`, value: count(f.bookedDesks), full: desks(f.bookedDesks),
+        sub: `${count(bookings)} booking${bookings === 1 ? '' : 's'}`, tone: 'neutral',
+        trend: trend(f.bookedDesks, f.bookedDesksPrev, '%'), vs: `vs ${desks(f.bookedDesksPrev)} last ${w}`,
         action: () => this.openRecords('Sales funnel', 'Bookings', 'bookings', {}), actionLabel: 'Open the bookings'
       }
     ];
@@ -247,7 +264,7 @@ export class SalesManagerDashboard {
     return {
       quotations: m.reduce((a, x) => a + x.quotations, 0),
       bookings: m.reduce((a, x) => a + x.bookings, 0),
-      value: m.reduce((a, x) => a + x.bookedValue, 0)
+      desks: m.reduce((a, x) => a + x.bookedDesks, 0)
     };
   });
   funnelTable = signal(false);
@@ -255,9 +272,9 @@ export class SalesManagerDashboard {
   // ---------- Team performance ----------
 
   t = computed(() => this.data()?.team ?? null);
-  /** Ranked by converted value (then conversions, then quotations). */
+  /** Ranked by desks sold (then conversions, then quotations, then name). */
   people = computed(() => [...(this.t()?.people ?? [])]
-    .sort((a, b) => b.convertedValue - a.convertedValue || b.converted - a.converted || b.quotations - a.quotations));
+    .sort((a, b) => b.desksSold - a.desksSold || b.converted - a.converted || b.quotations - a.quotations || a.name.localeCompare(b.name)));
   teamEmpty = computed(() => !(this.t()?.perLocation ?? []).length && !(this.t()?.people ?? []).length);
   teamFollowUps = computed(() => (this.t()?.people ?? []).reduce((a, p) => a + p.followUpsDue, 0));
 
@@ -265,7 +282,7 @@ export class SalesManagerDashboard {
 
   q = computed(() => this.data()?.inquiries ?? null);
 
-  inquiryKpis = computed<DashKpi[]>(() => {
+  inquiryKpis = computed<SmKpi[]>(() => {
     const q = this.q();
     if (!q) return [];
     const w = this.word();
@@ -309,42 +326,40 @@ export class SalesManagerDashboard {
     .sort((a, b) => b.followUpsDue - a.followUpsDue).slice(0, 5));
   followUpMax = computed(() => Math.max(1, ...this.peopleWithFollowUps().map(p => p.followUpsDue)));
 
-  // ---------- Renewals & revenue ----------
+  // ---------- Renewals & desks ----------
 
   r = computed(() => this.data()?.renewals ?? null);
-  /** Leases ending within 30 days. */
-  soon = computed(() => (this.r()?.expiring ?? []).filter(l => l.daysLeft <= 30));
 
-  renewalKpis = computed<DashKpi[]>(() => {
+  renewalKpis = computed<SmKpi[]>(() => {
     const r = this.r();
     if (!r) return [];
     const w = this.word();
-    const soon = this.soon();
-    const soonValue = soon.reduce((a, l) => a + l.monthlyAmount, 0);
+    const leases = (n: number) => `${count(n)} lease${n === 1 ? '' : 's'}`;
     return [
       {
-        key: 'expiring', label: 'Leases expiring', value: count(r.expiringCount),
-        sub: r.expiringCount ? `${money(r.expiringMonthlyValue)} a month · next 90 days` : 'None in the next 90 days',
-        full: r.expiringCount ? `${fullMoney(r.expiringMonthlyValue)} a month` : '',
+        key: 'expiring', label: 'Desks ending in 90 days', value: count(r.expiringDesks), full: desks(r.expiringDesks),
+        sub: r.expiringCount ? leases(r.expiringCount) : 'No leases end in the next 90 days',
         tone: r.expiringCount ? 'warn' : 'ok',
         action: () => this.focusPanel('panel-expiring'), actionLabel: 'Show the expiring leases'
       },
       {
-        key: 'soon', label: 'Ending within 30 days', value: count(soon.length),
-        sub: soon.length ? `${money(soonValue)} a month` : 'None in the next 30 days',
-        tone: soon.length ? 'danger' : 'ok',
+        key: 'soon', label: 'Ending within 30 days', value: count(r.expiring30Desks),
+        unit: r.expiring30Desks === 1 ? 'desk' : 'desks', full: desks(r.expiring30Desks),
+        sub: r.expiring30Count ? leases(r.expiring30Count) : 'No leases end in the next 30 days',
+        tone: r.expiring30Count ? 'danger' : 'ok',
         action: () => this.focusPanel('panel-expiring'), actionLabel: 'Show the expiring leases'
       },
       {
-        key: 'revenue', label: `New-booking revenue this ${w}`, value: money(r.newBookingRevenue), full: fullMoney(r.newBookingRevenue),
-        sub: `${money(r.newBookingRevenuePrev)} last ${w}`, tone: 'neutral',
-        trend: trend(r.newBookingRevenue, r.newBookingRevenuePrev, '%'), vs: `vs last ${w}`,
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        key: 'net', label: `Net desks this ${w}`, value: signed(r.netDesks), full: `${signed(r.netDesks)} desks`,
+        sub: `${count(r.bookedDesks)} booked, ${count(r.endedDesks)} ended`,
+        tone: r.netDesks < 0 ? 'warn' : 'neutral',
+        trend: deskTrend(r.netDesks, r.netDesksPrev), vs: `vs ${signed(r.netDesksPrev)} last ${w}`,
+        action: () => this.focusPanel('panel-desks'), actionLabel: 'Show desks booked and ending by month'
       }
     ];
   });
 
-  revenueChartEmpty = computed(() => !(this.r()?.months ?? []).some(m => m.newBookingRevenue > 0 || m.expiring > 0));
+  desksChartEmpty = computed(() => !(this.r()?.months ?? []).some(m => m.bookedDesks > 0 || m.endingDesks > 0 || m.expiring > 0));
   renewTable = signal(false);
 
   daysText(d: number): string {
@@ -400,9 +415,10 @@ export class SalesManagerDashboard {
       reason ? { outcome: 'not_interested', reason } : { outcome: 'not_interested' });
   }
 
-  openRevenueMonth(i: number) {
+  /** A month of the desks chart: desks booked and ending per location. */
+  openDesksMonth(i: number) {
     const m = this.r()?.months[i];
-    if (m) this.openDrill('New-booking revenue', { kind: 'breakdown', metric: 'revenue-month', params: { month: m.month }, crumb: monthLong(m.month) });
+    if (m) this.openDrill('Desks booked & ending', { kind: 'breakdown', metric: 'desks-month', params: { month: m.month }, crumb: monthLong(m.month) });
   }
 
   openRenewalsMonth(i: number) {
@@ -430,7 +446,7 @@ export class SalesManagerDashboard {
     count: () => this.f()?.months.length ?? 0,
     describe: i => {
       const x = this.f()?.months[i];
-      return x ? `${monthLong(x.month)}: ${x.quotations} quotations, ${x.accepted} accepted, ${x.bookings} bookings worth ${fullMoney(x.bookedValue)}. Press Enter for the locations.` : '';
+      return x ? `${monthLong(x.month)}: ${x.quotations} quotations, ${x.accepted} accepted, ${x.bookings} bookings, ${desks(x.bookedDesks)} booked. Press Enter for the locations.` : '';
     },
     pick: i => this.openFunnelMonth(i),
     announce: t => this.chartAnnounce.set(t)
@@ -449,25 +465,16 @@ export class SalesManagerDashboard {
     announce: t => this.chartAnnounce.set(t)
   });
 
-  readonly revenueNav = new ChartKeyNav({
-    charts: () => [this.charts.get('revenue')],
+  readonly desksNav = new ChartKeyNav({
+    charts: () => [this.charts.get('desks')],
     count: () => this.r()?.months.length ?? 0,
     describe: i => {
       const x = this.r()?.months[i];
-      return x ? `${monthLong(x.month)}: new-booking revenue ${fullMoney(x.newBookingRevenue)}. Press Enter for the locations.` : '';
+      return x
+        ? `${monthLong(x.month)}: ${desks(x.bookedDesks)} booked, ${desks(x.endingDesks)} ending (${x.expiring} lease${x.expiring === 1 ? '' : 's'}). Press Enter for the locations.`
+        : '';
     },
-    pick: i => this.openRevenueMonth(i),
-    announce: t => this.chartAnnounce.set(t)
-  });
-
-  readonly expiringNav = new ChartKeyNav({
-    charts: () => [this.charts.get('expiring')],
-    count: () => this.r()?.months.length ?? 0,
-    describe: i => {
-      const x = this.r()?.months[i];
-      return x ? `${monthLong(x.month)}: ${x.expiring} lease${x.expiring === 1 ? '' : 's'} ending. Press Enter for the locations.` : '';
-    },
-    pick: i => this.openRenewalsMonth(i),
+    pick: i => this.openDesksMonth(i),
     announce: t => this.chartAnnounce.set(t)
   });
 
@@ -498,7 +505,7 @@ export class SalesManagerDashboard {
     applyChartDefaults();
     const xAxis = { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } };
 
-    // Funnel: quotations, accepted and bookings per month (one count axis; the booked value is in the tooltip).
+    // Funnel: quotations, accepted and bookings per month (one count axis; the desks booked are in the tooltip).
     const fm = d.funnel?.months ?? [];
     this.upsert('funnel', this.funnelChartEmpty() ? undefined : this.funnelCanvas(), {
       type: 'bar',
@@ -524,7 +531,7 @@ export class SalesManagerDashboard {
                 const x = fm[items[0]?.dataIndex];
                 if (!x) return '';
                 const conv = x.quotations > 0 ? ` · conversion ${pct(ratio(x.bookings, x.quotations))}` : '';
-                return `Booked ${fullMoney(x.bookedValue)}${conv}\nClick for locations`;
+                return `${desks(x.bookedDesks)} booked${conv}\nClick for locations`;
               }
             }
           }
@@ -571,61 +578,37 @@ export class SalesManagerDashboard {
       }
     });
 
-    // Renewals & revenue: new-booking revenue (PKR) above, leases ending (count) below, on one time axis.
+    // Renewals & desks: desks booked and desks ending per month, side by side (the next 3 months show what ends).
     const rm = d.renewals?.months ?? [];
-    const empty = this.revenueChartEmpty();
-    this.upsert('revenue', empty ? undefined : this.revenueCanvas(), {
+    this.upsert('desks', this.desksChartEmpty() ? undefined : this.desksCanvas(), {
       type: 'bar',
       data: {
         labels: rm.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{ label: 'New-booking revenue', data: rm.map(x => x.newBookingRevenue), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 22 }]
+        datasets: DESK_SERIES.map(s => ({
+          label: s.label, data: rm.map(x => x[s.field]), backgroundColor: s.color, hoverBackgroundColor: s.hover,
+          borderRadius: 4, maxBarThickness: 16, borderSkipped: 'start'
+        }))
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.openRevenueMonth(els[0].index); },
+        onClick: (_e: any, els: any[]) => { if (els.length) this.openDesksMonth(els[0].index); },
         plugins: {
-          legend: { display: false },
+          legend: LEGEND,
           tooltip: {
             ...TOOLTIP,
             callbacks: {
               title: (items: any[]) => monthLong(rm[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` New-booking revenue: ${fullMoney(c.parsed.y)}`,
-              footer: () => 'Click for locations'
+              label: (c: any) => ` ${c.dataset.label}: ${count(c.parsed.y)}`,
+              footer: (items: any[]) => {
+                const x = rm[items[0]?.dataIndex];
+                if (!x) return '';
+                return `${count(x.expiring)} lease${x.expiring === 1 ? '' : 's'} ending\nClick for locations`;
+              }
             }
           }
         },
-        scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { display: false } },
-          y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { ...AXIS_MONEY, maxTicksLimit: 5 } }
-        }
-      }
-    });
-    this.upsert('expiring', empty ? undefined : this.expiringCanvas(), {
-      type: 'bar',
-      data: {
-        labels: rm.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{ label: 'Leases ending', data: rm.map(x => x.expiring), backgroundColor: '#fcd34d', hoverBackgroundColor: '#f59e0b', borderRadius: 4, maxBarThickness: 22 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-        onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.openRenewalsMonth(els[0].index); },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP,
-            callbacks: {
-              title: (items: any[]) => monthLong(rm[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` Leases ending: ${count(c.parsed.y)}`,
-              footer: () => 'Click for locations'
-            }
-          }
-        },
-        scales: {
-          x: xAxis,
-          y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { precision: 0, padding: 8, maxTicksLimit: 4 } }
-        }
+        scales: { x: xAxis, y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8 } } }
       }
     });
   }

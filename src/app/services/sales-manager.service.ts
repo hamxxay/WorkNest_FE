@@ -6,11 +6,13 @@ import {
   DashError, DashErrorWording, DashParams, arr, describeDashboardError, getDashboardData, isMonth, num, numOrNull, obj, percent,
   str, strOrNull
 } from './dashboard-api';
-import { CeoBookingRecord, CeoBreakdown, CeoInquiryRecord, CeoPeriod, CeoQuotationRecord } from './ceo.service';
+import { CeoBreakdown, CeoInquiryRecord, CeoPeriod } from './ceo.service';
 
 // ============================================================
 // Sales Manager dashboard API (GET api/sales-manager/*, read-only). Shared contract with the API and the
 // mobile app (salesmgr contract, 14 Oct 2026): dashboard -> breakdown (drill level 2) -> records (level 3).
+// No money at all (sm-desks contract): every figure is a count of desks, quotations, bookings or leases.
+// Desks of a booking / quotation = its capacity, else its space's capacity; meeting rooms count 0 desks.
 // Everything is limited to the manager's locations (or the chosen locationId), except tour inquiries, which
 // have no location and cover every branch. Every response is normalised here, so a missing field shows as
 // an empty state on the page instead of breaking it.
@@ -24,16 +26,18 @@ export interface SmLocation { locationId: number; name: string; }
 
 // ---------- Sales funnel ----------
 export interface SmFunnelStage { stage: string; label: string; count: number; }
-export interface SmFunnelMonth { month: string; quotations: number; accepted: number; bookings: number; bookedValue: number; }
+export interface SmFunnelMonth { month: string; quotations: number; accepted: number; bookings: number; bookedDesks: number; }
 export interface SmFunnel {
   /** inquiries, quotations, accepted, bookings: created in the period. */
   stages: SmFunnelStage[];
   /** Bookings / quotations, % (0-100). */
   conversionRate: number;
   conversionRatePrev: number;
-  quotedValue: number;
-  bookedValue: number;
-  bookedValuePrev: number;
+  /** Desks on quotations created in the period. */
+  quotedDesks: number;
+  /** Desks on bookings created in the period (and the previous period). */
+  bookedDesks: number;
+  bookedDesksPrev: number;
   /** Last 12 months, oldest first. */
   months: SmFunnelMonth[];
 }
@@ -41,14 +45,16 @@ export interface SmFunnel {
 // ---------- Team performance ----------
 export interface SmPerson {
   userId: number; name: string; role: string; locations: string;
-  inquiriesHandled: number; quotations: number; accepted: number; converted: number; convertedValue: number;
+  inquiriesHandled: number; quotations: number; accepted: number; converted: number;
+  /** Desks on their converted quotations created in the period. */
+  desksSold: number;
   /** Converted / quotations, % (0-100). */
   conversionRate: number;
   /** Follow-ups due now (not period-bound). */
   followUpsDue: number;
 }
 export interface SmTeamLocation {
-  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number; convertedValue: number;
+  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number; desksSold: number;
 }
 export interface SmTeam { people: SmPerson[]; perLocation: SmTeamLocation[]; }
 
@@ -69,22 +75,31 @@ export interface SmInquiries {
   months: SmInquiryMonth[];
 }
 
-// ---------- Renewals & revenue ----------
+// ---------- Renewals & desks ----------
 export interface SmExpiringLease {
-  bookingId: number; customer: string; space: string; location: string; endOn: string; monthlyAmount: number;
+  bookingId: number; customer: string; space: string; location: string; endOn: string; desks: number;
   /** Days until endOn (0 = today). */
   daysLeft: number;
 }
-export interface SmRenewalMonth { month: string; newBookingRevenue: number; expiring: number; }
+/** Desks booked (0 for future months), desks and leases ending. */
+export interface SmRenewalMonth { month: string; bookedDesks: number; endingDesks: number; expiring: number; }
 export interface SmRenewals {
   /** Leases ending in the next 90 days, soonest first. */
   expiring: SmExpiringLease[];
   expiringCount: number;
-  expiringMonthlyValue: number;
-  /** Invoiced on bookings created in the period. */
-  newBookingRevenue: number;
-  newBookingRevenuePrev: number;
-  /** Last 12 months (the API may add the next 3 for expiring leases). */
+  /** Desks on the leases ending in the next 90 days. */
+  expiringDesks: number;
+  /** Leases ending in the next 30 days, and their desks. */
+  expiring30Count: number;
+  expiring30Desks: number;
+  /** Desks booked in the period (the funnel's bookedDesks). */
+  bookedDesks: number;
+  /** Desks on bookings whose lease ended in the period. */
+  endedDesks: number;
+  /** bookedDesks - endedDesks, this period and the previous one. */
+  netDesks: number;
+  netDesksPrev: number;
+  /** Last 12 months + the next 3 (desks / leases ending). */
   months: SmRenewalMonth[];
 }
 
@@ -102,18 +117,24 @@ export interface SmDashboard {
 }
 
 // ---------- Drill-down level 2 (same shape as the CEO breakdown) ----------
-export type SmMetric = 'funnel-month' | 'staff' | 'inquiries-type' | 'renewals-month' | 'revenue-month';
+export type SmMetric = 'funnel-month' | 'staff' | 'inquiries-type' | 'renewals-month' | 'desks-month';
 export type SmBreakdown = CeoBreakdown;
 
 // ---------- Drill-down level 3 ----------
 export type SmRecordKind = 'quotations' | 'bookings' | 'inquiries' | 'leases';
 
-export type SmQuotationRecord = CeoQuotationRecord;
-export type SmBookingRecord = CeoBookingRecord;
+export interface SmQuotationRecord {
+  quotationId: number; quotationNumber: string; customer: string; location: string;
+  createdBy: string; status: string; desks: number; createdOn: string | null;
+}
+export interface SmBookingRecord {
+  bookingId: number; customer: string; space: string; location: string;
+  startOn: string | null; endOn: string | null; status: string; desks: number;
+}
 export interface SmInquiryRecord extends CeoInquiryRecord { followUpOn: string | null; }
 export interface SmLeaseRecord {
   bookingId: number; customer: string; space: string; location: string;
-  endOn: string | null; monthlyAmount: number; daysLeft: number | null;
+  endOn: string | null; desks: number; daysLeft: number | null;
 }
 export interface SmRecordRowMap {
   quotations: SmQuotationRecord; bookings: SmBookingRecord; inquiries: SmInquiryRecord; leases: SmLeaseRecord;
@@ -125,12 +146,25 @@ export interface SmRecords<K extends SmRecordKind = SmRecordKind> {
   rows: SmRecordRowMap[K][];
 }
 
+/** The sales dashboard's newest database script; named when the API's 503 does not say which one is missing. */
+const SM_LATEST_SCRIPT = 'SM_02';
+
+const smDbMessage = (script: string) =>
+  `The sales dashboard needs the database update ${script} before it can show figures. Ask the WorkNest team to run it, then refresh this page.`;
+
 const SM_WORDING: DashErrorWording = {
   name: 'sales dashboard',
-  // The contract: a 503 from api/sales-manager/* always means the SM_01 database script has not been run.
+  // The contract: a 503 from api/sales-manager/* always means a database script (SM_01, SM_02...) has not been run.
   any503IsDb: true,
-  dbMessage: 'The sales dashboard needs the database update SM_01 before it can show figures. Ask the WorkNest team to run it, then refresh this page.'
+  dbMessage: smDbMessage(SM_LATEST_SCRIPT)
 };
+
+/** The script a 503 names ("...needs the database update SM_02."), from the API's message. */
+function dbScriptOf(err: unknown): string | null {
+  const e = err as any;
+  const message = [e?.error?.message, e?.message].filter(m => typeof m === 'string').join(' ');
+  return /\bSM_\d+\b/i.exec(message)?.[0].toUpperCase() ?? null;
+}
 
 /** Days until an ISO date (0 = today, never negative); used when the API sends no daysLeft. */
 function daysTo(date: string | null): number | null {
@@ -167,9 +201,11 @@ export class SalesManagerService {
     return this.get(`${this.api}/sales-manager/records/${kind}`, params).pipe(map(d => this.toRecords(kind, d)));
   }
 
-  /** Wording for a failed request (503 = the SM_01 database update is missing). */
+  /** Wording for a failed request (503 = a database update is missing: the one the API names, SM_01 / SM_02). */
   static describeError(err: unknown): SmError {
-    return describeDashboardError(err, SM_WORDING);
+    const e = describeDashboardError(err, SM_WORDING);
+    const script = e.needsDbUpdate ? dbScriptOf(err) : null;
+    return script ? { ...e, message: smDbMessage(script) } : e;
   }
 
   private get(url: string, params: SmParams): Observable<any> {
@@ -181,16 +217,17 @@ export class SalesManagerService {
   private toDashboard(raw: any, period: SmPeriod): SmDashboard {
     const d = obj(raw) ?? {};
     const p = str(d.period);
+    const funnel = this.toFunnel(obj(d.funnel));
     return {
       period: p === 'quarter' || p === 'year' || p === 'month' ? p : period,
       periodLabel: str(d.periodLabel),
       generatedAt: strOrNull(d.generatedAt),
       locations: arr(d.locations, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location' }))
         .filter(l => l.locationId > 0),
-      funnel: this.toFunnel(obj(d.funnel)),
+      funnel,
       team: this.toTeam(obj(d.team)),
       inquiries: this.toInquiries(obj(d.inquiries)),
-      renewals: this.toRenewals(obj(d.renewals))
+      renewals: this.toRenewals(obj(d.renewals), funnel?.bookedDesks ?? null)
     };
   }
 
@@ -208,9 +245,9 @@ export class SalesManagerService {
       stages,
       conversionRate: rate,
       conversionRatePrev: num(f.conversionRatePrev) * scale,
-      quotedValue: num(f.quotedValue), bookedValue: num(f.bookedValue), bookedValuePrev: num(f.bookedValuePrev),
+      quotedDesks: num(f.quotedDesks), bookedDesks: num(f.bookedDesks), bookedDesksPrev: num(f.bookedDesksPrev),
       months: arr(f.months, (x: any): SmFunnelMonth => ({
-        month: str(x.month), quotations: num(x.quotations), accepted: num(x.accepted), bookings: num(x.bookings), bookedValue: num(x.bookedValue)
+        month: str(x.month), quotations: num(x.quotations), accepted: num(x.accepted), bookings: num(x.bookings), bookedDesks: num(x.bookedDesks)
       })).filter(x => isMonth(x.month))
     };
   }
@@ -224,14 +261,14 @@ export class SalesManagerService {
         return {
           userId: num(x.userId), name: str(x.name) || 'Team member', role: str(x.role), locations: str(x.locations),
           inquiriesHandled: num(x.inquiriesHandled), quotations, accepted: num(x.accepted), converted,
-          convertedValue: num(x.convertedValue),
+          desksSold: num(x.desksSold),
           conversionRate: rawRate === null ? (quotations > 0 ? (converted / quotations) * 100 : 0) : percent(rawRate, converted, quotations),
           followUpsDue: num(x.followUpsDue)
         };
       }),
       perLocation: arr(t.perLocation, (x: any): SmTeamLocation => ({
         locationId: num(x.locationId), name: str(x.name) || 'Location', salesExecutives: num(x.salesExecutives),
-        quotations: num(x.quotations), converted: num(x.converted), convertedValue: num(x.convertedValue)
+        quotations: num(x.quotations), converted: num(x.converted), desksSold: num(x.desksSold)
       }))
     };
   }
@@ -259,23 +296,34 @@ export class SalesManagerService {
     };
   }
 
-  private toRenewals(r: any | null): SmRenewals | null {
+  /** `funnelBooked`: the funnel's desks booked, for the net-desks sums when the API leaves one out. */
+  private toRenewals(r: any | null, funnelBooked: number | null): SmRenewals | null {
     if (!r) return null;
     const expiring = arr(r.expiring, (x: any): SmExpiringLease => {
       const endOn = str(x.endOn);
       return {
         bookingId: num(x.bookingId), customer: str(x.customer) || 'Customer', space: str(x.space), location: str(x.location),
-        endOn, monthlyAmount: num(x.monthlyAmount),
+        endOn, desks: num(x.desks),
         daysLeft: numOrNull(x.daysLeft) ?? daysTo(endOn) ?? 0
       };
     }).sort((a, b) => a.daysLeft - b.daysLeft);
+    const soon = expiring.filter(l => l.daysLeft <= 30);
+    const desksOf = (list: SmExpiringLease[]) => list.reduce((a, l) => a + l.desks, 0);
+    const endedDesks = num(r.endedDesks);
+    const netRaw = numOrNull(r.netDesks);
+    const bookedDesks = funnelBooked ?? (netRaw !== null ? netRaw + endedDesks : 0);
     return {
       expiring,
       expiringCount: numOrNull(r.expiringCount) ?? expiring.length,
-      expiringMonthlyValue: numOrNull(r.expiringMonthlyValue) ?? expiring.reduce((a, l) => a + l.monthlyAmount, 0),
-      newBookingRevenue: num(r.newBookingRevenue), newBookingRevenuePrev: num(r.newBookingRevenuePrev),
+      expiringDesks: numOrNull(r.expiringDesks) ?? desksOf(expiring),
+      expiring30Count: numOrNull(r.expiring30Count) ?? soon.length,
+      expiring30Desks: numOrNull(r.expiring30Desks) ?? desksOf(soon),
+      bookedDesks,
+      endedDesks,
+      netDesks: netRaw ?? bookedDesks - endedDesks,
+      netDesksPrev: num(r.netDesksPrev),
       months: arr(r.months, (x: any): SmRenewalMonth => ({
-        month: str(x.month), newBookingRevenue: num(x.newBookingRevenue), expiring: num(x.expiring)
+        month: str(x.month), bookedDesks: num(x.bookedDesks), endingDesks: num(x.endingDesks), expiring: num(x.expiring)
       })).filter(x => isMonth(x.month))
     };
   }
@@ -302,11 +350,11 @@ export class SalesManagerService {
       case 'quotations': return {
         quotationId: num(r.quotationId), quotationNumber: str(r.quotationNumber) || (r.quotationId ? `#${r.quotationId}` : ''),
         customer: str(r.customer), location: str(r.location), createdBy: str(r.createdBy), status: str(r.status),
-        total: num(r.total), createdOn: strOrNull(r.createdOn)
+        desks: num(r.desks), createdOn: strOrNull(r.createdOn)
       };
       case 'bookings': return {
         bookingId: num(r.bookingId), customer: str(r.customer), space: str(r.space), location: str(r.location),
-        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), totalAmount: num(r.totalAmount)
+        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), desks: num(r.desks)
       };
       case 'inquiries': return {
         inquiryId: num(r.inquiryId), name: str(r.name), phone: str(r.phone), type: str(r.type), referenceName: str(r.referenceName),
@@ -316,7 +364,7 @@ export class SalesManagerService {
         const endOn = strOrNull(r.endOn);
         return {
           bookingId: num(r.bookingId), customer: str(r.customer), space: str(r.space), location: str(r.location),
-          endOn, monthlyAmount: num(r.monthlyAmount), daysLeft: numOrNull(r.daysLeft) ?? daysTo(endOn)
+          endOn, desks: num(r.desks), daysLeft: numOrNull(r.daysLeft) ?? daysTo(endOn)
         };
       }
     }
