@@ -584,6 +584,24 @@
               </button>
               }
               @if (entity === 'contacts') {
+              <!-- WhatsApp: opens the message from the template (Message Templates page), filled in by the API for this inquiry.
+                   aria-disabled (not disabled) so the tooltip still shows when there is no phone number. -->
+              @let waPhone = hasInquiryPhone(item);
+              @let waBusy = isWhatsAppBusy(item);
+              <button type="button" class="action-btn whatsapp" [class.busy]="waBusy" (click)="openInquiryWhatsApp(item)"
+                [attr.aria-disabled]="!waPhone || waBusy ? 'true' : null" [attr.aria-busy]="waBusy ? 'true' : null"
+                [title]="!waPhone ? 'No phone number on this inquiry' : waBusy ? 'Preparing the WhatsApp message' : 'Message on WhatsApp'"
+                [attr.aria-label]="!waPhone ? 'WhatsApp: no phone number on this inquiry' : 'Message ' + (item.fullName || 'this customer') + ' on WhatsApp'">
+                @if (waBusy) {
+                <span class="wa-spin" aria-hidden="true"></span>
+                } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                  <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1" />
+                </svg>
+                }
+              </button>
               <button class="btn-admin btn-outline-admin" style="padding:4px 10px;font-size:.8rem;white-space:nowrap"
                 (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Feedback</button>
               }

@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ContactService } from '../../../services/contact.service';
+import { MessageTemplateService } from '../../../services/message-template.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AmountFieldService } from '../../../services/amount-field.service';
 import { ASSIGNABLE_ROLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
@@ -5588,6 +5589,63 @@ export class Manage implements OnInit {
       case 'converted': return 'Converted to quotation' + (item.quotationId ? ` #${item.quotationId}` : '');
       default: return '-';
     }
+  }
+
+  // ---------- WhatsApp message to a tour inquiry ----------
+  // The API fills in the message template (Administration > Message Templates) for this inquiry and the signed-in
+  // staff member and returns a wa.me link, opened in a new tab (WhatsApp Web, or the WhatsApp app when installed).
+
+  private messageTemplates = inject(MessageTemplateService);
+  /** Public ids of the inquiries whose WhatsApp message is being fetched. */
+  readonly whatsAppBusy = signal<ReadonlySet<string>>(new Set());
+
+  /** True when the inquiry has a phone number (the list shows "-" when there is none). */
+  hasInquiryPhone(item: any): boolean {
+    return /\d/.test(String(item?.phone ?? ''));
+  }
+
+  isWhatsAppBusy(item: any): boolean {
+    const id = item?.publicId ?? item?.PublicId;
+    return !!id && this.whatsAppBusy().has(String(id));
+  }
+
+  openInquiryWhatsApp(item: any) {
+    if (!this.hasInquiryPhone(item)) return;
+    const publicId = item?.publicId ?? item?.PublicId;
+    if (!publicId) { this.showError('This inquiry could not be identified. Refresh the page and try again.', 'WhatsApp'); return; }
+    const id = String(publicId);
+    if (this.whatsAppBusy().has(id)) return;
+    const setBusy = (on: boolean) => this.whatsAppBusy.update(prev => {
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+    setBusy(true);
+    this.messageTemplates.inquiryMessage(id).pipe(timeout(20000)).subscribe({
+      next: m => {
+        setBusy(false);
+        // Only ever open a WhatsApp link; build it from the phone and text when the url is missing.
+        const url = /^https:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\//i.test(m.url) ? m.url
+          : /^\d{8,15}$/.test(m.phone) ? `https://wa.me/${m.phone}?text=${encodeURIComponent(m.text)}` : '';
+        if (!url) {
+          this.showError('The WhatsApp message could not be prepared for this inquiry. Check its phone number and try again.', 'WhatsApp');
+          return;
+        }
+        const win = window.open(url, '_blank');
+        if (win) {
+          try { win.opener = null; } catch { /* the new tab is already on another site */ }
+        } else {
+          this.toast.show('Your browser blocked the new tab. Allow pop-ups for this site, then click the WhatsApp button again.',
+            'warning', 'WhatsApp', 8000);
+        }
+      },
+      error: (err: any) => {
+        setBusy(false);
+        this.showError(err?.name === 'TimeoutError'
+          ? 'The server did not answer. Check your connection and try again.'
+          : err?.error?.message || 'Could not prepare the WhatsApp message. Please try again.', 'WhatsApp');
+      }
+    });
   }
 
   openContactFeedback(item: any) {
