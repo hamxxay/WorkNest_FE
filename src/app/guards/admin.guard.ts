@@ -56,6 +56,15 @@ export function isSalesManagerUrl(url: string): boolean {
   return path === SALES_MANAGER_HOME || path.startsWith(SALES_MANAGER_HOME + '/');
 }
 
+/** The only admin page an Access Officer may open (door access by CNIC). Shared with accessOfficerGuard and the sidebar. */
+export const ACCESS_OFFICER_HOME = '/admin/access';
+
+/** True for the Access page (query/fragment ignored). */
+export function isAccessOfficerUrl(url: string): boolean {
+  const path = url.split(/[?#]/)[0];
+  return path === ACCESS_OFFICER_HOME || path.startsWith(ACCESS_OFFICER_HOME + '/');
+}
+
 // Used as both canActivate and canActivateChild on the /admin parent, so every
 // navigation between admin child routes is re-checked.
 export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) => {
@@ -78,6 +87,11 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
     // Same for a Sales Manager: the sales dashboard only.
     if (auth.isSalesManagerOnly()) {
       return isSalesManagerUrl(state.url) ? true : router.createUrlTree([SALES_MANAGER_HOME]);
+    }
+
+    // Same for an Access Officer: the Access page only.
+    if (auth.isAccessOfficerOnly()) {
+      return isAccessOfficerUrl(state.url) ? true : router.createUrlTree([ACCESS_OFFICER_HOME]);
     }
 
     if (isSalesExecutive && !isAdmin) {

@@ -1,0 +1,477 @@
+<!-- Icons (Lucide outlines), sized by the surrounding CSS. -->
+<ng-template #ic let-n>
+  <svg class="i" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    @switch (n) {
+      @case ('pin') { <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/> }
+      @case ('search') { <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/> }
+      @case ('search-x') { <path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/> }
+      @case ('x') { <path d="M18 6 6 18"/><path d="m6 6 12 12"/> }
+      @case ('id') { <rect width="18" height="16" x="3" y="4" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 9h2"/><path d="M15 13h2"/><path d="M6 16c.6-1.2 1.7-2 3-2s2.4.8 3 2"/> }
+      @case ('user') { <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/> }
+      @case ('phone') { <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/> }
+      @case ('mail') { <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/> }
+      @case ('door') { <path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z"/> }
+      @case ('machine') { <rect width="14" height="20" x="5" y="2" rx="2"/><circle cx="12" cy="8" r="2.5"/><path d="M9 15h6"/><path d="M12 18h.01"/> }
+      @case ('face') { <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/> }
+      @case ('fingerprint') { <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/> }
+      @case ('card') { <rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/> }
+      @case ('shield-off') { <path d="m2 2 20 20"/><path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.97 5.9-3.71"/><path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.784 9.784 0 0 1-.08 1.264"/> }
+      @case ('shield-check') { <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/> }
+      @case ('user-plus') { <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/> }
+      @case ('check') { <path d="M20 6 9 17l-5-5"/> }
+      @case ('minus') { <path d="M5 12h14"/> }
+      @case ('check-circle') { <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/> }
+      @case ('x-circle') { <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/> }
+      @case ('alert') { <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/> }
+      @case ('info') { <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/> }
+      @case ('clock') { <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/> }
+      @case ('refresh') { <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/> }
+      @case ('database') { <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/> }
+      @case ('offline') { <path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/> }
+      @case ('entrance') { <path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/> }
+    }
+  </svg>
+</ng-template>
+
+<div class="ao-page">
+  <!-- Screen readers hear search results and action outcomes. Positioned inside .ao-page (position: relative). -->
+  <p class="sr-only" role="status" aria-live="polite">{{ live() }}</p>
+
+  <div class="ao-wrap">
+    <header class="ao-header">
+      <div class="ao-title">
+        <h1>Door access</h1>
+        <p class="ao-sub">Enrol or remove door access by CNIC</p>
+      </div>
+      <div class="ao-locs" aria-label="Locations">
+        @if (isSuperAdmin) {
+          <span class="loc-chip"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'pin' }" />All locations</span>
+        } @else {
+          @for (n of locationNames() ?? []; track n) {
+            <span class="loc-chip"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'pin' }" />{{ n }}</span>
+          }
+        }
+      </div>
+    </header>
+
+    <!-- One field: the CNIC (or passport number). Enter submits. -->
+    <form class="ao-search" role="search" novalidate (submit)="submit($event)">
+      <label class="ao-label" for="ao-cnic">CNIC or passport number</label>
+      <div class="ao-search-row">
+        <div class="ao-input-wrap">
+          <span class="ao-input-icon"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'id' }" /></span>
+          <input #cnicInput id="ao-cnic" class="ao-input" type="text" [class.invalid]="!!fieldError()" [value]="query()"
+            (input)="onInput($event)" placeholder="12345-1234567-1" autocomplete="off" autocapitalize="characters"
+            spellcheck="false" [attr.maxlength]="passportMaxLength" aria-describedby="ao-cnic-help"
+            [attr.aria-invalid]="fieldError() ? 'true' : null" />
+          @if (query()) {
+            <button type="button" class="ao-clear" (click)="clear(cnicInput)" aria-label="Clear the CNIC" title="Clear">
+              <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x' }" />
+            </button>
+          }
+        </div>
+        <button type="submit" class="ao-find" [disabled]="phase() === 'loading'">
+          @if (phase() === 'loading') {
+            <span class="ao-spin" aria-hidden="true"></span>Finding
+          } @else {
+            <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'search' }" />Find
+          }
+        </button>
+      </div>
+      @if (fieldError(); as fe) {
+        <p class="ao-field-error" id="ao-cnic-help">{{ fe }}</p>
+      } @else {
+        <p class="ao-hint" id="ao-cnic-help">Type the 13 digits and the dashes are added for you. Passport numbers can be typed as they are.</p>
+      }
+    </form>
+
+    @switch (phase()) {
+      @case ('idle') {
+        <section class="ao-guide" aria-labelledby="ao-guide-title">
+          <h2 id="ao-guide-title">How it works</h2>
+          <ol>
+            <li>
+              <span class="ao-step">1</span>
+              <div><strong>Find the person</strong><span>Enter the CNIC the customer added under My Bookings &gt; Employees.</span></div>
+            </li>
+            <li>
+              <span class="ao-step">2</span>
+              <div><strong>Add to room</strong><span>Someone still waiting for the CNIC check is added to the customer's room.</span></div>
+            </li>
+            <li>
+              <span class="ao-step">3</span>
+              <div><strong>Enrol face or fingerprint</strong><span>Captured on the room machine. Access covers the room and the entrances.</span></div>
+            </li>
+          </ol>
+        </section>
+      }
+
+      @case ('loading') {
+        <div class="ao-skeleton" aria-hidden="true">
+          <div class="ao-card sk-person"><span class="sk sk-avatar"></span><div class="sk-lines"><span class="sk w40"></span><span class="sk w70"></span></div></div>
+          <div class="ao-card sk-match"><span class="sk w30 tall"></span><span class="sk w60"></span><span class="sk w90"></span><span class="sk w50"></span></div>
+        </div>
+      }
+
+      @case ('error') {
+        @if (error(); as e) {
+          <div class="ao-state" [class]="'ao-state k-' + e.kind">
+            <span class="ao-state-icon">
+              @switch (e.kind) {
+                @case ('not-found') { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'search-x' }" /> }
+                @case ('db') { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'database' }" /> }
+                @case ('offline') { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'offline' }" /> }
+                @case ('forbidden') { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'shield-off' }" /> }
+                @default { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'alert' }" /> }
+              }
+            </span>
+            @if (e.kind === 'not-found') {
+              <h2>No match for <span class="mono">{{ searchedFor() }}</span></h2>
+            } @else {
+              <h2>{{ e.title }}</h2>
+            }
+            <p>{{ e.message }}</p>
+            @if (e.kind === 'db') {
+              <p class="ao-state-sub">Ask a super admin to run it. Searching works as soon as it is done.</p>
+            }
+            @if (e.kind !== 'not-found') {
+              <button type="button" class="ao-btn" (click)="submit()">
+                <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'refresh' }" />Try again
+              </button>
+            }
+          </div>
+        }
+      }
+
+      @case ('ready') {
+        <section class="ao-results" [class.is-refreshing]="refreshing()" aria-labelledby="ao-results-title">
+          <div class="ao-results-head">
+            <h2 id="ao-results-title">
+              {{ matches().length }} {{ matches().length === 1 ? 'room' : 'rooms' }} for <span class="mono">{{ searchedFor() }}</span>
+            </h2>
+            <button type="button" class="ao-icon-btn" (click)="refresh()" [disabled]="refreshing() || !!busy()" title="Refresh" aria-label="Refresh the results">
+              <span [class.spin]="refreshing()"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'refresh' }" /></span>
+            </button>
+          </div>
+
+          <!-- Person -->
+          <article class="ao-card ao-person">
+            @if (person(); as p) {
+              <span class="ao-avatar">{{ initials() || '?' }}</span>
+              <div class="ao-person-main">
+                <h3>{{ p.name || 'Name not on file' }}</h3>
+                <dl class="ao-person-facts">
+                  <div>
+                    <dt><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'id' }" />{{ idLabel() }}</dt>
+                    <dd class="mono">{{ p.idNumber || searchedFor() }}</dd>
+                  </div>
+                  <div>
+                    <dt><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'phone' }" />Phone</dt>
+                    <dd [class.muted]="!p.phone">{{ p.phone || 'Not on file' }}</dd>
+                  </div>
+                  <div>
+                    <dt><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'mail' }" />Email</dt>
+                    <dd [class.muted]="!p.email">{{ p.email || 'Not on file' }}</dd>
+                  </div>
+                </dl>
+              </div>
+            } @else {
+              <span class="ao-avatar muted"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'user' }" /></span>
+              <div class="ao-person-main">
+                <h3>CNIC <span class="mono">{{ searchedFor() }}</span></h3>
+                <p class="ao-person-note">Waiting for the CNIC check. Name, phone and email show here once the person is added to a room.</p>
+              </div>
+            }
+          </article>
+
+          <!-- One card per room -->
+          <div class="ao-matches">
+            @for (m of matches(); track m.bookingDetailId) {
+              <article class="ao-card ao-match" [class]="'ao-card ao-match st-' + status(m)" [attr.aria-label]="roomName(m) + ', ' + statusLabel(m)">
+                <header class="ao-match-head">
+                  <div class="ao-room">
+                    <span class="ao-room-icon"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'door' }" /></span>
+                    <div class="ao-room-text">
+                      <h3>{{ roomName(m) }}</h3>
+                      <p><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'pin' }" />{{ m.location || 'Location not set' }}</p>
+                    </div>
+                  </div>
+                  <span class="ao-status" [class]="'ao-status st-' + status(m)"><span class="dot" aria-hidden="true"></span>{{ statusLabel(m) }}</span>
+                </header>
+
+                <dl class="ao-facts">
+                  <div>
+                    <dt>Customer</dt>
+                    <dd>{{ m.customer || 'Not on file' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Booking</dt>
+                    <dd>{{ dateRange(m) }}@if (m.bookingStatus) { <span class="ao-mini">{{ m.bookingStatus }}</span> }</dd>
+                  </div>
+                  @if (m.seats; as s) {
+                    <div>
+                      <dt>Seats</dt>
+                      <dd>{{ s.used }} of {{ s.total }} used</dd>
+                    </div>
+                  }
+                  <div>
+                    <dt>Room machine</dt>
+                    <dd>
+                      <span class="ao-machine" [class.online]="m.roomMachine?.online" [class.none]="!m.roomMachine">
+                        <span class="dot" aria-hidden="true"></span>{{ machineLabel(m) }}
+                      </span>
+                      @if (m.roomMachine?.name) { <span class="ao-machine-name">{{ m.roomMachine?.name }}</span> }
+                    </dd>
+                  </div>
+                </dl>
+
+                @if (m.state === 'assigned') {
+                  <div class="ao-enrolled">
+                    <span class="ao-enrolled-label">Enrolled</span>
+                    <span class="ao-cred" [class.on]="m.credentials.face" [attr.title]="m.credentials.face ? 'Face enrolled' : 'Face not enrolled yet'">
+                      <ng-container *ngTemplateOutlet="ic; context: { $implicit: m.credentials.face ? 'check' : 'minus' }" />Face
+                      <span class="sr-only">{{ m.credentials.face ? 'enrolled' : 'not enrolled' }}</span>
+                    </span>
+                    <span class="ao-cred" [class.on]="m.credentials.fingerprint" [attr.title]="m.credentials.fingerprint ? 'Fingerprint enrolled' : 'Fingerprint not enrolled yet'">
+                      <ng-container *ngTemplateOutlet="ic; context: { $implicit: m.credentials.fingerprint ? 'check' : 'minus' }" />Fingerprint
+                      <span class="sr-only">{{ m.credentials.fingerprint ? 'enrolled' : 'not enrolled' }}</span>
+                    </span>
+                    @if (m.credentials.card) {
+                      <span class="ao-cred on" title="Card enrolled"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'check' }" />Card</span>
+                    }
+                  </div>
+                }
+
+                <div class="ao-actions">
+                  @switch (status(m)) {
+                    @case ('pending') {
+                      <p class="ao-action-note">
+                        <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'info' }" />
+                        <span>{{ m.customer || 'The customer' }} added this CNIC. Add to room checks it and gives {{ personName() }} a place on {{ roomName(m) }}.</span>
+                      </p>
+                      <div class="ao-btns">
+                        <button type="button" class="ao-btn primary" (click)="addToRoom(m)" [disabled]="!!busy()">
+                          @if (isBusy(m, 'add')) { <span class="ao-spin" aria-hidden="true"></span>Adding } @else { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'user-plus' }" />Add to room }
+                        </button>
+                      </div>
+                    }
+                    @case ('on') {
+                      <div class="ao-btns">
+                        <button type="button" class="ao-btn" (click)="openEnrol(m, 'face')" [disabled]="!!busy() || !!enrolBlocked(m)">
+                          <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'face' }" />Enrol face
+                        </button>
+                        <button type="button" class="ao-btn" (click)="openEnrol(m, 'fingerprint')" [disabled]="!!busy() || !!enrolBlocked(m)">
+                          <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'fingerprint' }" />Enrol fingerprint
+                        </button>
+                        <button type="button" class="ao-btn danger push" (click)="askRemove(m)" [disabled]="!!busy()">
+                          @if (isBusy(m, 'remove')) { <span class="ao-spin" aria-hidden="true"></span>Removing } @else { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'shield-off' }" />Remove access }
+                        </button>
+                      </div>
+                      @if (enrolBlocked(m); as why) {
+                        <p class="ao-action-note warn">
+                          <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'alert' }" /><span>{{ why }}</span>
+                        </p>
+                      }
+                    }
+                    @case ('off') {
+                      <p class="ao-action-note">
+                        <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'info' }" />
+                        <span>Door access is off. {{ personName() }} stays on {{ m.customer || 'the customer' }}'s booking.</span>
+                      </p>
+                      <div class="ao-btns">
+                        <button type="button" class="ao-btn primary" (click)="restore(m)" [disabled]="!!busy() || personIdFor(m) == null">
+                          @if (isBusy(m, 'restore')) { <span class="ao-spin" aria-hidden="true"></span>Restoring } @else { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'shield-check' }" />Restore access }
+                        </button>
+                      </div>
+                    }
+                  }
+                </div>
+
+                @if (notices()[m.bookingDetailId]; as n) {
+                  <div class="ao-notice" [class]="'ao-notice ' + n.kind">
+                    <ng-container *ngTemplateOutlet="ic; context: { $implicit: n.kind === 'ok' ? 'check-circle' : (n.kind === 'warn' ? 'alert' : 'x-circle') }" />
+                    <div><strong>{{ n.title }}</strong><span>{{ n.text }}</span></div>
+                  </div>
+                }
+              </article>
+            }
+          </div>
+        </section>
+      }
+    }
+  </div>
+</div>
+
+<!-- Enrol face / fingerprint: ready -> waiting at the machine -> per-machine results -->
+@if (enrolTarget(); as t) {
+  <div class="inq-overlay">
+    <div class="inq-modal ao-modal" role="dialog" aria-modal="true" aria-labelledby="aoEnrolTitle" aria-describedby="aoEnrolSub">
+      <header class="inq-head">
+        <span class="inq-head-icon"><ng-container *ngTemplateOutlet="ic; context: { $implicit: t.type }" /></span>
+        <div>
+          <h2 id="aoEnrolTitle">{{ t.type === 'face' ? 'Enrol face' : 'Enrol fingerprint' }}</h2>
+          <p id="aoEnrolSub">{{ t.name }} · {{ roomName(t.match) }}{{ t.match.location ? ', ' + t.match.location : '' }}</p>
+        </div>
+        <button type="button" class="inq-close" (click)="closeEnrol()" [disabled]="enrolPhase() === 'waiting'" aria-label="Close">
+          <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x' }" />
+        </button>
+      </header>
+
+      <div class="inq-body">
+        @switch (enrolPhase()) {
+          @case ('ready') {
+            <div class="ao-machine-row">
+              <span class="ao-machine-ic"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'machine' }" /></span>
+              <div>
+                <strong>{{ t.match.roomMachine?.name || roomName(t.match) }}</strong>
+                <span>Room machine · captures the {{ t.type === 'face' ? 'face' : 'fingerprint' }}</span>
+              </div>
+              <span class="ao-machine online"><span class="dot" aria-hidden="true"></span>Online</span>
+            </div>
+
+            @if (t.type === 'fingerprint') {
+              <fieldset class="inq-field">
+                <legend>Finger</legend>
+                <div class="ao-fingers">
+                  @for (n of fingers; track n) {
+                    <label class="ao-finger" [class.selected]="fingerNo() === n">
+                      <input type="radio" name="aoFinger" [value]="n" [checked]="fingerNo() === n" (change)="setFinger(n)" />{{ n }}
+                    </label>
+                  }
+                </div>
+                <span class="inq-hint">Finger 1 unless this person already has a fingerprint saved. Another number adds a second finger.</span>
+              </fieldset>
+            }
+
+            <p class="inq-lead">
+              @if (t.type === 'face') {
+                When you press <strong>Start</strong>, the machine opens its face camera. Ask <strong>{{ t.name }}</strong> to stand at the {{ roomName(t.match) }} machine and look at the camera.
+              } @else {
+                When you press <strong>Start</strong>, the machine asks for a finger. Ask <strong>{{ t.name }}</strong> to place finger {{ fingerNo() }} on the {{ roomName(t.match) }} machine.
+              }
+            </p>
+            <p class="inq-note">
+              It is saved on the room machine and copied to every entrance. The machine waits up to {{ captureSeconds }} seconds; keep this window open.
+            </p>
+          }
+
+          @case ('waiting') {
+            <div class="ao-wait">
+              <div class="ao-wait-visual" aria-hidden="true">
+                <span class="ring"></span><span class="ring r2"></span>
+                <span class="core"><ng-container *ngTemplateOutlet="ic; context: { $implicit: t.type }" /></span>
+              </div>
+              <p class="ao-wait-title">{{ waitingText(t) }}</p>
+              <p class="ao-wait-sub">Waiting for the machine · {{ elapsed() }} s</p>
+              <div class="ao-wait-bar" role="progressbar" aria-label="Time waited" aria-valuemin="0" [attr.aria-valuemax]="captureSeconds" [attr.aria-valuenow]="elapsed()">
+                <span [style.width.%]="enrolProgress()"></span>
+              </div>
+              <p class="ao-wait-hint">Keep this window open. The machine waits up to {{ captureSeconds }} seconds.</p>
+            </div>
+          }
+
+          @case ('done') {
+            @if (enrolResult()?.ok) {
+              <div class="inq-success">
+                <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'check-circle' }" />
+                <div>
+                  <strong>{{ t.type === 'face' ? 'Face' : 'Fingerprint' }} enrolled for {{ t.name }}</strong>
+                  @if (enrolResult()?.summary) { <div class="ao-sum">{{ enrolResult()?.summary }}</div> }
+                  @else { <div class="ao-sum">{{ t.name }} can now open {{ roomName(t.match) }} and the entrances.</div> }
+                </div>
+              </div>
+            } @else {
+              <div class="ao-fail">
+                <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x-circle' }" />
+                <div>
+                  <strong>{{ enrolError()?.title || 'Enrolment failed' }}</strong>
+                  <span>{{ enrolResult()?.error || enrolError()?.message || 'The machine did not save it. Please try again.' }}</span>
+                  @if (enrolResult()?.summary) { <span class="ao-sum">{{ enrolResult()?.summary }}</span> }
+                </div>
+              </div>
+            }
+
+            @if (enrolResult(); as res) {
+              @if (res.devices.length) {
+                <div class="ao-dev-wrap">
+                  <p class="inq-mini-label">Machines</p>
+                  <ul class="ao-devices">
+                    @for (d of sortedDevices(res, t.match); track $index) {
+                      <li [class]="'st-' + deviceState(d)">
+                        <span class="ao-dev-ic">
+                          <ng-container *ngTemplateOutlet="ic; context: { $implicit: deviceState(d) === 'ok' ? 'check' : (deviceState(d) === 'queued' ? 'clock' : 'x') }" />
+                        </span>
+                        <div class="ao-dev-main">
+                          <strong>{{ d.device }}</strong>
+                          <span>{{ deviceText(d, t.match) }}</span>
+                        </div>
+                        <span class="ao-dev-tag">{{ isRoomDevice(d, t.match) ? 'Room' : 'Entrance' }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+          }
+        }
+      </div>
+
+      <footer class="inq-foot">
+        @switch (enrolPhase()) {
+          @case ('ready') {
+            <button type="button" class="btn-admin btn-outline-admin" (click)="closeEnrol()">Cancel</button>
+            <button type="button" id="ao-enrol-start" class="btn-admin btn-primary-admin" (click)="startEnrol()">
+              <ng-container *ngTemplateOutlet="ic; context: { $implicit: t.type }" />Start
+            </button>
+          }
+          @case ('waiting') {
+            <button type="button" class="btn-admin btn-primary-admin" disabled>
+              <span class="ao-spin" aria-hidden="true"></span>Waiting for the machine
+            </button>
+          }
+          @case ('done') {
+            @if (enrolResult()?.ok) {
+              <button type="button" id="ao-enrol-done" class="btn-admin btn-primary-admin" (click)="closeEnrol()">Done</button>
+            } @else {
+              <button type="button" id="ao-enrol-done" class="btn-admin btn-outline-admin" (click)="closeEnrol()">Close</button>
+              <button type="button" class="btn-admin btn-primary-admin" (click)="startEnrol()">
+                <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'refresh' }" />Try again
+              </button>
+            }
+          }
+        }
+      </footer>
+    </div>
+  </div>
+}
+
+<!-- Remove access: confirm first -->
+@if (confirmTarget(); as m) {
+  <div class="inq-overlay">
+    <div class="inq-modal ao-modal narrow" role="alertdialog" aria-modal="true" aria-labelledby="aoRemoveTitle" aria-describedby="aoRemoveText">
+      <header class="inq-head">
+        <span class="inq-head-icon danger"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'shield-off' }" /></span>
+        <div>
+          <h2 id="aoRemoveTitle">Remove door access?</h2>
+          <p>{{ roomName(m) }}{{ m.location ? ', ' + m.location : '' }}</p>
+        </div>
+        <button type="button" class="inq-close" (click)="cancelRemove()" [disabled]="!!busy()" aria-label="Close">
+          <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x' }" />
+        </button>
+      </header>
+      <div class="inq-body">
+        <p class="inq-lead" id="aoRemoveText">
+          Remove <strong>{{ personName() }}</strong>'s door access to <strong>{{ roomName(m) }}</strong> and the entrances?
+          They stay on <strong>{{ m.customer || 'the customer' }}</strong>'s booking.
+        </p>
+        <p class="inq-note">The room and entrance machines stop opening for them. You can give access back with Restore access.</p>
+      </div>
+      <footer class="inq-foot">
+        <button type="button" id="ao-confirm-cancel" class="btn-admin btn-outline-admin" (click)="cancelRemove()" [disabled]="!!busy()">Cancel</button>
+        <button type="button" class="btn-admin btn-danger-admin" (click)="confirmRemove()" [disabled]="!!busy()">
+          @if (busy()) { <span class="ao-spin" aria-hidden="true"></span>Removing } @else { <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'shield-off' }" />Remove access }
+        </button>
+      </footer>
+    </div>
+  </div>
+}

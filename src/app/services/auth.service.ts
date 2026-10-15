@@ -36,7 +36,7 @@ export interface UserInfo {
   displayName?: string;
   photoURL?: string;
   locationId?: number | null;
-  /** All locations an Admin / Sales Executive / Sales Manager is assigned to; locationId is the active one. */
+  /** All locations an Admin / Sales Executive / Sales Manager / Access Officer is assigned to; locationId is the active one. */
   locationIds?: number[];
   /** The role's name as the database words it (WN_Roles.DisplayName, from auth/me), e.g. "Sales Manager". */
   roleDisplayName?: string;
@@ -383,6 +383,9 @@ export class AuthService {
     if (this.isSalesManagerOnly()) {
       return '/admin/sales-manager';
     }
+    if (this.isAccessOfficerOnly()) {
+      return '/admin/access';
+    }
     if (this.hasRole('sales_executive')) {
       return '/admin/dashboard';
     }
@@ -410,15 +413,29 @@ export class AuthService {
       && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive') && !this.hasRole('ceo');
   }
 
-  /** CEO or Sales Manager: one read-only dashboard and no other page. */
-  isDashboardOnly(): boolean {
-    return this.isCeoOnly() || this.isSalesManagerOnly();
+  /**
+   * An Access Officer (role "access_officer") only uses the Access page (door access by CNIC) for their own
+   * location(s). Only when the user has no other staff role (a CEO / Sales Manager keeps their dashboard).
+   */
+  isAccessOfficerOnly(): boolean {
+    return this.hasRole('access_officer')
+      && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive')
+      && !this.hasRole('ceo') && !this.hasRole('sales_manager');
   }
 
-  /** Admins, sales executives and sales managers only see their own location(s); super admins see every location. */
+  /** CEO, Sales Manager or Access Officer: one page (their dashboard / the Access page) and no other. */
+  isSinglePageOnly(): boolean {
+    return this.isCeoOnly() || this.isSalesManagerOnly() || this.isAccessOfficerOnly();
+  }
+
+  /**
+   * Admins, sales executives, sales managers and access officers only see their own location(s); super admins
+   * see every location.
+   */
   isLocationBound(): boolean {
     return !this.hasRole('super_admin')
-      && (this.hasRole('admin') || this.hasRole('sales_executive') || this.hasRole('sales_manager'));
+      && (this.hasRole('admin') || this.hasRole('sales_executive') || this.hasRole('sales_manager')
+        || this.hasRole('access_officer'));
   }
 
   /** The signed-in user's role as the database words it (auth/me), else a label made from the role name. */
@@ -475,7 +492,7 @@ export class AuthService {
   /** Cached user with staff roles removed: used when the API could not confirm the roles. */
   private withoutStaffRoles(cached: UserInfo | null): UserInfo | null {
     if (!cached) return null;
-    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo', 'salesmanager'];
+    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo', 'salesmanager', 'accessofficer'];
     const roles = (cached.roles || []).filter(r => !staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
     // The stored role label belonged to a role that is now dropped.
     return roles.length === (cached.roles || []).length ? { ...cached, roles } : { ...cached, roles, roleDisplayName: undefined };

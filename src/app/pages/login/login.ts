@@ -130,9 +130,12 @@ export class Login {
     });
   }
 
-  /** Super admin, admin, sales executive, CEO, sales manager and receptionist use the CMS; everyone else is a customer. */
+  /**
+   * Super admin, admin, sales executive, CEO, sales manager, access officer and receptionist use the CMS; everyone
+   * else is a customer.
+   */
   private isStaff(user?: any): boolean {
-    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager'];
+    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager', 'accessofficer'];
     const roles: string[] = user?.roles ?? [];
     return roles.some(r => staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
   }
@@ -165,6 +168,8 @@ export class Login {
     if (has('ceo') && !has('superadmin') && !has('admin') && !has('salesexecutive')) return '/admin/ceo';
     // A Sales Manager only has the sales dashboard.
     if (has('salesmanager') && !has('superadmin') && !has('admin') && !has('salesexecutive')) return '/admin/sales-manager';
+    // An Access Officer only has the Access page (door access by CNIC).
+    if (has('accessofficer') && !has('superadmin') && !has('admin') && !has('salesexecutive')) return '/admin/access';
     const isSales = roles.some(r => String(r).toLowerCase().replace(/[\s_]/g, '') === 'salesexecutive');
     if (isSales) return '/admin/dashboard';
     const isAdmin = roles.some(r => {
