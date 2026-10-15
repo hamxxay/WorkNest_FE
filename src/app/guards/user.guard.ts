@@ -16,5 +16,9 @@ export const userGuard: CanActivateFn = () => {
   if (auth.isAuthenticated() && auth.isSalesManagerOnly()) {
     return router.createUrlTree(['/admin/sales-manager']);
   }
+  // An Access Officer only uses the Access page.
+  if (auth.isAuthenticated() && auth.isAccessOfficerOnly()) {
+    return router.createUrlTree(['/admin/access']);
+  }
   return true;
 };

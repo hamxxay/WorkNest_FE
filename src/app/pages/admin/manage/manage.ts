@@ -1002,10 +1002,18 @@ export class Manage implements OnInit {
     this.formData['locationIds'] = checked ? [...new Set([...current, Number(id)])] : current.filter(x => x !== Number(id));
   }
 
-  /** Roles that are tied to location(s): admin, sales executive and sales manager (super admins, CEOs and customers are not). */
+  /** Roles tied to location(s), in the order the location hint names them (super admins, CEOs and customers have none). */
+  private static readonly LOCATION_ROLES = ['admin', 'sales_executive', 'sales_manager', 'access_officer'];
+
+  /** Roles that are tied to location(s): admin, sales executive, sales manager and access officer. */
   isLocationRole(role: any): boolean {
-    const r = this.normalizeRole(role);
-    return r === 'admin' || r === 'sales_executive' || r === 'sales_manager';
+    return Manage.LOCATION_ROLES.includes(this.normalizeRole(role));
+  }
+
+  /** "Admin, Sales Executive, Sales Manager and Access Officer": the location-bound roles as the database names them. */
+  get locationRoleNames(): string {
+    const names = Manage.LOCATION_ROLES.map(r => this.getRoleLabel(r));
+    return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join('');
   }
 
   /** Admins and sales executives are limited to their own location(s); super admins are not. */
@@ -1027,7 +1035,10 @@ export class Manage implements OnInit {
   /** Role id -> role name, for rows that carry only a RoleId. */
   private roleIds: Record<string, string> = {};
   get assignableRoles(): { v: string; l: string }[] { return this.roleOptions(); }
-  /** Only a Super Admin creates Admins / Super Admins / CEOs / Sales Managers; an Admin creates Sales Executives and customers. */
+  /**
+   * Only a Super Admin creates Admins / Super Admins / CEOs / Sales Managers / Access Officers; an Admin creates Sales
+   * Executives and customers.
+   */
   get rolesICanAssign(): { v: string; l: string }[] {
     return this.auth.hasRole('super_admin')
       ? this.roleOptions()
@@ -1069,10 +1080,10 @@ export class Manage implements OnInit {
     return !!me && email === me;
   }
 
-  /** Users: Admin, Super Admin, CEO and Sales Manager accounts, which only a Super Admin manages. */
+  /** Users: Admin, Super Admin, CEO, Sales Manager and Access Officer accounts, which only a Super Admin manages. */
   private isAdminAccount(item: any): boolean {
     const role = this.normalizeRole(item?.role ?? item?.roleId ?? item?.RoleId);
-    return role === 'admin' || role === 'super_admin' || role === 'ceo' || role === 'sales_manager';
+    return role === 'admin' || role === 'super_admin' || role === 'ceo' || role === 'sales_manager' || role === 'access_officer';
   }
 
   /** Users: a Super Admin edits everyone; an Admin edits their own profile and the users below them. */
@@ -4089,7 +4100,8 @@ export class Manage implements OnInit {
       }
 
       if (!this.isLocationRole(role)) {
-        // Admins, Sales Executives and Sales Managers are tied to locations; Super Admins, CEOs and customers are not.
+        // Admins, Sales Executives, Sales Managers and Access Officers are tied to locations; Super Admins, CEOs and
+        // customers are not.
         locationId = null;
         locationIds = [];
       } else {
@@ -4452,6 +4464,7 @@ export class Manage implements OnInit {
     if (str === '16' || str === 'salesexecutive' || str === 'sales_executive') return 'sales_executive';
     if (str === '17' || str === 'ceo') return 'ceo';
     if (str === '18' || str === 'salesmanager' || str === 'sales_manager') return 'sales_manager';
+    if (str === '19' || str === 'accessofficer' || str === 'access_officer') return 'access_officer';
     // Another role id: its name from GET api/roles.
     if (/^\d+$/.test(str) && this.roleIds?.[str]) return this.roleIds[str];
     return str || 'general';

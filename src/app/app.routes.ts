@@ -3,6 +3,7 @@ import { adminGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
 import { ceoGuard } from './guards/ceo.guard';
 import { salesManagerGuard } from './guards/sales-manager.guard';
+import { accessOfficerGuard } from './guards/access-officer.guard';
 
 export const routes: Routes = [
 
@@ -25,6 +26,8 @@ export const routes: Routes = [
       { path: 'ceo',       loadComponent: () => import('./pages/admin/ceo/ceo-dashboard').then(m => m.CeoDashboard), canActivate: [ceoGuard] },
       // Sales dashboard: the only page a Sales Manager can open (adminGuard keeps them here); super admins may open it too.
       { path: 'sales-manager', loadComponent: () => import('./pages/admin/sales-manager/sales-manager-dashboard').then(m => m.SalesManagerDashboard), canActivate: [salesManagerGuard] },
+      // Access page (door access by CNIC): the only page an Access Officer can open (adminGuard keeps them here); super admins may open it too.
+      { path: 'access',    loadComponent: () => import('./pages/admin/access-officer/access-officer').then(m => m.AccessOfficerPage), canActivate: [accessOfficerGuard] },
       { path: 'profile',   loadComponent: () => import('./pages/admin/profile/profile').then(m => m.AdminProfile) },
       { path: 'customers',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'customers' } },
       { path: 'kyc',         loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },

@@ -7,7 +7,8 @@ import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
 import {
-  CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isCeoUrl, isSalesExecutiveUrl, isSalesManagerUrl
+  ACCESS_OFFICER_HOME, CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isAccessOfficerUrl, isCeoUrl, isSalesExecutiveUrl,
+  isSalesManagerUrl
 } from '../../../guards/admin.guard';
 import { roleLabelFor } from '../../../utils/constants';
 
@@ -31,7 +32,9 @@ export class AdminLayout implements OnInit, OnDestroy {
   isCeo = false;
   /** Sales Manager: only the sales dashboard in the sidebar, no badges or other staff calls (same reason). */
   isSalesManager = false;
-  /** CEO / Sales Manager: their one dashboard (logo link, no profile page); null for everyone else. */
+  /** Access Officer: only the Access page in the sidebar, no badges or other staff calls (same reason). */
+  isAccessOfficer = false;
+  /** CEO / Sales Manager / Access Officer: their one page (logo link, no profile page); null for everyone else. */
   dashboardHome: string | null = null;
 
   public toastService = inject(ToastService);
@@ -99,6 +102,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/attendants', group: 'Access Control',     label: 'Attendants & Access', icon: 'users'         },
     { route: '/admin/biometric-users', group: 'Access Control', label: 'Access Users',     icon: 'biometrics'      },
     { route: '/admin/staff-access', group: 'Access Control',        label: 'Staff Access',        icon: 'users' },
+    { route: ACCESS_OFFICER_HOME, group: 'Access Control',          label: 'Access by CNIC',      icon: 'access-officer', superAdminOnly: true },
     { route: '/admin/access-dashboard', group: 'Access Control',    label: 'Access Dashboard',    icon: 'access-dashboard', adminOnly: true },
     { route: '/admin/access-activity-log', group: 'Access Control', label: 'Access Activity Log', icon: 'access-activity',  adminOnly: true },
     { route: '/admin/access-analytics', group: 'Access Control',    label: 'Access Analytics',    icon: 'access-analytics', adminOnly: true },
@@ -122,6 +126,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     this.isCeo = this.auth.isCeoOnly();
     this.isSalesManager = this.auth.isSalesManagerOnly();
+    this.isAccessOfficer = this.auth.isAccessOfficerOnly();
     if (this.isCeo) {
       this.userRole = 'CEO';
       this.dashboardHome = CEO_HOME;
@@ -138,6 +143,14 @@ export class AdminLayout implements OnInit, OnDestroy {
       if (!isSalesManagerUrl(this.router.url)) {
         this.router.navigate([SALES_MANAGER_HOME]);
       }
+    } else if (this.isAccessOfficer) {
+      this.userRole = 'access_officer';
+      this.dashboardHome = ACCESS_OFFICER_HOME;
+      // Same rule as adminGuard: the Access page and nothing else.
+      this.menuItems = [{ route: ACCESS_OFFICER_HOME, group: '', label: 'Access', icon: 'access-officer' }];
+      if (!isAccessOfficerUrl(this.router.url)) {
+        this.router.navigate([ACCESS_OFFICER_HOME]);
+      }
     } else if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
       // Same allow-list as adminGuard (challan-validity is super-admin only, so not listed).
@@ -152,7 +165,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     this.baseTitle = this.titleService.getTitle();
     // The role's database label (auth/me) when the sign-in response did not bring it.
     if (!this.auth.getUser()?.roleDisplayName) this.auth.refreshProfileLabels();
-    // A CEO / Sales Manager has no sidebar badges or network section (those APIs are staff-only).
+    // A CEO / Sales Manager / Access Officer has no sidebar badges or network section (those APIs are staff-only).
     if (this.dashboardHome) return;
     this.loadNetworkScope();
     this.loadBadges();
