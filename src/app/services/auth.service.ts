@@ -12,6 +12,8 @@ import {
   createUserWithEmailAndPassword,
   getIdTokenResult,
   onAuthStateChanged,
+  reload,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -44,6 +46,40 @@ export interface UserInfo {
 
 /** Sign-out waits at most this long for POST auth/logout before clearing the session anyway. */
 const LOGOUT_API_WAIT_MS = 1500;
+
+export interface AuthResult {
+  isSuccessful: boolean;
+  message: string;
+  data: UserInfo | null;
+}
+
+/**
+ * Why the API refused a sign-in (HTTP 403 { isSuccessful: false, message, data: { code } } from auth/login,
+ * auth/google-login, auth/register and auth/sync).
+ * EMAIL_NOT_VERIFIED: the Firebase account's email isn't verified (and it never signed in before 16 Oct 2026).
+ * ACCOUNT_DISABLED: the WorkNest account is turned off.
+ */
+export const EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED';
+export const ACCOUNT_DISABLED = 'ACCOUNT_DISABLED';
+/** The email is still not verified after the user pressed "I've verified" (Firebase reload). */
+export const STILL_NOT_VERIFIED = 'STILL_NOT_VERIFIED';
+/** There is no Firebase user any more (e.g. signed out in another tab): the user has to sign in again. */
+export const SIGNED_OUT = 'SIGNED_OUT';
+
+/** Shown when the API refused without a readable message of its own (same wording as the API). */
+const REFUSAL_MESSAGES: Record<string, string> = {
+  [EMAIL_NOT_VERIFIED]: 'Please verify your email address first. Open the link we sent you, then sign in again.',
+  [ACCOUNT_DISABLED]: 'Your account is turned off. Please contact WorkNest.',
+};
+
+/**
+ * The code of a failed sign-in, as the pages see it: err.error.code (set by AuthService) or the API's
+ * data.code. Null for any other failure.
+ */
+export function authFailureCode(err: any): string | null {
+  const code = err?.error?.code ?? err?.error?.data?.code ?? null;
+  return typeof code === 'string' && code ? code : null;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -178,16 +214,22 @@ export class AuthService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.message || 'Invalid email or password.';
-        return throwError(() => ({ error: { message: msg } }));
+        // A turned-off account (403 ACCOUNT_DISABLED) keeps its code so the page can tell it apart.
+        const code = authFailureCode(err);
+        return throwError(() => ({ error: code ? { message: msg, code } : { message: msg } }));
       })
     );
   }
 
-  login(email: string, password: string): Observable<{
-    isSuccessful: boolean;
-    message: string;
-    data: UserInfo | null;
-  }> {
+  /**
+   * Email + password sign-in: Firebase, then the API token exchange (auth/login with the Firebase ID token).
+   * Any failure falls back to the WorkNest password (auth/login without a token), as before; this also keeps staff
+   * whose Firebase email isn't verified signing in. Errors carry err.error.code:
+   * - EMAIL_NOT_VERIFIED (the fallback failed too): Firebase stays signed in so the page can send the verification
+   *   email (sendVerificationEmail$) and finish with completeEmailVerification$.
+   * - ACCOUNT_DISABLED: signed out of Firebase; err.error.message is the API's message.
+   */
+  login(email: string, password: string): Observable<AuthResult> {
     if (!isFirebaseConfigured) {
       return this.loginWithBackendApi$(email, password);
     }
@@ -198,40 +240,144 @@ export class AuthService {
       )),
       switchMap(({ credential, response }) => this.toAuthSuccess(credential, response)),
       catchError(firebaseError => {
+        const firstCode = authFailureCode(firebaseError);
+        // A turned-off account is turned off for the password sign-in too.
+        if (firstCode === ACCOUNT_DISABLED) {
+          return this.refuseSignIn$(firebaseError);
+        }
         return this.loginWithBackendApi$(email, password).pipe(
-          catchError(() => throwError(() => this.normalizeAuthError(firebaseError)))
+          catchError(backendError => {
+            if (authFailureCode(backendError) === ACCOUNT_DISABLED) {
+              return this.refuseSignIn$(backendError);
+            }
+            if (firstCode === EMAIL_NOT_VERIFIED) {
+              return this.refuseSignIn$(firebaseError);
+            }
+            return throwError(() => this.normalizeAuthError(firebaseError));
+          })
         );
       })
     );
   }
 
-  register(email: string, password: string, firstName?: string, lastName?: string): Observable<{
-    isSuccessful: boolean;
-    message: string;
-    data: UserInfo | null;
+  /**
+   * Creates the Firebase account and sends the verification email. The API is not called yet: it refuses an
+   * unverified email (EMAIL_NOT_VERIFIED). The page shows "Check your email" and, once the link was opened,
+   * completeEmailVerification$ creates the WorkNest account and signs in.
+   * emailSent is false when the account was created but the email could not be sent (the page offers "Resend").
+   */
+  register(email: string, password: string, firstName?: string, lastName?: string): Observable<AuthResult & {
+    verificationRequired: boolean;
+    emailSent: boolean;
   }> {
     const displayName = [firstName, lastName].filter(Boolean).join(' ').trim();
 
     return this.ensureConfigured().pipe(
-      switchMap(() => from(createUserWithEmailAndPassword(firebaseAuth, email, password))),
+      switchMap(() => from(createUserWithEmailAndPassword(firebaseAuth, email, password)).pipe(
+        catchError(error => throwError(() => this.normalizeAuthError(error)))
+      )),
       switchMap(async credential => {
         if (displayName) {
-          await updateProfile(credential.user, { displayName });
+          // The name the API stores when the account is created after verification.
+          await updateProfile(credential.user, { displayName }).catch(() => undefined);
         }
         return credential;
       }),
-      switchMap(credential => this.syncRegisterToApi$(email, password, firstName, lastName).pipe(
-        map(response => ({ credential, response }))
+      switchMap(credential => from(sendEmailVerification(credential.user)).pipe(
+        map(() => true),
+        catchError(() => of(false))
       )),
-      switchMap(({ credential, response }) => this.toAuthSuccess(credential, response))
+      map(emailSent => ({
+        isSuccessful: true,
+        message: emailSent
+          ? `We sent a verification link to ${email}.`
+          : 'Your account was created, but we could not send the verification email.',
+        data: null,
+        verificationRequired: true,
+        emailSent
+      }))
     );
   }
 
-  loginWithGoogle(): Observable<{
-    isSuccessful: boolean;
-    message: string;
-    data: UserInfo | null;
-  }> {
+  /** The email of the signed-in Firebase user waiting for verification (null when nobody is signed in to Firebase). */
+  pendingVerificationEmail(): string | null {
+    return (isFirebaseConfigured && firebaseAuth?.currentUser?.email) || null;
+  }
+
+  /** Sends (again) Firebase's verification link to the signed-in Firebase user. */
+  sendVerificationEmail$(): Observable<void> {
+    const user = isFirebaseConfigured ? firebaseAuth?.currentUser : null;
+    if (!user) {
+      return throwError(() => ({ error: { message: 'Please sign in again to get a new verification email.', code: SIGNED_OUT } }));
+    }
+    return from(sendEmailVerification(user)).pipe(
+      catchError((err: AuthError) => {
+        const code = err?.code ?? '';
+        if (code === 'auth/user-token-expired' || code === 'auth/user-disabled' || code === 'auth/user-not-found') {
+          return throwError(() => ({
+            error: { message: 'Please sign in again to get a new verification email.', code: SIGNED_OUT }
+          }));
+        }
+        const message =
+          code === 'auth/too-many-requests' ? 'We have sent several emails already. Please wait a few minutes before asking for another one.'
+          : code === 'auth/network-request-failed' ? 'Network error while sending the email. Please check your connection and try again.'
+          : 'Could not send the verification email. Please try again.';
+        return throwError(() => ({ error: { message, code } }));
+      })
+    );
+  }
+
+  /**
+   * After the user opened the verification link: reloads the Firebase user, takes a fresh ID token (now with
+   * email_verified) and exchanges it with the API the same way the sign-in did (auth/login for email + password,
+   * auth/google-login otherwise). Errors carry err.error.code: STILL_NOT_VERIFIED, SIGNED_OUT, ACCOUNT_DISABLED
+   * (signed out of Firebase) or EMAIL_NOT_VERIFIED.
+   */
+  completeEmailVerification$(): Observable<AuthResult> {
+    const user = isFirebaseConfigured ? firebaseAuth?.currentUser : null;
+    if (!user) {
+      return throwError(() => ({ error: { message: 'Please sign in again.', code: SIGNED_OUT } }));
+    }
+
+    return from(reload(user)).pipe(
+      catchError(() => throwError(() => ({
+        error: { message: 'Could not check your email right now. Please try again.' }
+      }))),
+      switchMap(() => {
+        const current = firebaseAuth.currentUser;
+        if (!current) {
+          return throwError(() => ({ error: { message: 'Please sign in again.', code: SIGNED_OUT } }));
+        }
+        if (!current.emailVerified) {
+          return throwError(() => ({
+            error: {
+              message: `Your email is not verified yet. Open the link we sent to ${current.email ?? 'your email'}, then press "I've verified" again.`,
+              code: STILL_NOT_VERIFIED
+            }
+          }));
+        }
+        const viaPassword = current.providerData.some(p => p.providerId === 'password');
+        return from(current.getIdToken(true)).pipe(
+          switchMap(() => viaPassword
+            ? this.syncLoginOrProvisionApi$(current, current.email ?? '', '')
+            : this.syncGoogleLoginToApi$(current, null)),
+          catchError(error => this.isSignInRefusal(error)
+            ? this.refuseSignIn$(error)
+            : throwError(() => ({
+                error: { message: error?.error?.message || 'Could not sign you in. Please try again.' }
+              }))),
+          switchMap(response => this.toAuthSuccess({ user: current }, response))
+        );
+      })
+    );
+  }
+
+  /** "Back" from the verification screen: signs out of Firebase so the next sign-in starts fresh. */
+  cancelEmailVerification$(): Observable<unknown> {
+    return this.logout$();
+  }
+
+  loginWithGoogle(): Observable<AuthResult> {
     return this.ensureConfigured().pipe(
       switchMap(() => from(signInWithPopup(firebaseAuth, googleProvider))),
       switchMap(credential => {
@@ -244,6 +390,10 @@ export class AuthService {
 
         return this.syncGoogleLoginToApi$(credential.user, idToken).pipe(
           catchError((err) => {
+            // Email not verified / account turned off: say so (never fall back to a session without a token).
+            if (this.isSignInRefusal(err)) {
+              return this.refuseSignIn$(err);
+            }
             console.warn('Google login API sync failed, falling back to /auth/me:', err);
             if (credential.user.email) {
               return this.hydrateBackendSession$({
@@ -511,8 +661,9 @@ export class AuthService {
     if (!email) return of(fallbackUser);
 
     const currentUser = firebaseAuth?.currentUser;
+    let accountDisabled = false;
     const ensureToken$ = !this.getToken() && currentUser
-      ? this.syncLoginToApi$(email, '', currentUser).pipe(
+      ? this.silentExchange$(email, currentUser).pipe(
           map(res => {
             const token = this.extractToken(res);
             if (token) {
@@ -520,12 +671,21 @@ export class AuthService {
             }
             return token;
           }),
-          catchError(() => of(null))
+          catchError(error => {
+            if (authFailureCode(error) === ACCOUNT_DISABLED) {
+              // The account was turned off: end the Firebase session too, so it isn't retried on every load.
+              accountDisabled = true;
+              this.clearSession();
+              void signOut(firebaseAuth).catch(() => undefined);
+            }
+            return of(null);
+          })
         )
       : of(this.getToken());
 
     return ensureToken$.pipe(
       switchMap(() => {
+        if (accountDisabled) return of(null);
         if (!this.getToken()) return of(fallbackUser);
         return this.http.get<any>(`${environment.apiUrl}/auth/me`, {
           headers: { 'x-user-email': email }
@@ -568,21 +728,7 @@ export class AuthService {
     );
   }
 
-  private toAuthSuccess(credential: UserCredential): Observable<{
-    isSuccessful: boolean;
-    message: string;
-    data: UserInfo | null;
-  }>;
-  private toAuthSuccess(credential: UserCredential, apiResponse: any): Observable<{
-    isSuccessful: boolean;
-    message: string;
-    data: UserInfo | null;
-  }>;
-  private toAuthSuccess(credential: UserCredential, apiResponse?: any): Observable<{
-    isSuccessful: boolean;
-    message: string;
-    data: UserInfo | null;
-  }> {
+  private toAuthSuccess(credential: Pick<UserCredential, 'user'>, apiResponse?: any): Observable<AuthResult> {
     return from(this.mapFirebaseUser(credential.user)).pipe(
       map(userInfo => {
         const apiPayload = this.extractApiPayload(apiResponse);
@@ -772,19 +918,25 @@ export class AuthService {
     );
   }
 
-  private syncGoogleLoginToApi$(firebaseUser: User, idToken: string): Observable<any> {
+  /**
+   * POST auth/google-login: exchanges the Firebase sign-in (Google, or any Firebase user) for the API token.
+   * idToken is the Google credential's token when there is one, else the Firebase ID token (what the app sends).
+   * interactive: false = a silent re-exchange: the API returns the token without a login-history row.
+   */
+  private syncGoogleLoginToApi$(firebaseUser: User, idToken: string | null, interactive = true): Observable<any> {
     const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
     const lastName = rest.join(' ') || undefined;
     const fullName = firebaseUser.displayName || [firstName, lastName].filter(Boolean).join(' ').trim();
     return from(firebaseUser.getIdToken()).pipe(
       switchMap(firebaseIdToken => {
         const payload = {
-          idToken,
+          idToken: idToken || firebaseIdToken,
           firebaseIdToken,
           email: firebaseUser.email ?? undefined,
           firstName: firstName || undefined,
           lastName,
-          name: fullName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User')
+          name: fullName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User'),
+          interactive
         };
         return this.http.post<any>(`${environment.apiUrl}/auth/google-login`, payload).pipe(
           catchError(error => {
@@ -829,6 +981,45 @@ export class AuthService {
     );
   }
 
+  /**
+   * Session restore without a button press (Firebase still has the user but the API token is missing): exchanges
+   * the Firebase ID token at auth/google-login with interactive: false, so no login-history row is added.
+   * A refusal (EMAIL_NOT_VERIFIED / ACCOUNT_DISABLED) is final; any other failure (e.g. the per-account limit)
+   * falls back to the auth/login exchange used before.
+   */
+  private silentExchange$(email: string, firebaseUser: User): Observable<any> {
+    return this.syncGoogleLoginToApi$(firebaseUser, null, false).pipe(
+      catchError(error => this.isSignInRefusal(error)
+        ? throwError(() => error)
+        : this.syncLoginToApi$(email, '', firebaseUser))
+    );
+  }
+
+  /** The API refused the sign-in on purpose (403 EMAIL_NOT_VERIFIED / ACCOUNT_DISABLED). */
+  private isSignInRefusal(error: any): boolean {
+    const code = authFailureCode(error);
+    return code === EMAIL_NOT_VERIFIED || code === ACCOUNT_DISABLED;
+  }
+
+  /**
+   * A refused sign-in as the error the pages read: { error: { message: the API's message, code } }.
+   * A turned-off account is also signed out of Firebase (and the stored session cleared); an unverified one stays
+   * signed in to Firebase so the verification email can be sent to it.
+   */
+  private refuseSignIn$(error: any): Observable<never> {
+    const code = authFailureCode(error) ?? EMAIL_NOT_VERIFIED;
+    const serverMessage = String(error?.error?.message ?? '').trim();
+    // The error interceptor puts its generic 403 text there when the API's own message was not readable.
+    const message = serverMessage && serverMessage !== "You don't have permission to do this."
+      ? serverMessage
+      : (REFUSAL_MESSAGES[code] ?? 'WorkNest could not sign you in. Please contact WorkNest.');
+    const failure = { error: { message, code } };
+    if (code !== ACCOUNT_DISABLED) {
+      return throwError(() => failure);
+    }
+    return this.endLocalSession$().pipe(switchMap(() => throwError(() => failure)));
+  }
+
   private syncLoginOrProvisionApi$(firebaseUser: User, email: string, password: string): Observable<any> {
     const [firstName, ...rest] = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
     const lastName = rest.join(' ') || undefined;
@@ -851,6 +1042,12 @@ export class AuthService {
   }
 
   private normalizeAuthError(error: unknown) {
+    // A refusal from the API keeps its own message and code (never "Authentication failed").
+    const refusalCode = authFailureCode(error);
+    if (refusalCode === EMAIL_NOT_VERIFIED || refusalCode === ACCOUNT_DISABLED) {
+      const message = String((error as any)?.error?.message ?? '').trim() || REFUSAL_MESSAGES[refusalCode];
+      return { error: { message, code: refusalCode } };
+    }
     const authError = error as AuthError;
     const messageMap: Record<string, string> = {
       // amazonq-ignore-next-line
