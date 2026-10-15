@@ -49,8 +49,14 @@ export interface CeoOccupancy {
   months: CeoOccupancyMonth[];
   byType: CeoOccupancyType[];
   byLocation: CeoOccupancyLocation[];
-  /** Next 90 days. */
+  /** Next 90 days, soonest first (the API sends the first 50). */
   leasesExpiring: CeoLeaseExpiring[];
+  /**
+   * Every lease ending in the next 90 days and their monthly rent; null when the API did not send them (before the
+   * database update QA_07: only the list is known, and the full list (records/leases) cannot be opened yet).
+   */
+  leasesExpiringCount: number | null;
+  leasesExpiringMonthly: number | null;
 }
 
 export type CeoFunnelStageKey = 'inquiries' | 'quotations' | 'accepted' | 'bookings';
@@ -63,6 +69,12 @@ export interface CeoSales {
   inquiriesByType: CeoInquiryType[];
   quotationValue: number;
   bookingValue: number;
+  /**
+   * Tour inquiries follow the location filter by their branch. True when a location is chosen but the inquiry
+   * figures (funnel stage, by type) still count every location: the database update QA_07 has not run, or an older
+   * API that never narrowed them (no flag sent). The page then labels them "all locations".
+   */
+  inquiriesAllLocations: boolean;
 }
 
 export interface CeoTeamLocation {
@@ -97,7 +109,7 @@ export interface CeoBreakdown {
 }
 
 // ---------- Drill-down level 3 ----------
-export type CeoRecordKind = 'invoices' | 'spaces' | 'bookings' | 'inquiries' | 'quotations';
+export type CeoRecordKind = 'invoices' | 'spaces' | 'bookings' | 'inquiries' | 'quotations' | 'leases';
 
 export interface CeoInvoiceRecord {
   invoiceId: number; invoiceNumber: string; customer: string; location: string;
@@ -119,9 +131,15 @@ export interface CeoQuotationRecord {
   quotationId: number; quotationNumber: string; customer: string; location: string;
   createdBy: string; status: string; total: number; createdOn: string | null;
 }
+/** records/leases (QA_07): a confirmed lease ending in the window, soonest first. */
+export interface CeoLeaseRecord {
+  bookingId: number; customer: string; space: string; location: string; endOn: string | null; monthlyAmount: number;
+  /** Days from today to the end date (negative = already ended); null when not known. */
+  daysLeft: number | null;
+}
 export interface CeoRecordRowMap {
   invoices: CeoInvoiceRecord; spaces: CeoSpaceRecord; bookings: CeoBookingRecord;
-  inquiries: CeoInquiryRecord; quotations: CeoQuotationRecord;
+  inquiries: CeoInquiryRecord; quotations: CeoQuotationRecord; leases: CeoLeaseRecord;
 }
 export interface CeoRecords<K extends CeoRecordKind = CeoRecordKind> {
   title: string;
@@ -149,6 +167,29 @@ const CEO_WORDING: DashErrorWording = {
   dbMessage: 'The CEO dashboard needs the database update before it can show figures. Ask the WorkNest team to run the latest database script, then refresh this page.'
 };
 
+/** The CEO dashboard's own database update: a 503 naming it keeps the general wording above. */
+const CEO_BASE_UPDATE = 'CEO_01';
+
+/**
+ * A later database update a 503 names ("The full list of leases expiring needs the database update QA_07."), from
+ * the API's message; null for none or for the dashboard's own update (CEO_01).
+ */
+function laterUpdateOf(err: unknown): string | null {
+  const e = err as any;
+  const message = [e?.error?.message, e?.message].filter(m => typeof m === 'string').join(' ');
+  const update = /\b([A-Z]{2,4}_\d{2})\b/i.exec(message)?.[1].toUpperCase() ?? null;
+  return update && update !== CEO_BASE_UPDATE ? update : null;
+}
+
+/** Days from today to an ISO date (negative = past); null when there is no valid date. */
+function daysFromToday(date: string | null): number | null {
+  if (!date) return null;
+  const d = new Date(date.length <= 10 ? date + 'T00:00:00' : date);
+  if (isNaN(d.getTime())) return null;
+  const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - t.getTime()) / 86400000);
+}
+
 @Injectable({ providedIn: 'root' })
 export class CeoService {
   private http = inject(HttpClient);
@@ -164,7 +205,10 @@ export class CeoService {
     return this.get(`${this.api}/ceo/breakdown`, { ...params, metric }).pipe(map(d => this.toBreakdown(d)));
   }
 
-  /** GET api/ceo/records/{kind}: drill-down level 3 (read-only list, newest first, at most 200 rows). */
+  /**
+   * GET api/ceo/records/{kind}: drill-down level 3 (read-only list, newest first, at most 200 rows). leases: every
+   * confirmed lease ending in the next 90 days (or month / from / to), soonest first; needs QA_07 (503 before it).
+   */
   getRecords<K extends CeoRecordKind>(kind: K, params: CeoParams): Observable<CeoRecords<K>> {
     return this.get(`${this.api}/ceo/records/${kind}`, params).pipe(map(d => this.toRecords(kind, d)));
   }
@@ -181,9 +225,17 @@ export class CeoService {
     );
   }
 
-  /** Wording for a failed request (used by every section and drill level). */
+  /**
+   * Wording for a failed request (used by every section and drill level). A 503 naming a later database update
+   * (QA_07 for the full list of leases expiring) names it; the dashboard's own (CEO_01) keeps the general wording.
+   */
   static describeError(err: unknown): CeoError {
-    return describeDashboardError(err, CEO_WORDING);
+    if (err && typeof err === 'object' && 'needsDbUpdate' in (err as any) && 'title' in (err as any)) return err as CeoError;
+    const e = describeDashboardError(err, CEO_WORDING);
+    const update = e.needsDbUpdate ? laterUpdateOf(err) : null;
+    return update
+      ? { ...e, message: `This part of the CEO dashboard needs the database update ${update} before it can show it. Ask the WorkNest team to run it, then refresh this page.` }
+      : e;
   }
 
   // ---------- transport ----------
@@ -213,6 +265,11 @@ export class CeoService {
       topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) }))
     };
 
+    const leasesExpiring = arr(o?.leasesExpiring, (x: any): CeoLeaseExpiring => ({
+      bookingId: num(x.bookingId), customer: str(x.customer) || 'Customer', space: str(x.space), location: str(x.location),
+      endOn: str(x.endOn), monthlyAmount: num(x.monthlyAmount)
+    }));
+    const leasesCount = numOrNull(o?.leasesExpiringCount);
     const occupancy: CeoOccupancy | null = o && {
       totalSpaces: num(o.totalSpaces), occupiedSpaces: num(o.occupiedSpaces),
       occupancyPct: num(o.occupancyPct), occupancyPctPrev: num(o.occupancyPctPrev),
@@ -221,17 +278,21 @@ export class CeoService {
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
       byType: arr(o.byType, (x: any) => ({ spaceTypeId: num(x.spaceTypeId), name: str(x.name) || 'Space type', total: num(x.total), occupied: num(x.occupied) })),
       byLocation: arr(o.byLocation, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location', total: num(x.total), occupied: num(x.occupied) })),
-      leasesExpiring: arr(o.leasesExpiring, (x: any) => ({
-        bookingId: num(x.bookingId), customer: str(x.customer) || 'Customer', space: str(x.space), location: str(x.location),
-        endOn: str(x.endOn), monthlyAmount: num(x.monthlyAmount)
-      }))
+      leasesExpiring,
+      // The full count when sent (never below the list it came with); null = only the list is known.
+      leasesExpiringCount: leasesCount === null ? null : Math.max(leasesExpiring.length, Math.floor(leasesCount)),
+      leasesExpiringMonthly: numOrNull(o.leasesExpiringMonthly)
     };
 
     const sales: CeoSales | null = s && {
       funnel: arr(s.funnel, (x: any) => ({ stage: str(x.stage), label: str(x.label) || str(x.stage), count: num(x.count) })),
       conversionRate: percent(s.conversionRate),
       inquiriesByType: arr(s.inquiriesByType, (x: any) => ({ type: str(x.type) || 'NotSet', label: str(x.label) || str(x.type) || 'Not set', count: num(x.count) })),
-      quotationValue: num(s.quotationValue), bookingValue: num(s.bookingValue)
+      quotationValue: num(s.quotationValue), bookingValue: num(s.bookingValue),
+      // Not sent (an older API): its inquiry figures never followed the location.
+      inquiriesAllLocations: s.inquiriesAllLocations === undefined || s.inquiriesAllLocations === null
+        ? true
+        : s.inquiriesAllLocations === true || s.inquiriesAllLocations === 1 || String(s.inquiriesAllLocations).toLowerCase() === 'true'
     };
 
     const team: CeoTeam | null = t && {
@@ -298,6 +359,13 @@ export class CeoService {
         customer: str(r.customer), location: str(r.location), createdBy: str(r.createdBy), status: str(r.status),
         total: num(r.total), createdOn: strOrNull(r.createdOn)
       };
+      case 'leases': {
+        const endOn = strOrNull(r.endOn);
+        return {
+          bookingId: num(r.bookingId), customer: str(r.customer) || 'Customer', space: str(r.space), location: str(r.location),
+          endOn, monthlyAmount: num(r.monthlyAmount), daysLeft: numOrNull(r.daysLeft) ?? daysFromToday(endOn)
+        };
+      }
     }
   }
 }

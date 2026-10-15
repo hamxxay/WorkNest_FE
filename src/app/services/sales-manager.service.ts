@@ -155,6 +155,11 @@ export interface SmDashboard {
   generatedAt: string | null;
   /** The manager's locations (every location for a super admin). */
   locations: SmLocation[];
+  /**
+   * True: the database update BR_02 has not run yet, so the tour inquiry figures count every branch (not only the
+   * manager's locations); the Tour inquiries section says so. False (or not sent): they follow the locations.
+   */
+  inquiriesAllBranches: boolean;
   /** null when the API sent no such section (the page shows an empty state). */
   funnel: SmFunnel | null;
   team: SmTeam | null;
@@ -344,6 +349,7 @@ export class SalesManagerService {
       generatedAt: strOrNull(d.generatedAt),
       locations: arr(d.locations, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location' }))
         .filter(l => l.locationId > 0),
+      inquiriesAllBranches: flag(d.inquiriesAllBranches),
       funnel,
       team: this.toTeam(obj(d.team)),
       inquiries: this.toInquiries(obj(d.inquiries)),

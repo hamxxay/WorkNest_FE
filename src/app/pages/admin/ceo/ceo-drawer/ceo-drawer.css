@@ -99,6 +99,13 @@
 .col-go { width: 28px; color: #94a3b8; text-align: right; }
 .dr-table tr.clickable:hover .col-go { color: #0d9488; }
 .hint { margin: 10px 2px 0; font-size: 0.78rem; color: #94a3b8; }
+/* the second list a row offers (e.g. the leases ending that month next to its bookings) */
+.alt-link {
+  display: block; margin-top: 7px; border: none; background: none; padding: 0; font: inherit; font-size: 0.74rem;
+  font-weight: 600; color: #0d9488; cursor: pointer; text-align: left; border-radius: 4px; white-space: normal;
+}
+.alt-link:hover { text-decoration: underline; color: #0f766e; }
+.alt-link:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
 
 .pill { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; background: #f1f5f9; color: #475569; text-transform: capitalize; }
 .pill.tone-ok { background: #d1fae5; color: #047857; }

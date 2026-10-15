@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, catchError, map, throwError } from 'rxjs';
+import { friendlyHttpMessage } from '../interceptors/error.interceptor';
 
 // ============================================================
 // Shared transport for the read-only dashboards (CEO: api/ceo/*, Sales Manager: api/sales-manager/*):
@@ -29,6 +30,19 @@ export interface DashErrorWording {
   any503IsDb?: boolean;
 }
 
+/**
+ * The server's own message on a failed request ("Location mismatch. You aren't assigned to Location 3."), or null
+ * when it sent none: the error interceptor fills an empty body with its plain wording for the status ("You don't
+ * have permission to do this."), which is not the server's.
+ */
+export function serverMessageOf(err: unknown): string | null {
+  if (!(err instanceof HttpErrorResponse)) return null;
+  const body = err.error;
+  const text = body && typeof body === 'object' && typeof body.message === 'string' ? body.message.trim() : '';
+  if (!text || text.length > 300) return null;
+  return text === friendlyHttpMessage(new HttpErrorResponse({ status: err.status })) ? null : text;
+}
+
 export function describeDashboardError(err: unknown, w: DashErrorWording): DashError {
   if (err && typeof err === 'object' && 'needsDbUpdate' in (err as any) && 'title' in (err as any)) return err as DashError;
   const http = err instanceof HttpErrorResponse ? err : null;
@@ -43,7 +57,11 @@ export function describeDashboardError(err: unknown, w: DashErrorWording): DashE
       : { status, needsDbUpdate: false, title: 'Temporarily unavailable', message: apiMessage || 'The service is temporarily unavailable. Please try again in a few minutes.' };
   }
   if (status === 403) {
-    return { status, needsDbUpdate: false, title: 'No access', message: `Your account cannot open the ${w.name}. Ask a super admin to check your role.` };
+    // The server's reason when it gave one (no locations yet, a location that is not theirs...), else the general one.
+    return {
+      status, needsDbUpdate: false, title: 'No access',
+      message: serverMessageOf(err) ?? `Your account cannot open the ${w.name}. Ask a super admin to check your role.`
+    };
   }
   if (status === 404) {
     return { status, needsDbUpdate: false, title: 'Not available yet', message: `The server does not have the ${w.name} yet. It will work once the API update is live.` };

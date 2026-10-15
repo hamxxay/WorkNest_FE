@@ -114,10 +114,12 @@ export class CeoDashboard {
     this.sub?.unsubscribe();
     if (this.data()) this.refreshing.set(true); else this.loading.set(true);
     const key = this.selectionKey();
-    this.sub = this.ceo.getDashboard(this.period(), this.locationId()).subscribe({
+    const locationId = this.locationId();
+    this.sub = this.ceo.getDashboard(this.period(), locationId).subscribe({
       next: d => {
         this.data.set(d);
         this.dataKey = key;
+        this.shownLocationId.set(locationId);
         this.error.set(null);
         this.loading.set(false);
         this.refreshing.set(false);
@@ -141,6 +143,8 @@ export class CeoDashboard {
 
   /** Period + location the figures on screen belong to. */
   private dataKey = '';
+  /** The location the figures on screen belong to (null = all locations). */
+  private shownLocationId = signal<number | null>(null);
   private selectionKey(): string { return `${this.period()}|${this.locationId() ?? ''}`; }
 
   loadForecast() {
@@ -305,11 +309,28 @@ export class CeoDashboard {
     const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
     return Math.max(0, Math.round((d.getTime() - t.getTime()) / 86400000));
   }
-  expiringTotal = computed(() => (this.o()?.leasesExpiring ?? []).reduce((a, l) => a + l.monthlyAmount, 0));
+  /** Every lease ending in the next 90 days: the API's full count (QA_07), else what its list holds (the first 50). */
+  leasesCount = computed(() => this.o()?.leasesExpiringCount ?? this.o()?.leasesExpiring.length ?? 0);
+  /** Their monthly rent: the API's total when sent, else the sum of the list. */
+  expiringTotal = computed(() => this.o()?.leasesExpiringMonthly
+    ?? (this.o()?.leasesExpiring ?? []).reduce((a, l) => a + l.monthlyAmount, 0));
+  /** Leases the list does not hold ("and 14 more"). */
+  moreLeases = computed(() => Math.max(0, this.leasesCount() - (this.o()?.leasesExpiring.length ?? 0)));
+  /** The full list (records/leases) comes with the update that counts them all: only then can it be opened. */
+  canOpenAllLeases = computed(() => this.o()?.leasesExpiringCount != null && this.leasesCount() > 0);
+  allLeasesText = computed(() => {
+    const n = this.leasesCount();
+    return n === 1 ? 'Open the lease expiring' : `All ${count(n)} leases expiring`;
+  });
 
   // ---------- Sales ----------
 
   s = computed(() => this.data()?.sales ?? null);
+  /**
+   * One location is chosen but the tour inquiry figures still count every location (the database update QA_07 has
+   * not run): the inquiry stage, the by-type panel and a note on the Sales section say "all locations".
+   */
+  inquiriesAllLocations = computed(() => !!this.shownLocationId() && !!this.s()?.inquiriesAllLocations);
   funnelMax = computed(() => Math.max(1, ...(this.s()?.funnel ?? []).map(f => f.count)));
   funnelEmpty = computed(() => !(this.s()?.funnel ?? []).some(f => f.count > 0));
   inquiryTotal = computed(() => (this.s()?.inquiriesByType ?? []).reduce((a, t) => a + t.count, 0));
@@ -373,6 +394,11 @@ export class CeoDashboard {
 
   openOccLocation(locationId: number, name: string) {
     this.openDrill('Occupancy by location', { kind: 'breakdown', metric: 'occupancy-location', params: { locationId }, crumb: name });
+  }
+
+  /** Every lease ending in the next 90 days (records/leases, soonest first), with the location filter. */
+  openAllLeases() {
+    this.openRecords('Leases expiring', 'Next 90 days', 'leases', {});
   }
 
   openFunnel(stage: CeoFunnelStage) {
