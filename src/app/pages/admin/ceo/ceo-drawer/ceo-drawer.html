@@ -245,6 +245,31 @@
                     </tbody>
                   </table>
                 }
+                @case ('complaints') {
+                  <table class="dr-table records complaints">
+                    <thead><tr><th scope="col">Complaint</th><th scope="col">Customer</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Raised</th><th scope="col">Description</th></tr></thead>
+                    <tbody>
+                      @for (r of complaintRows(); track r.complaintId || $index) {
+                        <tr [class.hl]="highlight() !== null && r.complaintId === highlight()">
+                          <th scope="row"><strong>{{ r.complaintNo || '-' }}</strong><small>{{ r.source.toLowerCase() === 'whatsapp' ? 'WhatsApp' : 'Staff' }}</small></th>
+                          <td><span class="clip">{{ r.customerName || '-' }}</span>@if (r.phone) { <small>{{ r.phone }}</small> }</td>
+                          <td><span class="clip">{{ r.category || '-' }}</span><small>{{ r.branch || 'No branch' }}</small></td>
+                          <td>
+                            <span class="type-pill" [style.background]="complaintStyle(r.status).bg" [style.color]="complaintStyle(r.status).fg">{{ complaintStyle(r.status).label }}</span>
+                            @if (r.isFollowUp) { <small class="reopened">Reopened</small> }
+                          </td>
+                          <td>
+                            @if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} } @else { - }
+                            @if (r.ageDays !== null) {
+                              <small [class.late]="isActiveComplaint(r.status) && r.ageDays >= 7" [class.soon]="isActiveComplaint(r.status) && r.ageDays >= 3 && r.ageDays < 7">{{ ageText(r.ageDays) }}{{ r.ageDays > 0 ? ' old' : '' }}</small>
+                            }
+                          </td>
+                          <td><span class="desc" [title]="r.description">{{ r.description || '-' }}</span></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
                 @case ('quotations') {
                   <table class="dr-table records">
                     <thead><tr><th scope="col">Quotation</th><th scope="col">Customer</th><th scope="col">Created by</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Total' }}</th><th scope="col">Status</th></tr></thead>

@@ -12,7 +12,11 @@ export { Chart };
  */
 export type DrillLevel<M extends string = CeoMetric, R extends string = CeoRecordKind> =
   | { kind: 'breakdown'; metric: M; params: CeoParams; crumb: string }
-  | { kind: 'records'; records: R; params: CeoParams; crumb: string };
+  | {
+      kind: 'records'; records: R; params: CeoParams; crumb: string;
+      /** A row to mark in the list (its id), e.g. the complaint that was selected on the dashboard. */
+      highlight?: number;
+    };
 
 /** Opens the drawer: `root` is the first breadcrumb ("Revenue"), `level` the first level shown. */
 export interface DrillRequest<M extends string = CeoMetric, R extends string = CeoRecordKind> {
@@ -187,6 +191,24 @@ export const INQUIRY_TYPES: Record<string, { fg: string; bg: string; label: stri
 export function inquiryTypeKey(type: string | null | undefined): string {
   const k = String(type || '').toLowerCase().replace(/[^a-z]/g, '');
   return k in INQUIRY_TYPES ? k : 'notset';
+}
+
+/**
+ * Complaint statuses (Sales Manager dashboard): chip colours and the status bar colour. Open = new, Resolved =
+ * fixed and waiting for the customer's reply.
+ */
+export const COMPLAINT_STATUSES: Record<string, { fg: string; bg: string; bar: string; label: string; hint: string }> = {
+  open: { fg: '#c2410c', bg: '#fff7ed', bar: '#c2410c', label: 'Open', hint: 'waiting for action' },
+  in_progress: { fg: '#1d4ed8', bg: '#eff6ff', bar: '#1d4ed8', label: 'In progress', hint: 'being worked on' },
+  resolved: { fg: '#047857', bg: '#ecfdf5', bar: '#047857', label: 'Resolved', hint: 'awaiting customer' },
+  closed: { fg: '#475569', bg: '#f1f5f9', bar: '#94a3b8', label: 'Closed', hint: 'done' }
+};
+
+/** Colours and label of a complaint status key (an unknown status shows as it is, in slate). */
+export function complaintStatusStyle(status: string | null | undefined) {
+  const s = String(status || '');
+  return COMPLAINT_STATUSES[s]
+    ?? { fg: '#475569', bg: '#f1f5f9', bar: '#94a3b8', label: s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : 'Unknown', hint: '' };
 }
 
 /** Pill tone for a status word from the API. */

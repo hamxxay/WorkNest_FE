@@ -7,11 +7,13 @@ import {
   CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoMetric, CeoParams,
   CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
-import type { SmBookingRecord, SmLeaseRecord, SmQuotationRecord } from '../../../../services/sales-manager.service';
+import type {
+  SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
+} from '../../../../services/sales-manager.service';
 import {
   AGING_COLORS, AXIS_MONEY, Chart, DrillLevel, DrillMetricSpec, DrillRecords, DrillRequest, DrillSource, GRID, INQUIRY_TYPES,
-  LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, count, fullMoney,
-  inquiryTypeKey, money, pct, pointerOnHover, ratio, statusTone
+  LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, complaintStatusStyle, count,
+  fullMoney, inquiryTypeKey, money, pct, pointerOnHover, ratio, statusTone
 } from '../ceo-shared';
 
 type AnyLevel = DrillLevel<string, string>;
@@ -69,7 +71,7 @@ const METRICS: Record<CeoMetric, DrillMetricSpec> = {
 
 const RECORD_TITLES: Record<string, string> = {
   invoices: 'Invoices', spaces: 'Spaces', bookings: 'Bookings', inquiries: 'Tour inquiries', quotations: 'Quotations',
-  leases: 'Expiring leases'
+  leases: 'Expiring leases', complaints: 'Complaints'
 };
 
 /**
@@ -323,6 +325,12 @@ export class CeoDrawer {
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
   quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
   leaseRows = computed(() => this.recordsOf<SmLeaseRecord>('leases'));
+  complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
+  /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
+  highlight = computed<number | null>(() => {
+    const e = this.current();
+    return e?.level.kind === 'records' ? e.level.highlight ?? null : null;
+  });
   /** Follow-up column on inquiry lists that carry a follow-up date (Sales Manager API). */
   inquiryFollowUp = computed(() => this.inquiryRows().some(r => !!r.followUpOn));
 
@@ -339,6 +347,13 @@ export class CeoDrawer {
   recordShown = computed(() => this.current()?.records?.rows.length ?? 0);
 
   typeStyle(type: string) { return INQUIRY_TYPES[inquiryTypeKey(type)]; }
+  complaintStyle(status: string) { return complaintStatusStyle(status); }
+  /** Open or in progress (its age matters). */
+  isActiveComplaint(status: string): boolean { return status === 'open' || status === 'in_progress'; }
+  /** "Today", "1 day", "12 days". */
+  ageText(days: number | null): string {
+    return days === null ? '' : days <= 0 ? 'Today' : days === 1 ? '1 day' : `${count(days)} days`;
+  }
 
   /** Whole days from today to an ISO date (negative = past). */
   daysFrom(date: string | null): number | null {

@@ -3,20 +3,26 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  SalesManagerService, SmDashboard, SmError, SmFunnelStage, SmInquiryMonth, SmLocation, SmMetric, SmPeriod, SmRecordKind
+  SalesManagerService, SmComplaintCategory, SmComplaints, SmDashboard, SmError, SmFunnelStage, SmInquiryMonth, SmLocation, SmMetric,
+  SmOldComplaint, SmPeriod, SmRecordKind
 } from '../../../services/sales-manager.service';
 import { CeoDrawer } from '../ceo/ceo-drawer/ceo-drawer';
 import {
-  Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP, Trend,
-  applyChartDefaults, count, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort, pct, periodWord,
-  pointerOnHover, ratio, trend
+  COMPLAINT_STATUSES, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
+  Trend, applyChartDefaults, complaintStatusStyle, count, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort, pct,
+  periodWord, pointerOnHover, ratio, trend
 } from '../ceo/ceo-shared';
 import { SM_METRICS, SmDrillLevel, desks } from './sales-manager-drill';
 
-type ChartKey = 'funnel' | 'inquiries' | 'desks';
+type ChartKey = 'funnel' | 'inquiries' | 'desks' | 'complaints';
+/** Charts drawn from GET api/sales-manager/dashboard (the complaints chart has its own endpoint). */
+const DASHBOARD_CHARTS: ChartKey[] = ['funnel', 'inquiries', 'desks'];
 
-/** A KPI card; `unit` follows the figure in smaller type when the label does not say what it counts ("6 desks"). */
-interface SmKpi extends DashKpi { unit?: string; }
+/**
+ * A KPI card; `unit` follows the figure in smaller type when the label does not say what it counts ("6 desks");
+ * `accent` colours the card's edge (a complaint status colour) instead of its tone.
+ */
+interface SmKpi extends DashKpi { unit?: string; accent?: string; }
 
 /** "+85", "-3", "0" (net desks). */
 function signed(n: number): string {
@@ -51,12 +57,34 @@ const FUNNEL_SERIES = [
   { field: 'bookings' as const, label: 'Bookings', color: '#0f766e', hover: '#115e59' }
 ];
 
+/** Complaints by month: orange for raised (as Open), green for resolved (as Resolved). */
+const COMPLAINT_SERIES = [
+  { field: 'created' as const, label: 'Raised', color: '#fb923c', hover: '#ea580c' },
+  { field: 'resolved' as const, label: 'Resolved', color: '#10b981', hover: '#047857' }
+];
+
+/** The status bar's order: still to do first, then done. */
+const COMPLAINT_ORDER = [
+  { key: 'open', field: 'open' as const },
+  { key: 'in_progress', field: 'inProgress' as const },
+  { key: 'resolved', field: 'resolved' as const },
+  { key: 'closed', field: 'closed' as const }
+];
+
+/** "1 day", "1.5 days" (one decimal only when it matters). */
+function dayCount(n: number): string {
+  const v = Math.round(n * 10) / 10;
+  return v === 1 ? '1 day' : `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} days`;
+}
+
 /**
  * Sales dashboard (/admin/sales-manager): the Sales Manager's funnel, team, tour inquiries and renewals for this
  * month / quarter / year, all their locations or one (super admins: every location). Tour inquiries have no
  * location, so that section always covers every branch. Every chart and list drills down in the shared side
  * drawer (breakdown, then records). Read-only, and no money anywhere: sales are counted in desks.
- * Data: GET api/sales-manager/dashboard.
+ * The Complaints section (last) loads on its own from GET api/sales-manager/complaints, with the same period and
+ * location, so the rest of the page keeps working when only it fails.
+ * Data: GET api/sales-manager/dashboard, GET api/sales-manager/complaints.
  */
 @Component({
   selector: 'app-sales-manager-dashboard',
@@ -76,6 +104,7 @@ export class SalesManagerDashboard {
   readonly count = count;
   readonly monthLong = monthLong;
   readonly ratio = ratio;
+  readonly complaintStyle = complaintStatusStyle;
   readonly isSuperAdmin = this.auth.hasRole('super_admin');
   /** "All my locations" for a manager; a super admin sees every location. */
   readonly allLabel = this.isSuperAdmin ? 'All locations' : 'All my locations';
@@ -116,13 +145,24 @@ export class SalesManagerDashboard {
   private clock?: ReturnType<typeof setInterval>;
   private nowTick = signal(Date.now());
 
+  // Complaints: own request, own states (first load, refresh, error) and own selection key.
+  cmp = signal<SmComplaints | null>(null);
+  cmpLoading = signal(true);
+  cmpRefreshing = signal(false);
+  cmpError = signal<SmError | null>(null);
+  cmpUpdated = signal<Date | null>(null);
+  private cmpSub: Subscription | null = null;
+  private cmpKey = '';
+
   private funnelCanvas = viewChild<ElementRef<HTMLCanvasElement>>('funnelCanvas');
   private inquiriesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('inquiriesCanvas');
   private desksCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desksCanvas');
+  private complaintsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('complaintsCanvas');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.sub?.unsubscribe();
+      this.cmpSub?.unsubscribe();
       this.destroyCharts();
       if (this.clock) clearInterval(this.clock);
     });
@@ -131,7 +171,7 @@ export class SalesManagerDashboard {
     effect(() => {
       this.period();
       this.locationId();
-      untracked(() => this.load());
+      untracked(() => { this.load(); this.loadComplaints(); });
     });
   }
 
@@ -159,7 +199,7 @@ export class SalesManagerDashboard {
       error: (err: SmError) => {
         this.error.set(SalesManagerService.describeError(err));
         // Figures of another period / location would be misleading: keep them only for a plain refresh.
-        if (this.dataKey !== key) { this.data.set(null); this.dataKey = ''; this.destroyCharts(); }
+        if (this.dataKey !== key) { this.data.set(null); this.dataKey = ''; this.destroyCharts(DASHBOARD_CHARTS); }
         this.loading.set(false);
         this.refreshing.set(false);
       }
@@ -170,7 +210,31 @@ export class SalesManagerDashboard {
   private dataKey = '';
   private selectionKey(): string { return `${this.period()}|${this.locationId() ?? ''}`; }
 
-  refresh() { this.load(); }
+  /** Complaints section: same period and location as the rest; a failure stays inside the section. */
+  loadComplaints() {
+    this.cmpSub?.unsubscribe();
+    if (this.cmp()) this.cmpRefreshing.set(true); else this.cmpLoading.set(true);
+    const key = this.selectionKey();
+    this.cmpSub = this.sm.getComplaints(this.period(), this.locationId()).subscribe({
+      next: c => {
+        this.cmp.set(c);
+        this.cmpKey = key;
+        this.cmpError.set(null);
+        this.cmpLoading.set(false);
+        this.cmpRefreshing.set(false);
+        this.cmpUpdated.set(new Date());
+        setTimeout(() => this.renderComplaintsChart());
+      },
+      error: (err: SmError) => {
+        this.cmpError.set(SalesManagerService.describeComplaintsError(err));
+        if (this.cmpKey !== key) { this.cmp.set(null); this.cmpKey = ''; this.destroyCharts(['complaints']); }
+        this.cmpLoading.set(false);
+        this.cmpRefreshing.set(false);
+      }
+    });
+  }
+
+  refresh() { this.load(); this.loadComplaints(); }
 
   setPeriod(p: SmPeriod) { if (p !== this.period()) this.period.set(p); }
 
@@ -198,12 +262,14 @@ export class SalesManagerDashboard {
     || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.shownPeriod()]);
   word = computed(() => periodWord(this.shownPeriod()));
 
-  updatedAgo = computed(() => {
-    const at = this.lastUpdated();
+  updatedAgo = computed(() => this.ago(this.lastUpdated()));
+
+  /** "just now", "5 min ago", "3:40 PM". */
+  private ago(at: Date | null): string {
     if (!at) return '';
     const mins = Math.floor((this.nowTick() - at.getTime()) / 60000);
     return mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  });
+  }
 
   // ---------- Sales funnel ----------
 
@@ -366,6 +432,84 @@ export class SalesManagerDashboard {
     return d <= 0 ? 'Ends today' : d === 1 ? '1 day left' : `${d} days left`;
   }
 
+  // ---------- Complaints ----------
+
+  /** Period words of the complaint figures on screen. */
+  cmpWord = computed(() => periodWord(this.cmp()?.period ?? this.period()));
+  cmpPeriodTitle = computed(() => this.cmp()?.periodLabel || this.periodTitle());
+  cmpUpdatedAgo = computed(() => this.ago(this.cmpUpdated()));
+
+  /** Every complaint in scope, whatever its status. */
+  cmpTotal = computed(() => {
+    const s = this.cmp()?.status;
+    return s ? s.open + s.inProgress + s.resolved + s.closed : 0;
+  });
+  /** Nothing at all to show: no complaints now, none in the period and none in the last 12 months. */
+  cmpEmpty = computed(() => {
+    const c = this.cmp();
+    if (!c) return true;
+    return this.cmpTotal() === 0 && c.newInPeriod === 0 && c.resolvedInPeriod === 0 && !c.byCategory.length
+      && !c.oldestActive.length && !c.months.some(m => m.created > 0 || m.resolved > 0);
+  });
+
+  cmpKpis = computed<SmKpi[]>(() => {
+    const c = this.cmp();
+    if (!c) return [];
+    const w = this.cmpWord();
+    const st = COMPLAINT_STATUSES;
+    return [
+      {
+        key: 'new', label: `New this ${w}`, value: count(c.newInPeriod),
+        sub: c.reopenedInPeriod ? `${count(c.reopenedInPeriod)} reopened` : 'None reopened',
+        tone: 'neutral', trend: trend(c.newInPeriod, c.newInPeriodPrev, 'n', false), vs: `vs ${count(c.newInPeriodPrev)} last ${w}`,
+        action: () => this.openComplaints(`New this ${w}`, { status: 'new_period' }), actionLabel: `Open the complaints raised this ${w}`
+      },
+      {
+        key: 'open', label: 'Open', value: count(c.status.open), sub: st['open'].hint,
+        tone: c.status.open ? 'warn' : 'ok', accent: st['open'].bar,
+        action: () => this.openComplaints('Open', { status: 'open' }), actionLabel: 'Open the open complaints'
+      },
+      {
+        key: 'progress', label: 'In progress', value: count(c.status.inProgress), sub: st['in_progress'].hint,
+        tone: 'neutral', accent: st['in_progress'].bar,
+        action: () => this.openComplaints('In progress', { status: 'in_progress' }), actionLabel: 'Open the complaints in progress'
+      },
+      {
+        key: 'resolved', label: `Resolved this ${w}`, value: count(c.resolvedInPeriod),
+        sub: c.avgResolutionDays !== null ? `avg ${dayCount(c.avgResolutionDays)} to resolve`
+          : c.resolvedInPeriod ? 'Resolved or closed' : `None resolved this ${w}`,
+        tone: c.resolvedInPeriod ? 'ok' : 'neutral', accent: st['resolved'].bar,
+        action: () => this.openComplaints(`Resolved this ${w}`, { status: 'resolved_period' }), actionLabel: `Open the complaints resolved this ${w}`
+      }
+    ];
+  });
+
+  /** Status bar segments and legend, in order (open, in progress, resolved, closed). */
+  cmpStatuses = computed(() => {
+    const s = this.cmp()?.status;
+    const total = this.cmpTotal();
+    return COMPLAINT_ORDER.map(o => {
+      const n = s ? s[o.field] : 0;
+      return { key: o.key, ...complaintStatusStyle(o.key), count: n, share: total ? (n / total) * 100 : 0 };
+    });
+  });
+
+  /** Bars of the category list: open + in progress, against the busiest category. */
+  cmpCategoryMax = computed(() => Math.max(1, ...(this.cmp()?.byCategory ?? []).map(c => c.open + c.inProgress)));
+  cmpCategoryLabel(c: SmComplaintCategory): string {
+    return `${c.category}: ${c.open} open, ${c.inProgress} in progress, ${c.total} new this ${this.cmpWord()}. Open its complaints`;
+  }
+
+  cmpChartEmpty = computed(() => !(this.cmp()?.months ?? []).some(m => m.created > 0 || m.resolved > 0));
+  cmpMonthTotals = computed(() => {
+    const m = this.cmp()?.months ?? [];
+    return { created: m.reduce((a, x) => a + x.created, 0), resolved: m.reduce((a, x) => a + x.resolved, 0) };
+  });
+  cmpTable = signal(false);
+
+  /** "Today", "1 day", "12 days". */
+  ageText(days: number): string { return days <= 0 ? 'Today' : days === 1 ? '1 day' : `${count(days)} days`; }
+
   // ---------- drill-down ----------
 
   private openDrill(root: string, level: SmDrillLevel) {
@@ -426,6 +570,32 @@ export class SalesManagerDashboard {
     if (m) this.openDrill('Expiring leases', { kind: 'breakdown', metric: 'renewals-month', params: { month: m.month }, crumb: monthLong(m.month) });
   }
 
+  /** Complaints records (GET api/sales-manager/records/complaints) with the contract's filters. */
+  openComplaints(crumb: string, params: Record<string, string | number>, highlight?: number) {
+    this.openDrill('Complaints', { kind: 'records', records: 'complaints', params, crumb, highlight });
+  }
+
+  openComplaintStatus(key: string) {
+    this.openComplaints(complaintStatusStyle(key).label, { status: key });
+  }
+
+  openComplaintCategory(category: string) {
+    this.openComplaints(category, { category });
+  }
+
+  /** A month of the complaints chart: the complaints raised that month. */
+  openComplaintMonth(i: number) {
+    const m = this.cmp()?.months[i];
+    if (m) this.openComplaints(`Raised in ${monthLong(m.month)}`, { month: m.month });
+  }
+
+  /** An old complaint: the complaints with its status, category and branch, with it marked. */
+  openOldComplaint(c: SmOldComplaint) {
+    const branch = c.branch || 'none';
+    const crumb = `${complaintStatusStyle(c.status).label}: ${c.category} · ${c.branch || 'No branch'}`;
+    this.openComplaints(crumb, { status: c.status, category: c.category, branch }, c.complaintId || undefined);
+  }
+
   /** KPI that points at a panel: scroll it into view and move focus there. */
   focusPanel(id: string) {
     const el = this.host.nativeElement.querySelector(`#${id}`) as HTMLElement | null;
@@ -478,11 +648,25 @@ export class SalesManagerDashboard {
     announce: t => this.chartAnnounce.set(t)
   });
 
+  readonly complaintsNav = new ChartKeyNav({
+    charts: () => [this.charts.get('complaints')],
+    count: () => this.cmp()?.months.length ?? 0,
+    describe: i => {
+      const x = this.cmp()?.months[i];
+      return x ? `${monthLong(x.month)}: ${x.created} raised, ${x.resolved} resolved. Press Enter for the complaints raised that month.` : '';
+    },
+    pick: i => this.openComplaintMonth(i),
+    announce: t => this.chartAnnounce.set(t)
+  });
+
   // ---------- charts: drawing ----------
 
-  private destroyCharts() {
-    this.charts.forEach(c => c.destroy());
-    this.charts.clear();
+  /** Destroys the given charts (all by default). */
+  private destroyCharts(keys?: ChartKey[]) {
+    for (const k of keys ?? [...this.charts.keys()]) {
+      this.charts.get(k)?.destroy();
+      this.charts.delete(k);
+    }
   }
 
   /** Creates a chart, or updates it in place (no flash) when it already sits on the same canvas. */
@@ -609,6 +793,44 @@ export class SalesManagerDashboard {
           }
         },
         scales: { x: xAxis, y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8 } } }
+      }
+    });
+  }
+
+  /** Complaints raised and resolved per month, side by side (its own data, drawn when it arrives). */
+  private renderComplaintsChart() {
+    const c = this.cmp();
+    const ref = c && !this.cmpEmpty() && !this.cmpChartEmpty() ? this.complaintsCanvas() : undefined;
+    applyChartDefaults();
+    const cm = c?.months ?? [];
+    this.upsert('complaints', ref, {
+      type: 'bar',
+      data: {
+        labels: cm.map((x, i) => monthShort(x.month, i === 0)),
+        datasets: COMPLAINT_SERIES.map(s => ({
+          label: s.label, data: cm.map(x => x[s.field]), backgroundColor: s.color, hoverBackgroundColor: s.hover,
+          borderRadius: 4, maxBarThickness: 16, borderSkipped: 'start'
+        }))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        onHover: pointerOnHover,
+        onClick: (_e: any, els: any[]) => { if (els.length) this.openComplaintMonth(els[0].index); },
+        plugins: {
+          legend: LEGEND,
+          tooltip: {
+            ...TOOLTIP,
+            callbacks: {
+              title: (items: any[]) => monthLong(cm[items[0]?.dataIndex]?.month ?? ''),
+              label: (ctx: any) => ` ${ctx.dataset.label}: ${count(ctx.parsed.y)}`,
+              footer: () => 'Click for the complaints raised that month'
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+          y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8 } }
+        }
       }
     });
   }
