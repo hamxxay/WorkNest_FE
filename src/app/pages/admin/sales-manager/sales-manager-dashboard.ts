@@ -79,9 +79,10 @@ function dayCount(n: number): string {
 
 /**
  * Sales dashboard (/admin/sales-manager): the Sales Manager's funnel, team, tour inquiries and renewals for this
- * month / quarter / year, all their locations or one (super admins: every location). Tour inquiries have no
- * location, so that section always covers every branch. Every chart and list drills down in the shared side
- * drawer (breakdown, then records). Read-only, and no money anywhere: sales are counted in desks.
+ * month / quarter / year, all their locations or one (super admins: every location). Tour inquiries follow the
+ * same scope; those without a branch count under "All my locations" (as complaints do). Every chart and list
+ * drills down in the shared side drawer (breakdown, then records). Read-only, and no money anywhere: sales are
+ * counted in desks.
  * The Complaints section (last) loads on its own from GET api/sales-manager/complaints, with the same period and
  * location, so the rest of the page keeps working when only it fails.
  * Data: GET api/sales-manager/dashboard, GET api/sales-manager/complaints.
@@ -344,7 +345,7 @@ export class SalesManagerDashboard {
   teamEmpty = computed(() => !(this.t()?.perLocation ?? []).length && !(this.t()?.people ?? []).length);
   teamFollowUps = computed(() => (this.t()?.people ?? []).reduce((a, p) => a + p.followUpsDue, 0));
 
-  // ---------- Tour inquiries (every branch) ----------
+  // ---------- Tour inquiries (the manager's locations; no branch = "All my locations" only) ----------
 
   q = computed(() => this.data()?.inquiries ?? null);
 

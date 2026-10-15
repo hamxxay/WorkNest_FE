@@ -15,10 +15,6 @@
         </span>
         <span class="view-only">View only</span>
       </p>
-      <p class="scope-note">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        Tour inquiries include all branches
-      </p>
     </div>
     <div class="dash-header-actions">
       <div class="period-seg" role="group" aria-label="Period">
@@ -168,7 +164,7 @@
                     </li>
                   }
                 </ol>
-                <p class="note">Conversion = bookings / quotations created this {{ word() }}. Inquiries cover every branch.</p>
+                <p class="note">Conversion = bookings / quotations created this {{ word() }}.</p>
               }
             </div>
 
@@ -323,8 +319,12 @@
       <section class="dash-section" aria-labelledby="sm-h-inq">
         <div class="section-title">
           <h2 id="sm-h-inq">Tour inquiries</h2>
-          <span>All branches (inquiries have no location) · {{ periodTitle() }}</span>
+          <span>{{ isSuperAdmin ? 'Tour inquiries at every location' : 'Tour inquiries at your locations' }} · {{ periodTitle() }}</span>
         </div>
+        <p class="scope-note section-note">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          Inquiries without a branch show under {{ allLabel }}
+        </p>
         @if (!q()) {
           <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No tour inquiry figures yet</strong><span>Website, WhatsApp, walk-in and reference inquiries show up here.</span></div>
         } @else {
