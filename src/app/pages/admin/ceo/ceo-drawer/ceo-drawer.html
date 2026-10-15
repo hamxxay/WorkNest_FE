@@ -39,7 +39,7 @@
     @if (current()?.breakdown?.subtitle; as sub) { <p class="drawer-sub">{{ sub }}</p> }
     @if (current()?.level?.kind === 'records' && current()?.status === 'ok') {
       <p class="drawer-sub">
-        @if (recordTotal() > recordShown()) { Showing the newest {{ count(recordShown()) }} of {{ count(recordTotal()) }} }
+        @if (recordTotal() > recordShown()) { Showing the {{ recordKind() === 'leases' ? 'soonest' : 'newest' }} {{ count(recordShown()) }} of {{ count(recordTotal()) }} }
         @else { {{ count(recordTotal()) }} record{{ recordTotal() === 1 ? '' : 's' }} }
         · view only
       </p>
@@ -97,13 +97,16 @@
                   </tr>
                 </thead>
                 <tbody>
-                  @for (r of rows(); track r.key + r.label) {
+                  @for (r of rows(); track r.key + r.label; let i = $index) {
                     <tr [class.clickable]="!!r.key" (click)="openRow(r)">
                       <th scope="row">
                         @if (r.key) {
-                          <button type="button" class="row-btn" (click)="openRow(r); $event.stopPropagation()" [attr.aria-label]="'Open ' + r.label">{{ r.label }}</button>
+                          <button type="button" class="row-btn" (click)="openRow(r); $event.stopPropagation()" [attr.aria-label]="rowAction(r)">{{ r.label }}</button>
                         } @else { {{ r.label }} }
                         <span class="row-bar" aria-hidden="true"><span [style.width.%]="(r.value / maxValue()) * 100"></span></span>
+                        @if (secondaries()[i]; as alt) {
+                          <button type="button" class="alt-link" (click)="openSecondary(r); $event.stopPropagation()" [attr.aria-label]="'Open the ' + alt.label + ' at ' + r.label">{{ alt.label }}</button>
+                        }
                       </th>
                       <td class="num" [title]="fmtFull(r.value)">{{ fmt(r.value) }}</td>
                       @if (hasValue2()) { <td class="num" [title]="fmtFull2(r.value2)">{{ fmt2(r.value2) }}</td> }
@@ -133,7 +136,7 @@
                 }
               </table>
             </div>
-            @if (canOpenRows()) { <p class="hint">Select a row to see the records behind it.</p> }
+            @if (canOpenRows()) { <p class="hint">{{ hintText() }}</p> }
           }
         } @else {
           @if (!recordShown()) {
@@ -229,7 +232,7 @@
                 }
                 @case ('leases') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">Desks</th></tr></thead>
+                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Monthly rent' }}</th></tr></thead>
                     <tbody>
                       @for (r of leaseRows(); track r.bookingId || $index) {
                         <tr>
@@ -237,9 +240,10 @@
                           <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
                           <td>
                             @if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }
-                            @if (r.daysLeft !== null) { <small [class.late]="r.daysLeft <= 14">{{ r.daysLeft === 0 ? 'Ends today' : r.daysLeft + (r.daysLeft === 1 ? ' day left' : ' days left') }}</small> }
+                            @if (r.daysLeft !== null) { <small [class.late]="r.daysLeft <= 14">{{ leaseDaysText(r.daysLeft) }}</small> }
                           </td>
-                          <td class="num">{{ count(r.desks) }}</td>
+                          @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
+                          @else { <td class="num" [title]="fullMoney(r.monthlyAmount) + ' a month'">{{ money(r.monthlyAmount) }}</td> }
                         </tr>
                       }
                     </tbody>

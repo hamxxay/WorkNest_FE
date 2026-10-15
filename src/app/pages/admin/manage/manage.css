@@ -33,6 +33,10 @@
 .action-btn.delete{color:#ef4444}.action-btn.delete:hover{background:rgba(239,68,68,.08);border-color:#ef4444}
 .action-btn.deactivate{color:#f59e0b}.action-btn.deactivate:hover{background:rgba(245,158,11,.08);border-color:#f59e0b}.action-btn.activate{color:#10b981}.action-btn.activate:hover{background:rgba(16,185,129,.08);border-color:#10b981}
 .action-btn.approve{color:#059669}.action-btn.approve:hover:not(:disabled){background:rgba(16,185,129,.08);border-color:#059669}.action-btn.approve:disabled{opacity:.6;cursor:not-allowed}
+/* Tour Inquiries: WhatsApp button (greyed out with a tooltip when the inquiry has no phone; spinner while the message is prepared). */
+.action-btn.whatsapp{color:#16a34a}.action-btn.whatsapp:hover:not([aria-disabled=true]){background:rgba(22,163,74,.08);border-color:#16a34a}
+.action-btn.whatsapp[aria-disabled=true]{opacity:.4;cursor:not-allowed}.action-btn.whatsapp.busy{opacity:1;cursor:progress}
+.wa-spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite}
 .status-select{border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:.78rem;color:#475569;background:#fff;cursor:pointer}
 .admin-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;font-size:.875rem;color:#64748b}
 .btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}

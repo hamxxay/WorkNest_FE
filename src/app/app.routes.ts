@@ -64,6 +64,9 @@ export const routes: Routes = [
       { path: 'network/device/:mac', loadComponent: () => import('./pages/admin/network/network-device/network-device').then(m => m.NetworkDevice), canActivate: [adminGuard] },
       { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
       { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
+      // Message templates (tour inquiry WhatsApp message): admin and super admin only (adminGuard sends other staff away).
+      { path: 'message-templates', loadComponent: () => import('./pages/admin/message-templates/message-templates').then(m => m.MessageTemplates), canActivate: [adminGuard],
+        canDeactivate: [(page: { canLeave(): boolean }) => page.canLeave()] },
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
         { path: 'audit-log', loadComponent: () => import('./pages/admin/audit-log/audit-log').then(m => m.AuditLogComponent), canActivate: [superAdminGuard] },
         { path: 'login-history', loadComponent: () => import('./pages/admin/login-history/login-history').then(m => m.LoginHistoryComponent), canActivate: [superAdminGuard] },

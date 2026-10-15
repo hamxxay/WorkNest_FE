@@ -14,6 +14,8 @@ interface Workspace {
   billingPeriodId?: number;
   billingPeriodLabel?: string;
   id: number; idGuid: string; name: string; locationName: string;
+  /** WN_Locations.Id of the space (0 when the API did not send it). */
+  locationId: number;
   companyName: string;
   spaceTypeId: number;
   spaceTypeName: string; capacity: number; amenities: string;
@@ -542,11 +544,13 @@ export class Booking implements OnInit {
     const cap = this.bookingForm?.value?.capacity ? +this.bookingForm.value.capacity : undefined;
     this.availabilityLoading.set(true);
 
+    // Only the location of the card the customer chose (its spaces), not every branch.
     this.bookingService.getSmartAvailableSpaces(
       CATEGORY_CODE_MAP[this.bookingCategory] ?? this.bookingCategory,
       toLocalDateTime(start),
       toLocalDateTime(end),
-      cap
+      cap,
+      this.selectedSpace?.locationId || null
     ).subscribe({
       next: (res: any) => {
         const count = this.parseAvailableCount(res);
@@ -755,6 +759,9 @@ export class Booking implements OnInit {
           price:           this.selectedSpace?.price ?? 0,
           notes:           this.bookingForm.value.notes || null,
           capacity:        cap,
+          // The booking stays at the location of the card the customer chose.
+          locationId:      this.selectedSpace?.locationId || null,
+          locationName:    this.selectedSpace?.locationName || null,
           smartBooking:    true,
         }
       }
@@ -773,6 +780,7 @@ export class Booking implements OnInit {
       idGuid:        ws.publicId || ws.PublicId || '',
       name:          ws.name || ws.Name || `Workspace ${i + 1}`,
       locationName:  ws.locationName || ws.LocationName || 'Unknown',
+      locationId:    Number(ws.locationId ?? ws.LocationId ?? 0) || 0,
       companyName:   ws.companyName  || ws.CompanyName  || '',
       spaceTypeId:   Number(ws.spaceTypeId ?? ws.SpaceTypeId ?? 0),
       spaceTypeName: this.spaceTypeMap.get(Number(ws.spaceTypeId ?? ws.SpaceTypeId ?? 0)) || toDisplayName(ws.spaceTypeName || ws.SpaceTypeName || 'Workspace'),

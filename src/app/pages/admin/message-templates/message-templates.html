@@ -1,0 +1,198 @@
+<!-- Icons (Lucide outlines, same set as the sidebar), sized by the surrounding CSS. -->
+<ng-template #ic let-n>
+  <svg class="i" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    @switch (n) {
+      @case ('whatsapp') { <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/> }
+      @case ('alert') { <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/> }
+      @case ('database') { <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/> }
+      @case ('refresh') { <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/> }
+      @case ('reset') { <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/> }
+      @case ('check') { <path d="M20 6 9 17l-5-5"/> }
+      @case ('checks') { <path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/> }
+      @case ('plus') { <path d="M5 12h14"/><path d="M12 5v14"/> }
+      @case ('info') { <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/> }
+      @case ('clock') { <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/> }
+      @case ('offline') { <path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/> }
+    }
+  </svg>
+</ng-template>
+
+<div class="mt-page">
+  <div class="mt-wrap">
+    <header class="mt-header">
+      <h1>Message templates</h1>
+      <p class="mt-sub">The wording of messages staff send to customers. A change is used right away on the CMS and in the staff app.</p>
+    </header>
+
+    @switch (phase()) {
+      @case ('loading') {
+        <section class="mt-card mt-skeleton" aria-busy="true" aria-label="Loading the message">
+          <div class="mt-card-head">
+            <span class="sk sk-icon"></span>
+            <div class="sk-lines"><span class="sk sk-title"></span><span class="sk sk-line"></span></div>
+          </div>
+          <div class="mt-body">
+            <div class="mt-grid">
+              <div class="sk-lines"><span class="sk sk-chips"></span><span class="sk sk-area"></span></div>
+              <span class="sk sk-preview"></span>
+            </div>
+          </div>
+        </section>
+      }
+
+      @case ('error') {
+        <section class="mt-card mt-state" role="alert">
+          <span class="mt-state-icon"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'offline' }" /></span>
+          <h2>Could not open the message</h2>
+          <p>{{ loadError() }}</p>
+          <button type="button" class="mt-btn mt-btn-outline" (click)="load()">
+            <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'refresh' }" />Try again
+          </button>
+        </section>
+      }
+
+      @case ('ready') {
+        <section class="mt-card" aria-labelledby="mt-inquiry-title">
+          <div class="mt-card-head">
+            <span class="mt-head-icon"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'whatsapp' }" /></span>
+            <div class="mt-head-text">
+              <h2 id="mt-inquiry-title">Tour inquiry WhatsApp message</h2>
+              <p>Sent by staff from Tour Inquiries (the WhatsApp button) and from the staff app. Each message is filled in with that inquiry's details.</p>
+            </div>
+            @if (dirty()) {
+              <span class="mt-dirty" role="status"><span class="mt-dirty-dot"></span>Unsaved changes</span>
+            }
+          </div>
+
+          <div class="mt-body">
+            @if (needsDatabaseUpdate()) {
+              <div class="inq-note warn mt-banner" role="alert">
+                <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'database' }" />
+                <div>
+                  <strong>Saving needs the database update WT_01_whatsapp_template.</strong>
+                  Until it is run, staff get the default wording. Ask whoever runs the database updates to run it, then save again.
+                </div>
+              </div>
+            }
+
+            <div class="mt-grid">
+              <!-- Editor -->
+              <div class="mt-editor">
+                <div class="mt-label-row">
+                  <label for="mt-text">Message</label>
+                  <span class="mt-count" [class.over]="tooLong()" aria-live="polite">{{ length() }} / {{ maxLength }}</span>
+                </div>
+
+                <div class="mt-chips" role="group" aria-label="Insert a placeholder at the cursor">
+                  @for (p of placeholders(); track p.name) {
+                    <button type="button" class="mt-chip" (click)="insertPlaceholder(p.name)"
+                      [title]="p.description ? p.description + '. Click to insert.' : 'Click to insert.'"
+                      [attr.aria-label]="'Insert ' + p.name + (p.description ? ': ' + p.description : '')">
+                      <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'plus' }" />{{ token(p.name) }}
+                    </button>
+                  }
+                </div>
+
+                <textarea #ta id="mt-text" class="mt-textarea" rows="8" spellcheck="true"
+                  [class.invalid]="!!validationError()" [value]="text()" (input)="onInput($event)" (keydown)="onEditorKeydown($event)"
+                  [attr.aria-invalid]="!!validationError()" aria-describedby="mt-help mt-validation"></textarea>
+
+                <div id="mt-validation" aria-live="polite">
+                  @if (validationError(); as v) {
+                    <p class="mt-field-error"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'alert' }" />{{ v }}</p>
+                  }
+                </div>
+
+                <div class="mt-help" id="mt-help">
+                  <p><strong>Placeholders</strong> like <code>{{ token('name') }}</code> are filled in from each inquiry. Click one above to add it where the cursor is.</p>
+                  <p><strong>Optional parts</strong> go in square brackets: <code>{{ optionalExample }}</code> is left out when the inquiry has no date: a part in brackets
+                    stays only when every placeholder in it has a value.</p>
+                  <p>Without brackets an unknown detail is left blank, except <code>{{ token('name') }}</code> ("there") and <code>{{ token('staff') }}</code> ("the WorkNest team").
+                    Square and curly brackets cannot be used as normal text.</p>
+                  <details class="mt-details">
+                    <summary>What each placeholder becomes</summary>
+                    <dl>
+                      @for (p of placeholders(); track p.name) {
+                        <div><dt>{{ token(p.name) }}</dt><dd>{{ p.description || '-' }}</dd></div>
+                      }
+                    </dl>
+                  </details>
+                </div>
+              </div>
+
+              <!-- Live preview, shown like a WhatsApp message -->
+              <div class="mt-preview">
+                <div class="mt-label-row">
+                  <span class="mt-preview-label">Preview</span>
+                  <span class="mt-preview-note">
+                    @if (previewState() === 'loading') {
+                      <span class="mt-spin" aria-hidden="true"></span>Updating
+                    } @else {
+                      Sample inquiry
+                    }
+                  </span>
+                </div>
+                <div class="mt-chat" aria-live="polite" [attr.aria-busy]="previewState() === 'loading'">
+                  @switch (previewState()) {
+                    @case ('invalid') {
+                      <p class="mt-chat-note"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'alert' }" />Fix the message to see the preview.</p>
+                    }
+                    @case ('error') {
+                      <p class="mt-chat-note"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'info' }" />{{ previewError() }}</p>
+                    }
+                    @default {
+                      @if (previewText()) {
+                        <div class="mt-bubble" [class.stale]="previewState() === 'loading'">
+                          <p class="mt-bubble-text">{{ previewText() }}</p>
+                          <span class="mt-bubble-meta">{{ bubbleTime }}<ng-container *ngTemplateOutlet="ic; context: { $implicit: 'checks' }" /></span>
+                        </div>
+                      } @else {
+                        <div class="mt-bubble mt-bubble-skeleton" aria-label="Loading the preview">
+                          <span class="sk sk-line"></span><span class="sk sk-line"></span><span class="sk sk-line short"></span>
+                        </div>
+                      }
+                    }
+                  }
+                </div>
+                @if (previewState() === 'ready' && previewText()) {
+                  <p class="mt-preview-foot">{{ previewText().length }} characters. A filled-in message is cut at 1,000.</p>
+                }
+              </div>
+            </div>
+
+            @if (saveError()) {
+              <p class="inq-error mt-save-error" role="alert">{{ saveError() }}</p>
+            }
+          </div>
+
+          <footer class="mt-foot">
+            <p class="mt-meta">
+              <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'clock' }" />
+              @if (lastUpdated(); as u) {
+                <span>Last updated @if (u.by) { by <strong>{{ u.by }}</strong> } on {{ u.when }}</span>
+              } @else {
+                <span>Default wording. Not changed yet.</span>
+              }
+            </p>
+            <div class="mt-actions">
+              @if (dirty()) {
+                <button type="button" class="mt-link" (click)="discardChanges()" [disabled]="saving()">Discard changes</button>
+              }
+              <button type="button" class="mt-btn mt-btn-outline" (click)="resetToDefault()" [disabled]="saving() || !defaultText() || isDefault()"
+                [title]="isDefault() ? 'The default wording is already in the editor' : 'Put the default wording in the editor (saved only when you click Save)'">
+                <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'reset' }" />Reset to default
+              </button>
+              <button type="button" class="mt-btn mt-btn-primary" (click)="save()" [disabled]="saving() || !dirty() || !!validationError()">
+                @if (saving()) {
+                  <span class="mt-spin" aria-hidden="true"></span>Saving
+                } @else {
+                  <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'check' }" />Save
+                }
+              </button>
+            </div>
+          </footer>
+        </section>
+      }
+    }
+  </div>
+</div>

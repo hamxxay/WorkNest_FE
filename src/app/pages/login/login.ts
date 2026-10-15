@@ -1,12 +1,13 @@
-import { publicSiteUrl } from '../../utils/public-site';
+import { handOffToPublicSite, publicSiteUrl } from '../../utils/public-site';
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthResult, AuthService, EMAIL_NOT_VERIFIED, authFailureCode } from '../../services/auth.service';
+import { VerifyEmail } from '../../components/verify-email/verify-email';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, VerifyEmail],
   templateUrl: './login.html',
   styleUrl: './login.css'
 })
@@ -17,6 +18,8 @@ export class Login {
   loading = signal(false);
   error = signal('');
   socialLoading = signal<'google' | null>(null);
+  /** Set while the "Verify your email" step is shown: the signed-in Firebase user's email. */
+  verifyEmail = signal<string | null>(null);
 
   // Forgot password
   showForgotPassword = false;
@@ -57,6 +60,7 @@ export class Login {
       },
       error: (err) => {
         this.loading.set(false);
+        if (this.showEmailVerification(err)) return;
         const msg = err.error?.message || 'Invalid email or password.';
         alert(msg);
         this.error.set(msg);
@@ -76,11 +80,41 @@ export class Login {
       },
       error: (err) => {
         this.socialLoading.set(null);
+        if (this.showEmailVerification(err)) return;
         const msg = err.error?.message || 'Google sign-in failed. Please try again.';
         alert(msg);
         this.error.set(msg);
       }
     });
+  }
+
+  /** "I've verified" worked: the API signed the user in, so continue as after any sign-in. */
+  onEmailVerified(res: AuthResult) {
+    this.verifyEmail.set(null);
+    if (!this.isStaff(res.data)) { this.sendCustomerToPublicSite(); return; }
+    this.router.navigateByUrl(this.getRoleBasedRedirect(res.data));
+  }
+
+  /** Left the verification step (signed out of Firebase); message = why (e.g. account turned off), else null. */
+  onVerificationBack(message: string | null) {
+    this.verifyEmail.set(null);
+    if (message) {
+      alert(message);
+      this.error.set(message);
+    }
+  }
+
+  /**
+   * The API refused the sign-in because the email isn't verified (and the WorkNest password did not help):
+   * show the "Verify your email" step for the signed-in Firebase user. False for any other error.
+   */
+  private showEmailVerification(err: any): boolean {
+    if (authFailureCode(err) !== EMAIL_NOT_VERIFIED) return false;
+    const address = this.authService.pendingVerificationEmail();
+    if (!address) return false;
+    this.error.set('');
+    this.verifyEmail.set(address);
+    return true;
   }
 
   continueAsGuest() {
@@ -146,13 +180,7 @@ export class Login {
    */
   private sendCustomerToPublicSite() {
     this.error.set('This portal is for WorkNest staff. Taking you to worknestpk.com...');
-    const token = this.authService.getToken();
-    const url = token
-      ? `${publicSiteUrl(this.customerLandingPath())}#handoff=${encodeURIComponent(token)}`
-      : publicSiteUrl('/login');
-    const go = () => { window.location.replace(url); };
-    // keepApiSession: the token was just handed to worknestpk.com, so only this portal's session ends here.
-    this.authService.logout$({ keepApiSession: true }).subscribe({ next: go, error: go });
+    handOffToPublicSite(this.authService, this.customerLandingPath());
   }
 
   /** A customer page asked for in ?redirect= (My Bookings / Payments / Agreements), otherwise the home page. */
