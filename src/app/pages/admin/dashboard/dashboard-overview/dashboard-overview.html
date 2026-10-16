@@ -16,25 +16,43 @@
 } @else {
   <div class="kpi-grid">
     @for (k of kpis(); track k.key) {
-      <a class="kpi-card" [routerLink]="k.link" [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
-        <span class="kpi-label">{{ k.label }}</span>
-        <span class="kpi-value">{{ k.value }}</span>
-        <span class="kpi-foot">
-          @if (k.trend) {
-            <span class="trend" [class.good]="k.trend.good" [class.bad]="!k.trend.good" [class.flat]="k.trend.dir === 'flat'">
-              @if (k.trend.dir === 'up') { ↑ } @else if (k.trend.dir === 'down') { ↓ }
-              {{ k.trend.text }}
-            </span>
-            <span class="kpi-sub">{{ k.vs }}</span>
-          } @else {
-            <span class="kpi-sub">{{ k.sub }}</span>
-          }
-        </span>
-        @if (k.trend) { <span class="kpi-sub kpi-sub-2">{{ k.sub }}</span> }
-      </a>
+      @if (k.opens === 'rooms') {
+        <!-- Occupancy: opens the rooms in use right now (same count as the card) -->
+        <button type="button" [class]="'kpi-card kpi-btn tone-' + k.tone" (click)="roomsOpen.set(true)"
+          aria-haspopup="dialog" [attr.aria-expanded]="roomsOpen()" title="Show the rooms in use right now">
+          <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
+          <span class="kpi-open" aria-hidden="true">
+            <span class="kpi-open-text">View rooms</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </button>
+      } @else {
+        <a class="kpi-card" [routerLink]="k.link" [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+          <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
+        </a>
+      }
     }
   </div>
 }
+
+<ng-template #kpiBody let-k>
+  <span class="kpi-label">{{ k.label }}</span>
+  <span class="kpi-value">{{ k.value }}</span>
+  <span class="kpi-foot">
+    @if (k.trend) {
+      <span class="trend" [class.good]="k.trend.good" [class.bad]="!k.trend.good" [class.flat]="k.trend.dir === 'flat'">
+        @if (k.trend.dir === 'up') { ↑ } @else if (k.trend.dir === 'down') { ↓ }
+        {{ k.trend.text }}
+      </span>
+      <span class="kpi-sub">{{ k.vs }}</span>
+    } @else {
+      <span class="kpi-sub">{{ k.sub }}</span>
+    }
+  </span>
+  @if (k.trend) { <span class="kpi-sub kpi-sub-2">{{ k.sub }}</span> }
+</ng-template>
+
+<app-occupied-rooms-drawer [open]="roomsOpen()" [locationIds]="roomsLocationIds()" [refreshTick]="refreshTick()" (closed)="roomsOpen.set(false)" />
 
 <!-- Executive charts + needs attention -->
 <div class="ins-grid">

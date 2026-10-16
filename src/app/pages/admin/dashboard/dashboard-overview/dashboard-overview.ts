@@ -1,8 +1,9 @@
 import { Component, DestroyRef, ElementRef, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { AdminService } from '../../../../services/admin.service';
 import { Chart } from '../../access/access-shared';
+import { OccupiedRoomsDrawer } from '../occupied-rooms-drawer/occupied-rooms-drawer';
 
 type AttentionTab = 'overdue' | 'ending' | 'pending';
 export type DashPeriod = 'month' | 'quarter' | 'year';
@@ -17,17 +18,20 @@ interface Kpi {
   trend?: { text: string; dir: 'up' | 'down' | 'flat'; good: boolean } | null;
   vs?: string;
   full?: string;
+  /** Opens a list on the dashboard instead of following link (Occupancy: the rooms in use). */
+  opens?: 'rooms';
 }
 
 /**
  * Admin dashboard top section: headline numbers (with last-month comparison), a "Needs attention"
  * panel and a 6-month invoiced / paid / occupancy chart. One request (GET api/dashboard/overview);
  * shows placeholder blocks while loading, independent of the rest of the dashboard.
+ * The Occupancy card opens the rooms in use right now (OccupiedRoomsDrawer) instead of a page.
  */
 @Component({
   selector: 'app-dashboard-overview',
   standalone: true,
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, NgTemplateOutlet, OccupiedRoomsDrawer],
   templateUrl: './dashboard-overview.html',
   styleUrl: './dashboard-overview.css'
 })
@@ -51,6 +55,14 @@ export class DashboardOverview {
   failed = signal(false);
   data = signal<any | null>(null);
   tab = signal<AttentionTab>('overdue');
+  /** The rooms-in-use drawer (Occupancy card). */
+  roomsOpen = signal(false);
+  /** The locations the card counts, for its list of rooms (as load() asks the overview). */
+  roomsLocationIds = computed<number[]>(() => {
+    if (this.locationIds().length) return this.locationIds();
+    const loc = this.locationId();
+    return loc && loc !== 'ALL' && !isNaN(Number(loc)) ? [Number(loc)] : [];
+  });
 
   // Chart canvases (always in the DOM; a placeholder covers them while loading)
   private revenueCanvas = viewChild<ElementRef<HTMLCanvasElement>>('revenueCanvas');
@@ -122,7 +134,7 @@ export class DashboardOverview {
     return [
       {
         key: 'occupancy', label: 'Occupancy', value: `${d.occupancyPct}%`,
-        sub: `${d.occupiedSpaces} of ${d.totalSpaces} spaces in use`, link: '/admin/spaces',
+        sub: `${d.occupiedSpaces} of ${d.totalSpaces} spaces in use`, link: '/admin/spaces', opens: 'rooms',
         tone: d.occupancyPct >= 70 ? 'ok' : d.occupancyPct >= 40 ? 'neutral' : 'warn',
         trend: this.trend(d.occupancyPct, d.occupancyPctLastMonth, 'pts'), vs: `vs a ${this.periodWord()} ago`
       },

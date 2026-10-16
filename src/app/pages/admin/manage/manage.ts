@@ -1203,6 +1203,7 @@ export class Manage implements OnInit {
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
         if (this.entity === 'invoices') this.loadSpaceInventoryForConfig();
         if (this.entity === 'quotations') this.openQuotationFromInquiryParams();
+        if (this.entity === 'bookings') this.openBookingFromParams();
         if (this.entity === 'contacts' || this.entity === 'complaints') this.loadItemBranches();
       });
     });
@@ -5733,6 +5734,15 @@ export class Manage implements OnInit {
     this.customerSearchQuery = qp.get('email') || qp.get('name') || '';
     if (this.customerSearchQuery) this.onCustomerSearch();
     // Drop the parameters so a refresh does not reopen the form.
+    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+  }
+
+  /** Bookings opened as /admin/bookings?booking=<id> (e.g. from the dashboard's rooms in use): show that booking's details. */
+  private openBookingFromParams() {
+    const id = Number(this.route.snapshot.queryParamMap.get('booking'));
+    if (!Number.isInteger(id) || id <= 0) return;
+    this.openBookingDetailsModal({ bookingId: id, id });
+    // Drop the parameter so a refresh does not reopen the details.
     this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
   }
 

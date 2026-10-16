@@ -1,0 +1,106 @@
+@if (open()) {
+<div class="drawer-backdrop" (click)="close()" (wheel)="$event.preventDefault()" aria-hidden="true"></div>
+<aside class="drawer" #panel role="dialog" aria-modal="true" aria-labelledby="occ-drawer-title" aria-describedby="occ-drawer-sub" tabindex="-1">
+  <header class="drawer-head">
+    <div class="drawer-nav">
+      <span class="eyebrow">Occupancy</span>
+      <button type="button" class="close-btn" (click)="close()" aria-label="Close (Escape)" title="Close (Esc)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <h2 id="occ-drawer-title" #heading tabindex="-1">Rooms in use right now</h2>
+    <p class="drawer-sub" id="occ-drawer-sub" aria-live="polite">
+      @if (data(); as d) {
+        {{ d.occupiedSpaces }} of {{ d.totalSpaces }} spaces in use ({{ pctText(d.occupancyPct) }})
+        @if (toDate(d.generatedAt); as at) { · as of {{ at | date:'d MMM y, h:mm a' }} }
+        · view only
+      } @else if (status() === 'loading') {
+        Loading…
+      } @else {
+        Spaces with a booking running now
+      }
+    </p>
+  </header>
+
+  <div class="drawer-body">
+    @if (status() === 'loading' && !data()) {
+      <div class="state-loading" aria-busy="true">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="sk-row"><span class="sk sk-line w30"></span><span class="sk sk-line w20"></span><span class="sk sk-line w30"></span></div>
+        }
+      </div>
+    } @else if (status() === 'error' && !data()) {
+      <div class="state-box" role="alert">
+        <span class="state-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        </span>
+        <strong>Could not load the rooms</strong>
+        <span>{{ errorText() }}</span>
+        <button type="button" class="btn-ghost" (click)="load()">Try again</button>
+      </div>
+    } @else if (!rows().length) {
+      <div class="state-box">
+        <span class="state-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M14 12h.01"/></svg>
+        </span>
+        <strong>No rooms in use right now</strong>
+        <span>No space has a booking running at this moment.</span>
+      </div>
+    } @else {
+      @if (status() === 'error') {
+        <p class="inline-error" role="alert">Could not refresh: {{ errorText() }} <button type="button" class="link-btn" (click)="load()">Try again</button></p>
+      }
+      <div class="table-scroll" [class.stale]="status() === 'loading'" tabindex="0" role="region" aria-label="Rooms in use, scrolls sideways on small screens">
+        <table class="dr-table records">
+          <caption class="sr-only">Rooms in use right now, by location then room</caption>
+          <thead>
+            <tr>
+              <th scope="col">Room</th>
+              <th scope="col">Location</th>
+              <th scope="col">Space type</th>
+              <th scope="col" class="num">Seats</th>
+              <th scope="col">Tenant</th>
+              <th scope="col">Start</th>
+              <th scope="col">End</th>
+              <th scope="col">Status</th>
+              <th scope="col">Booking</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of rows(); track r.spaceId) {
+              <tr>
+                <th scope="row">
+                  <strong>{{ r.room || '-' }}</strong>
+                  @if (r.spaceCode && r.spaceCode !== r.room) { <small>Code {{ r.spaceCode }}</small> }
+                </th>
+                <td>{{ r.location || '-' }}</td>
+                <td>{{ r.spaceType || '-' }}</td>
+                <td class="num">
+                  {{ r.seats ?? '-' }}
+                  @if (r.bookedSeats && r.bookedSeats !== r.seats) { <small>{{ r.bookedSeats }} booked</small> }
+                </td>
+                <td>
+                  <span class="clip" [title]="r.customer">{{ r.customer || '-' }}</span>
+                  @if (r.customerCode) { <small>{{ r.customerCode }}</small> }
+                  @if (r.bookingCount > 1) { <small class="more">+{{ r.bookingCount - 1 }} more booking{{ r.bookingCount - 1 === 1 ? '' : 's' }} now</small> }
+                </td>
+                <td>@if (toDate(r.startOn); as s) { {{ s | date:'d MMM y' }} } @else { - }</td>
+                <td>@if (toDate(r.endOn); as e) { {{ e | date:'d MMM y' }} } @else { - }</td>
+                <td><span [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
+                <td>
+                  <a class="row-link" routerLink="/admin/bookings" [queryParams]="{ booking: r.bookingId }"
+                    [attr.aria-label]="'Open booking ' + r.bookingId + ' for ' + r.room">
+                    #{{ r.bookingId }}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">The booking number opens its details on Bookings.</p>
+    }
+  </div>
+</aside>
+}
