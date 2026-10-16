@@ -182,3 +182,6 @@ a.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,
   .kpi-grid { grid-template-columns: minmax(0, 1fr); }
   .kpi-value { font-size: 1.3rem; }
 }
+/* figures in a card head: wrap between figures, never inside one ("PKR" / "312.4M" on two lines) */
+.head-stats { flex-wrap: wrap; row-gap: 8px; }
+.head-stats strong { white-space: nowrap; }

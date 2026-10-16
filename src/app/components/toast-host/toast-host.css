@@ -104,3 +104,16 @@
   color: #ffffff;
   background: rgba(255, 255, 255, 0.15);
 }
+
+/* Phones: full width with a 12px edge, below the notch / status bar; long words wrap. */
+@media (max-width: 480px) {
+  .floating-toast-container {
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+  .floating-toast { padding: 12px 14px; gap: 10px; }
+}
+.floating-toast { overflow-wrap: anywhere; }

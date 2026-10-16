@@ -177,7 +177,7 @@
   @if (isPhone()) {
     <div class="nav-backdrop" [class.show]="mobileNavOpen()" (click)="closeMobileNav()" aria-hidden="true"></div>
   }
-  <main class="admin-main">
+  <main class="admin-main" #adminMain>
     @if (isPhone()) {
       <header class="mobile-topbar">
         <button #menuButton type="button" class="mobile-menu-btn" (click)="openMobileNav()" aria-label="Open menu"

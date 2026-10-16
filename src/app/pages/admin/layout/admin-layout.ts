@@ -30,6 +30,9 @@ export class AdminLayout implements OnInit, OnDestroy {
   readonly mobileNavOpen = signal(false);
   private readonly menuButton = viewChild<ElementRef<HTMLButtonElement>>('menuButton');
   private readonly sidebarToggleBtn = viewChild<ElementRef<HTMLButtonElement>>('sidebarToggle');
+  private readonly mainEl = viewChild<ElementRef<HTMLElement>>('adminMain');
+  /** Path (no query) of the last page, so only a new page (not a filter in the URL) scrolls back to the top. */
+  private lastPath = '';
   userRole = '';
 
   isSuperAdmin = false;
@@ -172,8 +175,17 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
-    // Phones: a link opened from the drawer closes it.
-    this.drawerSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => this.mobileNavOpen.set(false));
+    this.lastPath = this.router.url.split(/[?#]/)[0];
+    // Phones: a link opened from the drawer closes it. A new page starts at the top (the page scrolls inside
+    // <main>, which the router's own scroll handling does not reset).
+    this.drawerSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+      this.mobileNavOpen.set(false);
+      const path = this.router.url.split(/[?#]/)[0];
+      if (path !== this.lastPath) {
+        this.lastPath = path;
+        this.mainEl()?.nativeElement.scrollTo({ top: 0 });
+      }
+    });
     // The role's database label (auth/me) when the sign-in response did not bring it.
     if (!this.auth.getUser()?.roleDisplayName) this.auth.refreshProfileLabels();
     // A CEO / Sales Manager / Access Officer has no sidebar badges or network section (those APIs are staff-only).
