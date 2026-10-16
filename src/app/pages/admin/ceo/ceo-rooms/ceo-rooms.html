@@ -74,82 +74,104 @@
         </div>
 
         <div class="ins-grid">
-          <!-- 1. Under / at / over by shift -->
-          <div class="dash-panel span-4 full-md focus-target" id="panel-rooms-shift" tabindex="-1">
+          <!-- 1. Under / at / over: donut, then each shift as one split bar -->
+          <div class="dash-panel span-4 full-md focus-target" id="panel-rooms-mix" tabindex="-1">
             <div class="panel-head">
               <div>
-                <h3>Price against list by shift</h3>
-                <p class="panel-sub">Bookings this {{ word() }} · select a bar to see them on the room map</p>
-              </div>
-              <div class="head-stats">
-                <div><span>Sales</span><strong>{{ count(s()!.sales) }}</strong></div>
-                <div><span>Difference</span><strong [class.bad]="totals().variance < 0" [class.good]="totals().variance > 0" [title]="'Sold ' + fullMoney(totals().sold) + ' against ' + fullMoney(totals().expected) + ' a month'">{{ signedAmount(totals().variance) }}</strong></div>
+                <h3>Price against list</h3>
+                <p class="panel-sub">Bookings this {{ word() }} · select a part for the room map</p>
               </div>
             </div>
-            <div class="chart-box h-shift chart-nav"
-              [attr.tabindex]="noSales() ? null : 0" role="group" aria-roledescription="interactive chart"
-              aria-label="Sales under, at and over the price by shift. Arrow keys move between shifts, Enter opens their rows."
-              (keydown)="shiftNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && shiftNav.focus()" (blur)="shiftNav.clear()">
-              <canvas #shiftCanvas aria-hidden="true"></canvas>
+            <div class="chart-box h-donut">
+              <canvas #mixCanvas role="img" [attr.aria-label]="mixAria()"></canvas>
               @if (noSales()) {
-                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No sales this {{ word() }}</strong><span>Confirmed bookings on these rooms show up here.</span></div>
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No bookings this {{ word() }}</strong><span>Confirmed bookings on these rooms show up here.</span></div>
+              } @else {
+                <div class="donut-center"><span>Bookings</span><strong>{{ count(s()!.sales) }}</strong></div>
               }
             </div>
             @if (!noSales()) {
-              <ul class="aging-legend shift-list">
-                @for (x of s()!.byShift; track x.shift) {
+              <ul class="aging-legend">
+                @for (m of mix(); track m.key) {
                   <li>
-                    <button type="button" class="legend-row" (click)="showMap({ shift: x.shift })" [attr.aria-label]="'Show the ' + x.shift + ' bookings on the room map: ' + x.sales + ' sales, ' + signedAmount(x.varianceMonthly) + ' a month against the price'">
-                      <span class="lg-label">{{ x.shift }}</span>
-                      <small>{{ count(x.sales) }} sale{{ x.sales === 1 ? '' : 's' }}</small>
-                      <strong [class.neg]="x.varianceMonthly < 0" [class.pos]="x.varianceMonthly > 0" [title]="'Sold ' + fullMoney(x.soldMonthly) + ' against ' + fullMoney(x.expectedMonthly) + ' a month'">{{ signedAmount(x.varianceMonthly) }}</strong>
+                    <button type="button" class="legend-row" (click)="showMap({ filter: m.key })" [attr.aria-label]="'Show the ' + m.count + ' bookings ' + m.label.toLowerCase() + ' on the room map'">
+                      <i [style.background]="pricingColors[m.key]"></i>
+                      <span class="lg-label">{{ m.label }}</span>
+                      @if (m.amount) { <small [class.neg]="m.amount < 0" [class.pos]="m.amount > 0">{{ signedAmount(m.amount) }} a month</small> }
+                      <strong>{{ count(m.count) }}</strong>
                       <ng-container *ngTemplateOutlet="chevron" />
                     </button>
                   </li>
                 }
               </ul>
-              <p class="note">Difference = sold less expected, PKR a month.</p>
+              <div class="shift-bars">
+                <span class="filter-label">By shift</span>
+                @for (x of shiftBars(); track x.shift) {
+                  <button type="button" class="shift-bar" [disabled]="!x.sales" (click)="showMap({ shift: x.shift })"
+                    [attr.aria-label]="x.sales ? x.shift + ': ' + x.under + ' under, ' + x.at + ' at, ' + x.over + ' over the price. Show them on the room map' : x.shift + ': no bookings'">
+                    <span class="sb-name">{{ x.shift }}</span>
+                    @if (x.sales) {
+                      <span class="sb-track" aria-hidden="true">
+                        @for (p of x.parts; track p.key) { <span [style.width.%]="p.w" [style.background]="pricingColors[p.key]"></span> }
+                      </span>
+                      <span class="sb-n">{{ count(x.sales) }}</span>
+                    } @else {
+                      <span class="sb-none">No bookings</span>
+                    }
+                  </button>
+                }
+              </div>
             }
           </div>
 
-          <!-- 2. Sold per seat vs expected per seat -->
-          <div class="dash-panel span-8 focus-target" id="panel-rooms-price" tabindex="-1">
+          <!-- 2. Bookings off the price: under (left) and over (right) a month -->
+          <div class="dash-panel span-8 focus-target" id="panel-rooms-off" tabindex="-1">
             <div class="panel-head">
               <div>
-                <h3>Sold vs expected, per seat</h3>
-                <p class="panel-sub">Every booking this {{ word() }}, worst under first · select a bar for its room</p>
+                <h3>Under and over the price</h3>
+                <p class="panel-sub">Bookings this {{ word() }} sold off the price, difference a month · select a bar for its room</p>
               </div>
-              @if (worstCount() > limit) {
-                <div class="head-side">
-                  <button type="button" class="view-toggle" (click)="showAllPrices.set(!showAllPrices())" [attr.aria-pressed]="showAllPrices()">
-                    {{ showAllPrices() ? 'Show the first ' + limit : 'Show all ' + worstCount() }}
-                  </button>
+              <div class="head-side">
+                <div class="head-stats">
+                  <div><span>Under</span><strong [class.bad]="s()!.underGapMonthly > 0" [title]="fullMoney(s()!.underGapMonthly) + ' a month short'">{{ s()!.underGapMonthly ? '-' + money(s()!.underGapMonthly) : '0' }}</strong></div>
+                  <div><span>Over</span><strong [class.good]="s()!.overPremiumMonthly > 0" [title]="fullMoney(s()!.overPremiumMonthly) + ' a month extra'">{{ s()!.overPremiumMonthly ? '+' + money(s()!.overPremiumMonthly) : '0' }}</strong></div>
                 </div>
-              }
+                @if (offCount() > limit) {
+                  <button type="button" class="view-toggle" (click)="showAllPrices.set(!showAllPrices())" [attr.aria-pressed]="showAllPrices()">
+                    {{ showAllPrices() ? 'Show the first ' + limit : 'Show all ' + offCount() }}
+                  </button>
+                }
+              </div>
             </div>
-            @if (worstCount()) {
+            @if (offCount()) {
               <div class="rooms-legend" aria-hidden="true">
-                <span><i class="sw" [style.background]="pricingColors.under"></i>Under</span>
-                <span><i class="sw" [style.background]="pricingColors.at"></i>At</span>
-                <span><i class="sw" [style.background]="pricingColors.over"></i>Over</span>
-                <span><i class="mk"></i>Expected</span>
+                <span><i class="sw" [style.background]="pricingColors.under"></i>Under the price</span>
+                <span><i class="sw" [style.background]="pricingColors.over"></i>Over the price</span>
               </div>
             }
-            <div class="chart-box chart-nav" [style.height.px]="priceHeight()"
-              [attr.tabindex]="worstCount() ? 0 : null" role="group" aria-roledescription="interactive chart"
-              aria-label="Sold per seat against expected per seat, one bar per booking. Arrow keys move between bookings, Enter opens the room."
-              (keydown)="priceNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && priceNav.focus()" (blur)="priceNav.clear()">
-              <canvas #priceCanvas aria-hidden="true"></canvas>
+            <div class="chart-box chart-nav" [style.height.px]="offCount() ? offHeight() : 150"
+              [attr.tabindex]="offCount() ? 0 : null" role="group" aria-roledescription="interactive chart"
+              aria-label="Bookings sold under or over the price, difference a month. Arrow keys move between bookings, Enter opens the room."
+              (keydown)="offNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && offNav.focus()" (blur)="offNav.clear()">
+              <canvas #offCanvas aria-hidden="true"></canvas>
               @if (noSales()) {
-                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No sales this {{ word() }}</strong><span>Each booking's price per seat shows up here against the list.</span></div>
-              } @else if (!worstCount()) {
-                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No list prices to compare with</strong><span>These rooms have no monthly list price yet.</span></div>
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No bookings this {{ word() }}</strong><span>Bookings sold under or over the price show up here.</span></div>
+              } @else if (!offCount()) {
+                <div class="chart-empty ok">
+                  <span class="chart-empty-icon ok"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+                  <strong>Every booking this {{ word() }} is at the price</strong>
+                  <span>None sold under or over the list (shift price for Morning and Evening).</span>
+                </div>
               }
             </div>
             @if (!noSales()) {
               <p class="note">
-                Expected per seat: the list price for 24/7; for Morning and Evening the list less the location's shift discount cap. Within 0.5% counts as at the price.
-                @if (unpricedCount()) { {{ count(unpricedCount()) }} booking{{ unpricedCount() === 1 ? '' : 's' }} on rooms with no list price {{ unpricedCount() === 1 ? 'is' : 'are' }} not shown. }
+                @if (offCount() && s()!.at) {
+                  {{ count(s()!.at) }} booking{{ s()!.at === 1 ? ' is' : 's are' }} at the price and not drawn
+                  (<button type="button" class="link-btn inline" (click)="showMap({ filter: 'at' })">show on the room map</button>).
+                }
+                The price: the list for 24/7; for Morning and Evening the list less the location's shift discount cap. Within 0.5% counts as at the price.
+                @if (unpricedCount()) { {{ count(unpricedCount()) }} booking{{ unpricedCount() === 1 ? '' : 's' }} on rooms with no list price {{ unpricedCount() === 1 ? 'is' : 'are' }} left out. }
               </p>
             }
           </div>

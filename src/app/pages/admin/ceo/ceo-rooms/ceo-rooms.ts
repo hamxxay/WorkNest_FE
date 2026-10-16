@@ -16,7 +16,7 @@ import {
 } from './rooms-view';
 import type { CeoRoom, CeoRoomSale } from '../../../../services/ceo.service';
 
-type ChartKey = 'shift' | 'price' | 'occ' | 'rent';
+type ChartKey = 'mix' | 'off' | 'occ' | 'rent';
 
 /** Bars a room chart shows before "Show all". */
 const CHART_LIMIT = 12;
@@ -81,8 +81,8 @@ export class CeoRoomsSection {
   private dataKey = '';
   private charts = new Map<ChartKey, Chart>();
 
-  private shiftCanvas = viewChild<ElementRef<HTMLCanvasElement>>('shiftCanvas');
-  private priceCanvas = viewChild<ElementRef<HTMLCanvasElement>>('priceCanvas');
+  private mixCanvas = viewChild<ElementRef<HTMLCanvasElement>>('mixCanvas');
+  private offCanvas = viewChild<ElementRef<HTMLCanvasElement>>('offCanvas');
   private occCanvas = viewChild<ElementRef<HTMLCanvasElement>>('occCanvas');
   private rentCanvas = viewChild<ElementRef<HTMLCanvasElement>>('rentCanvas');
 
@@ -254,11 +254,32 @@ export class CeoRoomsSection {
 
   // ---------- charts: data ----------
 
-  /** Every sale, worst under first. */
-  private worst = computed(() => salesWorstFirst(this.rooms()));
-  worstShown = computed<RoomSale[]>(() => this.showAllPrices() ? this.worst() : this.worst().slice(0, CHART_LIMIT));
-  worstCount = computed(() => this.worst().length);
-  priceHeight = computed(() => Math.max(150, this.worstShown().length * ROW_PX + AXIS_PX));
+  /** Under / at / over (and no list price, when any): the donut and its rows. */
+  mix = computed(() => {
+    const s = this.s();
+    if (!s) return [];
+    const parts: { key: CeoPricing; label: string; count: number; amount: number | null }[] = [
+      { key: 'under', label: 'Under the price', count: s.under, amount: s.under ? -s.underGapMonthly : null },
+      { key: 'at', label: 'At the price', count: s.at, amount: null },
+      { key: 'over', label: 'Over the price', count: s.over, amount: s.over ? s.overPremiumMonthly : null }
+    ];
+    if (s.unpriced) parts.push({ key: 'unpriced', label: 'No list price', count: s.unpriced, amount: null });
+    return parts;
+  });
+  mixAria = computed(() => this.mix().map(m => `${m.label}: ${m.count}`).join(', '));
+  /** Each shift's bookings as a bar split under / at / over (% widths). */
+  shiftBars = computed(() => (this.s()?.byShift ?? []).map(x => {
+    const w = (n: number) => (x.sales ? (n / x.sales) * 100 : 0);
+    return { ...x, parts: (['under', 'at', 'over', 'unpriced'] as CeoPricing[]).filter(p => x[p] > 0).map(p => ({ key: p, n: x[p], w: w(x[p]) })) };
+  }));
+
+  /** Bookings sold off the price (under or over), most under first; the ones at the price are counted, not drawn. */
+  private off = computed(() => salesWorstFirst(this.rooms())
+    .filter(x => x.sale.pricing === 'under' || x.sale.pricing === 'over')
+    .sort((a, b) => a.sale.varianceMonthly - b.sale.varianceMonthly));
+  offShown = computed<RoomSale[]>(() => this.showAllPrices() ? this.off() : this.off().slice(0, CHART_LIMIT));
+  offCount = computed(() => this.off().length);
+  offHeight = computed(() => Math.max(120, this.offShown().length * 38 + AXIS_PX));
 
   private mostOccupied = computed(() => roomsMostOccupied(this.rooms()));
   occShown = computed(() => this.showAllOcc() ? this.mostOccupied() : this.mostOccupied().slice(0, CHART_LIMIT));
@@ -294,7 +315,7 @@ export class CeoRoomsSection {
     }, { injector: this.injector });
   }
 
-  showSale(i: number) { const x = this.worstShown()[i]; if (x) this.showRoomOnMap(x.room); }
+  showSale(i: number) { const x = this.offShown()[i]; if (x) this.showRoomOnMap(x.room); }
   showRoom(i: number) { const room = this.occShown()[i]; if (room) this.showRoomOnMap(room); }
 
   focusEl(id: string) {
@@ -315,23 +336,12 @@ export class CeoRoomsSection {
 
   // ---------- charts: keyboard ----------
 
-  readonly shiftNav = new ChartKeyNav({
-    charts: () => [this.charts.get('shift')],
-    count: () => (this.s()?.byShift.length ?? 0),
+  readonly offNav = new ChartKeyNav({
+    charts: () => [this.charts.get('off')],
+    count: () => this.offShown().length,
     describe: i => {
-      const x = this.s()?.byShift[i];
-      return x ? `${x.shift}: ${x.under} under, ${x.at} at, ${x.over} over the price${x.unpriced ? `, ${x.unpriced} with no list price` : ''}. Press Enter to show them on the room map.` : '';
-    },
-    pick: i => { const x = this.s()?.byShift[i]; if (x) this.showMap({ shift: x.shift }); },
-    announce: t => this.chartAnnounce.set(t)
-  });
-
-  readonly priceNav = new ChartKeyNav({
-    charts: () => [this.charts.get('price')],
-    count: () => this.worstShown().length,
-    describe: i => {
-      const x = this.worstShown()[i];
-      return x ? `${x.room.name}, ${x.sale.customer}, ${x.sale.shift}: sold ${fullMoney(x.sale.soldSeatPrice)} a seat, expected ${fullMoney(x.sale.expectedSeatPrice)}, ${PRICING_LABELS[x.sale.pricing].toLowerCase()} the price. Press Enter for the room.` : '';
+      const x = this.offShown()[i];
+      return x ? `${x.room.name}, ${x.sale.customer}, ${x.sale.shift}: ${PRICING_LABELS[x.sale.pricing].toLowerCase()} the price by ${fullMoney(Math.abs(x.sale.varianceMonthly))} a month (${signedPct(x.sale.variancePct)}), sold ${fullMoney(x.sale.soldSeatPrice)} a seat against ${fullMoney(x.sale.expectedSeatPrice)}. Press Enter for the room.` : '';
     },
     pick: i => this.showSale(i),
     announce: t => this.chartAnnounce.set(t)
@@ -371,96 +381,66 @@ export class CeoRoomsSection {
 
   private renderCharts() {
     const d = this.data();
-    const shiftCanvas = this.shiftCanvas();
-    const priceCanvas = this.priceCanvas();
+    const mixCanvas = this.mixCanvas();
+    const offCanvas = this.offCanvas();
     const occCanvas = this.occCanvas();
     const rentCanvas = this.rentCanvas();
-    const worst = this.worstShown();
+    const off = this.offShown();
     const occ = this.occShown();
     if (!d || !d.available) { this.destroyCharts(); return; }
     applyChartDefaults();
     const noSales = this.noSales();
-    const noPriced = !worst.length;
 
     /** A tick label cut to the chart's width (phones get short names). */
     const yLabel = (labels: string[]) => function (this: any, _v: any, i: number) {
       return clip(labels[i] ?? '', this.chart.width < 420 ? 13 : 22);
     };
 
-    // 1. Under / at / over by shift (stacked counts).
-    const byShift = d.summary.byShift;
-    const pricings: CeoPricing[] = d.summary.unpriced ? ['under', 'at', 'over', 'unpriced'] : ['under', 'at', 'over'];
-    this.upsert('shift', noSales ? undefined : shiftCanvas, {
-      type: 'bar',
+    // 1. Under / at / over: a donut of the bookings; a part shows those rooms on the map.
+    const mix = this.mix();
+    this.upsert('mix', noSales ? undefined : mixCanvas, {
+      type: 'doughnut',
       data: {
-        labels: byShift.map(x => x.shift),
-        datasets: pricings.map(p => ({
-          label: p === 'unpriced' ? PRICING_LABELS[p] : `${PRICING_LABELS[p]} the price`, data: byShift.map(x => x[p]), stack: 'pricing',
-          backgroundColor: PRICING_COLORS[p], hoverBackgroundColor: PRICING_HOVER[p],
-          // a 2px white gap between the stacked parts
-          borderColor: '#fff', borderWidth: { top: 2, right: 0, bottom: 0, left: 0 }, borderRadius: 3, borderSkipped: false,
-          maxBarThickness: 56
-        }))
+        labels: mix.map(m => m.label),
+        datasets: [{
+          data: mix.map(m => m.count), backgroundColor: mix.map(m => PRICING_COLORS[m.key]),
+          hoverBackgroundColor: mix.map(m => PRICING_HOVER[m.key]),
+          borderColor: '#fff', borderWidth: 2, hoverOffset: 6, hoverBorderColor: '#fff'
+        }]
       },
       options: {
-        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        responsive: true, maintainAspectRatio: false, cutout: '72%', layout: { padding: 8 },
         onHover: pointerOnHover,
-        onClick: (e: any, els: any[], chart: Chart) => {
-          if (!els.length) return;
-          const hit = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false)[0];
-          const x = byShift[els[0].index];
-          if (x) this.showMap({ shift: x.shift, filter: hit ? pricings[hit.datasetIndex] : 'all' });
-        },
+        onClick: (_e: any, els: any[]) => { const m = mix[els[0]?.index]; if (m) this.showMap({ filter: m.key }); },
         plugins: {
-          legend: LEGEND,
+          legend: { display: false },
           tooltip: {
             ...TOOLTIP,
             callbacks: {
-              title: (items: any[]) => `${byShift[items[0]?.dataIndex]?.shift ?? ''} bookings`,
-              label: (c: any) => ` ${c.dataset.label}: ${c.parsed.y}`,
+              label: (c: any) => ` ${c.label}: ${c.parsed} booking${c.parsed === 1 ? '' : 's'}`,
               footer: (items: any[]) => {
-                const x = byShift[items[0]?.dataIndex];
-                return x && x.sales
-                  ? [`Sold ${fullMoney(x.soldMonthly)} vs ${fullMoney(x.expectedMonthly)} a month`, 'Click to show them on the room map']
-                  : '';
+                const m = mix[items[0]?.dataIndex];
+                return m ? [...(m.amount ? [`${signedAmount(m.amount)} a month`] : []), 'Click to show them on the room map'] : '';
               }
             }
           }
-        },
-        scales: {
-          x: { stacked: true, grid: { display: false }, border: { display: false } },
-          y: { stacked: true, beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8, maxTicksLimit: 5 } }
         }
       }
     });
 
-    // 2. Sold per seat (bar, coloured by under / at / over) against expected per seat (marker), worst under first.
-    const priceLabels = worst.map(x => saleLabel(x.room, x.sale));
-    const expected = worst.map(x => x.sale.expectedSeatPrice || null);
-    const marker = { type: 'line', showLine: false, indexAxis: 'y', pointStyle: 'line', rotation: 90, data: expected };
-    this.upsert('price', noPriced ? undefined : priceCanvas, {
+    // 2. Bookings off the price: how far under (left, red) or over (right, teal) a month, from 0.
+    const offLabels = off.map(x => saleLabel(x.room, x.sale));
+    const reach = Math.max(1, ...off.map(x => Math.abs(x.sale.varianceMonthly)));
+    this.upsert('off', off.length ? offCanvas : undefined, {
       type: 'bar',
       data: {
-        labels: priceLabels,
-        datasets: [
-          {
-            ...marker, label: 'Expected per seat', order: 0, pointRadius: 9, pointHoverRadius: 10,
-            pointBorderWidth: 2.5, pointHoverBorderWidth: 3, borderColor: '#0f172a', pointBorderColor: '#0f172a',
-            pointHoverBorderColor: '#0f172a', pointHitRadius: 0
-          },
-          {
-            // A white halo under the marker, so it stays clear on a dark bar.
-            ...marker, label: 'halo', order: 1, pointRadius: 10, pointHoverRadius: 11,
-            pointBorderWidth: 6, pointHoverBorderWidth: 7, borderColor: '#fff', pointBorderColor: '#fff',
-            pointHoverBorderColor: '#fff', pointHitRadius: 0
-          },
-          {
-            type: 'bar', label: 'Sold per seat', order: 2, indexAxis: 'y', data: worst.map(x => x.sale.soldSeatPrice),
-            backgroundColor: worst.map(x => PRICING_COLORS[x.sale.pricing]),
-            hoverBackgroundColor: worst.map(x => PRICING_HOVER[x.sale.pricing]),
-            borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18, categoryPercentage: 0.8, barPercentage: 0.9
-          }
-        ]
+        labels: offLabels,
+        datasets: [{
+          label: 'Difference a month', data: off.map(x => x.sale.varianceMonthly),
+          backgroundColor: off.map(x => PRICING_COLORS[x.sale.pricing]),
+          hoverBackgroundColor: off.map(x => PRICING_HOVER[x.sale.pricing]),
+          borderRadius: 5, borderSkipped: false, maxBarThickness: 22, categoryPercentage: 0.8, barPercentage: 0.9
+        }]
       },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -471,31 +451,33 @@ export class CeoRoomsSection {
           legend: { display: false },
           tooltip: {
             ...TOOLTIP,
-            filter: (item: any) => item.datasetIndex === 2,
             callbacks: {
               title: (items: any[]) => {
-                const x = worst[items[0]?.dataIndex];
+                const x = off[items[0]?.dataIndex];
                 return x ? `${x.room.name}${x.room.location ? ' · ' + x.room.location : ''}` : '';
               },
-              label: (c: any) => ` Sold ${fullMoney(c.parsed.x)} a seat`,
+              label: (c: any) => {
+                const s = off[c.dataIndex]?.sale;
+                return s ? ` ${PRICING_LABELS[s.pricing]} the price: ${signedAmount(s.varianceMonthly)} a month (${signedPct(s.variancePct)})` : '';
+              },
               afterLabel: (c: any) => {
-                const s = worst[c.dataIndex]?.sale;
-                if (!s) return '';
-                return [
-                  ` Expected ${fullMoney(s.expectedSeatPrice)} a seat`,
-                  ` ${PRICING_LABELS[s.pricing]} the price: ${signedAmount(s.varianceMonthly)} a month (${signedPct(s.variancePct)})`
-                ];
+                const s = off[c.dataIndex]?.sale;
+                return s ? ` Sold ${fullMoney(s.soldSeatPrice)} a seat, expected ${fullMoney(s.expectedSeatPrice)}` : '';
               },
               footer: (items: any[]) => {
-                const x = worst[items[0]?.dataIndex];
+                const x = off[items[0]?.dataIndex];
                 return x ? [`${x.sale.customer} · ${x.sale.shift} · ${x.sale.seatsSold} seat${x.sale.seatsSold === 1 ? '' : 's'}`, 'Click for the room'] : '';
               }
             }
           }
         },
         scales: {
-          x: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { ...AXIS_MONEY, maxTicksLimit: 5 } },
-          y: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, callback: yLabel(priceLabels) } }
+          // symmetric around 0, so under and over read against the same middle line
+          x: {
+            min: -reach * 1.15, max: reach * 1.15, grid: { ...GRID, color: (c: any) => (c.tick?.value === 0 ? '#94a3b8' : GRID.color) },
+            border: { display: false }, ticks: { ...AXIS_MONEY, maxTicksLimit: 5, callback: (v: any) => signedAmount(Number(v)) }
+          },
+          y: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, callback: yLabel(offLabels) } }
         }
       }
     });
