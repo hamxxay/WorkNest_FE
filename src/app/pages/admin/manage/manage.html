@@ -827,6 +827,17 @@
           Tick every location they may work in.
           }
         </small>
+        } @else if (field.type === 'space-type-select') {
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
+          (change)="onFieldChange(field.key)">
+          <option value="">Select...</option>
+          @for (opt of spaceTypeIdOptionsAt(formData['locationId']); track opt.v) {
+          <option [value]="opt.v">{{ opt.l }}</option>
+          }
+        </select>
+        @if (spaceTypeHintAt(formData['locationId'], spaceTypeIdOptionsAt(formData['locationId']).length); as hint) {
+        <small class="space-type-hint">{{ hint }}</small>
+        }
         } @else if (field.type === 'select') {
         <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
           (change)="onFieldChange(field.key)">
@@ -1308,10 +1319,13 @@
         <select class="form-input-admin" [(ngModel)]="addSpaceTypeId" name="addSpaceType" required
           (change)="onAddSpaceSelectionChange()">
           <option value="">Select Space Type...</option>
-          @for (st of spaceTypeOptions(); track st.v) {
+          @for (st of spaceTypeIdOptionsAt(addSpaceLocationId); track st.v) {
           <option [value]="st.v">{{ st.l }}</option>
           }
         </select>
+        @if (spaceTypeHintAt(addSpaceLocationId, spaceTypeIdOptionsAt(addSpaceLocationId).length); as hint) {
+        <small class="space-type-hint">{{ hint }}</small>
+        }
       </div>
       <div class="form-group-admin">
         <label>Location *</label>
@@ -1778,10 +1792,13 @@
           <select class="form-input-admin" [(ngModel)]="selectedQuotationSpaceTypeId" name="qSpaceTypeId" required
             (change)="onQuotationSpaceTypeChange()">
             <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptions(); track st.v) {
+            @for (st of spaceTypeOptionsAt(selectedQuotationLocationId); track st.v) {
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
+          @if (spaceTypeHintAt(selectedQuotationLocationId, spaceTypeOptionsAt(selectedQuotationLocationId).length); as hint) {
+          <small class="space-type-hint">{{ hint }}</small>
+          }
         </div>
         @if (isQuotationPrivateRoom) {
         <div class="form-group-admin" data-field="capacity" [class.has-error]="quotationFormErrorField === 'capacity'">
@@ -2210,10 +2227,13 @@
           <select class="form-input-admin" [(ngModel)]="selectedSpaceTypeId" name="spaceTypeId" required
             (change)="onSpaceTypeChange()">
             <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptions(); track st.v) {
+            @for (st of spaceTypeOptionsAt(selectedLocationId); track st.v) {
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
+          @if (spaceTypeHintAt(selectedLocationId, spaceTypeOptionsAt(selectedLocationId).length); as hint) {
+          <small class="space-type-hint">{{ hint }}</small>
+          }
         </div>
         @if (isAdminPrivateRoom) {
         <div class="form-group-admin" data-field="capacity" [class.has-error]="bookingFormErrorField === 'capacity'">

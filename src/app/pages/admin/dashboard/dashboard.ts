@@ -13,6 +13,7 @@ import { ForecastPanel } from './forecast-panel/forecast-panel';
 import { WeeklyReportMenu } from './weekly-report-menu/weekly-report-menu';
 import { KeepInView } from '../../../components/keep-in-view/keep-in-view.directive';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
+import { spaceTypeLocationId, spaceTypesHaveLocations } from '../../../utils/space-types';
 
 export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
 
@@ -200,8 +201,24 @@ export class Dashboard implements OnInit, OnDestroy {
   // Main Spaces Operational List
   allSpaces = signal<SpaceOperationItem[]>([]);
 
-  // Space Types dropdown options
-  spaceTypeOptions = signal<string[]>([]);
+  // Space type rows (GET api/spacetype); each belongs to a location on the current API.
+  private readonly spaceTypeRows = signal<any[]>([]);
+
+  /**
+   * Space Types dropdown options: names of the types at the inventory Location filter's location (types belong to
+   * a location); every type's name for All Locations, or when the API doesn't say where types belong.
+   */
+  readonly spaceTypeOptions = computed(() => {
+    let rows = this.spaceTypeRows();
+    const sel = this.selectedLocation();
+    if (sel !== 'ALL' && spaceTypesHaveLocations(rows)) {
+      const loc: any = this.locationsList().find((l: any) => l.name === sel || String(l.id) === sel);
+      rows = loc
+        ? rows.filter(t => spaceTypeLocationId(t) === Number(loc.id ?? loc.Id))
+        : rows.filter(t => (t.locationName ?? t.LocationName) === sel);
+    }
+    return Array.from(new Set(rows.map(t => String(t.name || t.Name || t.description || 'Other'))));
+  });
 
   // Filter Signals for Inventory Table
   searchSpace = signal('');
@@ -407,14 +424,12 @@ export class Dashboard implements OnInit, OnDestroy {
       this.locationsList.set(rawLocations);
 
       const typeMap = new Map<number, string>();
-      const typeNamesSet = new Set<string>();
       rawTypes.forEach((t: any) => {
         const id = t.id || t.Id;
         const name = t.name || t.Name || t.description || 'Other';
         if (id) typeMap.set(id, name);
-        typeNamesSet.add(name);
       });
-      this.spaceTypeOptions.set(Array.from(typeNamesSet));
+      this.spaceTypeRows.set(rawTypes);
 
       const now = new Date();
       const thresholdDays = this.expiringThreshold();
@@ -986,6 +1001,14 @@ export class Dashboard implements OnInit, OnDestroy {
   // Filter & Page Handlers
   onFilterChange() {
     this.page.set(1);
+  }
+
+  /** Inventory Location filter changed: a chosen space type that isn't at the new location falls back to all types. */
+  onInventoryLocationChange(value: string) {
+    this.selectedLocation.set(value);
+    const type = this.selectedSpaceType();
+    if (type !== 'ALL' && !this.spaceTypeOptions().includes(type)) this.selectedSpaceType.set('ALL');
+    this.onFilterChange();
   }
 
   setThreshold(days: number) {

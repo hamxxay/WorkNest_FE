@@ -22,6 +22,7 @@ import { localDateIso, localDateTimeIso } from '../../../utils/dates';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
 import { InquiryRef, inquiryKey, inquiryRef, inquiryRefParam, inquirySource, parseInquiryRefParam } from '../../../utils/inquiry-ref';
+import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
 
 interface ColDef { key: string; label: string; type?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
@@ -157,7 +158,30 @@ export class Manage implements OnInit {
   weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   readonly locationOptions = signal<{ v: any; l: string }[]>([]);
+  /**
+   * Booking / Quotation "Space Type": one option per category (value 'private' / 'meeting' / 'shared'), from every
+   * location's types plus space config, spaces and the standard three. Used as is on an older API (types without a
+   * location); otherwise the forms use spaceTypeOptionsAt(location).
+   */
   readonly spaceTypeOptions = signal<{ v: any; l: string }[]>([]);
+  /** Every space type row (GET api/spacetype); on the current API each belongs to a location (locationId). */
+  private readonly spaceTypeRows = signal<any[]>([]);
+  /** True when the API says which location each space type belongs to: dropdowns then filter by location. */
+  readonly spaceTypesPerLocation = computed(() => spaceTypesHaveLocations(this.spaceTypeRows()));
+  private readonly spaceTypeRowsByLocation = computed(() => spaceTypesByLocation(this.spaceTypeRows()));
+  /** Category options (as spaceTypeOptions) made from each location's own types. */
+  private readonly spaceTypeGroupsByLocation = computed(() => {
+    const byLocation = new Map<number, { v: any; l: string }[]>();
+    for (const [loc, rows] of this.spaceTypeRowsByLocation()) byLocation.set(loc, this.groupSpaceTypes(rows));
+    return byLocation;
+  });
+  /** Spaces form: every space type by id and name, with its location. */
+  private readonly spaceTypeIdOptions = computed(() =>
+    this.spaceTypeRows()
+      .filter(r => r?.id != null && spaceTypeLabel(r))
+      .map(r => ({ v: Number(r.id), l: spaceTypeLabel(r), locationId: spaceTypeLocationId(r) })));
+  private readonly spaceTypeIdOptionsByLocation = computed(() => spaceTypesByLocation(this.spaceTypeIdOptions()));
+  private static readonly NO_OPTIONS: readonly { v: any; l: string }[] = Object.freeze([]);
   readonly spaceOptions = signal<{ v: any; l: string }[]>([]);
   readonly floorOptions = signal<{ v: any; l: string }[]>([]);
   readonly amenityOptions = signal<{ id: number; name: string }[]>([]);
@@ -327,7 +351,12 @@ export class Manage implements OnInit {
     const spaceTypeName = String(space.spaceTypeName ?? space.SpaceTypeName ?? space.spaceType ?? space.SpaceType ?? '').toLowerCase();
     const capacity = capacityOverride || Number(space.capacity ?? space.Capacity ?? 1);
 
-    const rate = (spaceTypeId === 1 || spaceTypeName.includes('private')) ? price * capacity : price;
+    // Private offices are priced per seat. Type ids differ per location, so go by the type's category; the name is
+    // the fallback when the category isn't known.
+    const categoryCode = spaceCategoryCode(space)
+      || (spaceTypeId ? spaceCategoryCode(this.spaceTypeRows().find(t => Number(t.id) === spaceTypeId)) : '');
+    const isPrivateOffice = categoryCode ? categoryCode === 'PrivateOffice' : spaceTypeName.includes('private');
+    const rate = isPrivateOffice ? price * capacity : price;
     return parseFloat(rate.toFixed(2));
   }
 
@@ -1201,6 +1230,7 @@ export class Manage implements OnInit {
           this.loadBranchOptions();
         }
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
+        if (this.entity === 'spacetypes') this.loadLocationOptions();
         if (this.entity === 'invoices') this.loadSpaceInventoryForConfig();
         if (this.entity === 'quotations') this.openQuotationFromInquiryParams();
         if (this.entity === 'contacts' || this.entity === 'complaints') this.loadItemBranches();
@@ -1358,9 +1388,13 @@ export class Manage implements OnInit {
 
   onAddSpaceSelectionChange() {
     this.addSpacePreviewCode = '';
+    // Space types belong to a location: a type the chosen location doesn't have is cleared.
+    if (this.spaceTypeGoneAt(this.spaceTypeIdOptionsAt(this.addSpaceLocationId), this.addSpaceTypeId)) {
+      this.addSpaceTypeId = '';
+    }
     if (!this.addSpaceTypeId || !this.addSpaceLocationId) return;
     // Find the config for the selected space type to get codePrefix
-    const typeName = this.spaceTypeOptions().find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
+    const typeName = this.spaceTypeIdOptionsAt(this.addSpaceLocationId).find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
     const cfg = this.spaceConfigItems().find((c: any) =>
       typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
       (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
@@ -1387,7 +1421,7 @@ export class Manage implements OnInit {
       this.addSpaceError.set('Space type and location are required.');
       return;
     }
-    const typeName = this.spaceTypeOptions().find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
+    const typeName = this.spaceTypeIdOptionsAt(this.addSpaceLocationId).find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
     const locName = this.locationOptions().find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
     const cfg = this.spaceConfigItems().find((c: any) =>
       typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
@@ -1510,7 +1544,7 @@ export class Manage implements OnInit {
           branchId: l.branchId,
           branchName: l.branchName ?? l.branchCode
         })));
-        if (this.entity === 'users') {
+        if (this.entity === 'users' || this.entity === 'spacetypes') {
           this.config.set(this.buildConfig(this.entity));
         }
       },
@@ -1839,34 +1873,47 @@ export class Manage implements OnInit {
     this.onBookingSpaceSelected();
   }
 
-  private populateSpaceTypeOptions(apiTypes: any[]) {
+  /** The booking-form category of a space type: 'private', 'meeting', 'shared', or the label itself. */
+  private static spaceTypeGroup(label: string, categoryCode = ''): string {
+    switch (categoryCode) {
+      case 'PrivateOffice': return 'private';
+      case 'MeetingRoom': case 'Conference': return 'meeting';
+      case 'SharedSpace': return 'shared';
+    }
+    const l = label.toLowerCase();
+    if (l.includes('private') || l.includes('office') || l.includes('desk')) return 'private';
+    if (l.includes('meeting') || l.includes('conference') || l.includes('board')) return 'meeting';
+    if (l.includes('shared') || l.includes('co-working') || l.includes('coworking') || l.includes('open')) return 'shared';
+    return l;
+  }
+
+  /** One option per category among these space type rows; value = the category so a category's types match. */
+  private groupSpaceTypes(apiTypes: readonly any[]): { v: any; l: string }[] {
     const map = new Map<string, { v: any; l: string }>();
-
-    const getGroup = (label: string): string => {
-      const l = label.toLowerCase();
-      if (l.includes('private') || l.includes('office') || l.includes('desk')) return 'private';
-      if (l.includes('meeting') || l.includes('conference') || l.includes('board')) return 'meeting';
-      if (l.includes('shared') || l.includes('co-working') || l.includes('coworking') || l.includes('open')) return 'shared';
-      return l;
-    };
-
-    const addedGroups = new Set<string>();
-
-    // 1. From /spacetype API - use categoryCode as value so all types in same category are matched
     (apiTypes || []).forEach((s: any) => {
       // Prefer name over description so "Meeting/Conference" is not reduced to just "Conference"
       const name = (s.name || s.displayName || s.label || s.typeName || s.description || s.l || '').trim();
       const label = name ? name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : '';
       if (!label) return;
-
-      const group = getGroup(label);
-      if (!addedGroups.has(group)) {
-        const key = label.toLowerCase();
-        // Use group name as value so all space types in same category share one dropdown option
-        map.set(key, { v: group, l: group === 'meeting' ? 'Meeting Room' : group === 'private' ? 'Private Room' : group === 'shared' ? 'Shared Space' : label });
-        addedGroups.add(group);
+      const group = Manage.spaceTypeGroup(label, spaceCategoryCode(s));
+      if (!map.has(group)) {
+        map.set(group, { v: group, l: group === 'meeting' ? 'Meeting Room' : group === 'private' ? 'Private Room' : group === 'shared' ? 'Shared Space' : label });
       }
     });
+    return Array.from(map.values());
+  }
+
+  private populateSpaceTypeOptions(apiTypes: any[]) {
+    this.spaceTypeRows.set(apiTypes || []);
+    const map = new Map<string, { v: any; l: string }>();
+    const getGroup = (label: string): string => Manage.spaceTypeGroup(label);
+    const addedGroups = new Set<string>();
+
+    // 1. From /spacetype API - use the category as value so all types in same category are matched
+    for (const opt of this.groupSpaceTypes(apiTypes)) {
+      map.set(String(opt.v), opt);
+      addedGroups.add(String(opt.v));
+    }
 
     // 2. From /spaceconfig API
     (this.spaceConfigItems() || []).forEach((c: any) => {
@@ -1921,6 +1968,40 @@ export class Manage implements OnInit {
     this.spaceTypeOptions.set(Array.from(map.values()));
   }
 
+  /** A form's location value as its id (forms hold ids; a space's location GUID is looked up). */
+  private locationIdOf(value: unknown): number | null {
+    const id = toLocationId(value);
+    if (id != null || value == null || value === '') return id;
+    const space = this.allSpaces().find((s: any) => String(s.locationIdGuid ?? s.LocationIdGuid ?? '') === String(value));
+    return space ? toLocationId(space.locationId ?? space.LocationId) : null;
+  }
+
+  /**
+   * Booking / Quotation "Space Type" options for the form's location: the categories of that location's own types
+   * (none until a location is chosen). An older API (types without a location) keeps today's list.
+   */
+  spaceTypeOptionsAt(location: unknown): readonly { v: any; l: string }[] {
+    if (!this.spaceTypesPerLocation()) return this.spaceTypeOptions();
+    const loc = this.locationIdOf(location);
+    return (loc != null ? this.spaceTypeGroupsByLocation().get(loc) : undefined) ?? Manage.NO_OPTIONS;
+  }
+
+  /** Spaces form "Space Type" options (ids) for the form's location; every type on an older API. */
+  spaceTypeIdOptionsAt(location: unknown): readonly { v: number; l: string }[] {
+    return spaceTypesAt(this.spaceTypeIdOptions(), this.spaceTypeIdOptionsByLocation(), this.locationIdOf(location));
+  }
+
+  /** "Choose a location first" / "No space types at this location yet." under a filtered Space Type dropdown. */
+  spaceTypeHintAt(location: unknown, optionCount: number): string {
+    return spaceTypeHint(this.spaceTypeRows(), this.locationIdOf(location), optionCount);
+  }
+
+  /** True when a chosen space type value isn't offered at the form's new location (so the form drops it). */
+  private spaceTypeGoneAt(options: readonly { v: any }[], selected: unknown): boolean {
+    return this.spaceTypesPerLocation() && selected != null && selected !== ''
+      && !options.some(o => String(o.v) === String(selected));
+  }
+
   onBookingSpaceSelected() {
     const spaceId = this.bookingFormData.spaceId;
     if (spaceId) {
@@ -1954,6 +2035,11 @@ export class Manage implements OnInit {
 
 
   onBookingLocationChange() {
+    // Space types belong to a location: a type the new location doesn't have is cleared.
+    if (this.spaceTypeGoneAt(this.spaceTypeOptionsAt(this.selectedLocationId), this.selectedSpaceTypeId)) {
+      this.selectedSpaceTypeId = '';
+      this.onSpaceTypeChange();
+    }
     this.bookingFormData.spaceId = '';
     this.bookingFormData.totalAmount = null;
     this.securityDeposit = 0;
@@ -3573,6 +3659,13 @@ export class Manage implements OnInit {
       this.formData.customerType = 'Individual';
       this.formData.company = '';
     }
+    if (this.entity === 'spacetypes') {
+      // The Location is filled in only when the user has just one to choose from.
+      const choices = this.assignableUserLocations;
+      const mine = this.isLocationBound ? this.myLocationIds : [];
+      this.formData.locationId = choices.length === 1 ? Number(choices[0].v)
+        : (!choices.length && mine.length === 1 ? mine[0] : '');
+    }
     if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
     if (this.entity === 'users') {
@@ -4303,6 +4396,18 @@ export class Manage implements OnInit {
       if (!valid) return;
     }
 
+    if (this.entity === 'spacetypes') {
+      const locationId = toLocationId(this.formData.locationId);
+      // Required, except when editing a type that an older API listed without a location (it ignores the field).
+      if (!locationId && (!this.editItem || spaceTypeLocationId(this.editItem) != null)) {
+        this.error.set('Choose the location this space type belongs to.');
+        this.showError(this.error());
+        this.saving.set(false);
+        return;
+      }
+      this.formData = { ...this.formData, locationId: locationId ?? undefined };
+    }
+
     const obs = this.editItem
       ? this.config().updateFn!(this.editItem.idGuid ?? this.editItem.idGUID ?? this.editItem.id, this.formData)
       : this.config().createFn!(this.formData);
@@ -4768,15 +4873,24 @@ export class Manage implements OnInit {
       }
     }
     if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar();
-    if (key === 'locationId' && this.entity === 'spaces') this.loadFloorsForLocation(this.formData['locationId']);
+    if (key === 'locationId' && this.entity === 'spaces') {
+      this.loadFloorsForLocation(this.formData['locationId']);
+      // Space types belong to a location: a type the new location doesn't have is cleared.
+      if (this.spaceTypeGoneAt(this.spaceTypeIdOptionsAt(this.formData['locationId']), this.formData['spaceTypeId'])) {
+        this.formData['spaceTypeId'] = '';
+      }
+    }
   }
 
   get isPrivateOfficeSelected(): boolean {
     if (this.entity === 'spacetypes') {
       return (this.formData['name'] || '').toLowerCase().includes('private');
     }
-    const selected = this.spaceTypeOptions().find(t => String(t.v) === String(this.formData['spaceTypeId']));
-    return selected ? selected.l.toLowerCase().includes('private') : false;
+    const id = Number(this.formData['spaceTypeId']);
+    const type = id ? this.spaceTypeRows().find(t => Number(t.id) === id) : null;
+    if (!type) return false;
+    const categoryCode = spaceCategoryCode(type);
+    return categoryCode ? categoryCode === 'PrivateOffice' : spaceTypeLabel(type).toLowerCase().includes('private');
   }
 
 
@@ -4914,11 +5028,14 @@ export class Manage implements OnInit {
         title: 'Space Types',
         columns: [
           { key: 'name', label: 'Name' },
+          { key: 'locationName', label: 'Location' },
           { key: 'capacity', label: 'Capacity' },
           { key: 'hourlyAllowed', label: 'Hourly', type: 'boolean' },
           { key: 'status', label: 'Active', type: 'boolean' },
         ],
         fields: [
+          // Each location has its own space types; location-bound admins choose among their own locations.
+          { key: 'locationId', label: 'Location', type: 'select', options: this.assignableUserLocations, required: true },
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'hourlyAllowed', label: 'Hourly Allowed', type: 'checkbox' },
@@ -4952,7 +5069,8 @@ export class Manage implements OnInit {
           { key: 'code', label: 'Code', type: 'text' },
           { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'locationId', label: 'Location', type: 'select', options: this.locationOptions() },
-          { key: 'spaceTypeId', label: 'Space Type', type: 'select', options: this.spaceTypeOptions() },
+          // Options: the types of the location chosen above (spaceTypeIdOptionsAt).
+          { key: 'spaceTypeId', label: 'Space Type', type: 'space-type-select' },
           { key: 'pricePerHour', label: this.lbl('Space', 'pricePerHour'), type: 'number' },
           { key: 'pricePerDay', label: this.lbl('Space', 'pricePerDay'), type: 'number' },
           { key: 'floorId', label: 'Floor', type: 'floor-select' },
@@ -5855,6 +5973,12 @@ export class Manage implements OnInit {
   }
 
   onQuotationLocationChange(preserveSelection: boolean = false) {
+    // Space types belong to a location: a type the new location doesn't have is cleared.
+    if (!preserveSelection && !this.isCreatingNewVersion
+      && this.spaceTypeGoneAt(this.spaceTypeOptionsAt(this.selectedQuotationLocationId), this.selectedQuotationSpaceTypeId)) {
+      this.selectedQuotationSpaceTypeId = '';
+      this.onQuotationSpaceTypeChange();
+    }
     if (!preserveSelection && !this.isCreatingNewVersion) {
       this.quotationFormData.spaceId = '';
       this.quotationFloorId = null;

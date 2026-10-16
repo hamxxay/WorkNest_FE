@@ -65,6 +65,7 @@
 .ms-filter-row  { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
 .ms-filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 200px; }
 .ms-filter-group label { font-size: .78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.ms-filter-hint { font-size: .75rem; color: #64748b; }
 
 /* Config header */
 .ms-config-header      { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px; }

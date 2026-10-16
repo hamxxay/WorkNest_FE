@@ -137,10 +137,13 @@
           <label>Space Type *</label>
           <select class="form-input-admin" [(ngModel)]="form.spaceTypeId" name="spaceTypeId" required>
             <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptions(); track st.v) {
+            @for (st of formSpaceTypeOptions; track st.v) {
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
+          @if (formSpaceTypeHint) {
+          <small class="sc-hint">{{ formSpaceTypeHint }}</small>
+          }
         </div>
       </div>
       <div class="form-row-admin">

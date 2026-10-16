@@ -53,7 +53,16 @@ export interface Location {
  */
 export interface SpaceType {
   id: number;
+  publicId?: string;
   name: string;
+  description?: string | null;
+  categoryId?: number | null;
+  /** WN_SpaceCategories.Code, e.g. 'PrivateOffice', 'MeetingRoom', 'SharedSpace'. */
+  categoryCode?: string | null;
+  categoryLabel?: string | null;
+  /** The location the type belongs to (each location has its own types). Missing on an older API. */
+  locationId?: number | null;
+  locationName?: string | null;
   capacity?: number;
   hourlyAllowed?: boolean;
   isActive?: boolean;

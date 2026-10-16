@@ -11,7 +11,7 @@
     <div class="ms-filter-row">
       <div class="ms-filter-group">
         <label>Location *</label>
-        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onFilterChange()" [disabled]="!isSuperAdmin && !!userLocationId">
+        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onLocationFilterChange()" [disabled]="!isSuperAdmin && !!userLocationId">
           @if (isSuperAdmin || !userLocationId) {
             <option value="">All Locations</option>
           }
@@ -24,10 +24,13 @@
         <label>Space Type</label>
         <select class="form-input-admin" [(ngModel)]="filterSpaceTypeId" (ngModelChange)="onFilterChange()">
           <option value="">All Types</option>
-          @for (st of spaceTypeOptions(); track st.v) {
+          @for (st of visibleSpaceTypeOptions; track st.v) {
             <option [value]="st.v.toString()">{{ st.l }}</option>
           }
         </select>
+        @if (spaceTypeFilterHint) {
+          <small class="ms-filter-hint">{{ spaceTypeFilterHint }}</small>
+        }
       </div>
       <div class="ms-filter-group">
         <label>Capacity</label>
