@@ -495,7 +495,7 @@
                   <p class="panel-sub">Created this {{ word() }} · select a stage for its records</p>
                 </div>
                 <div class="head-stats">
-                  <div><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30">{{ pct(s()!.conversionRate) }}</strong></div>
+                  <div><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30" [title]="conversionText()">{{ pct(s()!.conversionRate) }}</strong></div>
                   <div><span>Quoted</span><strong [title]="fullMoney(s()!.quotationValue)">{{ money(s()!.quotationValue) }}</strong></div>
                   <div><span>Booked</span><strong [title]="fullMoney(s()!.bookingValue)">{{ money(s()!.bookingValue) }}</strong></div>
                 </div>
@@ -523,7 +523,7 @@
                     </li>
                   }
                 </ol>
-                <p class="note">Conversion = bookings / quotations created this {{ word() }}.</p>
+                <p class="note">Conversion = quotations created this {{ word() }} that were booked / all quotations created this {{ word() }}@if (s()!.quotations) { ({{ conversionText() }})}.</p>
               }
             </div>
 
