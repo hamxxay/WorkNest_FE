@@ -336,6 +336,12 @@ export class CeoDashboard {
   inquiriesAllLocations = computed(() => !!this.shownLocationId() && !!this.s()?.inquiriesAllLocations);
   funnelMax = computed(() => Math.max(1, ...(this.s()?.funnel ?? []).map(f => f.count)));
   funnelEmpty = computed(() => !(this.s()?.funnel ?? []).some(f => f.count > 0));
+  /** "3 of 10 quotations booked": this period's quotations that were booked (never more than the quotations). */
+  conversionText = computed(() => {
+    const s = this.s();
+    if (!s) return '';
+    return s.quotations ? `${count(s.quotationsBooked)} of ${count(s.quotations)} quotations booked` : 'No quotations yet';
+  });
   inquiryTotal = computed(() => (this.s()?.inquiriesByType ?? []).reduce((a, t) => a + t.count, 0));
   inquiryMax = computed(() => Math.max(1, ...(this.s()?.inquiriesByType ?? []).map(t => t.count)));
   typeStyle(type: string) { return INQUIRY_TYPES[inquiryTypeKey(type)]; }

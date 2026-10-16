@@ -338,3 +338,42 @@ export interface CreateAnnouncementRequest {
   scheduledAt?: string | null;
 }
 
+
+/** GET api/dashboard/occupied-spaces: the rooms behind the dashboard's Occupancy card (same rule, so the count matches it). */
+export interface OccupiedSpaces {
+  /** Active spaces in the locations asked for (the card's "of Y"). */
+  totalSpaces: number;
+  /** Spaces in use right now (the card's "X"); always items.length. */
+  occupiedSpaces: number;
+  occupancyPct: number;
+  /** Business (Pakistan) time of the list, yyyy-MM-ddTHH:mm:ss. */
+  generatedAt: string;
+  /** Sorted by location, then room. */
+  items: OccupiedSpace[];
+}
+
+/** One space in use right now and the booking that covers it. */
+export interface OccupiedSpace {
+  spaceId: number;
+  /** Space name, or its code when it has no name. */
+  room: string;
+  spaceCode: string | null;
+  locationId: number | null;
+  location: string | null;
+  spaceType: string;
+  /** The space's capacity. */
+  seats: number | null;
+  /** Seats the booking took, when it records them (shared spaces). */
+  bookedSeats: number | null;
+  bookingId: number;
+  /** Customer company, else the customer's name. */
+  customer: string;
+  customerCode: string | null;
+  /** Business time, yyyy-MM-ddTHH:mm:ss. */
+  startOn: string | null;
+  endOn: string | null;
+  statusId: number;
+  status: string;
+  /** Live bookings on this space right now (e.g. morning + evening shifts). */
+  bookingCount: number;
+}

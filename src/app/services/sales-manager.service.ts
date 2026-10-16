@@ -3,8 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, DashParams, arr, describeDashboardError, getDashboardData, isMonth, num, numOrNull, obj, percent,
-  str, strOrNull
+  DashError, DashErrorWording, DashParams, arr, capPct, conversionOf, describeDashboardError, getDashboardData, isMonth, num, numOrNull,
+  obj, percent, quotationsBookedOf, str, strOrNull
 } from './dashboard-api';
 import { CeoBreakdown, CeoInquiryRecord, CeoPeriod } from './ceo.service';
 
@@ -28,13 +28,24 @@ export interface SmLocation { locationId: number; name: string; }
 
 // ---------- Sales funnel ----------
 export interface SmFunnelStage { stage: string; label: string; count: number; }
-export interface SmFunnelMonth { month: string; quotations: number; accepted: number; bookings: number; bookedDesks: number; }
+export interface SmFunnelMonth {
+  month: string; quotations: number; accepted: number; bookings: number; bookedDesks: number;
+  /** Quotations created that month that were booked (never more than the quotations). */
+  quotationsBooked: number;
+}
 export interface SmFunnel {
   /** inquiries, quotations, accepted, bookings: created in the period. */
   stages: SmFunnelStage[];
-  /** Bookings / quotations, % (0-100). */
+  /** Quotations created in the period that were booked / quotations created in the period, % (0-100, never above). */
   conversionRate: number;
   conversionRatePrev: number;
+  /**
+   * Quotations created in the period that were booked (never more than the quotations). An older API does not send
+   * it: then the period's bookings, at most one per quotation.
+   */
+  quotationsBooked: number;
+  /** The same for the previous period; null when the API did not send it. */
+  quotationsBookedPrev: number | null;
   /** Desks on quotations created in the period. */
   quotedDesks: number;
   /** Desks on bookings created in the period (and the previous period). */
@@ -363,18 +374,24 @@ export class SalesManagerService {
     const stageCount = (k: string) => stages.find(s => s.stage.toLowerCase() === k)?.count ?? 0;
     const quotations = stageCount('quotations');
     const bookings = stageCount('bookings');
-    // Missing rate: worked out from the stages. A fraction (0.25) is turned into a percentage, and so is last period's.
-    const rawRate = numOrNull(f.conversionRate);
-    const rate = rawRate === null ? (quotations > 0 ? (bookings / quotations) * 100 : 0) : percent(rawRate, bookings, quotations);
-    const scale = rawRate !== null && rawRate > 0 && rate !== rawRate ? 100 : 1;
+    // Conversion = quotations of the period that were booked / quotations of the period (never above 100%).
+    // Missing rate: worked out from the counts. A fraction (0.25) is turned into a percentage, and so is last period's.
+    const conv = conversionOf(f.conversionRate, f.quotationsBooked, bookings, quotations);
+    const prevBooked = numOrNull(f.quotationsBookedPrev);
     return {
       stages,
-      conversionRate: rate,
-      conversionRatePrev: num(f.conversionRatePrev) * scale,
+      conversionRate: conv.rate,
+      conversionRatePrev: capPct(num(f.conversionRatePrev) * conv.scale),
+      quotationsBooked: conv.quotationsBooked,
+      quotationsBookedPrev: prevBooked === null ? null : Math.max(0, prevBooked),
       quotedDesks: num(f.quotedDesks), bookedDesks: num(f.bookedDesks), bookedDesksPrev: num(f.bookedDesksPrev),
-      months: arr(f.months, (x: any): SmFunnelMonth => ({
-        month: str(x.month), quotations: num(x.quotations), accepted: num(x.accepted), bookings: num(x.bookings), bookedDesks: num(x.bookedDesks)
-      })).filter(x => isMonth(x.month))
+      months: arr(f.months, (x: any): SmFunnelMonth => {
+        const q = num(x.quotations), b = num(x.bookings);
+        return {
+          month: str(x.month), quotations: q, accepted: num(x.accepted), bookings: b, bookedDesks: num(x.bookedDesks),
+          quotationsBooked: quotationsBookedOf(x.quotationsBooked, b, q)
+        };
+      }).filter(x => isMonth(x.month))
     };
   }
 

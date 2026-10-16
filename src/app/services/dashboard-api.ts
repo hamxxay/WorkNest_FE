@@ -124,3 +124,30 @@ export function percent(rate: unknown, part?: number, whole?: number): number {
   }
   return r;
 }
+
+/** A percentage kept within 0-100. */
+export const capPct = (n: number): number => Math.min(100, Math.max(0, n));
+
+/**
+ * Quotations created in the period that were booked (the API's quotationsBooked), never more than the quotations.
+ * An older API does not send it: the bookings created in the period stand in for it, at most one per quotation.
+ */
+export function quotationsBookedOf(sent: unknown, bookings: number, quotations: number): number {
+  return Math.max(0, Math.min(numOrNull(sent) ?? bookings, quotations));
+}
+
+/**
+ * Sales conversion (owner's rule, 16 Oct 2026): of the quotations created in the period, the share that was booked,
+ * so never above 100%. `rate` is the API's conversionRate (a fraction or a percentage; missing, it is worked out
+ * from the counts). `scale` (100 or 1) turns the previous period's rate the same way when it came as a fraction.
+ */
+export function conversionOf(rate: unknown, sentBooked: unknown, bookings: number, quotations: number):
+  { quotationsBooked: number; rate: number; scale: number } {
+  const quotationsBooked = quotationsBookedOf(sentBooked, bookings, quotations);
+  const rawRate = numOrNull(rate);
+  const r = rawRate === null
+    ? (quotations > 0 ? (quotationsBooked / quotations) * 100 : 0)
+    : percent(rawRate, quotationsBooked, quotations);
+  const scale = rawRate !== null && rawRate > 0 && r !== rawRate ? 100 : 1;
+  return { quotationsBooked, rate: capPct(r), scale };
+}

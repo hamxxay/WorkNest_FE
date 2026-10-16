@@ -286,11 +286,12 @@ export class SalesManagerDashboard {
     const w = this.word();
     const quotations = this.stageCount('quotations');
     const bookings = this.stageCount('bookings');
+    // Of this period's quotations, the ones booked (never above 100%).
     const rate = f.conversionRate;
     return [
       {
         key: 'conversion', label: 'Conversion', value: pct(rate),
-        sub: quotations ? `${count(bookings)} of ${count(quotations)} quotations booked` : 'No quotations yet',
+        sub: quotations ? `${count(f.quotationsBooked)} of ${count(quotations)} quotations booked` : 'No quotations yet',
         tone: quotations === 0 ? 'neutral' : rate >= 30 ? 'ok' : rate >= 15 ? 'neutral' : 'warn',
         trend: trend(rate, f.conversionRatePrev, 'pts'), vs: `vs ${pct(f.conversionRatePrev)} last ${w}`,
         action: () => this.focusPanel('panel-funnel'), actionLabel: 'Show the sales funnel'
@@ -738,7 +739,7 @@ export class SalesManagerDashboard {
               footer: (items: any[]) => {
                 const x = fm[items[0]?.dataIndex];
                 if (!x) return '';
-                const conv = x.quotations > 0 ? ` · conversion ${pct(ratio(x.bookings, x.quotations))}` : '';
+                const conv = x.quotations > 0 ? ` · conversion ${pct(ratio(x.quotationsBooked, x.quotations))}` : '';
                 return `${desks(x.bookedDesks)} booked${conv}\nClick for locations`;
               }
             }

@@ -3,8 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, DashParams, arr, describeDashboardError, getDashboardData, num, numOrNull, obj, percent, str,
-  strOrNull
+  DashError, DashErrorWording, DashParams, arr, conversionOf, describeDashboardError, getDashboardData, num, numOrNull, obj, percent,
+  str, strOrNull
 } from './dashboard-api';
 
 // ============================================================
@@ -64,8 +64,15 @@ export interface CeoFunnelStage { stage: string; label: string; count: number; }
 export interface CeoInquiryType { type: string; label: string; count: number; }
 export interface CeoSales {
   funnel: CeoFunnelStage[];
-  /** Bookings / quotations, %. */
+  /** Quotations created in the period that were booked / quotations created in the period, % (0-100, never above). */
   conversionRate: number;
+  /** Quotations created in the period (the funnel's quotations stage). */
+  quotations: number;
+  /**
+   * Quotations created in the period that were booked (never more than the quotations). An older API does not send
+   * it: then the period's bookings, at most one per quotation.
+   */
+  quotationsBooked: number;
   inquiriesByType: CeoInquiryType[];
   quotationValue: number;
   bookingValue: number;
@@ -567,9 +574,13 @@ export class CeoService {
       leasesExpiringMonthly: numOrNull(o.leasesExpiringMonthly)
     };
 
+    const funnel = arr(s?.funnel, (x: any): CeoFunnelStage => ({ stage: str(x.stage), label: str(x.label) || str(x.stage), count: num(x.count) }));
+    const stageCount = (k: CeoFunnelStageKey) => funnel.find(f => f.stage.toLowerCase() === k)?.count ?? 0;
+    const quotations = stageCount('quotations');
+    const conv = conversionOf(s?.conversionRate, s?.quotationsBooked, stageCount('bookings'), quotations);
     const sales: CeoSales | null = s && {
-      funnel: arr(s.funnel, (x: any) => ({ stage: str(x.stage), label: str(x.label) || str(x.stage), count: num(x.count) })),
-      conversionRate: percent(s.conversionRate),
+      funnel,
+      conversionRate: conv.rate, quotations, quotationsBooked: conv.quotationsBooked,
       inquiriesByType: arr(s.inquiriesByType, (x: any) => ({ type: str(x.type) || 'NotSet', label: str(x.label) || str(x.type) || 'Not set', count: num(x.count) })),
       quotationValue: num(s.quotationValue), bookingValue: num(s.bookingValue),
       // Not sent (an older API): its inquiry figures never followed the location.

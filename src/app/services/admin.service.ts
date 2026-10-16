@@ -17,7 +17,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { InquiryRef, inquiryPath } from '../utils/inquiry-ref';
-import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
+import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest, OccupiedSpaces } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
 @Injectable({ providedIn: 'root' })
@@ -623,6 +623,13 @@ export class AdminService {
     if (locationIds.length) params.locationIds = locationIds.join(',');
     else if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
+  }
+  // The rooms behind the overview's Occupancy card: every space in use right now (same rule and locations as the card).
+  getOccupiedSpaces(locationIds: number[] = [], locationId?: number | null): Observable<OccupiedSpaces> {
+    const params: any = {};
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    else if (locationId) params.locationId = locationId;
+    return this.http.get<OccupiedSpaces>(`${this.api}/dashboard/occupied-spaces`, { params });
   }
   // Role-based dashboard sections (sales executive: pipeline / inquiries / renewals / collections; admin: team &
   // service; super admin: also location comparison, staff, system health). Same location rules as the overview.

@@ -497,7 +497,7 @@
                 </div>
                 <!-- Each figure opens its records (converted quotations, quotations, bookings). -->
                 <div class="head-stats">
-                  <button type="button" class="stat-btn" (click)="openSalesFigure('conversion')" [attr.aria-label]="'Conversion ' + pct(s()!.conversionRate) + '. Open the converted quotations'"><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30">{{ pct(s()!.conversionRate) }}</strong></button>
+                  <button type="button" class="stat-btn" (click)="openSalesFigure('conversion')" [title]="conversionText()" [attr.aria-label]="'Conversion ' + pct(s()!.conversionRate) + '. Open the converted quotations'"><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30">{{ pct(s()!.conversionRate) }}</strong></button>
                   <button type="button" class="stat-btn" (click)="openSalesFigure('quoted')" [title]="fullMoney(s()!.quotationValue)" [attr.aria-label]="'Quoted ' + fullMoney(s()!.quotationValue) + '. Open the quotations'"><span>Quoted</span><strong>{{ money(s()!.quotationValue) }}</strong></button>
                   <button type="button" class="stat-btn" (click)="openSalesFigure('booked')" [title]="fullMoney(s()!.bookingValue)" [attr.aria-label]="'Booked ' + fullMoney(s()!.bookingValue) + '. Open the bookings'"><span>Booked</span><strong>{{ money(s()!.bookingValue) }}</strong></button>
                 </div>
@@ -525,7 +525,7 @@
                     </li>
                   }
                 </ol>
-                <p class="note">Conversion = bookings / quotations created this {{ word() }}.</p>
+                <p class="note">Conversion = quotations created this {{ word() }} that were booked / all quotations created this {{ word() }}@if (s()!.quotations) { ({{ conversionText() }})}.</p>
               }
             </div>
 
