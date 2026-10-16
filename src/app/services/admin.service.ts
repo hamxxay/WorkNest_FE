@@ -135,6 +135,11 @@ export class AdminService {
     return this.http.get<ApiResponse<SpaceType[]>>(`${this.api}/spacetype${qs}`);
   }
 
+  /** Space categories (Id, Code, Label) for the Space Types form (GET api/spacetype/categories). */
+  getSpaceCategories(): Observable<ApiResponse<{ id: number; code: string; label: string }[]>> {
+    return this.http.get<ApiResponse<{ id: number; code: string; label: string }[]>>(`${this.api}/spacetype/categories`);
+  }
+
   /** Create space type (body includes locationId: the location it belongs to) */
   createSpaceType(data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> {
     return this.http.post<ApiResponse<SpaceType>>(`${this.api}/spacetype`, data);

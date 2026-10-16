@@ -429,6 +429,8 @@ export class Manage implements OnInit {
   }
 
   readonly accountOptions = signal<{ v: number; l: string }[]>([]);
+  /** Space categories (Private Office, Meeting Room, ...) for the Space Types form: every type needs one. */
+  readonly spaceCategoryOptions = signal<{ v: number; l: string }[]>([]);
 
   // Meeting room slots (admin booking)
   adminMeetingDate = '';
@@ -1230,7 +1232,7 @@ export class Manage implements OnInit {
           this.loadBranchOptions();
         }
         if (this.entity === 'spaces' || this.entity === 'spacetypes') this.loadAccountOptions();
-        if (this.entity === 'spacetypes') this.loadLocationOptions();
+        if (this.entity === 'spacetypes') { this.loadLocationOptions(); this.loadSpaceCategoryOptions(); }
         if (this.entity === 'invoices') this.loadSpaceInventoryForConfig();
         if (this.entity === 'quotations') this.openQuotationFromInquiryParams();
         if (this.entity === 'contacts' || this.entity === 'complaints') this.loadItemBranches();
@@ -1531,6 +1533,20 @@ export class Manage implements OnInit {
         this.config.set(this.buildConfig(this.entity));
       },
       error: this.apiError('Failed to load accounts.')
+    });
+  }
+
+  private loadSpaceCategoryOptions() {
+    if (this.spaceCategoryOptions().length) return;
+    this.admin.getSpaceCategories().subscribe({
+      next: (res: any) => {
+        const items = res?.data ?? res ?? [];
+        this.spaceCategoryOptions.set((Array.isArray(items) ? items : []).map((c: any) => ({
+          v: Number(c.id ?? c.Id), l: String(c.label ?? c.Label ?? c.code ?? c.Code ?? '')
+        })));
+        if (this.entity === 'spacetypes') this.config.set(this.buildConfig(this.entity));
+      },
+      error: this.apiError('Failed to load space categories.')
     });
   }
 
@@ -4405,7 +4421,14 @@ export class Manage implements OnInit {
         this.saving.set(false);
         return;
       }
-      this.formData = { ...this.formData, locationId: locationId ?? undefined };
+      const categoryId = Number(this.formData.categoryId);
+      if (!(categoryId > 0)) {
+        this.error.set('Choose the category of this space type.');
+        this.showError(this.error());
+        this.saving.set(false);
+        return;
+      }
+      this.formData = { ...this.formData, locationId: locationId ?? undefined, categoryId };
     }
 
     const obs = this.editItem
@@ -5029,6 +5052,7 @@ export class Manage implements OnInit {
         columns: [
           { key: 'name', label: 'Name' },
           { key: 'locationName', label: 'Location' },
+          { key: 'categoryLabel', label: 'Category' },
           { key: 'capacity', label: 'Capacity' },
           { key: 'hourlyAllowed', label: 'Hourly', type: 'boolean' },
           { key: 'status', label: 'Active', type: 'boolean' },
@@ -5037,6 +5061,8 @@ export class Manage implements OnInit {
           // Each location has its own space types; location-bound admins choose among their own locations.
           { key: 'locationId', label: 'Location', type: 'select', options: this.assignableUserLocations, required: true },
           { key: 'name', label: 'Name', type: 'text' },
+          // Every type needs a category: space lists, pricing and reports go by it (P1, a location's own types).
+          { key: 'categoryId', label: 'Category', type: 'select', options: this.spaceCategoryOptions(), required: true },
           { key: 'capacity', label: 'Capacity', type: 'number' },
           { key: 'hourlyAllowed', label: 'Hourly Allowed', type: 'checkbox' },
           { key: 'isActive', label: 'Active', type: 'checkbox' },
