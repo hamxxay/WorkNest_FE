@@ -38,6 +38,17 @@ export class QuotationService {
   /**
    * Get dynamic offering types and their discount caps from DB
    */
+  /**
+   * Get dynamic tax rate & applicability for support charges
+   */
+  getTaxRate(locationId?: number, spaceId?: number): Observable<any> {
+    const params = new URLSearchParams();
+    if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    if (spaceId != null && spaceId > 0) params.set('spaceId', String(spaceId));
+    const qs = params.toString() ? '?' + params.toString() : '';
+    return this.http.get<any>(this.apiUrl + '/tax-rate' + qs);
+  }
+
   getOfferingTypes(locationId?: number): Observable<any> {
     const qs = locationId ? `?locationId=${locationId}` : '';
     return this.http.get<any>(`${this.apiUrl}/offering-types${qs}`);

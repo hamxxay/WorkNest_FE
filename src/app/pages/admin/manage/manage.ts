@@ -522,6 +522,8 @@ export class Manage implements OnInit {
   bookingWhtTouched = false;
   readonly quotationDiscountError = signal('');
   readonly quotationBasePriceError = signal('');
+  readonly quotationTaxRate = signal<number>(0);
+  readonly quotationTaxApplicable = signal<boolean>(false);
 
   filteredQuotationOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
     const locId = this.selectedQuotationLocationId ? Number(this.selectedQuotationLocationId) : null;
@@ -545,6 +547,24 @@ export class Manage implements OnInit {
     if (!locId) return all;
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
+  }
+
+  loadQuotationTaxRate() {
+    const locId = Number(this.selectedQuotationLocationId || 0);
+    const spaceId = Number(this.quotationFormData?.spaceId || 0);
+    this.quotationSvc.getTaxRate(locId || undefined, spaceId || undefined).subscribe({
+      next: (res: any) => {
+        const d = res?.data ?? res ?? {};
+        const rate = Number(d.taxPercentage ?? 0);
+        const applicable = Boolean(d.taxApplicable && rate > 0);
+        this.quotationTaxRate.set(rate);
+        this.quotationTaxApplicable.set(applicable);
+      },
+      error: () => {
+        this.quotationTaxRate.set(0);
+        this.quotationTaxApplicable.set(false);
+      }
+    });
   }
 
   loadOfferingTypes() {
@@ -5855,6 +5875,7 @@ export class Manage implements OnInit {
   }
 
   onQuotationLocationChange(preserveSelection: boolean = false) {
+    this.loadQuotationTaxRate();
     if (!preserveSelection && !this.isCreatingNewVersion) {
       this.quotationFormData.spaceId = '';
       this.quotationFloorId = null;
@@ -6032,6 +6053,7 @@ export class Manage implements OnInit {
   }
 
   onQuotationSpaceSelected() {
+    this.loadQuotationTaxRate();
     const spaceId = this.quotationFormData.spaceId;
     if (spaceId) {
       const space = this.allSpaces().find(s => String(s.id) === String(spaceId) || String(s.idGuid) === String(spaceId));
