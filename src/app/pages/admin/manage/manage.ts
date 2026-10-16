@@ -1892,10 +1892,14 @@ export class Manage implements OnInit {
     const stName = targetSpace ? (targetSpace.spaceTypeName || targetSpace.spaceType || targetSpace.name || '').toLowerCase() : (booking.spaceTypeName || booking.spaceType || '').toLowerCase();
     const spaceCodeNum = targetSpace ? Number(targetSpace.code ?? 0) : Number(booking.spaceCode ?? 0);
 
-    let group = 'private';
-    if (spaceCodeNum >= 3200 || stName.includes('meeting') || stName.includes('conference')) group = 'meeting';
-    else if (spaceCodeNum >= 3100 || stName.includes('private') || stName.includes('office')) group = 'private';
-    else if (spaceCodeNum >= 3000 || stName.includes('shared') || stName.includes('co-working')) group = 'shared';
+    // The space's category decides (a "desk" type is a shared space); else the code range / type name as before.
+    let group = targetSpace ? Manage.spaceGroupOf(targetSpace) : '';
+    if (!group) {
+      group = 'private';
+      if (spaceCodeNum >= 3200 || stName.includes('meeting') || stName.includes('conference')) group = 'meeting';
+      else if (spaceCodeNum >= 3100 || stName.includes('private') || stName.includes('office')) group = 'private';
+      else if (spaceCodeNum >= 3000 || Manage.SHARED_SPACE_WORDS.some(w => stName.includes(w))) group = 'shared';
+    }
     this.selectedSpaceTypeId = group;
 
     const cap = targetSpace ? (targetSpace.capacity || targetSpace.Capacity) : (booking.capacity || booking.Capacity);
@@ -1974,7 +1978,12 @@ export class Manage implements OnInit {
     this.bookingEditLoadedDepositMonths = this.bookingDepositMonths;
   }
 
-  /** The booking-form category of a space type: 'private', 'meeting', 'shared', or the label itself. */
+  /**
+   * The booking-form category of a space type: 'private', 'meeting', 'shared', or the label itself. The category code
+   * decides; without one the name does, as the API tells the deposit kind apart: meeting / conference (/ board) =
+   * meeting room, private = private office, shared / co-working / coworking / open / desk = shared space, and
+   * otherwise "office" = private office.
+   */
   private static spaceTypeGroup(label: string, categoryCode = ''): string {
     switch (categoryCode) {
       case 'PrivateOffice': return 'private';
@@ -1982,10 +1991,20 @@ export class Manage implements OnInit {
       case 'SharedSpace': return 'shared';
     }
     const l = label.toLowerCase();
-    if (l.includes('private') || l.includes('office') || l.includes('desk')) return 'private';
     if (l.includes('meeting') || l.includes('conference') || l.includes('board')) return 'meeting';
-    if (l.includes('shared') || l.includes('co-working') || l.includes('coworking') || l.includes('open')) return 'shared';
+    if (l.includes('private')) return 'private';
+    if (Manage.SHARED_SPACE_WORDS.some(w => l.includes(w))) return 'shared';
+    if (l.includes('office')) return 'private';
     return l;
+  }
+
+  /** Space type name words that mean a shared space (contract: no security deposit). */
+  private static readonly SHARED_SPACE_WORDS: readonly string[] = ['shared', 'co-working', 'coworking', 'open', 'desk'];
+
+  /** A space's form group from its category code, else its type name (spaceTypeGroup); '' when neither tells. */
+  private static spaceGroupOf(space: any): string {
+    const group = Manage.spaceTypeGroup(String(space?.spaceTypeName || space?.SpaceTypeName || ''), spaceCategoryCode(space));
+    return group === 'private' || group === 'meeting' || group === 'shared' ? group : '';
   }
 
   /** One option per category among these space type rows; value = the category so a category's types match. */
@@ -2280,7 +2299,8 @@ export class Manage implements OnInit {
         const sName = (s.name || '').toLowerCase();
         if (this.selectedSpaceTypeId === 'meeting') return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
         if (this.selectedSpaceTypeId === 'private') return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
-        if (this.selectedSpaceTypeId === 'shared') return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+        if (this.selectedSpaceTypeId === 'shared') return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working')
+          || (!categoryCode && Manage.spaceTypeGroup(sTypeName) === 'shared');
         return false;
       });
     }
@@ -6244,7 +6264,8 @@ export class Manage implements OnInit {
       const sName = (s.name || '').toLowerCase();
       if (isMeeting) return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
       if (isPrivate) return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
-      if (isShared) return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+      if (isShared) return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working')
+        || (!categoryCode && Manage.spaceTypeGroup(sTypeName) === 'shared');
       return false;
     });
 
@@ -6558,14 +6579,9 @@ export class Manage implements OnInit {
         this.selectedQuotationLocationId = space.locationId || space.location?.id || sourceVersion.locationId || '';
         this.onQuotationLocationChange(true);
 
-        const cat = (space.spaceTypeName || space.spaceCategory || '').toLowerCase();
-        if (cat.includes('shared') || cat.includes('co-working')) {
-          this.selectedQuotationSpaceTypeId = 'shared';
-        } else if (cat.includes('private')) {
-          this.selectedQuotationSpaceTypeId = 'private';
-        } else if (cat.includes('meeting') || cat.includes('conference')) {
-          this.selectedQuotationSpaceTypeId = 'meeting';
-        }
+        // The space's category decides; without one its type name (a "desk" type is a shared space).
+        const group = Manage.spaceGroupOf({ ...space, spaceTypeName: space.spaceTypeName || space.spaceCategory || '' });
+        if (group) this.selectedQuotationSpaceTypeId = group;
 
         this.selectedQuotationCapacity = space.capacity || sourceVersion.capacity || null;
         this.quotationFloorId = space.floorId || sourceVersion.floorId || null;
