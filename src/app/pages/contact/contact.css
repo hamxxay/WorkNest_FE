@@ -74,3 +74,8 @@
   .contact-form-wrapper { padding: 24px; }
   .page-hero h1 { font-size: 2rem; }
 }
+
+/* Phones: 16px fields so iOS does not zoom in on focus. */
+@media (max-width: 640px) {
+  .form-input, input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px; }
+}

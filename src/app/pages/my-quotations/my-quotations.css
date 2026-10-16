@@ -559,3 +559,27 @@
     justify-content: center;
   }
 }
+
+/* ===================== Responsive ===================== */
+.quotation-grid > * { min-width: 0; }
+.page-header { flex-wrap: wrap; gap: 12px; }
+.header-main { flex-wrap: wrap; gap: 10px 16px; }
+.q-title-group { min-width: 0; }
+.terms-grid { grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); }
+.quotations-page { padding-top: 96px; }
+
+@media (max-width: 640px) {
+  .quotations-page { padding: 88px 12px 48px; }
+  .page-title { font-size: 1.4rem; }
+  .detail-card { padding: 16px; }
+  .terms-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .terms-grid > * { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 640px) {
+  .q-number-title { font-size: 1.2rem; overflow-wrap: anywhere; }
+  .btn-download-pdf { white-space: nowrap; }
+  .term-box { padding: 12px; }
+}
+@media (max-width: 380px) {
+  .terms-grid { grid-template-columns: 1fr; }
+}

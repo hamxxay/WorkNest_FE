@@ -113,3 +113,32 @@ textarea.form-control { resize: vertical; font-family: inherit; }
 .cap-request-actions { display: flex; gap: 8px; align-items: center; }
 .pill-waiting { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; }
 .cap-requests-all .muted.small { color: #64748b; font-size: 0.8rem; margin: 0 0 6px; }
+
+/* ===================== Responsive ===================== */
+:host { display: block; min-width: 0; }
+.grid-container > * { min-width: 0; }
+.page-header { flex-wrap: wrap; }
+.card-header-row { flex-wrap: wrap; gap: 10px; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.challan-head { flex-wrap: wrap; }
+.suspension-banner { flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  .grid-container { grid-template-columns: 1fr; gap: 0; }
+  .table-scroll > .data-table { width: max-content; min-width: 100%; }
+  .table-scroll > .data-table th { white-space: nowrap; }
+}
+
+@media (max-width: 640px) {
+  .attendant-container { padding: 16px; }
+  .page-header { margin-bottom: 1rem; }
+  .card { padding: 1rem; }
+  .form-control { font-size: 16px; min-height: 44px; }
+  .card-header-row .btn { min-height: 44px; }
+  .space-card { padding: 0.85rem; }
+  .challan-summary { white-space: normal; flex-wrap: wrap; }
+  .cap-request-actions { flex-wrap: wrap; }
+  .cap-request-actions .btn, .action-group .btn { min-height: 40px; }
+  .mode-toggle { flex-wrap: wrap; }
+  .mode-toggle .pill { min-height: 40px; }
+}

@@ -1505,3 +1505,16 @@
     print-color-adjust: exact !important;
   }
 }
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+.fr-header-left { min-width: 0; }
+
+@media (max-width: 640px) {
+  .fr-header { margin-bottom: 16px; }
+  .fr-header-left h1 { font-size: 1.3rem; }
+  .fr-header-actions, .fr-tab-pills { width: 100%; }
+  .fr-tab-pills { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); box-sizing: border-box; }
+  .fr-tab-pill { justify-content: center; min-height: 44px; padding: 8px 10px; white-space: normal; text-align: center; }
+  .fr-page :is(input, select, textarea) { font-size: 16px; }
+}
