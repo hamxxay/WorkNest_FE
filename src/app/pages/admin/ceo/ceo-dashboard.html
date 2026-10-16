@@ -471,6 +471,9 @@
         }
       </section>
 
+      <!-- Rooms: occupancy and price against list per room (its own request, GET api/ceo/rooms) -->
+      <app-ceo-rooms [period]="period()" [locationId]="locationId()" [reload]="roomsReload()" />
+
       <!-- ===================== SALES ===================== -->
       <section class="dash-section" aria-labelledby="ceo-h-sales">
         <div class="section-title">

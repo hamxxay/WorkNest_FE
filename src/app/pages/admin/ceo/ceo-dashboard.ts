@@ -6,6 +6,7 @@ import {
   CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
+import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
 import {
   AGING_COLORS, AGING_FALLBACK, AXIS_MONEY, Chart, ChartKeyNav, DrillLevel, DrillRequest, GRID, INQUIRY_TYPES, LEGEND, TEAL,
   TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, firstNameOf, fullMoney, inquiryTypeKey,
@@ -34,12 +35,13 @@ const Y_AXIS_WIDTH = (scale: any) => { scale.width = 46; };
 /**
  * CEO dashboard (/admin/ceo): company-wide money, occupancy, sales and team figures for this month / quarter /
  * year, all locations or one. Every chart and list drills down in a side drawer (breakdown, then records).
- * Read-only. Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook).
+ * Read-only. Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook, GET api/ceo/rooms for
+ * the Rooms section, which loads on its own).
  */
 @Component({
   selector: 'app-ceo-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection],
   templateUrl: './ceo-dashboard.html',
   styleUrl: './ceo-dashboard.css'
 })
@@ -73,6 +75,8 @@ export class CeoDashboard {
   forecastError = signal<CeoError | null>(null);
 
   drill = signal<DrillRequest | null>(null);
+  /** Bumped by the refresh button: the Rooms section reloads too. */
+  roomsReload = signal(0);
   /** Screen reader text for the chart that has keyboard focus. */
   chartAnnounce = signal('');
 
@@ -159,6 +163,7 @@ export class CeoDashboard {
   refresh() {
     this.load();
     this.loadForecast();
+    this.roomsReload.update(n => n + 1);
   }
 
   setPeriod(p: CeoPeriod) { if (p !== this.period()) this.period.set(p); }

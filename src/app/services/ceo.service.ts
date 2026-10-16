@@ -9,8 +9,8 @@ import {
 
 // ============================================================
 // CEO dashboard API (GET api/ceo/*, read-only). Shared contract with the API and the mobile app:
-// dashboard -> breakdown (drill level 2) -> records (drill level 3), plus the existing
-// GET api/dashboard/forecast for the 3-month outlook. Every response is normalised here, so a
+// dashboard -> breakdown (drill level 2) -> records (drill level 3), the rooms report (rooms), plus the
+// existing GET api/dashboard/forecast for the 3-month outlook. Every response is normalised here, so a
 // missing field shows as an empty state on the page instead of breaking it.
 // ============================================================
 
@@ -156,6 +156,275 @@ export interface CeoForecastMonth {
   leasesEnding: number; leasesStarting: number;
 }
 
+// ---------- Rooms report (GET api/ceo/rooms, database update CEO_02) ----------
+
+/** A booking's shift: 24/7 is compared with the list price, Morning / Evening with the list less the shift's cap. */
+export type CeoShift = '24/7' | 'Morning' | 'Evening';
+export const CEO_SHIFTS: readonly CeoShift[] = ['24/7', 'Morning', 'Evening'];
+/**
+ * Sold per seat against the expected per seat (0.5% either way counts as "at"); unpriced = the room has no list
+ * price, so the sale cannot be judged ("No list price").
+ */
+export type CeoPricing = 'under' | 'at' | 'over' | 'unpriced';
+
+/** One confirmed booking on a room that overlaps the period. Money is PKR a month. */
+export interface CeoRoomSale {
+  bookingId: number;
+  customer: string;
+  shift: CeoShift;
+  seatsSold: number;
+  startOn: string | null;
+  endOn: string | null;
+  /** The booking's own price row, else today's list per seat (0 = none). */
+  listSeatPriceAtSale: number;
+  /** The location's stored cap for the shift; applied to Morning / Evening only (24/7 is compared with the full list). */
+  shiftDiscountCapPct: number;
+  /** Expected per seat and a month; 0 for an unpriced sale (as its variance figures). */
+  expectedSeatPrice: number;
+  expectedMonthly: number;
+  soldMonthly: number;
+  soldSeatPrice: number;
+  /** Sold less expected, a month (negative = under). */
+  varianceMonthly: number;
+  /** Sold per seat vs expected, % (-12.5 = 12.5% under). */
+  variancePct: number;
+  pricing: CeoPricing;
+}
+
+/** A private office or shared space (sold monthly). */
+export interface CeoRoom {
+  spaceId: number;
+  name: string;
+  code: string;
+  locationId: number;
+  location: string;
+  spaceType: string;
+  categoryCode: string;
+  seats: number;
+  /** Today's monthly list price per seat; the room's = per seat x seats. */
+  listSeatPrice: number;
+  listRoomPrice: number;
+  occupiedNow: boolean;
+  /** Days of the period so far with a confirmed booking, % (0-100). */
+  periodOccupancyPct: number;
+  sales: CeoRoomSale[];
+}
+
+export interface CeoShiftSummary {
+  shift: CeoShift;
+  /** sales = under + at + over + unpriced */
+  sales: number; under: number; at: number; over: number; unpriced: number;
+  expectedMonthly: number; soldMonthly: number; varianceMonthly: number;
+}
+
+export interface CeoRoomsSummary {
+  rooms: number; occupiedNow: number; vacantNow: number;
+  occupancyNowPct: number; periodOccupancyPct: number;
+  /** sales = under + at + over + unpriced (no list price) */
+  sales: number; under: number; at: number; over: number; unpriced: number;
+  /** Expected monthly of the sales (list, less the shift cap for Morning / Evening). */
+  listMonthly: number;
+  soldMonthly: number;
+  /** Net: sold less expected. */
+  varianceMonthly: number;
+  /** What the under-priced sales miss a month, as a positive amount (the API's underMonthly is <= 0). */
+  underGapMonthly: number;
+  /** What the over-priced sales add a month (overMonthly). */
+  overPremiumMonthly: number;
+  /** Always 24/7, Morning, Evening (in that order). */
+  byShift: CeoShiftSummary[];
+}
+
+export interface CeoRooms {
+  /** False before the database update CEO_02: only `message` is shown. */
+  available: boolean;
+  message: string;
+  period: CeoPeriod;
+  periodLabel: string;
+  generatedAt: string | null;
+  summary: CeoRoomsSummary;
+  /** By location, then room code / name. */
+  rooms: CeoRoom[];
+}
+
+/** Shown when the API says the room report is not set up and sends no message of its own. */
+export const ROOMS_NOT_SET_UP = 'Run CEO_02_room_report on the database to see the room report.';
+
+/**
+ * A booking's shift as the CEO pages show it (WN_Bookings.ShiftType: '24/7', '24_7', '24/7-I8', empty -> 24/7;
+ * 'morning...', 'shift_morning' -> Morning; 'evening', 'night', 'shift_evening' -> Evening).
+ */
+export function normalizeShift(value: unknown): CeoShift {
+  const s = str(value).trim().toLowerCase();
+  if (!s) return '24/7';
+  if (/^(shift_)?morning/.test(s)) return 'Morning';
+  if (/evening|night/.test(s)) return 'Evening';
+  return '24/7';
+}
+
+/**
+ * Under / at / over: the API's word, else sold per seat against expected (more than 0.5% either way); unpriced when
+ * there is no expected price to compare with.
+ */
+export function pricingOf(raw: unknown, soldSeatPrice: number, expectedSeatPrice: number): CeoPricing {
+  const word = str(raw).trim().toLowerCase();
+  if (word === 'under' || word === 'at' || word === 'over' || word === 'unpriced') return word;
+  if (!(expectedSeatPrice > 0)) return 'unpriced';
+  const diff = soldSeatPrice / expectedSeatPrice - 1;
+  return diff < -0.005 ? 'under' : diff > 0.005 ? 'over' : 'at';
+}
+
+/** A % that may arrive as a fraction (-0.125) or a percentage (-12.5): whichever is nearer the computed one. */
+function pctNear(raw: unknown, computed: number): number {
+  const r = num(raw);
+  return Math.abs(r * 100 - computed) < Math.abs(r - computed) ? r * 100 : r;
+}
+
+const flag = (v: unknown): boolean => v === true || v === 1 || str(v).toLowerCase() === 'true' || v === '1';
+const clampPct = (n: number): number => Math.min(100, Math.max(0, n));
+const sumOf = <T>(xs: T[], f: (x: T) => number): number => xs.reduce((a, x) => a + f(x), 0);
+
+function toRoomSale(s: any, room: { seats: number; listSeatPrice: number }): CeoRoomSale {
+  const shift = normalizeShift(s.shift ?? s.shiftRaw);
+  const seatsSold = num(s.seatsSold) > 0 ? num(s.seatsSold) : room.seats;
+  const perSeat = (monthly: number) => (seatsSold > 0 ? monthly / seatsSold : monthly);
+  const soldMonthly = num(s.soldMonthly);
+  const soldSeatPrice = numOrNull(s.soldSeatPrice) ?? perSeat(soldMonthly);
+  const listSeatPriceAtSale = numOrNull(s.listSeatPriceAtSale) ?? room.listSeatPrice;
+  const cap = num(s.shiftDiscountCapPct);
+  const base = {
+    bookingId: num(s.bookingId), customer: str(s.customer) || 'Customer', shift, seatsSold,
+    startOn: strOrNull(s.startOn), endOn: strOrNull(s.endOn), listSeatPriceAtSale, shiftDiscountCapPct: cap,
+    soldMonthly, soldSeatPrice
+  };
+  // No list price: the API sends pricing and the expected / variance figures as null; nothing to compare with.
+  const sentUnpriced = str(s.pricing).toLowerCase() === 'unpriced'
+    || ('pricing' in s && s.pricing == null && 'expectedSeatPrice' in s && s.expectedSeatPrice == null);
+  if (sentUnpriced) {
+    return { ...base, expectedSeatPrice: 0, expectedMonthly: 0, varianceMonthly: 0, variancePct: 0, pricing: 'unpriced' };
+  }
+  const expectedSeatPrice = numOrNull(s.expectedSeatPrice)
+    ?? (shift === '24/7' ? listSeatPriceAtSale : listSeatPriceAtSale * (1 - cap / 100));
+  const expectedMonthly = numOrNull(s.expectedMonthly) ?? expectedSeatPrice * (seatsSold || 1);
+  const pricing = pricingOf(s.pricing, soldSeatPrice, expectedSeatPrice);
+  if (pricing === 'unpriced') {
+    return { ...base, expectedSeatPrice: 0, expectedMonthly: 0, varianceMonthly: 0, variancePct: 0, pricing };
+  }
+  const computedPct = expectedSeatPrice > 0 ? (soldSeatPrice / expectedSeatPrice - 1) * 100 : 0;
+  return {
+    ...base, expectedSeatPrice, expectedMonthly,
+    varianceMonthly: numOrNull(s.varianceMonthly) ?? (soldSeatPrice - expectedSeatPrice) * (seatsSold || 1),
+    variancePct: numOrNull(s.variancePct) === null ? computedPct : pctNear(s.variancePct, computedPct),
+    pricing
+  };
+}
+
+function toRoom(r: any): CeoRoom {
+  const seats = Math.max(0, num(r.seats ?? r.capacity));
+  const listSeatPrice = num(r.listSeatPrice);
+  const spaceId = num(r.spaceId);
+  const occupiedDays = numOrNull(r.occupiedDays);
+  const periodDays = numOrNull(r.periodDays);
+  const sentPct = numOrNull(r.periodOccupancyPct);
+  return {
+    spaceId, name: str(r.name) || str(r.code) || `Room ${spaceId}`, code: str(r.code),
+    locationId: num(r.locationId), location: str(r.location), spaceType: str(r.spaceType), categoryCode: str(r.categoryCode),
+    seats, listSeatPrice, listRoomPrice: numOrNull(r.listRoomPrice) ?? listSeatPrice * seats,
+    occupiedNow: flag(r.occupiedNow),
+    periodOccupancyPct: clampPct(sentPct ?? (occupiedDays !== null && periodDays ? (occupiedDays / periodDays) * 100 : 0)),
+    sales: arr(r.sales, (s: any) => toRoomSale(s, { seats, listSeatPrice }))
+  };
+}
+
+/** The summary worked out from the rooms (used for whatever the API leaves out). */
+export function summarizeRooms(rooms: CeoRoom[]): CeoRoomsSummary {
+  const sales = rooms.flatMap(r => r.sales);
+  const occupied = rooms.filter(r => r.occupiedNow).length;
+  const tally = (xs: CeoRoomSale[]) => ({
+    sales: xs.length,
+    under: xs.filter(s => s.pricing === 'under').length,
+    at: xs.filter(s => s.pricing === 'at').length,
+    over: xs.filter(s => s.pricing === 'over').length,
+    unpriced: xs.filter(s => s.pricing === 'unpriced').length
+  });
+  return {
+    rooms: rooms.length, occupiedNow: occupied, vacantNow: rooms.length - occupied,
+    occupancyNowPct: ratioPct(occupied, rooms.length),
+    periodOccupancyPct: rooms.length ? sumOf(rooms, r => r.periodOccupancyPct) / rooms.length : 0,
+    ...tally(sales),
+    listMonthly: sumOf(sales, s => s.expectedMonthly),
+    soldMonthly: sumOf(sales, s => s.soldMonthly),
+    varianceMonthly: sumOf(sales, s => s.varianceMonthly),
+    underGapMonthly: Math.abs(sumOf(sales.filter(s => s.pricing === 'under'), s => Math.min(0, s.varianceMonthly))),
+    overPremiumMonthly: sumOf(sales.filter(s => s.pricing === 'over'), s => Math.max(0, s.varianceMonthly)),
+    byShift: CEO_SHIFTS.map(shift => {
+      const xs = sales.filter(s => s.shift === shift);
+      return {
+        shift, ...tally(xs),
+        expectedMonthly: sumOf(xs, s => s.expectedMonthly),
+        soldMonthly: sumOf(xs, s => s.soldMonthly),
+        varianceMonthly: sumOf(xs, s => s.varianceMonthly)
+      };
+    })
+  };
+}
+
+function ratioPct(part: number, whole: number): number {
+  return whole > 0 ? (part / whole) * 100 : 0;
+}
+
+/**
+ * GET api/ceo/rooms (data of the { isSuccessful, data } envelope) as the page uses it: every field defaulted, rooms
+ * in location / code order, a sale's per-seat, expected and variance figures worked out when the API leaves them
+ * out, and the summary filled from the rooms where it is missing. available: false (database update CEO_02 not
+ * run) keeps only the message.
+ */
+export function toCeoRooms(raw: unknown, period: CeoPeriod): CeoRooms {
+  const d = obj(raw);
+  const p = str(d?.period);
+  const head = {
+    period: (p === 'quarter' || p === 'year' || p === 'month' ? p : period) as CeoPeriod,
+    periodLabel: str(d?.periodLabel),
+    generatedAt: strOrNull(d?.generatedAt)
+  };
+  const off = !d || d.available === false || d.available === 0 || str(d.available).toLowerCase() === 'false';
+  if (off) {
+    return { available: false, message: str(d?.message) || ROOMS_NOT_SET_UP, ...head, summary: summarizeRooms([]), rooms: [] };
+  }
+
+  const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  const rooms = arr(d.rooms, toRoom)
+    .sort((a, b) => byName(a.location, b.location) || byName(a.code || a.name, b.code || b.name));
+  const calc = summarizeRooms(rooms);
+  const s = obj(d.summary);
+  if (!s) return { available: true, message: '', ...head, summary: calc, rooms };
+
+  const pick = (k: keyof CeoRoomsSummary): number => numOrNull(s[k]) ?? (calc[k] as number);
+  const sentShifts = new Map<CeoShift, any>();
+  arr(s.byShift, (x: any) => x).forEach(x => sentShifts.set(normalizeShift(x.shift), x));
+  return {
+    available: true, message: '', ...head, rooms,
+    summary: {
+      rooms: pick('rooms'), occupiedNow: pick('occupiedNow'), vacantNow: pick('vacantNow'),
+      occupancyNowPct: clampPct(pick('occupancyNowPct')), periodOccupancyPct: clampPct(pick('periodOccupancyPct')),
+      sales: pick('sales'), under: pick('under'), at: pick('at'), over: pick('over'), unpriced: pick('unpriced'),
+      listMonthly: pick('listMonthly'), soldMonthly: pick('soldMonthly'), varianceMonthly: pick('varianceMonthly'),
+      // underMonthly is the gap as sent (<= 0); shown as a positive amount.
+      underGapMonthly: Math.abs(numOrNull(s.underMonthly) ?? calc.underGapMonthly),
+      overPremiumMonthly: Math.max(0, numOrNull(s.overMonthly) ?? calc.overPremiumMonthly),
+      byShift: calc.byShift.map(c => {
+        const x = sentShifts.get(c.shift);
+        if (!x) return c;
+        const n = (k: keyof CeoShiftSummary): number => numOrNull(x[k]) ?? (c[k] as number);
+        return {
+          shift: c.shift, sales: n('sales'), under: n('under'), at: n('at'), over: n('over'), unpriced: n('unpriced'),
+          expectedMonthly: n('expectedMonthly'), soldMonthly: n('soldMonthly'), varianceMonthly: n('varianceMonthly')
+        };
+      })
+    }
+  };
+}
+
 /** Query values; null / undefined / '' are left out of the request. */
 export type CeoParams = DashParams;
 
@@ -211,6 +480,15 @@ export class CeoService {
    */
   getRecords<K extends CeoRecordKind>(kind: K, params: CeoParams): Observable<CeoRecords<K>> {
     return this.get(`${this.api}/ceo/records/${kind}`, params).pipe(map(d => this.toRecords(kind, d)));
+  }
+
+  /**
+   * GET api/ceo/rooms: private offices and shared spaces with their occupancy (now and in the period) and every
+   * confirmed booking in the period priced against the list (Morning / Evening against the shift price).
+   * available: false until the database update CEO_02 is run.
+   */
+  getRooms(period: CeoPeriod, locationId: number | null): Observable<CeoRooms> {
+    return this.get(`${this.api}/ceo/rooms`, { period, locationId }).pipe(map(d => toCeoRooms(d, period)));
   }
 
   /** GET api/dashboard/forecast: expected rent and occupancy for the next months (all locations combined). */
