@@ -6130,16 +6130,12 @@ export class Manage implements OnInit {
   }
 
   onQuotationLocationChange(preserveSelection: boolean = false) {
-<<<<<<< HEAD
-    this.loadQuotationTaxRate();
-=======
     // Space types belong to a location: a type the new location doesn't have is cleared.
     if (!preserveSelection && !this.isCreatingNewVersion
       && this.spaceTypeGoneAt(this.spaceTypeOptionsAt(this.selectedQuotationLocationId), this.selectedQuotationSpaceTypeId)) {
       this.selectedQuotationSpaceTypeId = '';
       this.onQuotationSpaceTypeChange();
     }
->>>>>>> 2a358d60654c0a7737afe2cd7d92d5c62fb33c51
     if (!preserveSelection && !this.isCreatingNewVersion) {
       this.quotationFormData.spaceId = '';
       this.quotationFloorId = null;
