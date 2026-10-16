@@ -159,16 +159,16 @@
             <div class="panel-head">
               <div>
                 <h3>Occupancy by room</h3>
-                <p class="panel-sub">Days with a tenant this {{ word() }} so far, least occupied first · select a bar for the room</p>
+                <p class="panel-sub">Rooms with a tenant this {{ word() }}: share of the days so far, most occupied first · select a bar for the room</p>
               </div>
               <div class="head-side">
                 <div class="head-stats">
                   <div><span>Average</span><strong>{{ pct(s()!.periodOccupancyPct) }}</strong></div>
                   <div><span>Now</span><strong>{{ count(s()!.occupiedNow) }} of {{ count(s()!.rooms) }}</strong></div>
                 </div>
-                @if (rooms().length > limit) {
+                @if (occCount() > limit) {
                   <button type="button" class="view-toggle" (click)="showAllOcc.set(!showAllOcc())" [attr.aria-pressed]="showAllOcc()">
-                    {{ showAllOcc() ? 'Show the first ' + limit : 'Show all ' + rooms().length }}
+                    {{ showAllOcc() ? 'Show the first ' + limit : 'Show all ' + occCount() }}
                   </button>
                 }
               </div>
@@ -178,11 +178,17 @@
               <span><i class="sw occ-vacant"></i>Vacant now</span>
             </div>
             <div class="chart-box chart-nav" [style.height.px]="occHeight()"
-              tabindex="0" role="group" aria-roledescription="interactive chart"
+              [attr.tabindex]="occCount() ? 0 : null" role="group" aria-roledescription="interactive chart"
               aria-label="Occupancy by room in the period. Arrow keys move between rooms, Enter opens the room."
               (keydown)="occNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && occNav.focus()" (blur)="occNav.clear()">
               <canvas #occCanvas aria-hidden="true"></canvas>
+              @if (!occCount()) {
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No room had a tenant this {{ word() }}</strong><span>Rooms with confirmed bookings show up here.</span></div>
+              }
             </div>
+            @if (occCount() && rooms().length > occCount()) {
+              <p class="note">{{ count(rooms().length - occCount()) }} of {{ count(rooms().length) }} rooms had no tenant this {{ word() }} (grey on the room map).</p>
+            }
           </div>
 
           <!-- 4. A month's rent per location and space type -->
@@ -265,11 +271,11 @@
               <p class="note map-key">
                 <span><i class="sw solid" aria-hidden="true"></i>Filled: in use today</span>
                 <span><i class="sw outline" aria-hidden="true"></i>Outlined: booked this {{ word() }}, not in use today</span>
-                <span><i class="sw empty" aria-hidden="true"></i>Grey: not let this {{ word() }}</span>
+                <span><i class="sw blank" aria-hidden="true"></i>Grey: not let this {{ word() }}</span>
               </p>
             </div>
 
-            <aside class="room-card" aria-live="polite">
+            <aside class="room-card" [class.has-sel]="!!selected()" aria-live="polite" (keydown.escape)="selectedId.set(null)">
               @if (selected(); as t) {
                 <div class="rc-head">
                   <div>

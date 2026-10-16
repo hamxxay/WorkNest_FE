@@ -122,10 +122,13 @@ export function salesWorstFirst(rooms: CeoRoom[]): RoomSale[] {
     .sort((a, b) => a.sale.variancePct - b.sale.variancePct || a.sale.varianceMonthly - b.sale.varianceMonthly);
 }
 
-/** Rooms, least occupied in the period first (rooms that sat empty lead). */
-export function roomsLeastOccupied(rooms: CeoRoom[]): CeoRoom[] {
-  return [...rooms].sort((a, b) => a.periodOccupancyPct - b.periodOccupancyPct
-    || Number(a.occupiedNow) - Number(b.occupiedNow));
+/**
+ * Rooms that had a tenant in the period (or have one now), most occupied first. The empty ones are on the room map;
+ * a chart of bars at 0% says nothing.
+ */
+export function roomsMostOccupied(rooms: CeoRoom[]): CeoRoom[] {
+  return rooms.filter(r => r.periodOccupancyPct > 0 || r.occupiedNow)
+    .sort((a, b) => b.periodOccupancyPct - a.periodOccupancyPct || Number(b.occupiedNow) - Number(a.occupiedNow));
 }
 
 /** Short name on chart axes: the room code, else its name. */

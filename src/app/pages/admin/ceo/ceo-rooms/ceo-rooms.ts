@@ -11,7 +11,7 @@ import {
 } from '../ceo-shared';
 import {
   MAP_FILTERS, MapFilter, NOT_LET_COLOR, PRICING_COLORS, PRICING_HOVER, PRICING_LABELS, RoomSale, RoomTile, SHIFT_FILTERS,
-  ShiftFilter, amount, clip, mapCounts, rentByGroup, roomGroups, roomLabel, roomsLeastOccupied, saleLabel, salesWorstFirst,
+  ShiftFilter, amount, clip, mapCounts, rentByGroup, roomGroups, roomLabel, roomsMostOccupied, saleLabel, salesWorstFirst,
   signedAmount, signedPct, tileMatches, tileText
 } from './rooms-view';
 import type { CeoRoom, CeoRoomSale } from '../../../../services/ceo.service';
@@ -222,6 +222,7 @@ export class CeoRoomsSection {
 
   /** Arrow keys move along the map (Home / End: first / last room); Enter or Space opens the card. */
   tileKey(e: KeyboardEvent, t: RoomTile) {
+    if (e.key === 'Escape' && this.selectedId() !== null) { e.preventDefault(); this.selectedId.set(null); return; }
     const last = this.tiles().length - 1;
     const to = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? t.i + 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? t.i - 1
       : e.key === 'Home' ? 0 : e.key === 'End' ? last : null;
@@ -259,8 +260,9 @@ export class CeoRoomsSection {
   worstCount = computed(() => this.worst().length);
   priceHeight = computed(() => Math.max(150, this.worstShown().length * ROW_PX + AXIS_PX));
 
-  private leastOccupied = computed(() => roomsLeastOccupied(this.rooms()));
-  occShown = computed(() => this.showAllOcc() ? this.leastOccupied() : this.leastOccupied().slice(0, CHART_LIMIT));
+  private mostOccupied = computed(() => roomsMostOccupied(this.rooms()));
+  occShown = computed(() => this.showAllOcc() ? this.mostOccupied() : this.mostOccupied().slice(0, CHART_LIMIT));
+  occCount = computed(() => this.mostOccupied().length);
   occHeight = computed(() => Math.max(150, this.occShown().length * ROW_PX + AXIS_PX));
 
   /** Rent per location and space type (every shift). */
@@ -498,7 +500,7 @@ export class CeoRoomsSection {
       }
     });
 
-    // 3. Occupancy in the period per room (%), least occupied first; dark = occupied now, light = vacant now.
+    // 3. Occupancy in the period per room (%), rooms with a tenant, most occupied first; dark = occupied now, light = vacant now.
     const occLabels = occ.map(r => roomLabel(r));
     this.upsert('occ', occ.length ? occCanvas : undefined, {
       type: 'bar',
