@@ -216,7 +216,7 @@ export class AuthService {
         const msg = err?.error?.message || err?.message || 'Invalid email or password.';
         // A turned-off account (403 ACCOUNT_DISABLED) keeps its code so the page can tell it apart.
         const code = authFailureCode(err);
-        return throwError(() => ({ error: code ? { message: msg, code } : { message: msg } }));
+        return throwError(() => ({ status: err?.status, error: code ? { message: msg, code } : { message: msg } }));
       })
     );
   }
@@ -253,7 +253,7 @@ export class AuthService {
             if (firstCode === EMAIL_NOT_VERIFIED) {
               return this.refuseSignIn$(firebaseError);
             }
-            return throwError(() => this.normalizeAuthError(firebaseError));
+            return throwError(() => this.signInFailure(firebaseError, backendError));
           })
         );
       })
@@ -1054,6 +1054,31 @@ export class AuthService {
         return this.syncRegisterToApi$(email, password, firstName || undefined, lastName);
       })
     );
+  }
+
+  /**
+   * Why an email + password sign-in failed (Firebase and the WorkNest password both refused), in plain words instead of
+   * "Authentication failed": too many attempts (Firebase's temporary lock or the API's 429), a turned-off Firebase sign-in,
+   * WorkNest unreachable (status 0) or down (5xx), else the API's own message or "Invalid email or password."
+   */
+  private signInFailure(firebaseError: any, backendError: any) {
+    const statusOf = (e: any): number | null =>
+      typeof e?.status === 'number' ? e.status : (typeof e?.error?.status === 'number' ? e.error.status : null);
+    const fbCode = typeof firebaseError?.code === 'string' ? firebaseError.code : '';
+    const fail = (message: string) => ({ error: { message } });
+    if (fbCode === 'auth/too-many-requests' || statusOf(firebaseError) === 429 || statusOf(backendError) === 429) {
+      return fail('Too many sign-in attempts. Please wait a few minutes and try again.');
+    }
+    if (fbCode === 'auth/user-disabled') return fail('This sign-in has been turned off. Please contact WorkNest.');
+    if (['auth/invalid-credential', 'auth/invalid-login-credentials', 'auth/wrong-password', 'auth/user-not-found'].includes(fbCode)) {
+      return fail('Invalid email or password.');
+    }
+    if (fbCode) return this.normalizeAuthError(firebaseError);
+    const status = statusOf(firebaseError) ?? statusOf(backendError);
+    if (status === 0) return fail('Could not reach WorkNest. Check your internet connection and try again.');
+    if (status !== null && status >= 500) return fail('WorkNest could not sign you in right now. Please try again in a few minutes.');
+    const apiMessage = String(backendError?.error?.message ?? firebaseError?.error?.message ?? '').trim();
+    return fail(apiMessage || 'Invalid email or password.');
   }
 
   private normalizeAuthError(error: unknown) {
