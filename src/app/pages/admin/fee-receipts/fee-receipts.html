@@ -9,8 +9,8 @@
         </svg>
         <span>Finance & Billing</span>
       </div>
-      <h1>Fee Receipts</h1>
-      <p>Collect invoice payments, record fee receipts, and generate official customer printouts.</p>
+      <h1>Receipts</h1>
+      <p>Collect invoice payments, record receipts, and generate official customer printouts.</p>
     </div>
     <div class="fr-header-actions">
       <div class="fr-tab-pills">
@@ -23,7 +23,7 @@
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span>New Fee Receipt</span>
+          <span>New Receipt</span>
         </button>
         <button 
           type="button" 
@@ -425,7 +425,7 @@
                   <polyline points="17 21 17 13 7 13 7 21"/>
                   <polyline points="7 3 7 8 15 8"/>
                 </svg>
-                Generate Fee Receipt
+                Generate Receipt
               }
             </button>
           </div>
@@ -448,7 +448,7 @@
             type="text" 
             class="fr-input fr-toolbar-input"
             placeholder="Search receipt code, customer name, or invoice #..."
-            aria-label="Search fee receipts"
+            aria-label="Search receipts"
             [value]="listSearch()"
             (input)="onListSearchInput($any($event.target).value)"
           />
@@ -498,7 +498,7 @@
         @if (loadingReceipts()) {
           <div class="fr-table-loading">
             <div class="fr-spinner-lg"></div>
-            <span>Loading fee receipts...</span>
+            <span>Loading receipts...</span>
           </div>
         } @else if (receipts().length === 0) {
           <div class="fr-empty-state">
@@ -509,7 +509,7 @@
               <line x1="16" y1="17" x2="8" y2="17"></line>
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-            <p>{{ receiptsFailed() ? 'Fee receipts could not be loaded. Please try again.' : 'No fee receipts found matching your criteria.' }}</p>
+            <p>{{ receiptsFailed() ? 'Receipts could not be loaded. Please try again.' : 'No fee receipts found matching your criteria.' }}</p>
           </div>
         } @else {
           <div class="fr-table-wrap">
@@ -641,7 +641,7 @@
           <path d="m6 6 12 12" />
         </svg>
         </button>
-        <h2 id="fr-void-title">Void Fee Receipt</h2>
+        <h2 id="fr-void-title">Void Receipt</h2>
 
         <div class="fr-alert fr-alert-danger">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -703,7 +703,7 @@
           <path d="m6 6 12 12" />
         </svg>
         </button>
-        <h2 id="fr-receipt-title">Fee Receipt</h2>
+        <h2 id="fr-receipt-title">Receipt</h2>
 
         <!-- Actions Bar (not part of the printed copy) -->
         <div class="fr-receipt-topbar">
@@ -721,6 +721,15 @@
                 <rect x="6" y="14" width="12" height="8"></rect>
               </svg>
               Print Receipt
+            </button>
+            <button type="button" class="fr-btn-secondary fr-btn-compact" (click)="saveReceiptPdf()" [disabled]="savingPdf()"
+              [attr.aria-label]="'Save receipt ' + p.code + ' as PDF'">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              {{ savingPdf() ? 'Saving...' : 'Save as PDF' }}
             </button>
             <button type="button" class="fr-btn-secondary fr-btn-compact" (click)="closePrintModal()">
               Close

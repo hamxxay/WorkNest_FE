@@ -431,8 +431,8 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
       next: (receipt) => {
         this.saving.set(false);
         this.toastService.success(receipt.balanceAfter
-          ? `Fee receipt ${receipt.code} generated. PKR ${pkr(receipt.balanceAfter)} is still due on the invoice.`
-          : `Fee receipt ${receipt.code} generated successfully.`);
+          ? `Receipt ${receipt.code} generated. PKR ${pkr(receipt.balanceAfter)} is still due on the invoice.`
+          : `Receipt ${receipt.code} generated successfully.`);
 
         // Reset form
         this.clearSelectedInvoice();
@@ -443,7 +443,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.saving.set(false);
-        this.toastService.error(this.errMsg(err, 'Failed to create fee receipt.'));
+        this.toastService.error(this.errMsg(err, 'Failed to create the receipt.'));
       }
     });
   }
@@ -480,7 +480,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
         this.receipts.set([]);
         this.totalReceipts.set(0);
         this.loadingReceipts.set(false);
-        this.setLoadError('receipts', `Could not load fee receipts: ${this.errMsg(err, 'request failed.')}`);
+        this.setLoadError('receipts', `Could not load receipts: ${this.errMsg(err, 'request failed.')}`);
       }
     });
   }
@@ -525,6 +525,48 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
    * while printing (rules under body.printing-receipt in styles.css). The copy keeps Angular's
    * scoped-style attributes, so the receipt styles still apply, and it is not clipped by the popup.
    */
+  savingPdf = signal(false);
+
+  /**
+   * Saves the receipt on screen as an A4 PDF (Receipt-<code>.pdf), the same copy the printer gets: the receipt body is
+   * captured (html2canvas) and placed on as many A4 pages as it needs (jsPDF); both libraries load only when asked.
+   */
+  async saveReceiptPdf(): Promise<void> {
+    const p = this.printableReceipt();
+    const source = document.querySelector('#admin-receipt-printable .receipt-printable-body') as HTMLElement | null;
+    if (!p || !source || this.savingPdf()) return;
+    this.savingPdf.set(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      const canvas = await html2canvas(source, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const w = pageW - margin * 2;
+      // Page-sized slices of the capture, so a long receipt runs on to a second page instead of being squashed.
+      const sliceH = Math.floor((canvas.width * (pageH - margin * 2)) / w);
+      for (let y = 0, page = 0; y < canvas.height; y += sliceH, page++) {
+        const part = document.createElement('canvas');
+        part.width = canvas.width;
+        part.height = Math.min(sliceH, canvas.height - y);
+        const ctx = part.getContext('2d');
+        if (!ctx) break;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, part.width, part.height);
+        ctx.drawImage(canvas, 0, y, canvas.width, part.height, 0, 0, canvas.width, part.height);
+        if (page) pdf.addPage();
+        // JPEG keeps the file small enough to email (a PNG of the same capture is several MB).
+        pdf.addImage(part.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin, w, (part.height * w) / canvas.width);
+      }
+      pdf.save(`Receipt-${(p.code || String(p.id)).replace(/[^A-Za-z0-9-]+/g, '-')}.pdf`);
+    } catch {
+      this.toastService.error('Could not save the receipt as PDF. Use Print Receipt and choose "Save as PDF" instead.');
+    } finally {
+      this.savingPdf.set(false);
+    }
+  }
+
   triggerPrint(): void {
     const source = document.querySelector('#admin-receipt-printable .receipt-printable-body');
     if (!source) return;
