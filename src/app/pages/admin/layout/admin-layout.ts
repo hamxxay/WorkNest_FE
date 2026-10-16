@@ -1,5 +1,5 @@
 ﻿import { UnifiService } from '../../../services/unifi.service';
-import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { Subscription, filter } from 'rxjs';
@@ -22,7 +22,14 @@ export class AdminLayout implements OnInit, OnDestroy {
   get boundLocationId(): number | null {
     return this.auth.getUser()?.locationId ?? null;
   }
-  sidebarCollapsed = typeof window !== 'undefined' && window.innerWidth < 1280;
+  /** Icons-only sidebar (tablets by default; the toggle switches it). Never on phones, where the sidebar is a drawer. */
+  sidebarCollapsed = AdminLayout.screenMode() === 'compact';
+  /** Phone width: the sidebar is an off-canvas drawer opened from the top bar's menu button. */
+  readonly isPhone = signal(AdminLayout.screenMode() === 'phone');
+  /** Phone drawer open. */
+  readonly mobileNavOpen = signal(false);
+  private readonly menuButton = viewChild<ElementRef<HTMLButtonElement>>('menuButton');
+  private readonly sidebarToggleBtn = viewChild<ElementRef<HTMLButtonElement>>('sidebarToggle');
   userRole = '';
 
   isSuperAdmin = false;
@@ -56,6 +63,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   private navTimer: ReturnType<typeof setTimeout> | null = null;
   private navSub: Subscription | null = null;
   private badgeSub: Subscription | null = null;
+  private drawerSub: Subscription | null = null;
 
   /** Path of the open page (no query string), to show that page's "Mark as read" bar. */
   private currentPath = signal(this.router.url.split(/[?#]/)[0]);
@@ -164,6 +172,8 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
+    // Phones: a link opened from the drawer closes it.
+    this.drawerSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => this.mobileNavOpen.set(false));
     // The role's database label (auth/me) when the sign-in response did not bring it.
     if (!this.auth.getUser()?.roleDisplayName) this.auth.refreshProfileLabels();
     // A CEO / Sales Manager / Access Officer has no sidebar badges or network section (those APIs are staff-only).
@@ -194,6 +204,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     if (this.navTimer) clearTimeout(this.navTimer);
     this.navSub?.unsubscribe();
     this.badgeSub?.unsubscribe();
+    this.drawerSub?.unsubscribe();
     if (this.baseTitle) this.titleService.setTitle(this.baseTitle);
   }
 
@@ -280,19 +291,47 @@ export class AdminLayout implements OnInit, OnDestroy {
       .filter(g => g.items.length > 0);
   }
 
-  toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; }
+  /** The sidebar's own button: collapses / expands it, or closes the drawer on a phone. */
+  toggleSidebar() {
+    if (this.isPhone()) { this.closeMobileNav(true); return; }
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
 
-  // Icon-only sidebar on smaller screens; the toggle still works, and the sidebar
-  // only auto-changes when the window crosses the breakpoint.
+  openMobileNav() {
+    this.mobileNavOpen.set(true);
+    // Move focus into the drawer (its close button) once it is visible.
+    setTimeout(() => this.sidebarToggleBtn()?.nativeElement.focus(), 30);
+  }
+
+  /** Closes the phone drawer; `refocus` returns focus to the top bar's menu button (Escape / close button). */
+  closeMobileNav(refocus = false) {
+    if (!this.mobileNavOpen()) return;
+    this.mobileNavOpen.set(false);
+    if (refocus) setTimeout(() => this.menuButton()?.nativeElement.focus(), 0);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { this.closeMobileNav(true); }
+
+  // Phones (< 768px): drawer. Tablets / small laptops (< 1280px): icons only. Wider: full sidebar.
+  // The toggle still works, and the sidebar only auto-changes when the window crosses a breakpoint.
+  private static readonly PHONE_WIDTH = 768;
   private static readonly COMPACT_WIDTH = 1280;
-  private wasCompact = typeof window !== 'undefined' && window.innerWidth < AdminLayout.COMPACT_WIDTH;
+  private static screenMode(): 'phone' | 'compact' | 'wide' {
+    if (typeof window === 'undefined') return 'wide';
+    const w = window.innerWidth;
+    return w < AdminLayout.PHONE_WIDTH ? 'phone' : w < AdminLayout.COMPACT_WIDTH ? 'compact' : 'wide';
+  }
+  private lastMode = AdminLayout.screenMode();
 
   @HostListener('window:resize')
   onResize() {
-    const compact = window.innerWidth < AdminLayout.COMPACT_WIDTH;
-    if (compact !== this.wasCompact) {
-      this.sidebarCollapsed = compact;
-      this.wasCompact = compact;
+    const mode = AdminLayout.screenMode();
+    if (mode !== this.lastMode) {
+      this.lastMode = mode;
+      this.isPhone.set(mode === 'phone');
+      this.sidebarCollapsed = mode === 'compact';
+      this.mobileNavOpen.set(false);
     }
   }
 
