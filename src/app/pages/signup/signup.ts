@@ -66,8 +66,11 @@ export class Signup {
     this.authService.register(this.email, this.password, firstName, lastName).subscribe({
       next: (res) => {
         this.loading.set(false);
-        if (res.isSuccessful) {
-          // The API only accepts the account once its email is verified: show "Check your email".
+        if (res.isSuccessful && !res.verificationRequired) {
+          // Signed in straight away (the API doesn't ask for a verified email).
+          this.router.navigateByUrl(this.getRedirectUrl());
+        } else if (res.isSuccessful) {
+          // The API accepts the account once its email is verified: show "Check your email".
           this.verificationSent.set(res.emailSent);
           this.verifyEmail.set(this.authService.pendingVerificationEmail() || this.email);
         } else {
