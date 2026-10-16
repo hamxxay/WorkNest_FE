@@ -337,14 +337,12 @@
                   </div>
                 }
               </div>
-              <div class="chart-nav occ-stack" [class.hidden]="occTable()"
+              <!-- One chart: new bookings (bars, left axis) and occupancy (line on top, right axis, %) -->
+              <div class="chart-box h-combo chart-nav" [class.hidden]="occTable()"
                 [attr.tabindex]="occEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
-                aria-label="Occupancy and new bookings by month. Arrow keys move between months, Enter opens the month."
+                aria-label="New bookings and occupancy by month. Arrow keys move between months, Enter opens the month."
                 (keydown)="occNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && occNav.focus()" (blur)="occNav.clear()">
-                <span class="mini-legend"><i class="lg-line" aria-hidden="true"></i>Occupancy</span>
-                <div class="chart-box h-occ"><canvas #occCanvas aria-hidden="true"></canvas></div>
-                <span class="mini-legend"><i class="lg-bar" aria-hidden="true"></i>New bookings</span>
-                <div class="chart-box h-bk"><canvas #bookingsCanvas aria-hidden="true"></canvas></div>
+                <canvas #occCanvas aria-hidden="true"></canvas>
                 @if (occEmpty()) {
                   <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No occupancy or bookings in this range yet</strong><span>The chart fills in as bookings come in.</span></div>
                 }

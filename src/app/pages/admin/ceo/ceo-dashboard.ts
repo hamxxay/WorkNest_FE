@@ -27,10 +27,7 @@ interface Kpi {
   actionLabel?: string;
 }
 
-type ChartKey = 'revenue' | 'aging' | 'occupancy' | 'bookings';
-
-/** Same y-axis width on the stacked occupancy / new bookings charts, so their months line up. */
-const Y_AXIS_WIDTH = (scale: any) => { scale.width = 46; };
+type ChartKey = 'revenue' | 'aging' | 'occupancy';
 
 /**
  * CEO dashboard (/admin/ceo): company-wide money, occupancy, sales and team figures for this month / quarter /
@@ -94,7 +91,6 @@ export class CeoDashboard {
   private revenueCanvas = viewChild<ElementRef<HTMLCanvasElement>>('revenueCanvas');
   private agingCanvas = viewChild<ElementRef<HTMLCanvasElement>>('agingCanvas');
   private occCanvas = viewChild<ElementRef<HTMLCanvasElement>>('occCanvas');
-  private bookingsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('bookingsCanvas');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -459,7 +455,7 @@ export class CeoDashboard {
   });
 
   readonly occNav = new ChartKeyNav({
-    charts: () => [this.charts.get('occupancy'), this.charts.get('bookings')],
+    charts: () => [this.charts.get('occupancy')],
     count: () => this.o()?.months.length ?? 0,
     describe: i => {
       const x = this.o()?.months[i];
@@ -558,71 +554,58 @@ export class CeoDashboard {
       }
     });
 
-    // Occupancy (line, %) and new bookings (bars, count): two small charts on one time axis, never two y-scales.
+    // Occupancy & new bookings: one chart per month, new bookings as bars (left axis, count) and occupancy as a
+    // line drawn on top of them (right axis, 0-100%). A bar or a point opens the new bookings by location.
     const occEmpty = this.occEmpty();
+    // Four steps on the bookings axis, so its grid lines meet the 0 / 25 / 50 / 75 / 100% ticks on the right.
+    const maxNew = Math.max(0, ...occ.map(x => x.newBookings));
+    const raw = Math.max(1, Math.ceil(maxNew / 4));
+    const step = raw > 10 ? Math.ceil(raw / 5) * 5 : raw;
     this.upsert('occupancy', occEmpty ? undefined : this.occCanvas(), {
-      type: 'line',
-      data: {
-        labels: occ.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{
-          label: 'Occupancy', data: occ.map(x => x.occupancyPct), borderColor: TEAL, borderWidth: 2, tension: 0.35,
-          fill: true, backgroundColor: (ctx: any) => {
-            const { chart } = ctx; const area = chart.chartArea;
-            if (!area) return 'rgba(13,148,136,0.10)';
-            const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-            g.addColorStop(0, 'rgba(13,148,136,0.22)'); g.addColorStop(1, 'rgba(13,148,136,0.02)');
-            return g;
-          },
-          pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: '#fff', pointBorderColor: TEAL, pointBorderWidth: 2,
-          pointHoverBackgroundColor: TEAL, pointHoverBorderColor: '#fff'
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-        onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.openBookingsMonth(els[0].index); },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP,
-            callbacks: {
-              title: (items: any[]) => monthLong(occ[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` Occupancy: ${pct(c.parsed.y)}`,
-              footer: (items: any[]) => { const x = occ[items[0]?.dataIndex]; return x ? `${x.newBookings} new booking${x.newBookings === 1 ? '' : 's'} · click for locations` : ''; }
-            }
-          }
-        },
-        scales: {
-          // offset + fixed axis width: the points sit exactly above the new-bookings bars below.
-          x: { offset: true, grid: { display: false }, border: { display: false }, ticks: { display: false } },
-          y: { beginAtZero: true, max: 100, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { callback: (v: any) => v + '%', stepSize: 25, padding: 8 } }
-        }
-      }
-    });
-    this.upsert('bookings', occEmpty ? undefined : this.bookingsCanvas(), {
       type: 'bar',
       data: {
         labels: occ.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{ label: 'New bookings', data: occ.map(x => x.newBookings), backgroundColor: '#5eead4', hoverBackgroundColor: TEAL, borderRadius: 4, maxBarThickness: 22 }]
+        datasets: [
+          {
+            type: 'bar', label: 'New bookings', yAxisID: 'y', order: 2, data: occ.map(x => x.newBookings),
+            backgroundColor: '#5eead4', hoverBackgroundColor: TEAL, borderRadius: 4, maxBarThickness: 22, borderSkipped: 'start'
+          },
+          {
+            // order 1: drawn over the bars
+            type: 'line', label: 'Occupancy', yAxisID: 'pct', order: 1, data: occ.map(x => x.occupancyPct),
+            borderColor: TEAL, borderWidth: 2, tension: 0.3, fill: false,
+            pointRadius: 3.5, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: TEAL_DARK, pointBorderColor: '#fff',
+            pointBorderWidth: 1.5, pointHoverBackgroundColor: TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
+          }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         onHover: pointerOnHover,
         onClick: (_e: any, els: any[]) => { if (els.length) this.openBookingsMonth(els[0].index); },
         plugins: {
-          legend: { display: false },
+          // New bookings first in the legend and the tooltip, whatever the drawing order.
+          legend: { ...LEGEND, labels: { ...LEGEND.labels, sort: (a: any, b: any) => a.datasetIndex - b.datasetIndex } },
           tooltip: {
             ...TOOLTIP,
+            itemSort: (a: any, b: any) => a.datasetIndex - b.datasetIndex,
             callbacks: {
               title: (items: any[]) => monthLong(occ[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` New bookings: ${c.parsed.y}`,
+              label: (c: any) => c.dataset.yAxisID === 'pct' ? ` Occupancy: ${pct(c.parsed.y)}` : ` New bookings: ${c.parsed.y}`,
               footer: () => 'Click for locations'
             }
           }
         },
         scales: {
           x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
-          y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { precision: 0, padding: 8, maxTicksLimit: 4 } }
+          y: {
+            position: 'left', min: 0, max: step * 4, grid: GRID, border: { display: false },
+            ticks: { stepSize: step, precision: 0, padding: 8 }
+          },
+          pct: {
+            position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, border: { display: false },
+            ticks: { stepSize: 25, padding: 8, callback: (v: any) => v + '%' }
+          }
         }
       }
     });
