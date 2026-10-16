@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { AdminService } from '../../../../services/admin.service';
+import { KeepInView } from '../../../../components/keep-in-view/keep-in-view.directive';
 import { ToastService } from '../../../../services/toast.service';
 
 /**
@@ -10,6 +11,7 @@ import { ToastService } from '../../../../services/toast.service';
 @Component({
   selector: 'app-weekly-report-menu',
   standalone: true,
+  imports: [KeepInView],
   templateUrl: './weekly-report-menu.html',
   styleUrl: './weekly-report-menu.css'
 })

@@ -18,7 +18,7 @@
           </button>
           @if (locationMenuOpen() && locationsList().length > 1) {
           <div class="loc-menu-backdrop" (click)="locationMenuOpen.set(false)"></div>
-          <div class="loc-menu" role="listbox" aria-multiselectable="true">
+          <div class="loc-menu" role="listbox" aria-multiselectable="true" appKeepInView>
             <label class="loc-option">
               <input type="checkbox" [checked]="kpiLocationIds().length === 0" (change)="selectAllKpiLocations()" />
               <span>{{ isSalesExecutiveOnly ? 'All my locations' : 'All locations' }}</span>

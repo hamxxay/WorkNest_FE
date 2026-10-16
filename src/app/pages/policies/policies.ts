@@ -215,6 +215,14 @@ const POLICIES: Record<string, Policy> = {
     </section>
   `,
   styles: [`
+    /* Hero below the fixed navbar (same look as the Book a Tour / Contact heroes). */
+    .page-hero { padding: 120px 0 40px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); }
+    .page-hero h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 12px; overflow-wrap: anywhere; }
+    .hero-sub { color: var(--text-secondary); font-size: 1.05rem; margin: 0 auto; }
+    @media (max-width: 600px) {
+      .page-hero { padding: 96px 0 28px; }
+      .page-hero h1 { font-size: 1.8rem; }
+    }
     .policy-container { max-width: 800px; margin: 0 auto; }
     .policy-intro { font-size: 1.05rem; color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.7; }
     .policy-section { margin-bottom: 1.75rem; }

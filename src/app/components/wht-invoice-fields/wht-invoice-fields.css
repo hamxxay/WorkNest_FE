@@ -16,3 +16,4 @@
 .wht-rate small { margin-top: 5px; color: #94a3b8; font-size: .75rem; line-height: 1.4; }
 .wht-error { margin-top: 5px; color: #ef4444; font-size: .78rem; font-weight: 500; }
 @media (max-width: 640px) { .wht { grid-template-columns: 1fr; } .wht-rate { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .wht-check { min-height: 44px; } .wht-check input { width: 20px; height: 20px; } .wht-input { font-size: 16px; height: 44px; } }

@@ -15,3 +15,8 @@
 .drawer-h { margin: 24px 0 8px; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
 .usage-stats div, .head-stats.left div { align-items: flex-start; }
 .head-stats.left { margin-bottom: 4px; }
+@media (max-width: 640px) {
+  .drawer { padding: 16px 16px 28px; }
+  .drawer-close { width: 44px; height: 44px; margin: -6px -6px -44px 0; }
+  .rename .form-control { min-width: 0; height: 44px; }
+}

@@ -1500,6 +1500,7 @@
       </div>
 
       <!-- Itemized Payment Statement Table (Payable Now) -->
+      <div class="m-table-scroll">
       <table
         style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
         <thead>
@@ -1595,6 +1596,7 @@
           </tr>
         </tfoot>
       </table>
+      </div>
 
       <!-- Booking Reference Banner -->
       <div
@@ -2666,7 +2668,7 @@
       </div>
 
       <!-- Grid of Details -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
         <!-- Space Number -->
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Space
@@ -2764,7 +2766,7 @@
       <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin-bottom:20px">
         <h4 style="margin:0 0 12px 0;font-size:0.9rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px">
           Security Deposit Status</h4>
-        <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;text-align:center">
+        <div class="m-2col" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;text-align:center">
           <div>
             <span style="font-size:0.7rem;color:#64748b;display:block">Required</span>
             <strong style="font-size:0.88rem;color:#0f172a">PKR {{ (summary.securityDepositRequired ?? 0) |
@@ -3192,7 +3194,7 @@
         </div>
 
         <!-- Customer & Space Grid -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+        <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
           <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
             <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
               Customer Details</div>
@@ -3260,6 +3262,7 @@
         </div>
 
         <!-- Financial Breakdown Table -->
+        <div class="m-table-scroll">
         <table
           style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
           <thead>
@@ -3362,6 +3365,7 @@
             </tr>
           </tfoot>
         </table>
+        </div>
 
         <!-- Terms Footer -->
         <div style="border-top:1px dashed #cbd5e1;padding-top:16px;font-size:0.78rem;color:#64748b;line-height:1.5">
@@ -3423,7 +3427,7 @@
     <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
 
       <!-- Summary Cards Grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Customer Info</div>
@@ -3463,6 +3467,7 @@
       </div>
 
       <!-- Financial Conversion Itemization Table -->
+      <div class="m-table-scroll">
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
         <thead>
           <tr style="background:#0f172a;color:#fff">
@@ -3527,6 +3532,7 @@
           </tr>
         </tfoot>
       </table>
+      </div>
 
     </div>
 
@@ -3590,7 +3596,7 @@
     <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
 
       <!-- Summary Cards Grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Customer Information</div>
@@ -3621,7 +3627,7 @@
 
       <!-- Invoice type: Standard or Withholding Tax (WHT). Not shown when the first invoice already exists (it is only re-sent). -->
       @if (!initialInvoicePreview()?.hasExistingInvoice) {
-      <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="m-stack" style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div>
           <label for="initInvType" style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">Invoice Type</label>
           <select id="initInvType" class="form-input-admin" style="width:100%;font-size:0.9rem"
@@ -3655,6 +3661,7 @@
       </div>
       } @else if (initialInvoicePreview(); as pv) {
       <!-- Financial Conversion Itemization Table -->
+      <div class="m-table-scroll">
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
         <thead>
           <tr style="background:#0f172a;color:#fff">
@@ -3740,6 +3747,7 @@
           }
         </tfoot>
       </table>
+      </div>
       } @else if (initialInvoicePreviewLoading()) {
       <div style="padding:28px;text-align:center;color:#64748b;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px">
         Calculating the invoice&hellip;
@@ -3803,7 +3811,7 @@
     </button>
     <h2>Create Custom Invoice Entry</h2>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="form-group-admin">
         <label>Select Customer <span style="color:#ef4444">*</span></label>
         <select class="form-input-admin" [(ngModel)]="customInvoiceFormData.userId">
@@ -3820,7 +3828,7 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+    <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
       <div class="form-group-admin">
         <label>Issue Date <span style="color:#ef4444">*</span></label>
         <input class="form-input-admin" type="date" [(ngModel)]="customInvoiceFormData.issuedOn" />
@@ -4254,7 +4262,7 @@
       </div>
 
       <!-- Detail Grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
             Customer / Signatory</div>
