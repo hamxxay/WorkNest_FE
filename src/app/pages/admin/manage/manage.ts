@@ -214,7 +214,7 @@ export class Manage implements OnInit {
   readonly bookingFloorOptions = signal<{ v: any; l: string }[]>([]);
 
   bookingBillingPeriodMonths = 3;
-  /** Security Deposit (Months) chosen on Create Booking: 0-3, default 2 for private offices (shared / meeting: 0). */
+  /** Security Deposit (Months) chosen on Create Booking: 0-3, default 2 for private offices & shared spaces (meeting: 0). */
   bookingSecurityDepositMonths = 2;
   /** Booking edit: the months the form loaded (null on Create Booking). Unchanged months are not sent on update. */
   private bookingEditLoadedDepositMonths: number | null = null;
@@ -250,15 +250,13 @@ export class Manage implements OnInit {
 
   /**
    * A stored deposit as the API reads it back (SecurityDepositRules.Stored): the stored amount; a stored 0 with
-   * months > 0 on a private office (older rows) = months x rent x (1 - discount); else none. Months are never
-   * defaulted (0 / missing = no deposit), and a shared space / meeting room never gets one worked out from months
-   * (old shared quotations can hold 1 month with no amount).
+   * months > 0 on a contract space (private office / shared space) = months x rent x (1 - discount); else none.
    */
-  private static storedDeposit(isPrivateOffice: boolean, storedAmount: unknown, storedMonths: unknown,
+  private static storedDeposit(isContractSpace: boolean, storedAmount: unknown, storedMonths: unknown,
     monthlyRent: number, discountPct: number): number {
     const amount = Number(storedAmount ?? 0);
     if (amount > 0) return Manage.round2(amount);
-    if (!isPrivateOffice) return 0;
+    if (!isContractSpace) return 0;
     return Manage.depositAmount(Number(storedMonths ?? 0), monthlyRent, discountPct);
   }
 
@@ -269,9 +267,9 @@ export class Manage implements OnInit {
     return a > 0 && perMonth > 0 ? Manage.clampDepositMonths(a / perMonth) : 0;
   }
 
-  /** Months sent with the booking: the selection for a private office, always 0 for shared spaces / meeting rooms. */
+  /** Months sent with the booking: the selection for private office and shared space, always 0 for meeting rooms. */
   get bookingDepositMonths(): number {
-    return this.isAdminPrivateRoom ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
+    return (this.isAdminPrivateRoom || this.isAdminSharedSpace) ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
   }
 
   /**
@@ -616,7 +614,7 @@ export class Manage implements OnInit {
   quotationFloorId: number | null = null;
   readonly quotationFloorOptions = signal<{ v: any; l: string }[]>([]);
   quotationBillingPeriodMonths = 3;
-  /** Security Deposit (Months) chosen on Create Quotation: 0-3, default 2 for private offices (shared / meeting: 0). */
+  /** Security Deposit (Months) chosen on Create Quotation: 0-3, default 2 for private offices & shared spaces (meeting: 0). */
   quotationSecurityDepositMonths = 2;
   readonly offeringTypes = signal<{ id: number; description: string; discountCap: number; locationId?: number | null }[]>([]);
   quotationOfferingTypeId: number = 1;
@@ -962,9 +960,9 @@ export class Manage implements OnInit {
     return Math.max(0, parseFloat((this.quotationBillingPeriodMonths * this.quotationMonthlyRent).toFixed(2)));
   }
 
-  /** Months sent with the quotation: the selection for a private office, always 0 for shared spaces / meeting rooms. */
+  /** Months sent with the quotation: the selection for private office and shared space, always 0 for meeting rooms. */
   get quotationDepositMonths(): number {
-    return this.isQuotationPrivateRoom ? Manage.clampDepositMonths(this.quotationSecurityDepositMonths) : 0;
+    return (this.isQuotationPrivateRoom || this.isQuotationSharedSpace) ? Manage.clampDepositMonths(this.quotationSecurityDepositMonths) : 0;
   }
 
   /** Live deposit on Create Quotation = months x monthly rent x (1 - rent discount %); 0 for shared / meeting. */
@@ -1985,7 +1983,7 @@ export class Manage implements OnInit {
 
     // Security deposit months as stored (0 stays 0). An older response without months: the months behind the
     // stored amount. Never a default month count.
-    if (!this.isAdminPrivateRoom) {
+    if (!this.isAdminPrivateRoom && !this.isAdminSharedSpace) {
       this.bookingSecurityDepositMonths = 0;
     } else if (secMonths != null) {
       this.bookingSecurityDepositMonths = Manage.clampDepositMonths(secMonths);
@@ -2544,7 +2542,8 @@ export class Manage implements OnInit {
   }
 
   get isAdminMeetingRoom(): boolean {
-    return this.selectedSpaceTypeId === 'meeting';
+    const s = String(this.selectedSpaceTypeId || '').toLowerCase();
+    return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
 
   get isAdminMeetingRoomDayMode(): boolean {
@@ -2556,11 +2555,13 @@ export class Manage implements OnInit {
   }
 
   get isAdminPrivateRoom(): boolean {
-    return this.selectedSpaceTypeId === 'private';
+    const s = String(this.selectedSpaceTypeId || '').toLowerCase();
+    return s === 'private' || s.includes('private');
   }
 
   get isAdminSharedSpace(): boolean {
-    return this.selectedSpaceTypeId === 'shared';
+    const s = String(this.selectedSpaceTypeId || '').toLowerCase();
+    return s === 'shared' || s.includes('shared') || s.includes('desk') || s.includes('coworking');
   }
 
   get adminEndDateDisplay(): string {
@@ -2653,7 +2654,7 @@ export class Manage implements OnInit {
     const isPrivate = this.isAdminPrivateRoom;
     const isShared = this.isAdminSharedSpace;
     this.bookingBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
-    this.bookingSecurityDepositMonths = isPrivate ? 2 : 0;
+    this.bookingSecurityDepositMonths = (isPrivate || isShared) ? 2 : 0;
 
     if (this.isAdminPrivateRoom) {
       this.updateAvailableAdminCapacities();
@@ -2766,12 +2767,11 @@ export class Manage implements OnInit {
         const capacity = this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : Number(space.capacity ?? 1);
         const oneMonthRentOfRoom = rate * capacity;
         const totalRent = oneMonthRentOfRoom * Number(this.adminMonths);
-        this.securityDeposit = parseFloat(oneMonthRentOfRoom.toFixed(2));
+        this.securityDeposit = this.effectiveSecurityDeposit;
         this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
       } else {
-        // Shared Space - no security deposit
         const totalRent = rate * Number(this.adminMonths);
-        this.securityDeposit = 0;
+        this.securityDeposit = this.effectiveSecurityDeposit;
         this.bookingSubtotal = parseFloat(totalRent.toFixed(2));
       }
     }
@@ -6193,7 +6193,7 @@ export class Manage implements OnInit {
     const isPrivate = this.isQuotationPrivateRoom;
     const isShared = this.isQuotationSharedSpace;
     this.quotationBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
-    this.quotationSecurityDepositMonths = isPrivate ? 2 : 0;
+    this.quotationSecurityDepositMonths = (isPrivate || isShared) ? 2 : 0;
     this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
@@ -6238,15 +6238,18 @@ export class Manage implements OnInit {
   }
 
   get isQuotationPrivateRoom(): boolean {
-    return (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('private');
+    const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
+    return s === 'private' || s.includes('private');
   }
 
   get isQuotationSharedSpace(): boolean {
-    return (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('shared') || (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('desk');
+    const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
+    return s === 'shared' || s.includes('shared') || s.includes('desk') || s.includes('coworking');
   }
 
   get isQuotationMeetingRoom(): boolean {
-    return (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('meeting') || (this.selectedQuotationSpaceTypeId || '').toLowerCase().includes('conference');
+    const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
+    return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
 
   get availableQuotationCapacities(): number[] {
@@ -6851,7 +6854,7 @@ export class Manage implements OnInit {
     const months = Number(b.securityDepositMonths ?? b.SecurityDepositMonths ?? 0);
     const rent = Number(b.monthlyRent ?? b.MonthlyRent ?? b.contract?.monthlyRent ?? 0);
     const pct = Number(b.discountPercentage ?? b.DiscountPercentage ?? 0);
-    return Manage.storedDeposit(this.isPrivateRoom(b), b.securityDeposit ?? b.SecurityDeposit ?? b.contract?.securityDeposit,
+    return Manage.storedDeposit(this.isPrivateRoom(b) || this.isSharedSpace(b), b.securityDeposit ?? b.SecurityDeposit ?? b.contract?.securityDeposit,
       months, rent, pct);
   }
 
@@ -7237,8 +7240,8 @@ export class Manage implements OnInit {
     }
 
     const calculatedRent = monthlyRate * cycleMonths;
-    // The stored amount; 0 with stored months > 0 on a private office (older rows) = months x rent x (1 - discount %).
-    const securityDeposit = Manage.storedDeposit(this.isPrivateRoom(item),
+    // The stored amount; 0 with stored months > 0 on a contract space (older rows) = months x rent x (1 - discount %).
+    const securityDeposit = Manage.storedDeposit(this.isPrivateRoom(item) || this.isSharedSpace(item),
       item.effectiveSecurityDeposit ?? item.securityDeposit ?? item.SecurityDeposit ?? item.depositAmount, secMonths, monthlyRate,
       Number(item.discountPercentage ?? item.DiscountPercentage ?? 0));
     const discount = item.bookingDiscountAmount ?? item.discountAmount ?? 0;
@@ -7921,7 +7924,7 @@ export class Manage implements OnInit {
     const discAmount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
     const subtotal = Number(c.subtotalAmount ?? c.SubtotalAmount ?? 0);
     const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? (subtotal > 0 && discAmount > 0 ? (discAmount / subtotal) * 100 : 0));
-    return Manage.storedDeposit(this.isPrivateRoom(c), c.securityDeposit ?? c.SecurityDeposit, storedMonths,
+    return Manage.storedDeposit(this.isPrivateRoom(c) || this.isSharedSpace(c), c.securityDeposit ?? c.SecurityDeposit, storedMonths,
       this.getChallanMonthlyRent(c), discPct);
   }
 
@@ -8112,7 +8115,7 @@ export class Manage implements OnInit {
     const discPct = (discType === 'Amount' || discType === 'Fixed')
       ? Manage.rentDiscountPct('Amount', q.discountValue ?? q.DiscountValue, monthlyRent)
       : this.getQuotationDiscountPercentage(q);
-    return Manage.storedDeposit(this.isPrivateRoom(q), q.securityDeposit ?? q.SecurityDeposit, storedMonths, monthlyRent, discPct);
+    return Manage.storedDeposit(this.isPrivateRoom(q) || this.isSharedSpace(q), q.securityDeposit ?? q.SecurityDeposit, storedMonths, monthlyRent, discPct);
   }
 
   getQuotationSupportCharges(q: any): number {
@@ -8255,10 +8258,14 @@ export class Manage implements OnInit {
 
   getSpaceType(item: any): string {
     if (!item) return 'MeetingRoom';
-    if (item.spaceType) return item.spaceType;
-    const name = String(item.name || item.Name || item.title || item.Title || item.spaceTypeName || item.SpaceTypeName || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
-    if (name.includes('meeting') || name.includes('conference')) return 'MeetingRoom';
-    if (name.includes('shared') || name.includes('coworking') || name.includes('desk')) return 'SharedSpace';
+    const raw = String(item.spaceType || item.SpaceType || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
+    if (raw === 'privateroom' || raw === 'private' || raw.includes('private')) return 'PrivateRoom';
+    if (raw === 'sharedspace' || raw === 'shared' || raw.includes('shared') || raw.includes('desk') || raw.includes('coworking')) return 'SharedSpace';
+    if (raw === 'meetingroom' || raw === 'meeting' || raw.includes('meeting') || raw.includes('conference')) return 'MeetingRoom';
+
+    const name = String(item.name || item.Name || item.title || item.Title || item.spaceTypeName || item.SpaceTypeName || item.spaceName || item.SpaceName || '').toLowerCase();
+    if (name.includes('meeting') || name.includes('conference') || name.includes('board')) return 'MeetingRoom';
+    if (name.includes('shared') || name.includes('coworking') || name.includes('desk') || name.includes('open')) return 'SharedSpace';
     if (name.includes('private') || name.includes('office') || name.includes('room')) return 'PrivateRoom';
     if ((item.billingPeriodMonths <= 0 || !item.billingPeriodMonths) && (!item.totalContractAmount || item.totalContractAmount <= 0)) return 'MeetingRoom';
     return 'SharedSpace';

@@ -2011,7 +2011,7 @@
         </div>
         <div class="form-group-admin" data-field="securityDepositMonths">
           <label for="qSecMonths">Security Deposit (Months)</label>
-          @if (isQuotationPrivateRoom) {
+          @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
           <select id="qSecMonths" class="form-input-admin" [(ngModel)]="quotationSecurityDepositMonths" name="qSecMonths"
             (ngModelChange)="recalcQuotationAmount()" aria-describedby="qSecMonthsHint">
             @for (o of securityDepositMonthOptions; track o.v) {
@@ -2032,7 +2032,7 @@
           <select id="qSecMonths" class="form-input-admin" disabled aria-describedby="qSecMonthsHint">
             <option selected>No deposit</option>
           </select>
-          <small id="qSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Shared spaces have no security deposit</small>
+          <small id="qSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no security deposit</small>
           }
         </div>
       </div>
@@ -2451,7 +2451,7 @@
         <div class="form-group-admin" data-field="securityDepositMonths"
           [class.has-error]="bookingFormErrorField === 'securityDepositMonths'">
           <label for="bookingSecMonths">Security Deposit (Months)</label>
-          @if (isAdminPrivateRoom) {
+          @if (isAdminPrivateRoom || isAdminSharedSpace) {
           <select id="bookingSecMonths" class="form-input-admin" [(ngModel)]="bookingSecurityDepositMonths"
             name="bookingSecMonths" (ngModelChange)="recalcAmount()" aria-describedby="bookingSecMonthsHint"
             [attr.aria-invalid]="bookingFormErrorField === 'securityDepositMonths' ? 'true' : null">
@@ -2476,7 +2476,7 @@
           <select id="bookingSecMonths" class="form-input-admin" disabled aria-describedby="bookingSecMonthsHint">
             <option selected>No deposit</option>
           </select>
-          <small id="bookingSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Shared spaces have no security deposit</small>
+          <small id="bookingSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no security deposit</small>
           }
         </div>
       </div>
