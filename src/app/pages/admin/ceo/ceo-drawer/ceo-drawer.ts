@@ -61,9 +61,11 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'occupancy-locations': {
     rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (_p, r) => ({ kind: 'breakdown', metric: 'occupancy-location', params: { locationId: r.key }, crumb: r.label }),
-    nextLabel: (_p, r) => `Open ${r.label} by space type`,
-    hint: () => 'Select a location for its space types.'
+    // occupied: true when opened from the Occupancy KPI: only the occupied rooms, down to the list of spaces.
+    next: (p, r) => ({ kind: 'breakdown', metric: 'occupancy-location', params: { locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label} by space type` : `Open ${r.label} by space type`,
+    hint: () => 'Select a location for its space types.',
+    keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'aging': {
     rowLabel: 'Location', money: true, chart: 'single', vertical: false,
@@ -77,7 +79,9 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'occupancy-location': {
     rowLabel: 'Space type', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key }, crumb: r.label })
+    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied ${r.label} rooms` : `Open ${r.label}`,
+    keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'bookings-month': {
     rowLabel: 'Location', money: false, chart: 'single', vertical: false,
@@ -314,7 +318,12 @@ export class CeoDrawer {
 
   // ---------- level 2 helpers ----------
 
-  rows = computed<CeoBreakdownRow[]>(() => this.current()?.breakdown?.rows ?? []);
+  rows = computed<CeoBreakdownRow[]>(() => {
+    const e = this.current();
+    const rows = e?.breakdown?.rows ?? [];
+    const keep = this.spec()?.keep;
+    return keep && e?.level.kind === 'breakdown' ? rows.filter(r => keep(e.level.params, r)) : rows;
+  });
   hasValue2 = computed(() => !!this.current()?.breakdown?.value2Label || this.rows().some(r => r.value2 !== null));
   hasCount = computed(() => this.rows().some(r => r.count !== null));
   canOpenRows = computed(() => this.rows().some(r => !!r.key));

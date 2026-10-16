@@ -284,7 +284,7 @@ export class CeoDashboard {
         sub: `${count(o.occupiedSpaces)} of ${count(o.totalSpaces)} spaces in use`,
         tone: o.totalSpaces === 0 ? 'neutral' : o.occupancyPct >= 70 ? 'ok' : o.occupancyPct >= 40 ? 'neutral' : 'warn',
         trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs a ${w} ago`,
-        action: () => this.openOccupancy(), actionLabel: 'Open occupancy by location'
+        action: () => this.openOccupancy(), actionLabel: 'Open the occupied rooms by location'
       },
       {
         key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral',
@@ -431,7 +431,11 @@ export class CeoDashboard {
 
   /** Occupancy: by location, then a location by space type, then its spaces. */
   openOccupancy() {
-    this.openDrill('Occupancy', { kind: 'breakdown', metric: 'occupancy-locations', params: {}, crumb: 'By location', local: () => this.occupancyLocations() });
+    // Only the occupied rooms (the chart's location / type drills still show occupied and vacant).
+    this.openDrill('Occupancy', {
+      kind: 'breakdown', metric: 'occupancy-locations', params: { occupied: true }, crumb: 'Occupied rooms by location',
+      local: () => this.occupancyLocations()
+    });
   }
 
   /** Sales figures in the funnel header: conversion (converted quotations), quoted (quotations), booked (bookings). */

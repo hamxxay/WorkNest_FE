@@ -54,6 +54,8 @@ export interface DrillMetricSpec {
   secondary?: (params: CeoParams, row: CeoBreakdownRow) => { label: string; level: DrillLevel<string, string> } | null;
   /** The line under the table; default "Select a row to see the records behind it." */
   hint?: (params: CeoParams) => string;
+  /** Rows to show (default all), e.g. only the locations with an occupied room when the list is occupied rooms only. */
+  keep?: (params: CeoParams, row: CeoBreakdownRow) => boolean;
 }
 
 /** A records list (level 3): rows hold at most 200 (newest first), total is the full count. */
