@@ -261,8 +261,9 @@ export class AuthService {
   }
 
   /**
-   * Creates the Firebase account and sends the verification email. The API is not called yet: it refuses an
-   * unverified email (EMAIL_NOT_VERIFIED). The page shows "Check your email" and, once the link was opened,
+   * Creates the Firebase account and signs in (the API creates the WorkNest account), like a sign-in.
+   * When the API wants a verified email first (EMAIL_NOT_VERIFIED, Security:RequireVerifiedEmail on), the verification
+   * email is sent instead (verificationRequired: true): the page shows "Check your email" and, once the link was opened,
    * completeEmailVerification$ creates the WorkNest account and signs in.
    * emailSent is false when the account was created but the email could not be sent (the page offers "Resend").
    */
@@ -278,24 +279,38 @@ export class AuthService {
       )),
       switchMap(async credential => {
         if (displayName) {
-          // The name the API stores when the account is created after verification.
+          // The name the API stores when it creates the WorkNest account.
           await updateProfile(credential.user, { displayName }).catch(() => undefined);
         }
         return credential;
       }),
-      switchMap(credential => from(sendEmailVerification(credential.user)).pipe(
-        map(() => true),
-        catchError(() => of(false))
-      )),
-      map(emailSent => ({
-        isSuccessful: true,
-        message: emailSent
-          ? `We sent a verification link to ${email}.`
-          : 'Your account was created, but we could not send the verification email.',
-        data: null,
-        verificationRequired: true,
-        emailSent
-      }))
+      // Sign in straight away, as a sign-in would. Only when the API wants a verified email first (EMAIL_NOT_VERIFIED,
+      // its Security:RequireVerifiedEmail setting) is the verification link sent and "Check your email" shown.
+      switchMap(credential => this.syncLoginOrProvisionApi$(credential.user, email, password).pipe(
+        switchMap(response => this.toAuthSuccess(credential, response)),
+        map(result => ({ ...result, verificationRequired: false, emailSent: false })),
+        catchError(error => {
+          const code = authFailureCode(error);
+          if (code === ACCOUNT_DISABLED) return this.refuseSignIn$(error);
+          if (code !== EMAIL_NOT_VERIFIED) {
+            const message = String(error?.error?.message ?? '').trim() || 'Your account was created, but signing in failed. Please sign in.';
+            return throwError(() => ({ error: { message } }));
+          }
+          return from(sendEmailVerification(credential.user)).pipe(
+            map(() => true),
+            catchError(() => of(false)),
+            map(emailSent => ({
+              isSuccessful: true,
+              message: emailSent
+                ? `We sent a verification link to ${email}.`
+                : 'Your account was created, but we could not send the verification email.',
+              data: null,
+              verificationRequired: true,
+              emailSent
+            }))
+          );
+        })
+      ))
     );
   }
 
