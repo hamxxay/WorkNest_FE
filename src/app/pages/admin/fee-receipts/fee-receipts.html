@@ -9,8 +9,8 @@
         </svg>
         <span>Finance & Billing</span>
       </div>
-      <h1>Fee Receipts</h1>
-      <p>Collect invoice payments, record fee receipts, and generate official customer printouts.</p>
+      <h1>Receipts</h1>
+      <p>Collect invoice payments, record receipts, and generate official customer printouts.</p>
     </div>
     <div class="fr-header-actions">
       <div class="fr-tab-pills">
@@ -23,7 +23,7 @@
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span>New Fee Receipt</span>
+          <span>New Receipt</span>
         </button>
         <button 
           type="button" 
@@ -131,7 +131,12 @@
                         @if (inv.invoiceTypeName === 'WHT Invoice') {
                           <span class="fr-badge fr-badge-wht">WHT Invoice</span>
                         }
-                        <span class="fr-dd-amount">PKR {{ inv.netReceivableAmount | number:'1.0-0' }}</span>
+                        @if (inv.amountPaid > 0) {
+                          <span class="fr-badge fr-badge-partial">Part paid</span>
+                        }
+                        <span class="fr-dd-amount" [title]="'Balance PKR ' + (inv.balanceAmount | number:'1.2-2') + ' of PKR ' + (inv.netReceivableAmount | number:'1.2-2')">
+                          PKR {{ inv.balanceAmount | number:'1.0-0' }}@if (inv.amountPaid > 0) {<small> left of {{ inv.netReceivableAmount | number:'1.0-0' }}</small>}
+                        </span>
                       </div>
                     </div>
                   }
@@ -205,7 +210,7 @@
             <div class="fr-breakdown-row total-banner">
               <div class="total-label-wrap">
                 <span class="total-title">Net Receivable Amount</span>
-                <span class="total-hint">Amount received and credited in this receipt</span>
+                <span class="total-hint">What the customer pays on this invoice (net of WHT)</span>
               </div>
               <span class="total-amount mono">PKR {{ inv.netReceivableAmount | number:'1.2-2' }}</span>
             </div>
@@ -219,16 +224,57 @@
           </div>
 
           <div class="fr-form-grid">
-            <!-- Amount (Read-only) -->
-            <div class="fr-form-group">
-              <label class="fr-label">
-                Receipt Amount (PKR) <span class="fr-badge-ro">Read-only</span>
-              </label>
-              <div class="fr-readonly-amount mono">
-                <span>PKR</span>
-                <strong>{{ inv.netReceivableAmount | number:'1.2-2' }}</strong>
+            <!-- Payment mode: Full (the whole balance) or Partial (an amount up to it) -->
+            <div class="fr-form-group fr-span-2">
+              <span class="fr-label" id="fr-mode-label">Payment Mode</span>
+              <div class="fr-mode-seg" role="radiogroup" aria-labelledby="fr-mode-label">
+                <button type="button" role="radio" [attr.aria-checked]="paymentMode() === 'Full'" [class.active]="paymentMode() === 'Full'"
+                  (click)="setPaymentMode('Full')">Full</button>
+                <button type="button" role="radio" [attr.aria-checked]="paymentMode() === 'Partial'" [class.active]="paymentMode() === 'Partial'"
+                  [disabled]="!partialAllowed()" (click)="setPaymentMode('Partial')"
+                  [title]="partialAllowed() ? 'Record part of the balance' : 'Withholding-tax invoices are paid in full only'">Partial</button>
               </div>
-              <span class="fr-field-hint">Automatically calculated from invoice total net of WHT. Cannot be modified.</span>
+              @if (!partialAllowed()) {
+                <span class="fr-field-hint">{{ inv.invoiceTypeName === 'WHT Invoice' ? 'Withholding-tax invoices are paid in full only.' : 'Part payments are not available for this invoice yet.' }}</span>
+              }
+            </div>
+
+            <!-- Amount: the balance (Full, locked) or typed (Partial) -->
+            <div class="fr-form-group">
+              @if (paymentMode() === 'Full') {
+                <label class="fr-label">
+                  Receipt Amount (PKR) <span class="fr-badge-ro">Full balance</span>
+                </label>
+                <div class="fr-readonly-amount mono">
+                  <span>PKR</span>
+                  <strong>{{ balance() | number:'1.2-2' }}</strong>
+                </div>
+                <span class="fr-field-hint">The whole balance left on the invoice.</span>
+              } @else {
+                <label class="fr-label" for="fr-partial-amount">
+                  Amount Received (PKR) <span class="req">*</span>
+                </label>
+                <input id="fr-partial-amount" type="text" inputmode="decimal" autocomplete="off" class="fr-input mono"
+                  [class.input-invalid]="partialAmountTouched() && amountError()"
+                  [ngModel]="partialAmountText()" (ngModelChange)="partialAmountText.set($event)"
+                  (blur)="partialAmountTouched.set(true)"
+                  [attr.aria-invalid]="partialAmountTouched() && !!amountError()" aria-describedby="fr-partial-amount-msg" />
+                @if (partialAmountTouched() && amountError()) {
+                  <small class="field-error-text" id="fr-partial-amount-msg" role="alert">{{ amountError() }}</small>
+                } @else {
+                  <span class="fr-field-hint" id="fr-partial-amount-msg">More than 0, up to PKR {{ balance() | number:'1.2-2' }}.</span>
+                }
+              }
+            </div>
+
+            <!-- The invoice's figures, and what is left after this payment (live) -->
+            <div class="fr-form-group fr-span-2">
+              <div class="fr-pay-figures" aria-live="polite">
+                <div><span>Invoice Total</span><strong class="mono">PKR {{ inv.netReceivableAmount | number:'1.2-2' }}</strong></div>
+                <div><span>Paid So Far</span><strong class="mono">PKR {{ inv.amountPaid | number:'1.2-2' }}</strong></div>
+                <div><span>Balance</span><strong class="mono">PKR {{ balance() | number:'1.2-2' }}</strong></div>
+                <div class="after" [class.zero]="balanceAfter() === 0"><span>Balance After This Payment</span><strong class="mono">PKR {{ balanceAfter() | number:'1.2-2' }}</strong></div>
+              </div>
             </div>
 
             <!-- Receipt Date -->
@@ -379,7 +425,7 @@
                   <polyline points="17 21 17 13 7 13 7 21"/>
                   <polyline points="7 3 7 8 15 8"/>
                 </svg>
-                Generate Fee Receipt
+                Generate Receipt
               }
             </button>
           </div>
@@ -402,7 +448,7 @@
             type="text" 
             class="fr-input fr-toolbar-input"
             placeholder="Search receipt code, customer name, or invoice #..."
-            aria-label="Search fee receipts"
+            aria-label="Search receipts"
             [value]="listSearch()"
             (input)="onListSearchInput($any($event.target).value)"
           />
@@ -452,7 +498,7 @@
         @if (loadingReceipts()) {
           <div class="fr-table-loading">
             <div class="fr-spinner-lg"></div>
-            <span>Loading fee receipts...</span>
+            <span>Loading receipts...</span>
           </div>
         } @else if (receipts().length === 0) {
           <div class="fr-empty-state">
@@ -463,7 +509,7 @@
               <line x1="16" y1="17" x2="8" y2="17"></line>
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-            <p>{{ receiptsFailed() ? 'Fee receipts could not be loaded. Please try again.' : 'No fee receipts found matching your criteria.' }}</p>
+            <p>{{ receiptsFailed() ? 'Receipts could not be loaded. Please try again.' : 'No fee receipts found matching your criteria.' }}</p>
           </div>
         } @else {
           <div class="fr-table-wrap">
@@ -494,7 +540,12 @@
                     </td>
                     <td class="mono">{{ r.invoiceNumber }}</td>
                     <td>{{ r.locationName || '—' }}</td>
-                    <td class="mono font-bold amount-cell">PKR {{ r.totalAmount | number:'1.2-2' }}</td>
+                    <td class="mono font-bold amount-cell">
+                      PKR {{ r.amountPaid | number:'1.2-2' }}
+                      @if (r.balanceAfter) {
+                        <small class="amount-left" [title]="'Left on the invoice after this receipt (of PKR ' + (r.invoiceTotal | number:'1.2-2') + ')'">Balance after PKR {{ r.balanceAfter | number:'1.2-2' }}</small>
+                      }
+                    </td>
                     <td>
                       <div class="cell-acc">
                         <span class="pay-type">{{ r.paymentType }}</span>
@@ -590,7 +641,7 @@
           <path d="m6 6 12 12" />
         </svg>
         </button>
-        <h2 id="fr-void-title">Void Fee Receipt</h2>
+        <h2 id="fr-void-title">Void Receipt</h2>
 
         <div class="fr-alert fr-alert-danger">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -652,7 +703,7 @@
           <path d="m6 6 12 12" />
         </svg>
         </button>
-        <h2 id="fr-receipt-title">Fee Receipt</h2>
+        <h2 id="fr-receipt-title">Receipt</h2>
 
         <!-- Actions Bar (not part of the printed copy) -->
         <div class="fr-receipt-topbar">
@@ -670,6 +721,15 @@
                 <rect x="6" y="14" width="12" height="8"></rect>
               </svg>
               Print Receipt
+            </button>
+            <button type="button" class="fr-btn-secondary fr-btn-compact" (click)="saveReceiptPdf()" [disabled]="savingPdf()"
+              [attr.aria-label]="'Save receipt ' + p.code + ' as PDF'">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              {{ savingPdf() ? 'Saving...' : 'Save as PDF' }}
             </button>
             <button type="button" class="fr-btn-secondary fr-btn-compact" (click)="closePrintModal()">
               Close
@@ -775,12 +835,31 @@
                     <td class="text-right mono">- {{ p.whtAmount | number:'1.2-2' }}</td>
                   </tr>
                 }
+                <!-- Snapshot taken when the receipt was saved: it never changes with later receipts. -->
+                @if (p.invoiceTotal !== null) {
+                  <tr class="row-subtotal">
+                    <td>Invoice Total (Net Receivable)</td>
+                    <td class="text-right mono">{{ p.invoiceTotal | number:'1.2-2' }}</td>
+                  </tr>
+                  @if (p.previousPaid) {
+                    <tr>
+                      <td>Paid Before This Receipt</td>
+                      <td class="text-right mono">- {{ p.previousPaid | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                }
               </tbody>
               <tfoot>
                 <tr class="row-grand-total">
-                  <td>TOTAL AMOUNT RECEIVED</td>
-                  <td class="text-right mono">PKR {{ p.totalAmount | number:'1.2-2' }}</td>
+                  <td>{{ p.balanceAfter ? 'AMOUNT RECEIVED (PART PAYMENT)' : 'TOTAL AMOUNT RECEIVED' }}</td>
+                  <td class="text-right mono">PKR {{ p.amountPaid | number:'1.2-2' }}</td>
                 </tr>
+                @if (p.balanceAfter !== null) {
+                  <tr class="row-balance-after">
+                    <td>Balance Due After This Receipt</td>
+                    <td class="text-right mono">PKR {{ p.balanceAfter | number:'1.2-2' }}</td>
+                  </tr>
+                }
               </tfoot>
             </table>
           </div>

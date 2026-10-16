@@ -35,7 +35,20 @@ export interface UnpaidInvoiceDto {
   grandTotal: number;
   netReceivableAmount: number;
   dropdownDisplay: string;
+  /** Paid so far (net of WHT). */
+  amountPaid: number;
+  /** Left to pay: net receivable less paid so far, never below 0. */
+  balanceAmount: number;
+  /** Unpaid | Partial | Paid. */
+  paymentStatus: string;
+  /** Unpaid | Partial | Overdue. */
+  statusLabel: string;
+  /** False for withholding-tax invoices (paid in full only) and before the database update FR_01. */
+  allowPartial: boolean;
 }
+
+/** Full = the invoice's whole remaining balance (worked out by the server when saving); Partial = an amount up to it. */
+export type PaymentMode = 'Full' | 'Partial';
 
 export interface FeeReceiptAccountDto {
   accountId: number;
@@ -55,6 +68,9 @@ export interface CreateFeeReceiptDto {
   remarks?: string | null;
   depositorName: string;
   depositorCnic: string; // 12345-1234567-1
+  paymentMode: PaymentMode;
+  /** Sent for a Partial payment only. */
+  amount?: number | null;
 }
 
 /** Body of POST /fee-receipts/void (FeeReceiptVoidDto). */
@@ -85,6 +101,15 @@ export interface FeeReceiptListItemDto {
   voidReason: string;
   createdOn: string;
   createdByName: string;
+  /**
+   * Snapshot taken when the receipt was saved (printed receipts use these, never today's invoice figures): what the
+   * invoice asked (net of WHT), paid before, received in this receipt, left after it. Null on receipts saved before the
+   * database update FR_01 (shown from the amount alone).
+   */
+  invoiceTotal: number | null;
+  previousPaid: number | null;
+  amountPaid: number;
+  balanceAfter: number | null;
 }
 
 export interface FeeReceiptDetailDto extends FeeReceiptListItemDto {
@@ -124,6 +149,8 @@ export interface ApiResponse<T> {
   errors?: string[];
 }
 
+const numOrNull = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : Number(v));
+
 /** Maps a FeeReceiptDto (camelCase JSON) from list / get-by-id / create into the view model. */
 function mapReceipt(r: any): FeeReceiptDetailDto {
   r = r ?? {};
@@ -155,6 +182,10 @@ function mapReceipt(r: any): FeeReceiptDetailDto {
     voidReason: r.voidReason ?? '',
     createdOn: r.createdOn ?? '',
     createdByName: r.createdByName ?? '',
+    invoiceTotal: numOrNull(r.invoiceTotal),
+    previousPaid: numOrNull(r.previousPaid),
+    amountPaid: Number(r.amountPaid ?? r.totalAmount ?? 0),
+    balanceAfter: numOrNull(r.balanceAfter),
     invoiceTypeId,
     invoiceTypeName: invoiceTypeLabel(invoiceTypeId, whtAmount),
     roomRentExclTax,
@@ -228,7 +259,12 @@ export class FeeReceiptService {
             securityDepositAmount: Number(r.securityDepositAmount ?? 0),
             grandTotal: Number(r.grandTotal ?? 0),
             netReceivableAmount: Number(r.netReceivableAmount ?? 0),
-            dropdownDisplay: r.displayName || `${custName}-${custCode}-${invNum}`
+            dropdownDisplay: r.displayName || `${custName}-${custCode}-${invNum}`,
+            amountPaid: Number(r.amountPaid ?? 0),
+            balanceAmount: Number(r.balanceAmount ?? r.netReceivableAmount ?? 0),
+            paymentStatus: r.paymentStatus ?? 'Unpaid',
+            statusLabel: r.statusLabel ?? 'Unpaid',
+            allowPartial: r.allowPartial === true
           };
         });
       })
