@@ -63,6 +63,14 @@
   height: 24px;
 }
 
+/* Icons-only sidebar (64px): logo above the menu button, both centred (side by side the button was cut off). */
+.admin-shell.collapsed .sidebar-header {
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 0 10px;
+}
+
 .sidebar-toggle {
   background: none;
   border: none;

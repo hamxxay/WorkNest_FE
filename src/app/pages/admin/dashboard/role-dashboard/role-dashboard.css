@@ -96,7 +96,7 @@ a.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,
 .attention .att-list { max-height: 300px; overflow-y: auto; }
 @media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1280px) { .span-7, .span-5 { grid-column: span 12; } .span-4 { grid-column: span 6; } }
-@media (max-width: 760px) { .span-4 { grid-column: span 12; } .panel-head { flex-direction: column; } }
+@media (max-width: 760px) { .span-4 { grid-column: span 12; } .panel-head { flex-direction: column; } .head-stats div { align-items: flex-start; } }
 @media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .kpi-value { font-size: 1.3rem; } }
 
 /* section headings between role blocks */

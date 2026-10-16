@@ -1479,7 +1479,8 @@
 .loc-option { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; font-size: 0.85rem; color: #334155; cursor: pointer; }
 .loc-option:hover { background: #f1f5f9; }
 .loc-option input { accent-color: #0d9488; }
-.dash-header-actions { display: flex; align-items: center; gap: 10px; }
+.dash-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-report, .btn-new-ann { white-space: nowrap; }
 .updated { font-size: 0.8rem; color: #94a3b8; white-space: nowrap; }
 .icon-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; color: #334155; cursor: pointer; transition: border-color .15s, background .15s; }
 .icon-btn:hover:not(:disabled) { border-color: #94a3b8; background: #f8fafc; }
