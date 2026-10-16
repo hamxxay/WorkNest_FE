@@ -100,6 +100,11 @@ export interface CeoDashboard {
 // ---------- Drill-down level 2 ----------
 export type CeoMetric =
   | 'revenue' | 'aging' | 'occupancy-type' | 'occupancy-location' | 'bookings-month' | 'inquiries-type' | 'staff';
+/**
+ * Level 2 lists the dashboard builds from its own figures (no request): the months of the period (invoiced /
+ * collected), the receivables aging buckets, occupancy by location. Their rows lead to the API breakdowns above.
+ */
+export type CeoLocalMetric = 'revenue-months' | 'aging-buckets' | 'occupancy-locations';
 
 export interface CeoBreakdownRow {
   key: string; label: string; value: number; value2: number | null; count: number | null;

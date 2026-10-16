@@ -3,7 +3,7 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
+  CeoBreakdown, CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
@@ -45,7 +45,6 @@ type ChartKey = 'revenue' | 'aging' | 'occupancy';
 export class CeoDashboard {
   private ceo = inject(CeoService);
   private auth = inject(AuthService);
-  private host = inject(ElementRef<HTMLElement>);
 
   readonly money = money;
   readonly fullMoney = fullMoney;
@@ -215,25 +214,25 @@ export class CeoDashboard {
         key: 'invoiced', label: `Invoiced this ${w}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
         sub: `${money(m.invoicedPrev)} last ${w}`, tone: 'neutral',
         trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs last ${w}`,
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced this ${w} by ${this.revenueBy()}`
       },
       {
         key: 'collected', label: `Collected this ${w}`, value: money(m.collected), full: fullMoney(m.collected),
         sub: `${money(m.collectedPrev)} last ${w}`, tone: 'neutral',
         trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs last ${w}`,
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected this ${w} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
         tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate this ${w} by ${this.revenueBy()}`
       },
       {
         key: 'outstanding', label: 'Outstanding', value: money(m.outstanding), full: fullMoney(m.outstanding),
         sub: `${count(m.outstandingCount)} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}`,
         tone: m.outstanding > 0 ? 'neutral' : 'ok',
-        action: () => this.focusPanel('panel-aging'), actionLabel: 'Show receivables aging'
+        action: () => this.openOutstanding(), actionLabel: 'Open outstanding by days past due'
       },
       {
         key: 'overdue', label: 'Overdue', value: money(m.overdue), full: fullMoney(m.overdue),
@@ -285,10 +284,13 @@ export class CeoDashboard {
         sub: `${count(o.occupiedSpaces)} of ${count(o.totalSpaces)} spaces in use`,
         tone: o.totalSpaces === 0 ? 'neutral' : o.occupancyPct >= 70 ? 'ok' : o.occupancyPct >= 40 ? 'neutral' : 'warn',
         trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs a ${w} ago`,
-        action: () => this.focusPanel('panel-by-location'), actionLabel: 'Show occupancy by location'
+        action: () => this.openOccupancy(), actionLabel: 'Open occupancy by location'
       },
       {
-        key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral'
+        key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral',
+        // records/bookings filters by the day a booking was made: from 2000-01-01 keeps the older ones that still run.
+        action: () => this.openRecords('Active bookings', 'Running today', 'bookings', { status: 'active', from: '2000-01-01' }),
+        actionLabel: 'Open the bookings running today'
       },
       {
         key: 'new', label: `New bookings this ${w}`, value: count(o.newBookings),
@@ -370,6 +372,75 @@ export class CeoDashboard {
 
   closeDrill() { this.drill.set(null); }
 
+  // KPI drill-downs. Level 2 lists built from the dashboard's own figures (the months of the period, the aging
+  // buckets, occupancy by location) lead to the API breakdowns and then the records, as the charts do.
+
+  /** The month the figures run to (the last of the 12-month series), "yyyy-MM". */
+  private currentMonth(): string {
+    const last = this.m()?.months.at(-1)?.month;
+    if (last) return last.slice(0, 7);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  /** What Invoiced / Collected open first: this month by location, a quarter or year by month. */
+  revenueBy = computed(() => (this.shownPeriod() === 'month' ? 'location' : 'month'));
+
+  /** The months of the period so far (calendar quarter / year to date), invoiced and collected. */
+  private periodMonths = computed<CeoBreakdown>(() => {
+    const months = this.m()?.months ?? [];
+    const [y, mo] = this.currentMonth().split('-').map(Number);
+    const first = this.shownPeriod() === 'year' ? 1 : this.shownPeriod() === 'quarter' ? Math.floor((mo - 1) / 3) * 3 + 1 : mo;
+    const rows = months
+      .filter(x => { const [yy, mm] = x.month.split('-').map(Number); return yy === y && mm >= first && mm <= mo; })
+      .map(x => ({ key: x.month.slice(0, 7), label: monthLong(x.month), value: x.invoiced, value2: x.collected, count: null }));
+    return { title: 'Invoiced and collected by month', subtitle: this.periodTitle(), valueLabel: 'Invoiced', value2Label: 'Collected', rows };
+  });
+
+  /** Outstanding by days past due (the aging buckets). */
+  private agingBuckets = computed<CeoBreakdown>(() => ({
+    title: 'Outstanding by days past due', subtitle: 'Unpaid invoices, as of today', valueLabel: 'Outstanding', value2Label: null,
+    rows: (this.m()?.aging ?? []).map(a => ({ key: a.bucket, label: a.label, value: a.amount, value2: null, count: a.count }))
+  }));
+
+  /** Occupancy by location, as of today. */
+  private occupancyLocations = computed<CeoBreakdown>(() => ({
+    title: 'Occupancy by location', subtitle: 'Occupied of all spaces, as of today', valueLabel: 'Occupied', value2Label: 'Spaces',
+    rows: (this.o()?.byLocation ?? []).map(l => ({
+      key: l.locationId > 0 ? String(l.locationId) : '', label: l.name, value: l.occupied, value2: l.total, count: null
+    }))
+  }));
+
+  /** Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices. */
+  openRevenue(root: string, status: 'paid' | null) {
+    const extra = status ? { status } : {};
+    if (this.shownPeriod() === 'month') {
+      const month = this.currentMonth();
+      this.openDrill(root, { kind: 'breakdown', metric: 'revenue', params: { month, ...extra }, crumb: monthLong(month) });
+    } else {
+      this.openDrill(root, {
+        kind: 'breakdown', metric: 'revenue-months', params: extra, crumb: this.periodTitle(), local: () => this.periodMonths()
+      });
+    }
+  }
+
+  /** Outstanding: the aging buckets, then a bucket by location, then its invoices. */
+  openOutstanding() {
+    this.openDrill('Outstanding', { kind: 'breakdown', metric: 'aging-buckets', params: {}, crumb: 'By days past due', local: () => this.agingBuckets() });
+  }
+
+  /** Occupancy: by location, then a location by space type, then its spaces. */
+  openOccupancy() {
+    this.openDrill('Occupancy', { kind: 'breakdown', metric: 'occupancy-locations', params: {}, crumb: 'By location', local: () => this.occupancyLocations() });
+  }
+
+  /** Sales figures in the funnel header: conversion (converted quotations), quoted (quotations), booked (bookings). */
+  openSalesFigure(which: 'conversion' | 'quoted' | 'booked') {
+    if (which === 'conversion') this.openRecords('Sales funnel', 'Converted quotations', 'quotations', { stage: 'converted' });
+    else if (which === 'quoted') this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' });
+    else this.openRecords('Sales funnel', 'Bookings', 'bookings', {});
+  }
+
   openRevenueMonth(i: number) {
     const month = this.m()?.months[i];
     if (month) this.openDrill('Revenue', { kind: 'breakdown', metric: 'revenue', params: { month: month.month }, crumb: monthLong(month.month) });
@@ -415,19 +486,6 @@ export class CeoDashboard {
 
   openPerson(userId: number, name: string) {
     this.openDrill('Team', { kind: 'breakdown', metric: 'staff', params: { userId }, crumb: name });
-  }
-
-  /** KPI that points at a chart: scroll it into view and move focus there. */
-  focusPanel(id: string) {
-    const el = this.host.nativeElement.querySelector(`#${id}`) as HTMLElement | null;
-    if (!el) return;
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-    el.focus({ preventScroll: true });
-    el.classList.remove('flash');
-    void el.offsetWidth;
-    el.classList.add('flash');
-    setTimeout(() => el.classList.remove('flash'), 1600);
   }
 
   // ---------- charts ----------

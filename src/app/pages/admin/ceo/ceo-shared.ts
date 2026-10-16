@@ -1,6 +1,8 @@
 import { Observable } from 'rxjs';
 import { Chart } from '../access/access-shared';
-import { CeoBreakdown, CeoBreakdownRow, CeoError, CeoMetric, CeoParams, CeoPeriod, CeoRecordKind } from '../../../services/ceo.service';
+import {
+  CeoBreakdown, CeoBreakdownRow, CeoError, CeoLocalMetric, CeoMetric, CeoParams, CeoPeriod, CeoRecordKind
+} from '../../../services/ceo.service';
 
 export { Chart };
 
@@ -10,8 +12,15 @@ export { Chart };
  * One drawer level: a breakdown (level 2) or a records list (level 3). M / R are the dashboard's metric and
  * record names (the CEO ones by default).
  */
-export type DrillLevel<M extends string = CeoMetric, R extends string = CeoRecordKind> =
-  | { kind: 'breakdown'; metric: M; params: CeoParams; crumb: string }
+export type DrillLevel<M extends string = CeoMetric | CeoLocalMetric, R extends string = CeoRecordKind> =
+  | {
+      kind: 'breakdown'; metric: M; params: CeoParams; crumb: string;
+      /**
+       * A level built from the dashboard's own figures instead of a request (e.g. the months of the period); read
+       * again whenever they change (keep it a computed so the same figures give the same object).
+       */
+      local?: () => CeoBreakdown;
+    }
   | {
       kind: 'records'; records: R; params: CeoParams; crumb: string;
       /** A row to mark in the list (its id), e.g. the complaint that was selected on the dashboard. */
@@ -19,7 +28,7 @@ export type DrillLevel<M extends string = CeoMetric, R extends string = CeoRecor
     };
 
 /** Opens the drawer: `root` is the first breadcrumb ("Revenue"), `level` the first level shown. */
-export interface DrillRequest<M extends string = CeoMetric, R extends string = CeoRecordKind> {
+export interface DrillRequest<M extends string = CeoMetric | CeoLocalMetric, R extends string = CeoRecordKind> {
   id: number; root: string; level: DrillLevel<M, R>;
 }
 
