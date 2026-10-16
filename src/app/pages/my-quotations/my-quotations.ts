@@ -268,10 +268,6 @@ export class MyQuotations implements OnInit {
     return this.getSpaceType(item) === 'SharedSpace';
   }
 
-  isPrivateRoom(item: any): boolean {
-    return this.getSpaceType(item) === 'PrivateRoom';
-  }
-
   downloadingPdf = signal(false);
 
   downloadPdf(q?: any) {

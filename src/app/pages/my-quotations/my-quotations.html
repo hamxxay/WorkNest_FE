@@ -113,7 +113,7 @@
               <span class="term-value">{{ activeQuotation().billingPeriodMonths || 3 }} Months</span>
             </div>
 
-            @if (isPrivateRoom(activeQuotation())) {
+            @if (activeQuotation().securityDeposit > 0) {
               <div class="term-box">
                 <span class="term-label">Security Deposit</span>
                 <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-0' }}</span>

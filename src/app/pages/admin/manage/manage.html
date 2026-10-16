@@ -976,8 +976,10 @@
               style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
           <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong
               style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:'1.0-0' }}</strong></div>
+          @if ((s.payment?.securityDeposit ?? 0) > 0) {
           <div><span style="color:#64748b;font-size:.7rem;display:block">Security Deposit</span><strong
-              style="color:#475569">PKR {{ (s.payment?.securityDeposit ?? 0) | number:'1.0-0' }}</strong></div>
+              style="color:#475569">PKR {{ s.payment?.securityDeposit | number:'1.0-0' }}</strong></div>
+          }
           <div><span style="color:#64748b;font-size:.7rem;display:block">Next Bill Due</span><strong
               style="color:#0284c7">{{ s.payment?.nextBillDueDate ? (s.payment?.nextBillDueDate | date:"mediumDate") :
               "N/A" }}</strong></div>
@@ -2010,7 +2012,7 @@
             <option [ngValue]="o.v">{{ o.l }}</option>
             }
           </select>
-          <small id="qSecMonthsHint" style="color:#64748b;font-size:0.75rem" aria-live="polite">
+          <small id="qSecMonthsHint" style="color:#64748b;font-size:0.75rem">
             @if (effectiveQuotationSecurityDeposit > 0) {
             Deposit: <strong style="color:#0f172a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.0-2' }}</strong>
             ({{ quotationDepositMonths }} x monthly rent, less the rent discount)
@@ -2451,7 +2453,7 @@
             <option [ngValue]="o.v">{{ o.l }}</option>
             }
           </select>
-          <small id="bookingSecMonthsHint" style="color:#64748b;font-size:0.75rem" aria-live="polite">
+          <small id="bookingSecMonthsHint" style="color:#64748b;font-size:0.75rem">
             @if (effectiveSecurityDeposit > 0) {
             Deposit: <strong style="color:#0f172a">PKR {{ effectiveSecurityDeposit | number:'1.0-2' }}</strong>
             ({{ bookingDepositMonths }} x monthly rent, less the rent discount)
