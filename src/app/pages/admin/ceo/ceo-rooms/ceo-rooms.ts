@@ -10,12 +10,13 @@ import {
   applyChartDefaults, count, fullMoney, money, pct, periodWord, pointerOnHover
 } from '../ceo-shared';
 import {
-  NOW_FILTERS, NowFilter, PRICING_COLORS, PRICING_FILTERS, PRICING_HOVER, PRICING_LABELS, PricingFilter, RoomRow, RoomSale,
-  SHIFT_FILTERS, ShiftFilter, amount, clip, filterRows, pricingCounts, roomKey, roomLabel, roomRows, roomsLeastOccupied, rowMatches,
-  saleLabel, salesWorstFirst, signedAmount, signedPct
+  MAP_FILTERS, MapFilter, NOT_LET_COLOR, PRICING_COLORS, PRICING_HOVER, PRICING_LABELS, RoomSale, RoomTile, SHIFT_FILTERS,
+  ShiftFilter, amount, clip, mapCounts, rentByGroup, roomGroups, roomLabel, roomsLeastOccupied, saleLabel, salesWorstFirst,
+  signedAmount, signedPct, tileMatches, tileText
 } from './rooms-view';
+import type { CeoRoom, CeoRoomSale } from '../../../../services/ceo.service';
 
-type ChartKey = 'shift' | 'price' | 'occ';
+type ChartKey = 'shift' | 'price' | 'occ' | 'rent';
 
 /** Bars a room chart shows before "Show all". */
 const CHART_LIMIT = 12;
@@ -26,7 +27,8 @@ const AXIS_PX = 44;
 /**
  * Rooms section of the CEO dashboard: private offices and shared spaces, their occupancy (now and in the period) and
  * the price each confirmed booking was sold at against the list (Morning / Evening against the shift price). KPI
- * cards, three charts and a filterable table; a chart mark leads to its row in the table. Follows the dashboard's
+ * cards, four charts and a room map (every room as a tile coloured by its price, a card with the selected room's
+ * tenant and price); a chart mark selects its room on the map. Follows the dashboard's
  * period and location. Data: GET api/ceo/rooms (database update CEO_02; before it, only the API's message shows).
  */
 @Component({
@@ -56,9 +58,10 @@ export class CeoRoomsSection {
   readonly roomLabel = roomLabel;
   readonly shifts = CEO_SHIFTS;
   readonly shiftFilters = SHIFT_FILTERS;
-  readonly nowFilters = NOW_FILTERS;
   readonly pricingLabels = PRICING_LABELS;
   readonly pricingColors = PRICING_COLORS;
+  readonly notLetColor = NOT_LET_COLOR;
+  readonly tileText = tileText;
   readonly limit = CHART_LIMIT;
 
   data = signal<CeoRooms | null>(null);
@@ -66,12 +69,12 @@ export class CeoRoomsSection {
   refreshing = signal(false);
   error = signal<CeoError | null>(null);
 
+  /** Room map: the shift whose bookings colour the tiles, the tiles highlighted, the room in the card. */
   shift = signal<ShiftFilter>('all');
-  pricing = signal<PricingFilter>('all');
-  now = signal<NowFilter>('all');
+  mapFilter = signal<MapFilter>('all');
+  selectedId = signal<number | null>(null);
   showAllPrices = signal(false);
   showAllOcc = signal(false);
-  shiftTable = signal(false);
   chartAnnounce = signal('');
 
   private sub: Subscription | null = null;
@@ -81,6 +84,7 @@ export class CeoRoomsSection {
   private shiftCanvas = viewChild<ElementRef<HTMLCanvasElement>>('shiftCanvas');
   private priceCanvas = viewChild<ElementRef<HTMLCanvasElement>>('priceCanvas');
   private occCanvas = viewChild<ElementRef<HTMLCanvasElement>>('occCanvas');
+  private rentCanvas = viewChild<ElementRef<HTMLCanvasElement>>('rentCanvas');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => { this.sub?.unsubscribe(); this.destroyCharts(); });
@@ -143,12 +147,12 @@ export class CeoRoomsSection {
       {
         key: 'occupied', label: 'Occupied now', value: `${count(s.occupiedNow)} of ${count(s.rooms)}`,
         sub: `${pct(s.occupancyNowPct)} of the rooms`, tone: occTone(s.occupancyNowPct),
-        action: () => this.showRows({ now: 'occupied' }), actionLabel: 'Open the rooms occupied now'
+        action: () => this.showMap({ filter: 'inuse' }), actionLabel: 'Show the rooms in use now on the room map'
       },
       {
         key: 'vacant', label: 'Vacant now', value: count(s.vacantNow),
         sub: s.vacantNow ? 'No tenant today' : 'Every room is let', tone: s.vacantNow ? 'warn' : 'ok',
-        action: () => this.showRows({ now: 'vacant' }), actionLabel: 'Open the rooms vacant now'
+        action: () => this.showMap({ filter: 'vacantnow' }), actionLabel: 'Show the rooms vacant now on the room map'
       },
       {
         key: 'period', label: 'Days occupied', value: pct(s.periodOccupancyPct),
@@ -158,16 +162,16 @@ export class CeoRoomsSection {
       {
         key: 'under', label: 'Under price', value: sales(s.under), full: `${fullMoney(s.underGapMonthly)} a month short`,
         sub: s.under ? `-${money(s.underGapMonthly)} a month` : 'No gap', tone: s.under ? 'danger' : 'ok',
-        action: () => this.showRows({ pricing: 'under' }), actionLabel: 'Open the sales under the price'
+        action: () => this.showMap({ filter: 'under' }), actionLabel: 'Show the rooms sold under the price on the room map'
       },
       {
         key: 'at', label: 'At price', value: sales(s.at), sub: 'Within 0.5% of the price', tone: 'neutral',
-        action: () => this.showRows({ pricing: 'at' }), actionLabel: 'Open the sales at the price'
+        action: () => this.showMap({ filter: 'at' }), actionLabel: 'Show the rooms sold at the price on the room map'
       },
       {
         key: 'over', label: 'Over price', value: sales(s.over), full: `${fullMoney(s.overPremiumMonthly)} a month extra`,
         sub: s.over ? `+${money(s.overPremiumMonthly)} a month` : 'No premium', tone: s.over ? 'ok' : 'neutral',
-        action: () => this.showRows({ pricing: 'over' }), actionLabel: 'Open the sales over the price'
+        action: () => this.showMap({ filter: 'over' }), actionLabel: 'Show the rooms sold over the price on the room map'
       }
     ];
   });
@@ -181,25 +185,64 @@ export class CeoRoomsSection {
   /** Sales without a list price (left out of the per-seat chart). */
   unpricedCount = computed(() => this.rooms().reduce((a, r) => a + r.sales.filter(x => x.pricing === 'unpriced').length, 0));
 
-  // ---------- table ----------
+  // ---------- room map ----------
 
-  allRows = computed(() => roomRows(this.rooms()));
-  rows = computed(() => filterRows(this.allRows(), this.shift(), this.pricing(), this.now()));
-  counts = computed(() => pricingCounts(this.allRows(), this.shift(), this.now()));
-  /** "No list price" is offered only while there are such sales. */
-  pricingFilters = computed(() => PRICING_FILTERS.filter(f => f.key !== 'unpriced'
-    || this.allRows().some(r => r.sale?.pricing === 'unpriced') || this.pricing() === 'unpriced'));
-  filtered = computed(() => this.shift() !== 'all' || this.pricing() !== 'all' || this.now() !== 'all');
+  groups = computed(() => roomGroups(this.rooms(), this.shift()));
+  private tiles = computed(() => this.groups().flatMap(g => g.tiles));
+  mapCounts = computed(() => mapCounts(this.tiles()));
+  /** "No list price" is offered only while there are such bookings (or it is the chosen filter). */
+  mapFilters = computed(() => MAP_FILTERS.filter(f => f.key !== 'unpriced' || this.mapCounts().unpriced > 0 || this.mapFilter() === 'unpriced'));
+  mapFiltered = computed(() => this.shift() !== 'all' || this.mapFilter() !== 'all');
+  letRooms = computed(() => this.tiles().filter(t => t.sales.length).length);
+  /** The room in the card (null: none chosen, or it left with a new period / location). */
+  selected = computed<RoomTile | null>(() => {
+    const id = this.selectedId();
+    return id === null ? null : this.tiles().find(t => t.room.spaceId === id) ?? null;
+  });
+  /** The tile that takes Tab (the chosen one, else the first); arrow keys move from there. */
+  tabStop = computed(() => this.selected()?.i ?? this.tiles()[0]?.i ?? -1);
 
   setShift(f: ShiftFilter) { this.shift.set(f); }
-  setPricing(f: PricingFilter) { this.pricing.set(f); }
-  setNow(f: NowFilter) { this.now.set(f); }
-  clearFilters() { this.shift.set('all'); this.pricing.set('all'); this.now.set('all'); }
+  setMapFilter(f: MapFilter) { this.mapFilter.set(this.mapFilter() === f && f !== 'all' ? 'all' : f); }
+  clearMap() { this.shift.set('all'); this.mapFilter.set('all'); }
+  matches(t: RoomTile) { return tileMatches(t, this.mapFilter()); }
+  select(t: RoomTile) { this.selectedId.set(this.selectedId() === t.room.spaceId ? null : t.room.spaceId); }
+  chipColor(f: MapFilter): string | null {
+    return f === 'none' ? NOT_LET_COLOR : f in PRICING_COLORS ? PRICING_COLORS[f as CeoPricing] : null;
+  }
+
+  /** What a tile says to a screen reader: room, place, now, and how it was sold. */
+  tileAria(t: RoomTile): string {
+    const r = t.room;
+    const sold = t.sales.length
+      ? t.sales.map(x => `${x.customer}, ${x.shift}, ${x.pricing === 'unpriced' ? 'no list price' : PRICING_LABELS[x.pricing].toLowerCase() + ' the price'}`).join('; ')
+      : `not let this ${this.word()}`;
+    return `${r.name}, ${r.spaceType}, ${r.location}, ${r.seats} seats, ${r.occupiedNow ? 'in use' : 'vacant'} now: ${sold}`;
+  }
+
+  /** Arrow keys move along the map (Home / End: first / last room); Enter or Space opens the card. */
+  tileKey(e: KeyboardEvent, t: RoomTile) {
+    const last = this.tiles().length - 1;
+    const to = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? t.i + 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? t.i - 1
+      : e.key === 'Home' ? 0 : e.key === 'End' ? last : null;
+    if (to === null) return;
+    e.preventDefault();
+    const next = Math.max(0, Math.min(last, to));
+    (this.host.nativeElement.querySelector(`[data-tile="${next}"]`) as HTMLElement | null)?.focus();
+  }
+
+  /** The selected room's bookings with the bar widths of their price graphic (sold against expected per seat). */
+  selectedSales = computed(() => {
+    const t = this.selected();
+    if (!t) return [];
+    return t.sales.map(x => {
+      const top = Math.max(x.soldSeatPrice, x.expectedSeatPrice, 1) * 1.12;
+      return { sale: x, soldW: (x.soldSeatPrice / top) * 100, expL: (x.expectedSeatPrice / top) * 100 };
+    });
+  });
 
   /** Expected per seat explained for a shift booking ("35,000 less the Morning cap of 20%"). */
-  expectedNote(row: RoomRow): string {
-    const s = row.sale;
-    if (!s) return '';
+  expectedNote(s: CeoRoomSale): string {
     if (s.pricing === 'unpriced') return 'The room has no list price';
     // 24/7 is compared with the full list (a cap stored for 24/7 is not applied).
     if (s.shift === '24/7') return `List ${amount(s.listSeatPriceAtSale)} a seat`;
@@ -220,39 +263,37 @@ export class CeoRoomsSection {
   occShown = computed(() => this.showAllOcc() ? this.leastOccupied() : this.leastOccupied().slice(0, CHART_LIMIT));
   occHeight = computed(() => Math.max(150, this.occShown().length * ROW_PX + AXIS_PX));
 
-  // ---------- leading to the rows ----------
+  /** Rent per location and space type (every shift). */
+  rent = computed(() => rentByGroup(roomGroups(this.rooms(), 'all')));
+  rentEmpty = computed(() => !this.rent().some(r => r.sold || r.below || r.notLet));
+  rentHeight = computed(() => Math.max(170, this.rent().length * 46 + 70));
+  rentTotals = computed(() => this.rent().reduce((a, r) => ({ sold: a.sold + r.sold, below: a.below + r.below, notLet: a.notLet + r.notLet }), { sold: 0, below: 0, notLet: 0 }));
 
-  /** Sets the table filters (the rest back to All) and brings the table into view. */
-  showRows(f: { shift?: ShiftFilter; pricing?: PricingFilter; now?: NowFilter }) {
+  // ---------- leading to the map ----------
+
+  /** Sets the map's shift and highlight (the rest back to All) and brings the map into view. */
+  showMap(f: { shift?: ShiftFilter; filter?: MapFilter }) {
     this.shift.set(f.shift ?? 'all');
-    this.pricing.set(f.pricing ?? 'all');
-    this.now.set(f.now ?? 'all');
-    afterNextRender(() => this.focusEl('panel-rooms-table'), { injector: this.injector });
+    this.mapFilter.set(f.filter ?? 'all');
+    afterNextRender(() => this.focusEl('panel-rooms-map'), { injector: this.injector });
   }
 
-  /** Brings one row into view (clearing filters that hide it) and marks it for a moment. */
-  showRow(key: string) {
-    const row = this.allRows().find(r => r.key === key);
-    if (!row) return;
-    if (!rowMatches(row, this.shift(), this.pricing(), this.now())) this.clearFilters();
+  /** Opens a room's card on the map and brings its tile into view. */
+  showRoomOnMap(room: CeoRoom) {
+    this.selectedId.set(room.spaceId);
     afterNextRender(() => {
-      const el = this.host.nativeElement.querySelector(`#rooms-row-${key}`) as HTMLElement | null;
+      const t = this.selected();
+      const el = t ? this.host.nativeElement.querySelector(`[data-tile="${t.i}"]`) as HTMLElement | null : null;
       if (!el) return;
       const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-      el.setAttribute('tabindex', '-1');
       el.focus({ preventScroll: true });
       this.flash(el);
     }, { injector: this.injector });
   }
 
-  showSale(i: number) { const x = this.worstShown()[i]; if (x) this.showRow(x.key); }
-  showRoom(i: number) {
-    const room = this.occShown()[i];
-    if (!room) return;
-    const first = this.allRows().find(r => r.room === room);
-    this.showRow(first?.key ?? roomKey(room));
-  }
+  showSale(i: number) { const x = this.worstShown()[i]; if (x) this.showRoomOnMap(x.room); }
+  showRoom(i: number) { const room = this.occShown()[i]; if (room) this.showRoomOnMap(room); }
 
   focusEl(id: string) {
     const el = this.host.nativeElement.querySelector(`#${id}`) as HTMLElement | null;
@@ -277,9 +318,9 @@ export class CeoRoomsSection {
     count: () => (this.s()?.byShift.length ?? 0),
     describe: i => {
       const x = this.s()?.byShift[i];
-      return x ? `${x.shift}: ${x.under} under, ${x.at} at, ${x.over} over the price${x.unpriced ? `, ${x.unpriced} with no list price` : ''}. Press Enter for the rows.` : '';
+      return x ? `${x.shift}: ${x.under} under, ${x.at} at, ${x.over} over the price${x.unpriced ? `, ${x.unpriced} with no list price` : ''}. Press Enter to show them on the room map.` : '';
     },
-    pick: i => { const x = this.s()?.byShift[i]; if (x) this.showRows({ shift: x.shift }); },
+    pick: i => { const x = this.s()?.byShift[i]; if (x) this.showMap({ shift: x.shift }); },
     announce: t => this.chartAnnounce.set(t)
   });
 
@@ -288,7 +329,7 @@ export class CeoRoomsSection {
     count: () => this.worstShown().length,
     describe: i => {
       const x = this.worstShown()[i];
-      return x ? `${x.room.name}, ${x.sale.customer}, ${x.sale.shift}: sold ${fullMoney(x.sale.soldSeatPrice)} a seat, expected ${fullMoney(x.sale.expectedSeatPrice)}, ${PRICING_LABELS[x.sale.pricing].toLowerCase()} the price. Press Enter for the row.` : '';
+      return x ? `${x.room.name}, ${x.sale.customer}, ${x.sale.shift}: sold ${fullMoney(x.sale.soldSeatPrice)} a seat, expected ${fullMoney(x.sale.expectedSeatPrice)}, ${PRICING_LABELS[x.sale.pricing].toLowerCase()} the price. Press Enter for the room.` : '';
     },
     pick: i => this.showSale(i),
     announce: t => this.chartAnnounce.set(t)
@@ -299,7 +340,7 @@ export class CeoRoomsSection {
     count: () => this.occShown().length,
     describe: i => {
       const r = this.occShown()[i];
-      return r ? `${r.name}: occupied ${pct(r.periodOccupancyPct)} of the days so far, ${r.occupiedNow ? 'occupied' : 'vacant'} now. Press Enter for the row.` : '';
+      return r ? `${r.name}: occupied ${pct(r.periodOccupancyPct)} of the days so far, ${r.occupiedNow ? 'occupied' : 'vacant'} now. Press Enter for the room.` : '';
     },
     pick: i => this.showRoom(i),
     announce: t => this.chartAnnounce.set(t)
@@ -331,6 +372,7 @@ export class CeoRoomsSection {
     const shiftCanvas = this.shiftCanvas();
     const priceCanvas = this.priceCanvas();
     const occCanvas = this.occCanvas();
+    const rentCanvas = this.rentCanvas();
     const worst = this.worstShown();
     const occ = this.occShown();
     if (!d || !d.available) { this.destroyCharts(); return; }
@@ -365,7 +407,7 @@ export class CeoRoomsSection {
           if (!els.length) return;
           const hit = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false)[0];
           const x = byShift[els[0].index];
-          if (x) this.showRows({ shift: x.shift, pricing: hit ? pricings[hit.datasetIndex] : 'all' });
+          if (x) this.showMap({ shift: x.shift, filter: hit ? pricings[hit.datasetIndex] : 'all' });
         },
         plugins: {
           legend: LEGEND,
@@ -377,7 +419,7 @@ export class CeoRoomsSection {
               footer: (items: any[]) => {
                 const x = byShift[items[0]?.dataIndex];
                 return x && x.sales
-                  ? [`Sold ${fullMoney(x.soldMonthly)} vs ${fullMoney(x.expectedMonthly)} a month`, 'Click for the rows']
+                  ? [`Sold ${fullMoney(x.soldMonthly)} vs ${fullMoney(x.expectedMonthly)} a month`, 'Click to show them on the room map']
                   : '';
               }
             }
@@ -444,7 +486,7 @@ export class CeoRoomsSection {
               },
               footer: (items: any[]) => {
                 const x = worst[items[0]?.dataIndex];
-                return x ? [`${x.sale.customer} · ${x.sale.shift} · ${x.sale.seatsSold} seat${x.sale.seatsSold === 1 ? '' : 's'}`, 'Click for the row'] : '';
+                return x ? [`${x.sale.customer} · ${x.sale.shift} · ${x.sale.seatsSold} seat${x.sale.seatsSold === 1 ? '' : 's'}`, 'Click for the room'] : '';
               }
             }
           }
@@ -489,13 +531,64 @@ export class CeoRoomsSection {
                 const r = occ[c.dataIndex];
                 return r ? ` ${r.occupiedNow ? 'Occupied' : 'Vacant'} now · ${r.seats} seat${r.seats === 1 ? '' : 's'}` : '';
               },
-              footer: () => 'Click for the row'
+              footer: () => 'Click for the room'
             }
           }
         },
         scales: {
           x: { min: 0, max: 100, grid: GRID, border: { display: false }, ticks: { stepSize: 25, padding: 6, callback: (v: any) => v + '%' } },
           y: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, callback: yLabel(occLabels) } }
+        }
+      }
+    });
+
+    // 4. A month's rent per location and space type: sold, missed below the price, rooms not let (at list).
+    const rent = this.rent();
+    const parts: { key: 'sold' | 'below' | 'notLet'; label: string; color: string; hover: string }[] = [
+      { key: 'sold', label: 'Sold', color: TEAL, hover: TEAL_DARK },
+      { key: 'below', label: 'Missed below the price', color: PRICING_COLORS.under, hover: PRICING_HOVER.under },
+      { key: 'notLet', label: 'Rooms not let, at list', color: NOT_LET_COLOR, hover: '#cbd5e1' }
+    ];
+    const rentLabels = rent.map(r => r.label);
+    this.upsert('rent', this.rentEmpty() ? undefined : rentCanvas, {
+      type: 'bar',
+      data: {
+        labels: rentLabels,
+        datasets: parts.map(p => ({
+          label: p.label, data: rent.map(r => r[p.key]), stack: 'rent',
+          backgroundColor: p.color, hoverBackgroundColor: p.hover,
+          borderColor: '#fff', borderWidth: { top: 0, right: 2, bottom: 0, left: 0 }, borderSkipped: false, borderRadius: 4,
+          maxBarThickness: 30, categoryPercentage: 0.8, barPercentage: 0.9
+        }))
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', axis: 'y', intersect: false },
+        onHover: pointerOnHover,
+        onClick: (e: any, els: any[], chart: Chart) => {
+          if (!els.length) return;
+          const hit = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false)[0];
+          const part = hit ? parts[hit.datasetIndex].key : null;
+          this.showMap({ filter: part === 'below' ? 'under' : part === 'notLet' ? 'none' : 'all' });
+        },
+        plugins: {
+          legend: LEGEND,
+          tooltip: {
+            ...TOOLTIP,
+            callbacks: {
+              title: (items: any[]) => rentLabels[items[0]?.dataIndex] ?? '',
+              label: (c: any) => ` ${c.dataset.label}: ${fullMoney(c.parsed.x)}`,
+              footer: (items: any[]) => {
+                const r = rent[items[0]?.dataIndex];
+                if (!r) return '';
+                return [...(r.premium ? [`Over the price: +${fullMoney(r.premium)} (inside sold)`] : []), 'Click to show it on the room map'];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, beginAtZero: true, grid: GRID, border: { display: false }, ticks: { ...AXIS_MONEY, maxTicksLimit: 5 } },
+          y: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, callback: yLabel(rentLabels) } }
         }
       }
     });
