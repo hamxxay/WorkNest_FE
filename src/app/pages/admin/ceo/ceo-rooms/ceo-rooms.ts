@@ -18,6 +18,12 @@ import type { CeoRoom, CeoRoomSale } from '../../../../services/ceo.service';
 
 type ChartKey = 'mix' | 'off' | 'occ' | 'rent';
 
+/** The next round number at or above v (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8 x 10^n): axis ends people can read. */
+function niceCeil(v: number): number {
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  return ([1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(f => f * p >= v) ?? 10) * p;
+}
+
 /** Bars a room chart shows before "Show all". */
 const CHART_LIMIT = 12;
 /** Height of one bar row on the per-room charts, and room for the axis. */
@@ -393,7 +399,7 @@ export class CeoRoomsSection {
 
     /** A tick label cut to the chart's width (phones get short names). */
     const yLabel = (labels: string[]) => function (this: any, _v: any, i: number) {
-      return clip(labels[i] ?? '', this.chart.width < 420 ? 13 : 22);
+      return clip(labels[i] ?? '', this.chart.width < 420 ? 14 : 26);
     };
 
     // 1. Under / at / over: a donut of the bookings; a part shows those rooms on the map.
@@ -429,8 +435,8 @@ export class CeoRoomsSection {
     });
 
     // 2. Bookings off the price: how far under (left, red) or over (right, teal) a month, from 0.
-    const offLabels = off.map(x => saleLabel(x.room, x.sale));
-    const reach = Math.max(1, ...off.map(x => Math.abs(x.sale.varianceMonthly)));
+    const offLabels = off.map(x => `${saleLabel(x.room, x.sale)} · ${x.sale.customer}`);
+    const reach = niceCeil(Math.max(1, ...off.map(x => Math.abs(x.sale.varianceMonthly))) * 1.1);
     this.upsert('off', off.length ? offCanvas : undefined, {
       type: 'bar',
       data: {
@@ -474,8 +480,8 @@ export class CeoRoomsSection {
         scales: {
           // symmetric around 0, so under and over read against the same middle line
           x: {
-            min: -reach * 1.15, max: reach * 1.15, grid: { ...GRID, color: (c: any) => (c.tick?.value === 0 ? '#94a3b8' : GRID.color) },
-            border: { display: false }, ticks: { ...AXIS_MONEY, maxTicksLimit: 5, callback: (v: any) => signedAmount(Number(v)) }
+            min: -reach, max: reach, grid: { ...GRID, color: (c: any) => (c.tick?.value === 0 ? '#94a3b8' : GRID.color) },
+            border: { display: false }, ticks: { padding: 8, stepSize: reach / 2, callback: (v: any) => signedAmount(Number(v)) }
           },
           y: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, callback: yLabel(offLabels) } }
         }

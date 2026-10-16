@@ -7,6 +7,9 @@
 /* ---------- grid ---------- */
 .kpi-grid.kpi-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .span-12 { grid-column: span 12; }
+/* two panels stacked in one grid column (beside the donut); the last one takes the rest of the height */
+.stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.stack > .dash-panel:last-child { flex: 1; }
 .chart-empty-icon.db { background: #fef3c7; color: #b45309; }
 
 /* ---------- charts ---------- */
