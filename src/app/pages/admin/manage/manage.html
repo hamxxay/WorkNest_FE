@@ -1630,10 +1630,16 @@
           <div>1. The price is exclusive of all the taxes.</div>
           <div>2. Worknest will charge Provincial Sales Tax on service.</div>
           <div>3. Payment must be made before the challan expiry date to confirm the booking.</div>
-          <div>4. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
-          <div>5. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.
-          </div>
-          <div>6. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          @if (getChallanSecurityDeposit(c) > 0) {
+            <div>4. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
+            <div>5. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.
+            </div>
+            <div>6. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          } @else {
+            <!-- No security deposit: no deposit terms (owner's rule, 16 Oct 2026) -->
+            <div>4. Cancellation policy applies as per the signed agreement.</div>
+            <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          }
         </div>
       </div>
 
@@ -2012,7 +2018,7 @@
             <option [ngValue]="o.v">{{ o.l }}</option>
             }
           </select>
-          <small id="qSecMonthsHint" style="color:#64748b;font-size:0.75rem">
+          <small id="qSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
             @if (effectiveQuotationSecurityDeposit > 0) {
             Deposit: <strong style="color:#0f172a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.0-2' }}</strong>
             ({{ quotationDepositMonths }} x monthly rent, less the rent discount)
@@ -2026,7 +2032,7 @@
           <select id="qSecMonths" class="form-input-admin" disabled aria-describedby="qSecMonthsHint">
             <option selected>No deposit</option>
           </select>
-          <small id="qSecMonthsHint" style="color:#64748b;font-size:0.75rem">Shared spaces have no security deposit</small>
+          <small id="qSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Shared spaces have no security deposit</small>
           }
         </div>
       </div>
@@ -2453,7 +2459,7 @@
             <option [ngValue]="o.v">{{ o.l }}</option>
             }
           </select>
-          <small id="bookingSecMonthsHint" style="color:#64748b;font-size:0.75rem">
+          <small id="bookingSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
             @if (effectiveSecurityDeposit > 0) {
             Deposit: <strong style="color:#0f172a">PKR {{ effectiveSecurityDeposit | number:'1.0-2' }}</strong>
             ({{ bookingDepositMonths }} x monthly rent, less the rent discount)
@@ -2470,7 +2476,7 @@
           <select id="bookingSecMonths" class="form-input-admin" disabled aria-describedby="bookingSecMonthsHint">
             <option selected>No deposit</option>
           </select>
-          <small id="bookingSecMonthsHint" style="color:#64748b;font-size:0.75rem">Shared spaces have no security deposit</small>
+          <small id="bookingSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Shared spaces have no security deposit</small>
           }
         </div>
       </div>
@@ -3445,7 +3451,9 @@
             <li>The price is exclusive of all taxes.</li>
             <li>Worknest will charge Provincial Sales Tax on services.</li>
             <li>Quotation validity is subject to space availability at the time of customer acceptance.</li>
-            <li>Security deposit is fully refundable upon completion of contract period.</li>
+            @if (getQuotationSecurityDeposit(q) > 0) {
+              <li>Security deposit is fully refundable upon completion of contract period.</li>
+            }
             <li>All utility charges, high-speed Wi-Fi, and cleaning are included unless specified otherwise.</li>
           </ol>
         </div>
