@@ -576,3 +576,41 @@
   display: flex;
   gap: 6px;
 }
+
+/* ===================== Responsive ===================== */
+:host { min-width: 0; }
+.page-header { flex-wrap: wrap; gap: 12px; }
+.page-header > div:first-child { min-width: 0; }
+.page-title { flex-wrap: wrap; }
+.card-header { flex-wrap: wrap; gap: 10px; }
+.search-box { min-width: 0; }
+.modal-backdrop { padding: 12px; }
+.modal-dialog { width: 100%; max-height: calc(100vh - 24px); display: flex; flex-direction: column; }
+.modal-body { flex: 1 1 auto; }
+
+@media (max-width: 1024px) {
+  .table-responsive > .data-table { width: max-content; min-width: 100%; }
+}
+
+@media (max-width: 640px) {
+  :host { padding: 16px; }
+  .page-header { margin-bottom: 16px; }
+  .page-title { font-size: 1.25rem; }
+  .card { margin-bottom: 16px; }
+  .card-header { padding: 12px 14px; }
+  .search-box { flex: 1 1 100%; max-width: none; min-height: 44px; box-sizing: border-box; }
+  .search-box input, .form-group input, .form-group select, .form-group textarea { font-size: 16px; }
+  .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 14px; }
+  .profile-grid span { overflow-wrap: anywhere; }
+  .split-grid { gap: 16px; margin-bottom: 16px; }
+  .checklist-body { padding: 12px 14px; }
+  .btn { min-height: 40px; }
+  .pagination-bar { flex-wrap: wrap; gap: 8px; }
+  .modal-backdrop { padding: 8px; }
+  .modal-dialog { max-height: calc(100dvh - 16px); }
+  .modal-body { max-height: none; padding: 14px; }
+  .modal-header { padding: 12px 14px; }
+  .modal-footer { padding: 12px 14px; flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+  .btn-close { min-width: 44px; min-height: 44px; }
+}

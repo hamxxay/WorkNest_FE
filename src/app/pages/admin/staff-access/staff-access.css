@@ -50,3 +50,29 @@
 .enroll-summary { margin: 4px 0 2px; font-weight: 600; }
 .device-results .verified { color: #047857; font-size: .85em; }
 .device-results .unverified { color: #b45309; font-size: .85em; }
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+.inline-add { flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .access-page { padding: 16px; }
+  .page-header { margin-bottom: 1rem; }
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1 1 auto; min-height: 44px; }
+  .card { padding: 0.9rem; }
+  .toolbar { align-items: stretch; }
+  .toolbar .field { flex: 1 1 100%; }
+  .form-control.search { min-width: 0; width: 100%; }
+  .form-control { font-size: 16px; height: 44px; }
+  .field.grow { min-width: 100%; }
+  .action-group .btn { min-height: 40px; }
+  .modal-backdrop { padding: 8px; }
+  .modal-card { padding: 0 1rem 1rem; max-height: calc(100dvh - 16px); }
+  .modal-head { margin: 0 -1rem 1rem; padding: 1rem 1rem 0.75rem; }
+  .close-btn { min-width: 44px; min-height: 44px; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions .btn { flex: 1 1 auto; min-height: 44px; }
+  .mode-toggle { flex-wrap: wrap; }
+  .pill { min-height: 40px; }
+}

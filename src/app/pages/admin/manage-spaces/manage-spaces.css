@@ -123,3 +123,11 @@ code.ms-code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4p
   .ms-config-actions { width: 100%; justify-content: flex-end; }
   .ms-table-header   { flex-direction: column; align-items: flex-start; }
 }
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+@media (max-width: 640px) {
+  .ms-filter-row { align-items: stretch; }
+  .ms-filter-group { min-width: 0; }
+  .ms-filter-group :is(input, select) { font-size: 16px; min-height: 44px; }
+}

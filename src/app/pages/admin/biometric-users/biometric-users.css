@@ -1035,3 +1035,26 @@
 }
 .bio-booked { display: flex; flex-direction: column; gap: 0.3rem; }
 .bio-booked-customer { font-size: 0.72rem; color: #64748b; margin-top: 0.15rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+.bio-page > * { min-width: 0; }
+
+@media (max-width: 640px) {
+  .bio-page { gap: 16px; }
+  .bio-title-row h1 { font-size: 1.3rem; }
+  .bio-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .bio-kpi-card { padding: 12px; gap: 10px; flex-direction: column; align-items: flex-start; }
+  .bio-toolbar { padding: 12px; gap: 10px; }
+  .bio-search-box { min-width: 0; flex: 1 1 100%; }
+  .bio-input-search { font-size: 16px; min-height: 44px; }
+  .bio-filters-group { width: 100%; }
+  .bio-select { flex: 1 1 140px; min-width: 0; font-size: 16px; min-height: 44px; }
+  .bio-pagination { padding: 12px; }
+  .bio-page-select { font-size: 16px; min-height: 40px; }
+  .bio-modal-backdrop { padding: 8px; }
+  .bio-modal-card { max-height: calc(100dvh - 16px); }
+  .bio-modal-header { padding: 14px 16px; gap: 10px; }
+  .bio-modal-close { min-width: 44px; min-height: 44px; }
+  .bio-modal-footer { flex-wrap: wrap; }
+}
