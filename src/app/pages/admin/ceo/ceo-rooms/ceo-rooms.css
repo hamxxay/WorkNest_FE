@@ -23,7 +23,8 @@
 .pos { color: #0f766e !important; }
 
 /* ---------- room map ---------- */
-.map-panel { padding-bottom: 20px; }
+/* backwards, not both: a finished rise must leave no transform, or the room card (fixed on small screens) is trapped inside the panel */
+.map-panel { padding-bottom: 20px; animation-fill-mode: backwards; }
 .head-stats strong small { font-size: 0.75rem; font-weight: 600; color: #94a3b8; }
 .map-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 16px; }
 .map-controls .period-seg button { height: 32px; padding: 0 12px; }
