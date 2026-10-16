@@ -8,7 +8,8 @@ import {
   UnpaidInvoiceDto,
   FeeReceiptAccountDto,
   FeeReceiptListItemDto,
-  FeeReceiptDetailDto
+  FeeReceiptDetailDto,
+  PaymentMode
 } from '../../../services/fee-receipt.service';
 import { ToastService } from '../../../services/toast.service';
 import { AuthService } from '../../../services/auth.service';
@@ -17,6 +18,16 @@ import { localDateIso } from '../../../utils/dates';
 import { CNIC_FORMAT_PATTERN, CNIC_MAX_LENGTH, onCnicMaskInput } from '../../../utils/cnic';
 
 type LoadSource = 'invoices' | 'receipts' | 'accounts' | 'locations';
+
+/** PKR to 2 decimals (avoids 0.1 + 0.2 style leftovers in the figures). */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+/** An amount typed by the user: digits with at most 2 decimals (commas allowed); NaN otherwise. */
+const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
+function parseAmount(text: string): number {
+  const t = text.trim().replace(/,/g, '');
+  return AMOUNT_PATTERN.test(t) ? Number(t) : NaN;
+}
+const pkr = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 @Component({
   selector: 'app-fee-receipts',
@@ -87,6 +98,43 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   readonly depositorNameMaxLength = 150; // API / DepositorName NVARCHAR(150)
   readonly cnicMaxLength = CNIC_MAX_LENGTH;
   readonly onCnicMaskInput = onCnicMaskInput;
+
+  // ── Payment mode (part payments, FR_01) ──────────────────────────────────
+  // Full: the invoice's whole remaining balance (the server works it out again when saving, so a stale figure here can
+  // never over- or under-pay). Partial: an amount the user types, 0 < amount <= balance; the server checks it again.
+  paymentMode = signal<PaymentMode>('Full');
+  partialAmountText = signal<string>('');
+  partialAmountTouched = signal(false);
+  /** Left to pay on the chosen invoice (net of WHT, less what was paid before). */
+  balance = computed(() => round2(this.selectedInvoice()?.balanceAmount ?? 0));
+  /** Withholding-tax invoices (and every invoice before the database update) are paid in full only. */
+  partialAllowed = computed(() => !!this.selectedInvoice()?.allowPartial);
+  /** This receipt's amount: the whole balance (Full) or the typed amount (Partial; NaN while it is not a valid amount). */
+  receiptAmount = computed(() => this.paymentMode() === 'Full' ? this.balance() : parseAmount(this.partialAmountText()));
+  /** Balance after this payment, live as the amount changes (the balance itself while the amount is not valid). */
+  balanceAfter = computed(() => {
+    const a = this.receiptAmount();
+    return Number.isFinite(a) && a > 0 && a <= this.balance() ? round2(this.balance() - a) : this.balance();
+  });
+  /** Why the amount blocks Generate (empty when valid). */
+  amountError = computed(() => {
+    if (this.paymentMode() === 'Full') return this.balance() > 0 ? '' : 'This invoice has nothing left to pay.';
+    const text = this.partialAmountText().trim();
+    if (!text) return 'Enter the amount received.';
+    const a = parseAmount(text);
+    if (!Number.isFinite(a)) return 'Enter the amount as a number with at most 2 decimals, e.g. 25000 or 25000.50.';
+    if (a <= 0) return 'The amount must be more than zero.';
+    if (a > this.balance()) return `The amount cannot be more than the balance of PKR ${pkr(this.balance())}.`;
+    return '';
+  });
+
+  setPaymentMode(mode: PaymentMode): void {
+    if (mode === 'Partial' && !this.partialAllowed()) return;
+    this.paymentMode.set(mode);
+    // Partial starts at the whole balance; the user lowers it.
+    if (mode === 'Partial' && !this.partialAmountText().trim()) this.partialAmountText.set(this.balance().toFixed(2));
+    this.partialAmountTouched.set(false);
+  }
 
   // Search debouncer
   private invoiceSearch$ = new Subject<string>();
@@ -166,6 +214,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     if (this.loadingAccounts() || !this.selectedAccountId()) return false;
     if (!this.paymentType()) return false;
     if (this.depositorNameError() || this.depositorCnicError()) return false;
+    if (this.amountError()) return false;
     return !this.dateError() && !this.accountError();
   });
 
@@ -288,6 +337,9 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
 
   selectInvoice(inv: UnpaidInvoiceDto): void {
     this.selectedInvoice.set(inv);
+    this.paymentMode.set('Full');
+    this.partialAmountText.set('');
+    this.partialAmountTouched.set(false);
     this.invoiceSearchQuery.set(inv.dropdownDisplay);
     this.invoiceDropdownOpen.set(false);
 
@@ -316,6 +368,9 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     this.depositorCnic.set('');
     this.depositorNameTouched.set(false);
     this.depositorCnicTouched.set(false);
+    this.paymentMode.set('Full');
+    this.partialAmountText.set('');
+    this.partialAmountTouched.set(false);
   }
 
   clearSelectedInvoice(): void {
@@ -356,6 +411,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   saveReceipt(): void {
     this.depositorNameTouched.set(true);
     this.depositorCnicTouched.set(true);
+    this.partialAmountTouched.set(true);
     if (!this.canSave()) return;
     const inv = this.selectedInvoice();
     if (!inv) return;
@@ -368,11 +424,15 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
       paymentType: this.paymentType(),
       remarks: this.remarks().trim() || null,
       depositorName: this.depositorName().trim(),
-      depositorCnic: this.depositorCnic().trim()
+      depositorCnic: this.depositorCnic().trim(),
+      paymentMode: this.paymentMode(),
+      amount: this.paymentMode() === 'Partial' ? this.receiptAmount() : null
     }).subscribe({
       next: (receipt) => {
         this.saving.set(false);
-        this.toastService.success(`Fee receipt ${receipt.code} generated successfully.`);
+        this.toastService.success(receipt.balanceAfter
+          ? `Fee receipt ${receipt.code} generated. PKR ${pkr(receipt.balanceAfter)} is still due on the invoice.`
+          : `Fee receipt ${receipt.code} generated successfully.`);
 
         // Reset form
         this.clearSelectedInvoice();

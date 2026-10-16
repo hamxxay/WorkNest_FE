@@ -131,7 +131,12 @@
                         @if (inv.invoiceTypeName === 'WHT Invoice') {
                           <span class="fr-badge fr-badge-wht">WHT Invoice</span>
                         }
-                        <span class="fr-dd-amount">PKR {{ inv.netReceivableAmount | number:'1.0-0' }}</span>
+                        @if (inv.amountPaid > 0) {
+                          <span class="fr-badge fr-badge-partial">Part paid</span>
+                        }
+                        <span class="fr-dd-amount" [title]="'Balance PKR ' + (inv.balanceAmount | number:'1.2-2') + ' of PKR ' + (inv.netReceivableAmount | number:'1.2-2')">
+                          PKR {{ inv.balanceAmount | number:'1.0-0' }}@if (inv.amountPaid > 0) {<small> left of {{ inv.netReceivableAmount | number:'1.0-0' }}</small>}
+                        </span>
                       </div>
                     </div>
                   }
@@ -205,7 +210,7 @@
             <div class="fr-breakdown-row total-banner">
               <div class="total-label-wrap">
                 <span class="total-title">Net Receivable Amount</span>
-                <span class="total-hint">Amount received and credited in this receipt</span>
+                <span class="total-hint">What the customer pays on this invoice (net of WHT)</span>
               </div>
               <span class="total-amount mono">PKR {{ inv.netReceivableAmount | number:'1.2-2' }}</span>
             </div>
@@ -219,16 +224,57 @@
           </div>
 
           <div class="fr-form-grid">
-            <!-- Amount (Read-only) -->
-            <div class="fr-form-group">
-              <label class="fr-label">
-                Receipt Amount (PKR) <span class="fr-badge-ro">Read-only</span>
-              </label>
-              <div class="fr-readonly-amount mono">
-                <span>PKR</span>
-                <strong>{{ inv.netReceivableAmount | number:'1.2-2' }}</strong>
+            <!-- Payment mode: Full (the whole balance) or Partial (an amount up to it) -->
+            <div class="fr-form-group fr-span-2">
+              <span class="fr-label" id="fr-mode-label">Payment Mode</span>
+              <div class="fr-mode-seg" role="radiogroup" aria-labelledby="fr-mode-label">
+                <button type="button" role="radio" [attr.aria-checked]="paymentMode() === 'Full'" [class.active]="paymentMode() === 'Full'"
+                  (click)="setPaymentMode('Full')">Full</button>
+                <button type="button" role="radio" [attr.aria-checked]="paymentMode() === 'Partial'" [class.active]="paymentMode() === 'Partial'"
+                  [disabled]="!partialAllowed()" (click)="setPaymentMode('Partial')"
+                  [title]="partialAllowed() ? 'Record part of the balance' : 'Withholding-tax invoices are paid in full only'">Partial</button>
               </div>
-              <span class="fr-field-hint">Automatically calculated from invoice total net of WHT. Cannot be modified.</span>
+              @if (!partialAllowed()) {
+                <span class="fr-field-hint">{{ inv.invoiceTypeName === 'WHT Invoice' ? 'Withholding-tax invoices are paid in full only.' : 'Part payments are not available for this invoice yet.' }}</span>
+              }
+            </div>
+
+            <!-- Amount: the balance (Full, locked) or typed (Partial) -->
+            <div class="fr-form-group">
+              @if (paymentMode() === 'Full') {
+                <label class="fr-label">
+                  Receipt Amount (PKR) <span class="fr-badge-ro">Full balance</span>
+                </label>
+                <div class="fr-readonly-amount mono">
+                  <span>PKR</span>
+                  <strong>{{ balance() | number:'1.2-2' }}</strong>
+                </div>
+                <span class="fr-field-hint">The whole balance left on the invoice.</span>
+              } @else {
+                <label class="fr-label" for="fr-partial-amount">
+                  Amount Received (PKR) <span class="req">*</span>
+                </label>
+                <input id="fr-partial-amount" type="text" inputmode="decimal" autocomplete="off" class="fr-input mono"
+                  [class.input-invalid]="partialAmountTouched() && amountError()"
+                  [ngModel]="partialAmountText()" (ngModelChange)="partialAmountText.set($event)"
+                  (blur)="partialAmountTouched.set(true)"
+                  [attr.aria-invalid]="partialAmountTouched() && !!amountError()" aria-describedby="fr-partial-amount-msg" />
+                @if (partialAmountTouched() && amountError()) {
+                  <small class="field-error-text" id="fr-partial-amount-msg" role="alert">{{ amountError() }}</small>
+                } @else {
+                  <span class="fr-field-hint" id="fr-partial-amount-msg">More than 0, up to PKR {{ balance() | number:'1.2-2' }}.</span>
+                }
+              }
+            </div>
+
+            <!-- The invoice's figures, and what is left after this payment (live) -->
+            <div class="fr-form-group fr-span-2">
+              <div class="fr-pay-figures" aria-live="polite">
+                <div><span>Invoice Total</span><strong class="mono">PKR {{ inv.netReceivableAmount | number:'1.2-2' }}</strong></div>
+                <div><span>Paid So Far</span><strong class="mono">PKR {{ inv.amountPaid | number:'1.2-2' }}</strong></div>
+                <div><span>Balance</span><strong class="mono">PKR {{ balance() | number:'1.2-2' }}</strong></div>
+                <div class="after" [class.zero]="balanceAfter() === 0"><span>Balance After This Payment</span><strong class="mono">PKR {{ balanceAfter() | number:'1.2-2' }}</strong></div>
+              </div>
             </div>
 
             <!-- Receipt Date -->
@@ -494,7 +540,12 @@
                     </td>
                     <td class="mono">{{ r.invoiceNumber }}</td>
                     <td>{{ r.locationName || '—' }}</td>
-                    <td class="mono font-bold amount-cell">PKR {{ r.totalAmount | number:'1.2-2' }}</td>
+                    <td class="mono font-bold amount-cell">
+                      PKR {{ r.amountPaid | number:'1.2-2' }}
+                      @if (r.balanceAfter) {
+                        <small class="amount-left" [title]="'Left on the invoice after this receipt (of PKR ' + (r.invoiceTotal | number:'1.2-2') + ')'">Balance after PKR {{ r.balanceAfter | number:'1.2-2' }}</small>
+                      }
+                    </td>
                     <td>
                       <div class="cell-acc">
                         <span class="pay-type">{{ r.paymentType }}</span>
@@ -775,12 +826,31 @@
                     <td class="text-right mono">- {{ p.whtAmount | number:'1.2-2' }}</td>
                   </tr>
                 }
+                <!-- Snapshot taken when the receipt was saved: it never changes with later receipts. -->
+                @if (p.invoiceTotal !== null) {
+                  <tr class="row-subtotal">
+                    <td>Invoice Total (Net Receivable)</td>
+                    <td class="text-right mono">{{ p.invoiceTotal | number:'1.2-2' }}</td>
+                  </tr>
+                  @if (p.previousPaid) {
+                    <tr>
+                      <td>Paid Before This Receipt</td>
+                      <td class="text-right mono">- {{ p.previousPaid | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                }
               </tbody>
               <tfoot>
                 <tr class="row-grand-total">
-                  <td>TOTAL AMOUNT RECEIVED</td>
-                  <td class="text-right mono">PKR {{ p.totalAmount | number:'1.2-2' }}</td>
+                  <td>{{ p.balanceAfter ? 'AMOUNT RECEIVED (PART PAYMENT)' : 'TOTAL AMOUNT RECEIVED' }}</td>
+                  <td class="text-right mono">PKR {{ p.amountPaid | number:'1.2-2' }}</td>
                 </tr>
+                @if (p.balanceAfter !== null) {
+                  <tr class="row-balance-after">
+                    <td>Balance Due After This Receipt</td>
+                    <td class="text-right mono">PKR {{ p.balanceAfter | number:'1.2-2' }}</td>
+                  </tr>
+                }
               </tfoot>
             </table>
           </div>
