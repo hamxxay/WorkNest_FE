@@ -227,18 +227,36 @@ export class Manage implements OnInit {
     return Number.isFinite(n) ? Math.min(3, Math.max(0, n)) : 0;
   }
 
+  /**
+   * 2 decimals, halves away from zero, as the API rounds its decimals (MidpointRounding.AwayFromZero). Binary float
+   * noise is dropped first (15 significant digits), so 10,001 x 0.895 = 8,950.895 gives 8,950.90 here as there.
+   */
+  private static round2(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    const clean = Number(value.toPrecision(15));
+    const shifted = Number(`${Math.round(Number(`${Math.abs(clean)}e2`))}e-2`);
+    const rounded = Number.isFinite(shifted) ? shifted : Math.round(Math.abs(clean) * 100) / 100;
+    return clean < 0 ? -rounded : rounded;
+  }
+
   /** Deposit amount = months x monthly rent x (1 - rent discount %), 2 decimals: the figure the API stores. */
   private static depositAmount(months: number, monthlyRent: number, discountPct: number): number {
     if (!(months > 0) || !(monthlyRent > 0)) return 0;
     const pct = Math.min(100, Math.max(0, Number(discountPct) || 0));
-    return parseFloat(Math.max(0, months * monthlyRent * (1 - pct / 100)).toFixed(2));
+    return Math.max(0, Manage.round2(months * monthlyRent * (1 - pct / 100)));
   }
 
-  /** A stored deposit as invoices read it: the stored amount; when that is 0 but months > 0 (older rows),
-   *  months x rent x (1 - discount). Months are never defaulted (0 / missing = no deposit). */
-  private static storedDeposit(storedAmount: unknown, storedMonths: unknown, monthlyRent: number, discountPct: number): number {
+  /**
+   * A stored deposit as the API reads it back (SecurityDepositRules.Stored): the stored amount; a stored 0 with
+   * months > 0 on a private office (older rows) = months x rent x (1 - discount); else none. Months are never
+   * defaulted (0 / missing = no deposit), and a shared space / meeting room never gets one worked out from months
+   * (old shared quotations can hold 1 month with no amount).
+   */
+  private static storedDeposit(isPrivateOffice: boolean, storedAmount: unknown, storedMonths: unknown,
+    monthlyRent: number, discountPct: number): number {
     const amount = Number(storedAmount ?? 0);
-    if (amount > 0) return amount;
+    if (amount > 0) return Manage.round2(amount);
+    if (!isPrivateOffice) return 0;
     return Manage.depositAmount(Number(storedMonths ?? 0), monthlyRent, discountPct);
   }
 
@@ -254,11 +272,15 @@ export class Manage implements OnInit {
     return this.isAdminPrivateRoom ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
   }
 
-  /** The rent discount as a percentage of the monthly rent (a fixed amount converts to its share of the rent). */
+  /**
+   * The rent discount as a percentage of the monthly rent: a fixed amount ("Amount" / "Fixed") converts to its share
+   * of ONE month's rent (at most 100%); any other type is a percentage (as SecurityDepositRules.DiscountFraction).
+   */
   private static rentDiscountPct(discountType: string, discountValue: unknown, monthlyRent: number): number {
     const val = Number(discountValue || 0);
-    if (discountType === 'Percentage') return Math.min(100, Math.max(0, val));
-    return monthlyRent > 0 && val > 0 ? Math.min(100, Math.max(0, (val / monthlyRent) * 100)) : 0;
+    if (!(val > 0)) return 0;
+    if (!/^(amount|fixed)$/i.test(String(discountType ?? '').trim())) return Math.min(100, val);
+    return monthlyRent > 0 ? Math.min(100, (val / monthlyRent) * 100) : 0;
   }
   // Per-seat monthly base price: starts at the space's standard rate and may only be raised (same rule as quotations).
   bookingPerSeatBasePrice = 0;
@@ -6767,13 +6789,15 @@ export class Manage implements OnInit {
   selectedBookingDetails = signal<any>(null);
   bookingBillingSummaryData = signal<any>(null);
 
-  /** Booking details: the deposit as stored; 0 with stored months > 0 (older rows) = months x rent x (1 - discount %). */
+  /** Booking details: the deposit as stored; 0 with stored months > 0 on a private office (older rows) = months x rent
+   *  x (1 - discount %). */
   bookingDetailsDeposit(b: any): number {
     if (!b) return 0;
     const months = Number(b.securityDepositMonths ?? b.SecurityDepositMonths ?? 0);
     const rent = Number(b.monthlyRent ?? b.MonthlyRent ?? b.contract?.monthlyRent ?? 0);
     const pct = Number(b.discountPercentage ?? b.DiscountPercentage ?? 0);
-    return Manage.storedDeposit(b.securityDeposit ?? b.SecurityDeposit ?? b.contract?.securityDeposit, months, rent, pct);
+    return Manage.storedDeposit(this.isPrivateRoom(b), b.securityDeposit ?? b.SecurityDeposit ?? b.contract?.securityDeposit,
+      months, rent, pct);
   }
 
 
@@ -7158,8 +7182,8 @@ export class Manage implements OnInit {
     }
 
     const calculatedRent = monthlyRate * cycleMonths;
-    // The stored amount; 0 with stored months > 0 (older rows) = months x rent x (1 - discount %).
-    const securityDeposit = Manage.storedDeposit(
+    // The stored amount; 0 with stored months > 0 on a private office (older rows) = months x rent x (1 - discount %).
+    const securityDeposit = Manage.storedDeposit(this.isPrivateRoom(item),
       item.effectiveSecurityDeposit ?? item.securityDeposit ?? item.SecurityDeposit ?? item.depositAmount, secMonths, monthlyRate,
       Number(item.discountPercentage ?? item.DiscountPercentage ?? 0));
     const discount = item.bookingDiscountAmount ?? item.discountAmount ?? 0;
@@ -7834,15 +7858,16 @@ export class Manage implements OnInit {
     return monthlyRent * bpm;
   }
 
-  /** A booking's security deposit: the stored amount; if that is 0 but stored months > 0 (older rows),
-   *  months x monthly rent x (1 - discount). No stored months = no deposit (months are never defaulted). */
+  /** A booking's security deposit: the stored amount; if that is 0 but stored months > 0 on a private office (older
+   *  rows), months x monthly rent x (1 - discount). No stored months = no deposit (months are never defaulted). */
   getChallanSecurityDeposit(c: any): number {
     if (!c) return 0;
-    const storedMonths = this.isMeetingRoom(c) ? 0 : Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0);
+    const storedMonths = Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0);
     const discAmount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
     const subtotal = Number(c.subtotalAmount ?? c.SubtotalAmount ?? 0);
     const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? (subtotal > 0 && discAmount > 0 ? (discAmount / subtotal) * 100 : 0));
-    return Manage.storedDeposit(c.securityDeposit ?? c.SecurityDeposit, storedMonths, this.getChallanMonthlyRent(c), discPct);
+    return Manage.storedDeposit(this.isPrivateRoom(c), c.securityDeposit ?? c.SecurityDeposit, storedMonths,
+      this.getChallanMonthlyRent(c), discPct);
   }
 
   getChallanSupportCharges(c: any): number {
@@ -8021,17 +8046,18 @@ export class Manage implements OnInit {
     return monthlyRent * bpm;
   }
 
-  /** A quotation's security deposit: the stored amount; if that is 0 but stored months > 0 (older rows),
-   *  months x monthly rent x (1 - rent discount). No stored months = no deposit (months are never defaulted). */
+  /** A quotation's security deposit: the stored amount; if that is 0 but stored months > 0 on a private office (older
+   *  rows; an old shared row can hold 1 month with no amount), months x monthly rent x (1 - rent discount). No stored
+   *  months = no deposit (months are never defaulted). */
   getQuotationSecurityDeposit(q: any): number {
     if (!q) return 0;
-    const storedMonths = this.isMeetingRoom(q) ? 0 : Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 0);
+    const storedMonths = Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 0);
     const monthlyRent = this.getQuotationMonthlyRent(q);
     const discType = q.discountType ?? q.DiscountType;
     const discPct = (discType === 'Amount' || discType === 'Fixed')
       ? Manage.rentDiscountPct('Amount', q.discountValue ?? q.DiscountValue, monthlyRent)
       : this.getQuotationDiscountPercentage(q);
-    return Manage.storedDeposit(q.securityDeposit ?? q.SecurityDeposit, storedMonths, monthlyRent, discPct);
+    return Manage.storedDeposit(this.isPrivateRoom(q), q.securityDeposit ?? q.SecurityDeposit, storedMonths, monthlyRent, discPct);
   }
 
   getQuotationSupportCharges(q: any): number {
