@@ -17,6 +17,7 @@ import {
 } from '../ceo-shared';
 
 type AnyLevel = DrillLevel<string, string>;
+type SpaceFilter = 'all' | 'occupied' | 'vacant';
 
 interface Entry {
   uid: number;
@@ -409,6 +410,37 @@ export class CeoDrawer {
   });
   /** Follow-up column on inquiry lists that carry a follow-up date (Sales Manager API). */
   inquiryFollowUp = computed(() => this.inquiryRows().some(r => !!r.followUpOn));
+
+  // Spaces: a filter (all / occupied / vacant) when the list has both, and no column that repeats one value on every
+  // row (the location or space type the list was opened for, or the status of an occupied-only list).
+  private spaceFilterOf = signal<{ uid: number; show: SpaceFilter }>({ uid: -1, show: 'all' });
+  spaceFilter = computed<SpaceFilter>(() => {
+    const f = this.spaceFilterOf();
+    return this.spaceMixed() && f.uid === this.current()?.uid ? f.show : 'all';
+  });
+  spaceStats = computed(() => {
+    const rows = this.spaceRows();
+    const occupied = rows.filter(r => r.occupied);
+    return {
+      all: rows.length, occupied: occupied.length, vacant: rows.length - occupied.length,
+      seatsInUse: occupied.reduce((a, r) => a + (r.capacity ?? 0), 0)
+    };
+  });
+  spaceMixed = computed(() => this.spaceStats().occupied > 0 && this.spaceStats().vacant > 0);
+  spaceShown = computed(() => {
+    const show = this.spaceFilter();
+    return show === 'all' ? this.spaceRows() : this.spaceRows().filter(r => r.occupied === (show === 'occupied'));
+  });
+  spaceManyLocations = computed(() => new Set(this.spaceRows().map(r => r.location)).size > 1);
+  spaceManyTypes = computed(() => new Set(this.spaceRows().map(r => r.spaceType)).size > 1);
+  setSpaceFilter(show: SpaceFilter) {
+    const uid = this.current()?.uid;
+    if (uid !== undefined) this.spaceFilterOf.set({ uid, show });
+  }
+  /** The line under a space's name: its type and location, when the list has more than one. */
+  spaceSub(r: CeoSpaceRecord): string {
+    return [this.spaceManyTypes() ? r.spaceType : '', this.spaceManyLocations() ? r.location : ''].filter(Boolean).join(' · ');
+  }
 
   private recordsOf<T>(kind: string): T[] {
     const e = this.current();
