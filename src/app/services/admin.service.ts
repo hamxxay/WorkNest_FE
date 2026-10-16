@@ -17,7 +17,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { InquiryRef, inquiryPath } from '../utils/inquiry-ref';
-import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
+import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest, OccupiedSpaces } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
 @Injectable({ providedIn: 'root' })
@@ -122,7 +122,10 @@ export class AdminService {
 
   // ============= SPACE TYPE MANAGEMENT =============
 
-  /** Get paginated list of space types */
+  /**
+   * Get paginated list of space types (every location's). Each location has its own types: rows carry
+   * locationId / locationName (an older API leaves them out), and forms filter them by their location.
+   */
   getSpaceTypes(page?: number, limit?: number, search?: string): Observable<ApiResponse<SpaceType[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
@@ -132,7 +135,12 @@ export class AdminService {
     return this.http.get<ApiResponse<SpaceType[]>>(`${this.api}/spacetype${qs}`);
   }
 
-  /** Create space type */
+  /** Space categories (Id, Code, Label) for the Space Types form (GET api/spacetype/categories). */
+  getSpaceCategories(): Observable<ApiResponse<{ id: number; code: string; label: string }[]>> {
+    return this.http.get<ApiResponse<{ id: number; code: string; label: string }[]>>(`${this.api}/spacetype/categories`);
+  }
+
+  /** Create space type (body includes locationId: the location it belongs to) */
   createSpaceType(data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> {
     return this.http.post<ApiResponse<SpaceType>>(`${this.api}/spacetype`, data);
   }
@@ -623,6 +631,13 @@ export class AdminService {
     if (locationIds.length) params.locationIds = locationIds.join(',');
     else if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
+  }
+  // The rooms behind the overview's Occupancy card: every space in use right now (same rule and locations as the card).
+  getOccupiedSpaces(locationIds: number[] = [], locationId?: number | null): Observable<OccupiedSpaces> {
+    const params: any = {};
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    else if (locationId) params.locationId = locationId;
+    return this.http.get<OccupiedSpaces>(`${this.api}/dashboard/occupied-spaces`, { params });
   }
   // Role-based dashboard sections (sales executive: pipeline / inquiries / renewals / collections; admin: team &
   // service; super admin: also location comparison, staff, system health). Same location rules as the overview.

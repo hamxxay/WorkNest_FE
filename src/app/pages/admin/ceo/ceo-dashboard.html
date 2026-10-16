@@ -337,14 +337,12 @@
                   </div>
                 }
               </div>
-              <div class="chart-nav occ-stack" [class.hidden]="occTable()"
+              <!-- One chart: new bookings (bars, left axis) and occupancy (line on top, right axis, %) -->
+              <div class="chart-box h-combo chart-nav" [class.hidden]="occTable()"
                 [attr.tabindex]="occEmpty() ? null : 0" role="group" aria-roledescription="interactive chart"
-                aria-label="Occupancy and new bookings by month. Arrow keys move between months, Enter opens the month."
+                aria-label="New bookings and occupancy by month. Arrow keys move between months, Enter opens the month."
                 (keydown)="occNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && occNav.focus()" (blur)="occNav.clear()">
-                <span class="mini-legend"><i class="lg-line" aria-hidden="true"></i>Occupancy</span>
-                <div class="chart-box h-occ"><canvas #occCanvas aria-hidden="true"></canvas></div>
-                <span class="mini-legend"><i class="lg-bar" aria-hidden="true"></i>New bookings</span>
-                <div class="chart-box h-bk"><canvas #bookingsCanvas aria-hidden="true"></canvas></div>
+                <canvas #occCanvas aria-hidden="true"></canvas>
                 @if (occEmpty()) {
                   <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No occupancy or bookings in this range yet</strong><span>The chart fills in as bookings come in.</span></div>
                 }
@@ -471,6 +469,9 @@
         }
       </section>
 
+      <!-- Rooms: occupancy and price against list per room (its own request, GET api/ceo/rooms) -->
+      <app-ceo-rooms [period]="period()" [locationId]="locationId()" [reload]="roomsReload()" />
+
       <!-- ===================== SALES ===================== -->
       <section class="dash-section" aria-labelledby="ceo-h-sales">
         <div class="section-title">
@@ -494,10 +495,11 @@
                   <h3>Sales funnel</h3>
                   <p class="panel-sub">Created this {{ word() }} · select a stage for its records</p>
                 </div>
+                <!-- Each figure opens its records (converted quotations, quotations, bookings). -->
                 <div class="head-stats">
-                  <div><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30">{{ pct(s()!.conversionRate) }}</strong></div>
-                  <div><span>Quoted</span><strong [title]="fullMoney(s()!.quotationValue)">{{ money(s()!.quotationValue) }}</strong></div>
-                  <div><span>Booked</span><strong [title]="fullMoney(s()!.bookingValue)">{{ money(s()!.bookingValue) }}</strong></div>
+                  <button type="button" class="stat-btn" (click)="openSalesFigure('conversion')" [title]="conversionText()" [attr.aria-label]="'Conversion ' + pct(s()!.conversionRate) + '. Open the converted quotations'"><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30">{{ pct(s()!.conversionRate) }}</strong></button>
+                  <button type="button" class="stat-btn" (click)="openSalesFigure('quoted')" [title]="fullMoney(s()!.quotationValue)" [attr.aria-label]="'Quoted ' + fullMoney(s()!.quotationValue) + '. Open the quotations'"><span>Quoted</span><strong>{{ money(s()!.quotationValue) }}</strong></button>
+                  <button type="button" class="stat-btn" (click)="openSalesFigure('booked')" [title]="fullMoney(s()!.bookingValue)" [attr.aria-label]="'Booked ' + fullMoney(s()!.bookingValue) + '. Open the bookings'"><span>Booked</span><strong>{{ money(s()!.bookingValue) }}</strong></button>
                 </div>
               </div>
               @if (!s()!.funnel.length || funnelEmpty()) {
@@ -523,7 +525,7 @@
                     </li>
                   }
                 </ol>
-                <p class="note">Conversion = bookings / quotations created this {{ word() }}.</p>
+                <p class="note">Conversion = quotations created this {{ word() }} that were booked / all quotations created this {{ word() }}@if (s()!.quotations) { ({{ conversionText() }})}.</p>
               }
             </div>
 

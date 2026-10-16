@@ -425,11 +425,13 @@
             Cycle Rent</span>
           <strong style="color:#0284c7;font-size:.95rem">PKR {{ (b.currentCycleAmount ?? 0) | number:'1.0-0' }}</strong>
         </div>
+        @if ((b.securityDeposit ?? 0) > 0) {
         <div>
           <span style="color:#0369a1;font-size:.7rem;display:block;text-transform:uppercase;font-weight:600">Security
             Deposit</span>
-          <strong style="color:#475569;font-size:.95rem">PKR {{ (b.securityDeposit ?? 0) | number:'1.0-0' }}</strong>
+          <strong style="color:#475569;font-size:.95rem">PKR {{ b.securityDeposit | number:'1.0-0' }}</strong>
         </div>
+        }
 
         @if (b.nextBillDueDate) {
         <div>

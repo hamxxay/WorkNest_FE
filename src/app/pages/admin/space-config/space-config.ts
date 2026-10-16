@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AuthService } from '../../../services/auth.service';
+import { spaceTypeHint, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation } from '../../../utils/space-types';
 
 @Component({
   selector: 'app-space-config',
@@ -42,7 +43,9 @@ export class SpaceConfig implements OnInit {
   readonly companyOptions = signal<{ v: number; l: string }[]>([]);
   readonly branchOptions = signal<{ v: number; l: string }[]>([]);
   readonly locationOptions = signal<{ v: number; l: string; branchId?: number; companyId?: number }[]>([]);
-  readonly spaceTypeOptions = signal<{ v: number; l: string }[]>([]);
+  readonly spaceTypeOptions = signal<{ v: number; l: string; locationId: number | null }[]>([]);
+  /** Space types grouped by their location (types belong to a location). */
+  private readonly typesByLocation = computed(() => spaceTypesByLocation(this.spaceTypeOptions()));
   readonly floorOptions = signal<{ v: number; l: string }[]>([]);
   readonly accountOptions = signal<{ v: number; l: string }[]>([]);
   readonly amenityOptions = signal<{ id: number; name: string }[]>([]);
@@ -52,6 +55,16 @@ export class SpaceConfig implements OnInit {
   readonly showModal = signal(false);
   editItem: any = null;
   form: any = {};
+
+  /** Space Type options: only the types of the location chosen in the form (every type on an older API). */
+  get formSpaceTypeOptions(): readonly { v: number; l: string }[] {
+    return spaceTypesAt(this.spaceTypeOptions(), this.typesByLocation(), this.form.locationId);
+  }
+
+  /** "Choose a location first" / "No space types at this location yet." under the Space Type dropdown. */
+  get formSpaceTypeHint(): string {
+    return spaceTypeHint(this.spaceTypeOptions(), this.form.locationId, this.formSpaceTypeOptions.length);
+  }
 
   get isPrivate(): boolean {
     return (this.form.spaceCategory || '').toLowerCase().includes('private');
@@ -97,7 +110,8 @@ export class SpaceConfig implements OnInit {
       next: (res: any) => {
         this.spaceTypeOptions.set((res?.data ?? []).map((s: any) => ({
           v: s.id,
-          l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || ''
+          l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || '',
+          locationId: spaceTypeLocationId(s)
         })));
       },
       error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space types.')
@@ -209,6 +223,10 @@ export class SpaceConfig implements OnInit {
   onLocationChange() {
     this.floorOptions.set([]);
     this.form.floorId = null;
+    // Space types belong to a location: a type chosen for the previous location no longer applies.
+    if (this.form.spaceTypeId && !this.formSpaceTypeOptions.some(o => String(o.v) === String(this.form.spaceTypeId))) {
+      this.form.spaceTypeId = '';
+    }
     if (this.form.locationId) this.loadFloorsForLocation(+this.form.locationId);
   }
 

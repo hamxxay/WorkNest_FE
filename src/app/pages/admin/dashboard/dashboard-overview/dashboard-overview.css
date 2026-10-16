@@ -24,6 +24,16 @@
 .kpi-card.tone-danger::after { background: #ef4444; }
 .kpi-card.tone-neutral::after { background: #0d9488; }
 a.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); border-color: #cbd5e1; }
+/* Occupancy opens the rooms in use: a button that looks like the other cards */
+button.kpi-card { font: inherit; text-align: left; cursor: pointer; width: 100%; margin: 0; appearance: none; -webkit-appearance: none; }
+button.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); border-color: #cbd5e1; }
+.kpi-card:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
+.kpi-btn .kpi-label { padding-right: 76px; }
+.kpi-open {
+  position: absolute; top: 15px; right: 14px; display: inline-flex; align-items: center; gap: 2px;
+  font-size: 0.7rem; font-weight: 700; color: #0d9488; white-space: nowrap;
+}
+.kpi-btn:hover .kpi-open { color: #0f766e; }
 .kpi-label { font-size: 0.74rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-value { font-size: 1.65rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; line-height: 1.25; white-space: nowrap; }
 .kpi-card.tone-danger .kpi-value { color: #b91c1c; }
@@ -177,6 +187,11 @@ a.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,
   .seg { flex-wrap: wrap; }
   .seg button { flex: 1 1 auto; min-height: 36px; }
   .att-side strong { white-space: nowrap; }
+}
+/* small cards: just the arrow */
+@media (max-width: 1700px) and (min-width: 1400.02px), (max-width: 420px) {
+  .kpi-btn .kpi-label { padding-right: 18px; }
+  .kpi-open-text { display: none; }
 }
 @media (max-width: 359.98px) {
   .kpi-grid { grid-template-columns: minmax(0, 1fr); }

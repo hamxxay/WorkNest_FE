@@ -90,6 +90,8 @@
 .day-cell.in-range{background:rgba(13,148,136,.12)}
 .day-cell:disabled{opacity:.4;cursor:not-allowed}
 .calendar-hint{font-size:.75rem;color:#94a3b8;margin-top:8px}
+/* Under a Space Type dropdown filtered by its form's location: "Choose a location first" / none at this location. */
+.space-type-hint{display:block;font-size:.75rem;color:#64748b;margin-top:2px}
 .calendar-loading{text-align:center;color:#94a3b8;padding:20px;font-size:.85rem}
 .duplicate-row td { background: rgba(239,68,68,.06) !important; }
 .duplicate-row td:first-child { border-left: 3px solid #ef4444; }

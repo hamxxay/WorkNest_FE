@@ -4,8 +4,8 @@ import {
 import { DatePipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import {
-  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoLeaseRecord, CeoMetric,
-  CeoParams, CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
+  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoLeaseRecord, CeoLocalMetric,
+  CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
 import type {
   SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
@@ -17,6 +17,7 @@ import {
 } from '../ceo-shared';
 
 type AnyLevel = DrillLevel<string, string>;
+type SpaceFilter = 'all' | 'occupied' | 'vacant';
 
 interface Entry {
   uid: number;
@@ -36,11 +37,36 @@ type QuotationRow = Omit<CeoQuotationRecord, 'total'> & Partial<Pick<CeoQuotatio
 type LeaseRow = Omit<SmLeaseRecord, 'desks'> & Partial<Pick<SmLeaseRecord, 'desks'> & Pick<CeoLeaseRecord, 'monthlyAmount'>>;
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
-const METRICS: Record<CeoMetric, DrillMetricSpec> = {
+const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'invoices', params: { month: p['month'], locationId: r.key }, crumb: r.label })
+    // status: 'paid' when opened from Collected (the API's breakdown leaves it out; the invoices use it).
+    next: (p, r) => ({ kind: 'records', records: 'invoices', params: { month: p['month'], locationId: r.key, status: p['status'] }, crumb: r.label }),
+    nextLabel: (p, r) => `Open the ${p['status'] === 'paid' ? 'paid ' : ''}invoices of ${r.label}`
+  },
+  // ----- level 2 lists built from the dashboard's own figures (DrillLevel.local) -----
+  'revenue-months': {
+    rowLabel: 'Month', money: true, chart: 'grouped', vertical: true,
+    derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
+    next: (p, r) => ({ kind: 'breakdown', metric: 'revenue', params: { month: r.key, status: p['status'] }, crumb: r.label }),
+    nextLabel: (_p, r) => `Open ${r.label} by location`,
+    hint: () => 'Select a month for its locations.'
+  },
+  'aging-buckets': {
+    rowLabel: 'Days past due', money: true, chart: 'single', vertical: false,
+    next: (_p, r) => ({ kind: 'breakdown', metric: 'aging', params: { bucket: r.key }, crumb: r.label }),
+    nextLabel: (_p, r) => `Open ${r.label} by location`,
+    hint: () => 'Select a bucket for its locations.'
+  },
+  'occupancy-locations': {
+    rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
+    derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
+    // occupied: true when opened from the Occupancy KPI: only the occupied rooms, down to the list of spaces.
+    next: (p, r) => ({ kind: 'breakdown', metric: 'occupancy-location', params: { locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label} by space type` : `Open ${r.label} by space type`,
+    hint: () => 'Select a location for its space types.',
+    keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'aging': {
     rowLabel: 'Location', money: true, chart: 'single', vertical: false,
@@ -54,7 +80,9 @@ const METRICS: Record<CeoMetric, DrillMetricSpec> = {
   'occupancy-location': {
     rowLabel: 'Space type', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key }, crumb: r.label })
+    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied ${r.label} rooms` : `Open ${r.label}`,
+    keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'bookings-month': {
     rowLabel: 'Location', money: false, chart: 'single', vertical: false,
@@ -161,6 +189,16 @@ export class CeoDrawer {
       });
     });
 
+    // A level built from the dashboard's figures follows them (e.g. once the new period's figures arrive).
+    effect(() => {
+      const e = this.current();
+      if (!e || e.level.kind !== 'breakdown' || !e.level.local) return;
+      const b = e.level.local();
+      untracked(() => {
+        if (e.status !== 'ok' || e.breakdown !== b) this.patch(e.uid, { status: 'ok', breakdown: b, error: undefined });
+      });
+    });
+
     // Period or location changed under an open drawer: reload what is on screen.
     effect(() => {
       this.period(); this.locationId();
@@ -258,6 +296,10 @@ export class CeoDrawer {
     this.patch(entry.uid, { status: 'loading', error: undefined });
     const params: CeoParams = { period: this.period(), locationId: this.locationId(), ...entry.level.params };
     const src = this.src();
+    if (entry.level.kind === 'breakdown' && entry.level.local) {
+      this.patch(entry.uid, { status: 'ok', breakdown: entry.level.local() });
+      return;
+    }
     if (entry.level.kind === 'breakdown') {
       this.sub = src.breakdown(entry.level.metric, params).subscribe({
         next: b => this.patch(entry.uid, { status: 'ok', breakdown: b }),
@@ -277,7 +319,12 @@ export class CeoDrawer {
 
   // ---------- level 2 helpers ----------
 
-  rows = computed<CeoBreakdownRow[]>(() => this.current()?.breakdown?.rows ?? []);
+  rows = computed<CeoBreakdownRow[]>(() => {
+    const e = this.current();
+    const rows = e?.breakdown?.rows ?? [];
+    const keep = this.spec()?.keep;
+    return keep && e?.level.kind === 'breakdown' ? rows.filter(r => keep(e.level.params, r)) : rows;
+  });
   hasValue2 = computed(() => !!this.current()?.breakdown?.value2Label || this.rows().some(r => r.value2 !== null));
   hasCount = computed(() => this.rows().some(r => r.count !== null));
   canOpenRows = computed(() => this.rows().some(r => !!r.key));
@@ -363,6 +410,37 @@ export class CeoDrawer {
   });
   /** Follow-up column on inquiry lists that carry a follow-up date (Sales Manager API). */
   inquiryFollowUp = computed(() => this.inquiryRows().some(r => !!r.followUpOn));
+
+  // Spaces: a filter (all / occupied / vacant) when the list has both, and no column that repeats one value on every
+  // row (the location or space type the list was opened for, or the status of an occupied-only list).
+  private spaceFilterOf = signal<{ uid: number; show: SpaceFilter }>({ uid: -1, show: 'all' });
+  spaceFilter = computed<SpaceFilter>(() => {
+    const f = this.spaceFilterOf();
+    return this.spaceMixed() && f.uid === this.current()?.uid ? f.show : 'all';
+  });
+  spaceStats = computed(() => {
+    const rows = this.spaceRows();
+    const occupied = rows.filter(r => r.occupied);
+    return {
+      all: rows.length, occupied: occupied.length, vacant: rows.length - occupied.length,
+      seatsInUse: occupied.reduce((a, r) => a + (r.capacity ?? 0), 0)
+    };
+  });
+  spaceMixed = computed(() => this.spaceStats().occupied > 0 && this.spaceStats().vacant > 0);
+  spaceShown = computed(() => {
+    const show = this.spaceFilter();
+    return show === 'all' ? this.spaceRows() : this.spaceRows().filter(r => r.occupied === (show === 'occupied'));
+  });
+  spaceManyLocations = computed(() => new Set(this.spaceRows().map(r => r.location)).size > 1);
+  spaceManyTypes = computed(() => new Set(this.spaceRows().map(r => r.spaceType)).size > 1);
+  setSpaceFilter(show: SpaceFilter) {
+    const uid = this.current()?.uid;
+    if (uid !== undefined) this.spaceFilterOf.set({ uid, show });
+  }
+  /** The line under a space's name: its type and location, when the list has more than one. */
+  spaceSub(r: CeoSpaceRecord): string {
+    return [this.spaceManyTypes() ? r.spaceType : '', this.spaceManyLocations() ? r.location : ''].filter(Boolean).join(' · ');
+  }
 
   private recordsOf<T>(kind: string): T[] {
     const e = this.current();
@@ -452,8 +530,9 @@ export class CeoDrawer {
       ];
     } else {
       const req = this.current()?.level;
-      let color = TEAL, hover = TEAL_DARK;
+      let color: string | string[] = TEAL, hover: string | string[] = TEAL_DARK;
       if (metric === 'aging' && req?.kind === 'breakdown') { color = AGING_COLORS[String(req.params['bucket'])] ?? TEAL; hover = color; }
+      if (metric === 'aging-buckets') { color = rows.map(r => AGING_COLORS[r.key] ?? TEAL); hover = color; }
       if (metric === 'inquiries-type' && req?.kind === 'breakdown') { color = INQUIRY_TYPES[inquiryTypeKey(String(req.params['type']))].fg; hover = color; }
       datasets = [{ label: data.valueLabel, data: rows.map(r => r.value), backgroundColor: color, hoverBackgroundColor: hover, borderRadius: 4, maxBarThickness: vertical ? 28 : 18 }];
     }

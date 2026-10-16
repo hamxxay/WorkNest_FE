@@ -101,6 +101,10 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .head-stats strong.good { color: #047857; }
 .head-stats strong.bad { color: #b91c1c; }
 .head-stats strong.warn { color: #b45309; }
+/* A header figure that opens its records. */
+.head-stats .stat-btn { display: flex; flex-direction: column; align-items: flex-end; border: none; background: none; margin: -4px -6px; padding: 4px 6px; border-radius: 8px; font-family: inherit; color: inherit; cursor: pointer; transition: background .12s; }
+.head-stats .stat-btn:hover { background: #f0fdfa; }
+.head-stats .stat-btn:hover strong { color: #0f766e; text-decoration: underline; text-underline-offset: 3px; }
 .view-toggle { height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; font-family: inherit; font-size: 0.76rem; font-weight: 600; color: #475569; cursor: pointer; }
 .view-toggle:hover { border-color: #94a3b8; color: #0f172a; }
 .view-toggle[aria-pressed="true"] { background: #f0fdfa; border-color: #99f6e4; color: #0f766e; }
@@ -116,15 +120,10 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .chart-box { position: relative; width: 100%; }
 .chart-box.h-lg { height: 330px; }
 .chart-box.h-donut { height: 210px; }
-.chart-box.h-occ { height: 180px; }
-.chart-box.h-bk { height: 96px; }
+.chart-box.h-combo { height: 300px; }
 .chart-box canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 .chart-nav { border-radius: 12px; }
-.chart-nav.hidden, .occ-stack.hidden { display: none; }
-.occ-stack { position: relative; display: flex; flex-direction: column; gap: 4px; }
-.mini-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; color: #64748b; margin-left: 4px; }
-.mini-legend .lg-line { width: 14px; height: 2px; border-radius: 2px; background: #0d9488; }
-.mini-legend .lg-bar { width: 9px; height: 9px; border-radius: 2px; background: #5eead4; }
+.chart-nav.hidden { display: none; }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
 .donut-center span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
 .donut-center strong { font-size: 1.25rem; font-weight: 800; color: #0f172a; }
@@ -314,7 +313,7 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 }
 @media (max-width: 760px) {
   .panel-head { flex-direction: column; }
-  .head-stats div { align-items: flex-start; }
+  .head-stats div, .head-stats .stat-btn { align-items: flex-start; }
   .head-stats { gap: 16px; }
 }
 @media (max-width: 640px) {
@@ -324,6 +323,7 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
   .kpi-grid.kpi-5, .kpi-grid.kpi-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .kpi-value { font-size: 1.3rem; }
   .funnel-row { grid-template-columns: 90px minmax(0, 1fr) 44px 14px; gap: 10px; }
+  .chart-box.h-combo { height: 270px; }
 }
 
 /* ---------- phones ---------- */

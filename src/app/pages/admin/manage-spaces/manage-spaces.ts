@@ -1,8 +1,9 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
+import { spaceTypeHint, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations } from '../../../utils/space-types';
 
 @Component({
   selector: 'app-manage-spaces',
@@ -30,7 +31,30 @@ export class ManageSpaces implements OnInit {
   filterCapacity = '';
 
   readonly locationOptions = signal<{ v: number; l: string; branchId?: number }[]>([]);
-  readonly spaceTypeOptions = signal<{ v: number; l: string }[]>([]);
+  readonly spaceTypeOptions = signal<{ v: number; l: string; locationId: number | null; locationName: string }[]>([]);
+
+  /** Space types grouped by their location (types belong to a location). */
+  private readonly typesByLocation = computed(() => spaceTypesByLocation(this.spaceTypeOptions()));
+
+  /** All Locations: every type, named with its location when types are per location. */
+  private readonly allLocationTypeOptions = computed(() => {
+    const all = this.spaceTypeOptions();
+    return spaceTypesHaveLocations(all) ? all.map(o => ({ ...o, l: o.locationName ? `${o.l} (${o.locationName})` : o.l })) : all;
+  });
+
+  /**
+   * Space Type filter options: a location shows only its own types; All Locations shows every type. An older API
+   * (types without a location) shows every type everywhere, as before.
+   */
+  get visibleSpaceTypeOptions(): readonly { v: number; l: string }[] {
+    if (!this.filterLocationId) return this.allLocationTypeOptions();
+    return spaceTypesAt(this.spaceTypeOptions(), this.typesByLocation(), this.filterLocationId);
+  }
+
+  /** "No space types at this location yet." when the chosen location has none. */
+  get spaceTypeFilterHint(): string {
+    return this.filterLocationId ? spaceTypeHint(this.spaceTypeOptions(), this.filterLocationId, this.visibleSpaceTypeOptions.length) : '';
+  }
 
   // Config for selected filters
   configs = signal<any[]>([]);
@@ -76,7 +100,9 @@ export class ManageSpaces implements OnInit {
         this.spaceTypeOptions.set(rawTypes.map((s: any) => ({
           v: s.id,
           l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || '',
-          capacity: s.capacity
+          capacity: s.capacity,
+          locationId: spaceTypeLocationId(s),
+          locationName: String(s.locationName ?? '')
         })));
       },
       error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space types.')
@@ -95,6 +121,18 @@ export class ManageSpaces implements OnInit {
       },
       error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load spaces.')
     });
+  }
+
+  /** Location filter changed: a chosen type of another location no longer applies. */
+  onLocationFilterChange() {
+    this.dropTypeNotAtLocation();
+    this.onFilterChange();
+  }
+
+  private dropTypeNotAtLocation() {
+    if (this.filterSpaceTypeId && !this.visibleSpaceTypeOptions.some(o => String(o.v) === String(this.filterSpaceTypeId))) {
+      this.filterSpaceTypeId = '';
+    }
   }
 
   onFilterChange() {
