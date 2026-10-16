@@ -216,6 +216,8 @@ export class Manage implements OnInit {
   bookingBillingPeriodMonths = 3;
   /** Security Deposit (Months) chosen on Create Booking: 0-3, default 2 for private offices (shared / meeting: 0). */
   bookingSecurityDepositMonths = 2;
+  /** Booking edit: the months the form loaded (null on Create Booking). Unchanged months are not sent on update. */
+  private bookingEditLoadedDepositMonths: number | null = null;
   /** The only month counts the API accepts for a security deposit. */
   readonly securityDepositMonthOptions: readonly { v: number; l: string }[] = [
     { v: 0, l: 'No deposit' }, { v: 1, l: '1 month' }, { v: 2, l: '2 months' }, { v: 3, l: '3 months' },
@@ -270,6 +272,20 @@ export class Manage implements OnInit {
   /** Months sent with the booking: the selection for a private office, always 0 for shared spaces / meeting rooms. */
   get bookingDepositMonths(): number {
     return this.isAdminPrivateRoom ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
+  }
+
+  /**
+   * Months in the booking request: always on create; on edit only when changed (left out = unchanged), so saving
+   * other edits never resets a deposit or trips the API's "cannot be changed after the first invoice" refusal.
+   */
+  private get bookingDepositMonthsToSend(): number | undefined {
+    if (this.editingBookingId && this.bookingDepositMonths === this.bookingEditLoadedDepositMonths) return undefined;
+    return this.bookingDepositMonths;
+  }
+
+  /** The booking form field an API error belongs to: the deposit months for a security deposit refusal, else the space. */
+  private static bookingErrorField(message: unknown): string {
+    return /security deposit/i.test(String(message ?? '')) ? 'securityDepositMonths' : 'space';
   }
 
   /**
@@ -1710,6 +1726,7 @@ export class Manage implements OnInit {
     this.selectedCustomer = null;
     this.securityDeposit = 0;
     this.bookingSecurityDepositMonths = 2;
+    this.bookingEditLoadedDepositMonths = null;
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
     this.bookingSendWht = false;
@@ -1954,6 +1971,7 @@ export class Manage implements OnInit {
         booking.securityDeposit ?? booking.SecurityDeposit ?? booking.securityDepositRequired ?? booking.SecurityDepositRequired,
         rent, Manage.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
     }
+    this.bookingEditLoadedDepositMonths = this.bookingDepositMonths;
   }
 
   /** The booking-form category of a space type: 'private', 'meeting', 'shared', or the label itself. */
@@ -2921,7 +2939,7 @@ export class Manage implements OnInit {
         discountAmount: this.bookingDiscountAmount,
         billingPeriodMonths: this.bookingBillingPeriodMonths,
         // The API works the deposit out from the months (x monthly rent x (1 - rent discount)); no amount override.
-        securityDepositMonths: this.bookingDepositMonths,
+        securityDepositMonths: this.bookingDepositMonthsToSend,
         securityDepositOverride: null,
         floorId: this.bookingFloorId ?? null,
         capacity: this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null,
@@ -2940,9 +2958,9 @@ export class Manage implements OnInit {
             if (errorMsg) {
               this.bookingFormSaving.set(false);
               this.bookingFormError.set(errorMsg);
-              this.bookingFormErrorField = 'space';
+              this.bookingFormErrorField = Manage.bookingErrorField(errorMsg);
               this.showError(errorMsg);
-              this.scrollToTopAndHighlight('space');
+              this.scrollToTopAndHighlight(this.bookingFormErrorField);
               return;
             }
 
@@ -2958,9 +2976,9 @@ export class Manage implements OnInit {
           error: (err: any) => {
             this.bookingFormSaving.set(false);
             this.bookingFormError.set(err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.');
-            this.bookingFormErrorField = 'space';
+            this.bookingFormErrorField = Manage.bookingErrorField(this.bookingFormError());
             this.showError(this.bookingFormError());
-            this.scrollToTopAndHighlight('space');
+            this.scrollToTopAndHighlight(this.bookingFormErrorField);
           }
         });
         return;
@@ -2975,9 +2993,9 @@ export class Manage implements OnInit {
             console.error('[BOOKING TEST] Creation returned error message:', errorMsg);
             this.bookingFormSaving.set(false);
             this.bookingFormError.set(errorMsg);
-            this.bookingFormErrorField = 'space';
+            this.bookingFormErrorField = Manage.bookingErrorField(errorMsg);
             this.showError(errorMsg);
-            this.scrollToTopAndHighlight('space');
+            this.scrollToTopAndHighlight(this.bookingFormErrorField);
             return;
           }
 
@@ -3175,9 +3193,9 @@ export class Manage implements OnInit {
           this.bookingFormSaving.set(false);
           const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
           this.bookingFormError.set(msg);
-          this.bookingFormErrorField = 'space';
+          this.bookingFormErrorField = Manage.bookingErrorField(msg);
           this.showError(msg);
-          this.scrollToTopAndHighlight('space');
+          this.scrollToTopAndHighlight(this.bookingFormErrorField);
         }
       });
     };
