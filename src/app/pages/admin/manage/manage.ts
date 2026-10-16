@@ -201,7 +201,6 @@ export class Manage implements OnInit {
   selectedSpaceTypeId = '';
   selectedLocationId = '';
   securityDeposit = 0;
-  securityDepositMonthsOverride: number | null = null;
   bookingDiscountType = 'Percentage';
   bookingDiscountPercentage = 0;
   bookingDiscountValue = 0;
@@ -215,7 +214,90 @@ export class Manage implements OnInit {
   readonly bookingFloorOptions = signal<{ v: any; l: string }[]>([]);
 
   bookingBillingPeriodMonths = 3;
+  /** Security Deposit (Months) chosen on Create Booking: 0-3, default 2 for private offices (shared / meeting: 0). */
   bookingSecurityDepositMonths = 2;
+  /** Booking edit: the months the form loaded (null on Create Booking). Unchanged months are not sent on update. */
+  private bookingEditLoadedDepositMonths: number | null = null;
+  /** The only month counts the API accepts for a security deposit. */
+  readonly securityDepositMonthOptions: readonly { v: number; l: string }[] = [
+    { v: 0, l: 'No deposit' }, { v: 1, l: '1 month' }, { v: 2, l: '2 months' }, { v: 3, l: '3 months' },
+  ];
+
+  /** A month count as the API accepts it: a whole number 0-3 (anything else, incl. missing, is 0). */
+  private static clampDepositMonths(value: unknown): number {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) ? Math.min(3, Math.max(0, n)) : 0;
+  }
+
+  /**
+   * 2 decimals, halves away from zero, as the API rounds its decimals (MidpointRounding.AwayFromZero). Binary float
+   * noise is dropped first (15 significant digits), so 10,001 x 0.895 = 8,950.895 gives 8,950.90 here as there.
+   */
+  private static round2(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    const clean = Number(value.toPrecision(15));
+    const shifted = Number(`${Math.round(Number(`${Math.abs(clean)}e2`))}e-2`);
+    const rounded = Number.isFinite(shifted) ? shifted : Math.round(Math.abs(clean) * 100) / 100;
+    return clean < 0 ? -rounded : rounded;
+  }
+
+  /** Deposit amount = months x monthly rent x (1 - rent discount %), 2 decimals: the figure the API stores. */
+  private static depositAmount(months: number, monthlyRent: number, discountPct: number): number {
+    if (!(months > 0) || !(monthlyRent > 0)) return 0;
+    const pct = Math.min(100, Math.max(0, Number(discountPct) || 0));
+    return Math.max(0, Manage.round2(months * monthlyRent * (1 - pct / 100)));
+  }
+
+  /**
+   * A stored deposit as the API reads it back (SecurityDepositRules.Stored): the stored amount; a stored 0 with
+   * months > 0 on a private office (older rows) = months x rent x (1 - discount); else none. Months are never
+   * defaulted (0 / missing = no deposit), and a shared space / meeting room never gets one worked out from months
+   * (old shared quotations can hold 1 month with no amount).
+   */
+  private static storedDeposit(isPrivateOffice: boolean, storedAmount: unknown, storedMonths: unknown,
+    monthlyRent: number, discountPct: number): number {
+    const amount = Number(storedAmount ?? 0);
+    if (amount > 0) return Manage.round2(amount);
+    if (!isPrivateOffice) return 0;
+    return Manage.depositAmount(Number(storedMonths ?? 0), monthlyRent, discountPct);
+  }
+
+  /** Months behind a stored deposit amount when a response has no month count (older API). */
+  private static depositMonthsFromAmount(amount: unknown, monthlyRent: number, discountPct: number): number {
+    const perMonth = Manage.depositAmount(1, monthlyRent, discountPct);
+    const a = Number(amount ?? 0);
+    return a > 0 && perMonth > 0 ? Manage.clampDepositMonths(a / perMonth) : 0;
+  }
+
+  /** Months sent with the booking: the selection for a private office, always 0 for shared spaces / meeting rooms. */
+  get bookingDepositMonths(): number {
+    return this.isAdminPrivateRoom ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
+  }
+
+  /**
+   * Months in the booking request: always on create; on edit only when changed (left out = unchanged), so saving
+   * other edits never resets a deposit or trips the API's "cannot be changed after the first invoice" refusal.
+   */
+  private get bookingDepositMonthsToSend(): number | undefined {
+    if (this.editingBookingId && this.bookingDepositMonths === this.bookingEditLoadedDepositMonths) return undefined;
+    return this.bookingDepositMonths;
+  }
+
+  /** The booking form field an API error belongs to: the deposit months for a security deposit refusal, else the space. */
+  private static bookingErrorField(message: unknown): string {
+    return /security deposit/i.test(String(message ?? '')) ? 'securityDepositMonths' : 'space';
+  }
+
+  /**
+   * The rent discount as a percentage of the monthly rent: a fixed amount ("Amount" / "Fixed") converts to its share
+   * of ONE month's rent (at most 100%); any other type is a percentage (as SecurityDepositRules.DiscountFraction).
+   */
+  private static rentDiscountPct(discountType: string, discountValue: unknown, monthlyRent: number): number {
+    const val = Number(discountValue || 0);
+    if (!(val > 0)) return 0;
+    if (!/^(amount|fixed)$/i.test(String(discountType ?? '').trim())) return Math.min(100, val);
+    return monthlyRent > 0 ? Math.min(100, (val / monthlyRent) * 100) : 0;
+  }
   // Per-seat monthly base price: starts at the space's standard rate and may only be raised (same rule as quotations).
   bookingPerSeatBasePrice = 0;
   bookingMinPerSeatBasePrice = 0;
@@ -361,18 +443,11 @@ export class Manage implements OnInit {
   }
 
 
+  /** Live deposit on Create Booking = months x monthly rent x (1 - rent discount %); 0 for shared / meeting. */
   get effectiveSecurityDeposit(): number {
-    if (!this.isAdminPrivateRoom) return 0;
-    const months = this.securityDepositMonthsOverride ?? Number(this.bookingSecurityDepositMonths || 0);
-    const baseDeposit = parseFloat((this.bookingMonthlyRent * months).toFixed(2));
-    if (baseDeposit <= 0) return 0;
-    const pct = this.bookingDiscountType === 'Percentage'
-      ? Math.min(100, Math.max(0, Number(this.bookingDiscountValue || 0)))
-      : (this.bookingMonthlyRent > 0 && Number(this.bookingDiscountValue || 0) > 0
-        ? Math.min(100, Math.max(0, (Number(this.bookingDiscountValue || 0) / this.bookingMonthlyRent) * 100))
-        : 0);
-    const discounted = baseDeposit * (1 - (pct / 100));
-    return parseFloat(Math.max(0, discounted).toFixed(2));
+    const rent = this.bookingMonthlyRent;
+    return Manage.depositAmount(this.bookingDepositMonths, rent,
+      Manage.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
   }
 
   get bookingMonthlyRent(): number {
@@ -529,7 +604,6 @@ export class Manage implements OnInit {
   readonly quotationSuccessMessage = signal('');
   quotationSubtotal = 0;
   quotationSecurityDeposit = 0;
-  quotationSecurityDepositMonthsOverride: number | null = null;
   quotationTotal = 0;
   quotationMonths = 12;
   quotationStartDate = '';
@@ -542,6 +616,7 @@ export class Manage implements OnInit {
   quotationFloorId: number | null = null;
   readonly quotationFloorOptions = signal<{ v: any; l: string }[]>([]);
   quotationBillingPeriodMonths = 3;
+  /** Security Deposit (Months) chosen on Create Quotation: 0-3, default 2 for private offices (shared / meeting: 0). */
   quotationSecurityDepositMonths = 2;
   readonly offeringTypes = signal<{ id: number; description: string; discountCap: number; locationId?: number | null }[]>([]);
   quotationOfferingTypeId: number = 1;
@@ -867,19 +942,16 @@ export class Manage implements OnInit {
     return Math.max(0, parseFloat((this.quotationBillingPeriodMonths * this.quotationMonthlyRent).toFixed(2)));
   }
 
+  /** Months sent with the quotation: the selection for a private office, always 0 for shared spaces / meeting rooms. */
+  get quotationDepositMonths(): number {
+    return this.isQuotationPrivateRoom ? Manage.clampDepositMonths(this.quotationSecurityDepositMonths) : 0;
+  }
+
+  /** Live deposit on Create Quotation = months x monthly rent x (1 - rent discount %); 0 for shared / meeting. */
   get effectiveQuotationSecurityDeposit(): number {
-    if (!this.isQuotationPrivateRoom) return 0;
-    const months = this.quotationSecurityDepositMonthsOverride ?? Number(this.quotationSecurityDepositMonths ?? 0);
-    if (months <= 0) return 0;
-    const baseDeposit = parseFloat((this.quotationMonthlyRent * months).toFixed(2));
-    if (baseDeposit <= 0) return 0;
-    const pct = this.quotationDiscountType === 'Percentage'
-      ? Math.min(100, Math.max(0, Number(this.quotationDiscountValue || 0)))
-      : (this.quotationMonthlyRent > 0 && Number(this.quotationDiscountValue || 0) > 0
-        ? Math.min(100, Math.max(0, (Number(this.quotationDiscountValue || 0) / this.quotationMonthlyRent) * 100))
-        : 0);
-    const discounted = baseDeposit * (1 - (pct / 100));
-    return parseFloat(Math.max(0, discounted).toFixed(2));
+    const rent = this.quotationMonthlyRent;
+    return Manage.depositAmount(this.quotationDepositMonths, rent,
+      Manage.rentDiscountPct(this.quotationDiscountType, this.quotationDiscountValue, rent));
   }
 
   get quotationDiscountAmount(): number {
@@ -1653,7 +1725,8 @@ export class Manage implements OnInit {
     this.customerSearchResults.set([]);
     this.selectedCustomer = null;
     this.securityDeposit = 0;
-    this.securityDepositMonthsOverride = null;
+    this.bookingSecurityDepositMonths = 2;
+    this.bookingEditLoadedDepositMonths = null;
     this.bookingDiscountType = 'Percentage';
     this.bookingDiscountPercentage = 0;
     this.bookingSendWht = false;
@@ -1819,10 +1892,14 @@ export class Manage implements OnInit {
     const stName = targetSpace ? (targetSpace.spaceTypeName || targetSpace.spaceType || targetSpace.name || '').toLowerCase() : (booking.spaceTypeName || booking.spaceType || '').toLowerCase();
     const spaceCodeNum = targetSpace ? Number(targetSpace.code ?? 0) : Number(booking.spaceCode ?? 0);
 
-    let group = 'private';
-    if (spaceCodeNum >= 3200 || stName.includes('meeting') || stName.includes('conference')) group = 'meeting';
-    else if (spaceCodeNum >= 3100 || stName.includes('private') || stName.includes('office')) group = 'private';
-    else if (spaceCodeNum >= 3000 || stName.includes('shared') || stName.includes('co-working')) group = 'shared';
+    // The space's category decides (a "desk" type is a shared space); else the code range / type name as before.
+    let group = targetSpace ? Manage.spaceGroupOf(targetSpace) : '';
+    if (!group) {
+      group = 'private';
+      if (spaceCodeNum >= 3200 || stName.includes('meeting') || stName.includes('conference')) group = 'meeting';
+      else if (spaceCodeNum >= 3100 || stName.includes('private') || stName.includes('office')) group = 'private';
+      else if (spaceCodeNum >= 3000 || Manage.SHARED_SPACE_WORDS.some(w => stName.includes(w))) group = 'shared';
+    }
     this.selectedSpaceTypeId = group;
 
     const cap = targetSpace ? (targetSpace.capacity || targetSpace.Capacity) : (booking.capacity || booking.Capacity);
@@ -1878,9 +1955,6 @@ export class Manage implements OnInit {
     }
 
     const secMonths = booking.securityDepositMonths ?? booking.SecurityDepositMonths;
-    if (secMonths != null) {
-      this.securityDepositMonthsOverride = Number(secMonths);
-    }
     const rawOtId = booking.offeringTypeId || booking.OfferingTypeId;
     const rawOt = booking.offeringType || booking.OfferingType || booking.operatingHours || booking.OperatingHours;
     this.bookingOfferingTypeId = this.resolveOfferingTypeId(rawOt, rawOtId, this.selectedLocationId ? Number(this.selectedLocationId) : null);
@@ -1888,9 +1962,28 @@ export class Manage implements OnInit {
     this.loadOfferingTypes();
 
     this.onBookingSpaceSelected();
+
+    // Security deposit months as stored (0 stays 0). An older response without months: the months behind the
+    // stored amount. Never a default month count.
+    if (!this.isAdminPrivateRoom) {
+      this.bookingSecurityDepositMonths = 0;
+    } else if (secMonths != null) {
+      this.bookingSecurityDepositMonths = Manage.clampDepositMonths(secMonths);
+    } else {
+      const rent = this.bookingMonthlyRent;
+      this.bookingSecurityDepositMonths = Manage.depositMonthsFromAmount(
+        booking.securityDeposit ?? booking.SecurityDeposit ?? booking.securityDepositRequired ?? booking.SecurityDepositRequired,
+        rent, Manage.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
+    }
+    this.bookingEditLoadedDepositMonths = this.bookingDepositMonths;
   }
 
-  /** The booking-form category of a space type: 'private', 'meeting', 'shared', or the label itself. */
+  /**
+   * The booking-form category of a space type: 'private', 'meeting', 'shared', or the label itself. The category code
+   * decides; without one the name does, as the API tells the deposit kind apart: meeting / conference (/ board) =
+   * meeting room, private = private office, shared / co-working / coworking / open / desk = shared space, and
+   * otherwise "office" = private office.
+   */
   private static spaceTypeGroup(label: string, categoryCode = ''): string {
     switch (categoryCode) {
       case 'PrivateOffice': return 'private';
@@ -1898,10 +1991,20 @@ export class Manage implements OnInit {
       case 'SharedSpace': return 'shared';
     }
     const l = label.toLowerCase();
-    if (l.includes('private') || l.includes('office') || l.includes('desk')) return 'private';
     if (l.includes('meeting') || l.includes('conference') || l.includes('board')) return 'meeting';
-    if (l.includes('shared') || l.includes('co-working') || l.includes('coworking') || l.includes('open')) return 'shared';
+    if (l.includes('private')) return 'private';
+    if (Manage.SHARED_SPACE_WORDS.some(w => l.includes(w))) return 'shared';
+    if (l.includes('office')) return 'private';
     return l;
+  }
+
+  /** Space type name words that mean a shared space (contract: no security deposit). */
+  private static readonly SHARED_SPACE_WORDS: readonly string[] = ['shared', 'co-working', 'coworking', 'open', 'desk'];
+
+  /** A space's form group from its category code, else its type name (spaceTypeGroup); '' when neither tells. */
+  private static spaceGroupOf(space: any): string {
+    const group = Manage.spaceTypeGroup(String(space?.spaceTypeName || space?.SpaceTypeName || ''), spaceCategoryCode(space));
+    return group === 'private' || group === 'meeting' || group === 'shared' ? group : '';
   }
 
   /** One option per category among these space type rows; value = the category so a category's types match. */
@@ -2196,7 +2299,8 @@ export class Manage implements OnInit {
         const sName = (s.name || '').toLowerCase();
         if (this.selectedSpaceTypeId === 'meeting') return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
         if (this.selectedSpaceTypeId === 'private') return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
-        if (this.selectedSpaceTypeId === 'shared') return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+        if (this.selectedSpaceTypeId === 'shared') return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working')
+          || (!categoryCode && Manage.spaceTypeGroup(sTypeName) === 'shared');
         return false;
       });
     }
@@ -2267,7 +2371,7 @@ export class Manage implements OnInit {
       this.loadOfferingTypes();
       this.bookingSubtotal = 0;
       this.bookingDiscountAmount = 0;
-      this.securityDepositMonthsOverride = null;
+      this.bookingSecurityDepositMonths = 2;
       this.bookingFloorId = null;
       this.bookingFloorOptions.set([]);
       this.selectedCustomer = null;
@@ -2853,10 +2957,10 @@ export class Manage implements OnInit {
         discountPercentage: this.bookingDiscountType === 'Percentage' ? Number(this.bookingDiscountValue || 0) : 0,
         discountValue: Number(this.bookingDiscountValue || 0),
         discountAmount: this.bookingDiscountAmount,
-        securityDeposit: this.effectiveSecurityDeposit,
         billingPeriodMonths: this.bookingBillingPeriodMonths,
-        securityDepositMonths: this.bookingSecurityDepositMonths,
-        securityDepositOverride: this.effectiveSecurityDeposit,
+        // The API works the deposit out from the months (x monthly rent x (1 - rent discount)); no amount override.
+        securityDepositMonths: this.bookingDepositMonthsToSend,
+        securityDepositOverride: null,
         floorId: this.bookingFloorId ?? null,
         capacity: this.selectedAdminCapacity ? Number(this.selectedAdminCapacity) : null,
         // Sent only when raised, so standard bookings keep working before the WN_Bookings_Insert update is applied.
@@ -2874,9 +2978,9 @@ export class Manage implements OnInit {
             if (errorMsg) {
               this.bookingFormSaving.set(false);
               this.bookingFormError.set(errorMsg);
-              this.bookingFormErrorField = 'space';
+              this.bookingFormErrorField = Manage.bookingErrorField(errorMsg);
               this.showError(errorMsg);
-              this.scrollToTopAndHighlight('space');
+              this.scrollToTopAndHighlight(this.bookingFormErrorField);
               return;
             }
 
@@ -2892,9 +2996,9 @@ export class Manage implements OnInit {
           error: (err: any) => {
             this.bookingFormSaving.set(false);
             this.bookingFormError.set(err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.');
-            this.bookingFormErrorField = 'space';
+            this.bookingFormErrorField = Manage.bookingErrorField(this.bookingFormError());
             this.showError(this.bookingFormError());
-            this.scrollToTopAndHighlight('space');
+            this.scrollToTopAndHighlight(this.bookingFormErrorField);
           }
         });
         return;
@@ -2909,9 +3013,9 @@ export class Manage implements OnInit {
             console.error('[BOOKING TEST] Creation returned error message:', errorMsg);
             this.bookingFormSaving.set(false);
             this.bookingFormError.set(errorMsg);
-            this.bookingFormErrorField = 'space';
+            this.bookingFormErrorField = Manage.bookingErrorField(errorMsg);
             this.showError(errorMsg);
-            this.scrollToTopAndHighlight('space');
+            this.scrollToTopAndHighlight(this.bookingFormErrorField);
             return;
           }
 
@@ -2966,7 +3070,7 @@ export class Manage implements OnInit {
             const billingDetails = [
               { feeType: 'RoomRent', description: `Room Rent (${billingMonths} Month(s))`, amount: billingRentAmount }
             ];
-            if (secMonths > 0) {
+            if (secMonths > 0 && secDepositAmount > 0) {
               billingDetails.push({ feeType: 'SecurityDeposit', description: `Security Deposit (${secMonths} Month(s))`, amount: secDepositAmount });
             }
             if (tax > 0) {
@@ -3003,7 +3107,6 @@ export class Manage implements OnInit {
               currentCycleAmount: Number(billingRentAmount),
               firstCycleRent: Number(billingRentAmount),
               securityDeposit: secDepositAmount,
-              securityDepositOverride: secDepositAmount,
               taxAmount: tax,
               taxAmountOnAdvanceRent: tax,
               taxAmountOnContract: Math.round(2000 * this.bookingSupportSeats * Number(this.adminMonths || 12) * 0.16 * 100) / 100,
@@ -3110,9 +3213,9 @@ export class Manage implements OnInit {
           this.bookingFormSaving.set(false);
           const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
           this.bookingFormError.set(msg);
-          this.bookingFormErrorField = 'space';
+          this.bookingFormErrorField = Manage.bookingErrorField(msg);
           this.showError(msg);
-          this.scrollToTopAndHighlight('space');
+          this.scrollToTopAndHighlight(this.bookingFormErrorField);
         }
       });
     };
@@ -3856,7 +3959,6 @@ export class Manage implements OnInit {
       (this.sendAgreementData?.authorizedRepresentativeName && this.sendAgreementData.authorizedRepresentativeName.trim()) ||
       (this.sendAgreementData?.cnic && this.sendAgreementData.cnic.trim()) ||
       (this.sendAgreementData?.companyName && this.sendAgreementData.companyName.trim()) ||
-      (this.sendAgreementData?.securityDeposit && this.sendAgreementData.securityDeposit > 0) ||
       (this.sendAgreementData?.specialConditions && this.sendAgreementData.specialConditions.trim())
     );
   }
@@ -5920,7 +6022,6 @@ export class Manage implements OnInit {
     this.selectedQuotationCapacity = null;
     this.quotationSubtotal = 0;
     this.quotationSecurityDeposit = 0;
-    this.quotationSecurityDepositMonthsOverride = null;
     this.quotationTotal = 0;
     this.quotationMonths = 12;
     this.quotationBillingPeriodMonths = 3;
@@ -6163,7 +6264,8 @@ export class Manage implements OnInit {
       const sName = (s.name || '').toLowerCase();
       if (isMeeting) return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
       if (isPrivate) return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
-      if (isShared) return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working');
+      if (isShared) return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working')
+        || (!categoryCode && Manage.spaceTypeGroup(sTypeName) === 'shared');
       return false;
     });
 
@@ -6369,11 +6471,12 @@ export class Manage implements OnInit {
       DiscountPercentage: this.quotationDiscountType === 'Percentage' ? Number(this.quotationDiscountValue || 0) : 0,
       DiscountType: this.quotationDiscountType,
       DiscountValue: Number(this.quotationDiscountValue || 0),
-      SecurityDepositOverride: this.effectiveQuotationSecurityDeposit,
+      // The API works the deposit out from the months (x monthly rent x (1 - rent discount)); no amount override.
+      SecurityDepositOverride: null,
       BillingPeriodMonths: Number(this.quotationBillingPeriodMonths || 3),
       billingPeriodMonths: Number(this.quotationBillingPeriodMonths || 3),
-      SecurityDepositMonths: Number(this.quotationSecurityDepositMonths ?? 0),
-      securityDepositMonths: Number(this.quotationSecurityDepositMonths ?? 0),
+      SecurityDepositMonths: this.quotationDepositMonths,
+      securityDepositMonths: this.quotationDepositMonths,
       FloorId: this.quotationFloorId ?? null,
       PerSeatBasePrice: Number(this.quotationPerSeatBasePrice || 0),
       Capacity: Number(this.quotationCapacity || 1),
@@ -6476,14 +6579,9 @@ export class Manage implements OnInit {
         this.selectedQuotationLocationId = space.locationId || space.location?.id || sourceVersion.locationId || '';
         this.onQuotationLocationChange(true);
 
-        const cat = (space.spaceTypeName || space.spaceCategory || '').toLowerCase();
-        if (cat.includes('shared') || cat.includes('co-working')) {
-          this.selectedQuotationSpaceTypeId = 'shared';
-        } else if (cat.includes('private')) {
-          this.selectedQuotationSpaceTypeId = 'private';
-        } else if (cat.includes('meeting') || cat.includes('conference')) {
-          this.selectedQuotationSpaceTypeId = 'meeting';
-        }
+        // The space's category decides; without one its type name (a "desk" type is a shared space).
+        const group = Manage.spaceGroupOf({ ...space, spaceTypeName: space.spaceTypeName || space.spaceCategory || '' });
+        if (group) this.selectedQuotationSpaceTypeId = group;
 
         this.selectedQuotationCapacity = space.capacity || sourceVersion.capacity || null;
         this.quotationFloorId = space.floorId || sourceVersion.floorId || null;
@@ -6528,8 +6626,13 @@ export class Manage implements OnInit {
     this.quotationFormData.quotationNumber = sourceVersion.quotationNumber || `Q-2026-001`;
     this.quotationMonths = sourceVersion.contractPeriodMonths || sourceVersion.months || 12;
     this.quotationBillingPeriodMonths = sourceVersion.billingPeriodMonths || 3;
-    this.quotationSecurityDepositMonths = sourceVersion.securityDepositMonths || 2;
-    this.quotationSecurityDepositMonthsOverride = sourceVersion.securityDepositMonthsOverride ?? null;
+    // The source version's stored months (0 stays 0); an older response without months: the months behind its
+    // stored amount. Never a default month count. (Shared spaces / meeting rooms send 0 whatever this holds.)
+    const srcSecMonths = sourceVersion.securityDepositMonths ?? sourceVersion.SecurityDepositMonths;
+    this.quotationSecurityDepositMonths = srcSecMonths != null
+      ? Manage.clampDepositMonths(srcSecMonths)
+      : Manage.depositMonthsFromAmount(sourceVersion.securityDeposit ?? sourceVersion.SecurityDeposit,
+        this.getQuotationMonthlyRent(sourceVersion), this.getQuotationDiscountPercentage(sourceVersion));
     this.quotationDiscountType = sourceVersion.discountType || 'Percentage';
     this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
     const srcOt = sourceVersion.offeringTypeDescription || sourceVersion.OfferingTypeDescription || sourceVersion.offeringType || sourceVersion.OfferingType || sourceVersion.operatingHours;
@@ -6720,6 +6823,17 @@ export class Manage implements OnInit {
   selectedBookingDetails = signal<any>(null);
   bookingBillingSummaryData = signal<any>(null);
 
+  /** Booking details: the deposit as stored; 0 with stored months > 0 on a private office (older rows) = months x rent
+   *  x (1 - discount %). */
+  bookingDetailsDeposit(b: any): number {
+    if (!b) return 0;
+    const months = Number(b.securityDepositMonths ?? b.SecurityDepositMonths ?? 0);
+    const rent = Number(b.monthlyRent ?? b.MonthlyRent ?? b.contract?.monthlyRent ?? 0);
+    const pct = Number(b.discountPercentage ?? b.DiscountPercentage ?? 0);
+    return Manage.storedDeposit(this.isPrivateRoom(b), b.securityDeposit ?? b.SecurityDeposit ?? b.contract?.securityDeposit,
+      months, rent, pct);
+  }
+
 
   openBookingDetailsModal(item: any) {
     if (!item) return;
@@ -6757,6 +6871,7 @@ export class Manage implements OnInit {
             currentCycleAmount: raw.currentCycleAmount ?? raw.CurrentCycleAmount ?? c.currentCycleAmount ?? c.CurrentCycleAmount ?? raw.cycleAmount ?? 0,
             totalContractAmount: raw.totalContractAmount ?? raw.TotalContractAmount ?? c.totalContractAmount ?? c.TotalContractAmount ?? raw.totalAmount ?? raw.TotalAmount ?? 0,
             securityDeposit: raw.securityDeposit ?? raw.SecurityDeposit ?? c.securityDeposit ?? c.SecurityDeposit ?? 0,
+            securityDepositMonths: raw.securityDepositMonths ?? raw.SecurityDepositMonths ?? c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0,
             balanceLeft: raw.balanceLeft ?? raw.BalanceLeft ?? c.balanceLeft ?? c.BalanceLeft ?? raw.balanceAmount ?? raw.BalanceAmount ?? 0,
             nextBillingDate: raw.nextBillingDate || raw.NextBillingDate || raw.nextBillDueDate || raw.NextBillDueDate || c.nextBillingDate || c.NextBillingDate
           };
@@ -7085,7 +7200,8 @@ export class Manage implements OnInit {
     const totalContract = item.totalContractAmount ?? item.TotalContractAmount ?? item.totalAmount ?? item.subTotal ?? item.subtotalAmount ?? 0;
     const contractMonths = item.durationMonths || item.contractMonths || item.months || 10;
     const cycleMonths = selectedMonths || this.customInvoiceSelectedMonths || item.billingPeriodMonths || item.advanceMonths || item.billingCycleMonths || 3;
-    const secMonths = item.securityDepositMonths || item.depositMonths || 2;
+    // Stored months only (0 / missing = none); never a default month count.
+    const secMonths = Number(item.securityDepositMonths ?? item.SecurityDepositMonths ?? item.depositMonths ?? 0) || 0;
 
     let monthlyRate = this.customInvoiceMonthlyRate;
     if (!monthlyRate || monthlyRate <= 0) {
@@ -7100,7 +7216,10 @@ export class Manage implements OnInit {
     }
 
     const calculatedRent = monthlyRate * cycleMonths;
-    const securityDeposit = item.effectiveSecurityDeposit ?? item.securityDeposit ?? item.depositAmount ?? (monthlyRate > 0 && secMonths > 0 ? (monthlyRate * secMonths) : 0);
+    // The stored amount; 0 with stored months > 0 on a private office (older rows) = months x rent x (1 - discount %).
+    const securityDeposit = Manage.storedDeposit(this.isPrivateRoom(item),
+      item.effectiveSecurityDeposit ?? item.securityDeposit ?? item.SecurityDeposit ?? item.depositAmount, secMonths, monthlyRate,
+      Number(item.discountPercentage ?? item.DiscountPercentage ?? 0));
     const discount = item.bookingDiscountAmount ?? item.discountAmount ?? 0;
 
     const isAlreadySent = isNextInvoice || item.initialInvoiceSent || (bookingId && this.sentInitialInvoices.has(bookingId));
@@ -7132,7 +7251,9 @@ export class Manage implements OnInit {
       }
 
       if (securityDeposit > 0) {
-        const secLabel = `Security Deposit (${secMonths} Month(s) Refundable - ${spaceLabel})`;
+        const secLabel = secMonths > 0
+          ? `Security Deposit (${secMonths} Month(s) Refundable - ${spaceLabel})`
+          : `Security Deposit (Refundable - ${spaceLabel})`;
         resultLines.push({
           description: secLabel,
           quantity: 1,
@@ -7698,8 +7819,11 @@ export class Manage implements OnInit {
     return Number(c.billingPeriodMonths ?? c.BillingPeriodMonths ?? 3);
   }
 
+  /** Months behind a booking's deposit: the stored months, else the deposit line's; 0 when unknown (never a default). */
   getChallanSecurityMonths(c: any): number {
     if (!c) return 0;
+    const storedMonths = Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0);
+    if (storedMonths > 0) return storedMonths;
     const details = c.details || c.Details || c.items || c.Items || c.lineItems || c.LineItems || [];
     const secLine = Array.isArray(details) ? details.find((d: any) => {
       const ft = String(d.feeType || d.FeeType || '').toLowerCase();
@@ -7713,11 +7837,7 @@ export class Manage implements OnInit {
       const match = String(secLine.description || secLine.Description).match(/(\d+)\s*Month/i);
       if (match && match[1]) return Number(match[1]);
     }
-    const secM = c.securityDepositMonths ?? c.SecurityDepositMonths ?? c.securityDepositMonthsOverride ?? c.SecurityDepositMonthsOverride;
-    if (secM !== undefined && secM !== null) {
-      return Number(secM);
-    }
-    return this.isPrivateRoom(c) ? 2 : 0;
+    return 0;
   }
 
   getChallanMonthlyRent(c: any): number {
@@ -7772,27 +7892,16 @@ export class Manage implements OnInit {
     return monthlyRent * bpm;
   }
 
+  /** A booking's security deposit: the stored amount; if that is 0 but stored months > 0 on a private office (older
+   *  rows), months x monthly rent x (1 - discount). No stored months = no deposit (months are never defaulted). */
   getChallanSecurityDeposit(c: any): number {
-    if (!c || !this.isPrivateRoom(c)) return 0;
-    const secOverride = c.securityDepositOverride ?? c.SecurityDepositOverride;
-    if (secOverride !== undefined && secOverride !== null) {
-      return Number(secOverride);
-    }
-    const dbDeposit = c.securityDeposit ?? c.SecurityDeposit;
-    if (dbDeposit !== undefined && dbDeposit !== null) {
-      return Number(dbDeposit);
-    }
-    const secMonths = this.getChallanSecurityMonths(c);
-    if (secMonths === 0) return 0;
-    const monthlyRent = this.getChallanMonthlyRent(c);
-    const baseDeposit = monthlyRent * secMonths;
+    if (!c) return 0;
+    const storedMonths = Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0);
     const discAmount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
     const subtotal = Number(c.subtotalAmount ?? c.SubtotalAmount ?? 0);
     const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? (subtotal > 0 && discAmount > 0 ? (discAmount / subtotal) * 100 : 0));
-    if (discPct > 0) {
-      return Math.max(0, parseFloat((baseDeposit * (1 - discPct / 100)).toFixed(2)));
-    }
-    return baseDeposit;
+    return Manage.storedDeposit(this.isPrivateRoom(c), c.securityDeposit ?? c.SecurityDeposit, storedMonths,
+      this.getChallanMonthlyRent(c), discPct);
   }
 
   getChallanSupportCharges(c: any): number {
@@ -7906,8 +8015,11 @@ export class Manage implements OnInit {
     return Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 3);
   }
 
+  /** Months behind a quotation's deposit: the stored months, else the deposit line's; 0 when unknown (never a default). */
   getQuotationSecurityMonths(q: any): number {
     if (!q) return 0;
+    const storedMonths = Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 0);
+    if (storedMonths > 0) return storedMonths;
     const details = q.details || q.Details || [];
     const secLine = Array.isArray(details) ? details.find((d: any) => {
       const ft = String(d.feeType || d.FeeType || '').toLowerCase();
@@ -7921,11 +8033,7 @@ export class Manage implements OnInit {
       const match = String(secLine.description || secLine.Description).match(/(\d+)\s*Month/i);
       if (match && match[1]) return Number(match[1]);
     }
-    const secM = q.securityDepositMonths ?? q.SecurityDepositMonths ?? q.securityDepositMonthsOverride ?? q.SecurityDepositMonthsOverride;
-    if (secM !== undefined && secM !== null) {
-      return Number(secM);
-    }
-    return this.isPrivateRoom(q) ? 2 : 0;
+    return 0;
   }
 
   getQuotationMonthlyRent(q: any): number {
@@ -7972,31 +8080,18 @@ export class Manage implements OnInit {
     return monthlyRent * bpm;
   }
 
+  /** A quotation's security deposit: the stored amount; if that is 0 but stored months > 0 on a private office (older
+   *  rows; an old shared row can hold 1 month with no amount), months x monthly rent x (1 - rent discount). No stored
+   *  months = no deposit (months are never defaulted). */
   getQuotationSecurityDeposit(q: any): number {
-    if (!q || !this.isPrivateRoom(q)) return 0;
-    const secOverride = q.securityDepositOverride ?? q.SecurityDepositOverride;
-    if (secOverride !== undefined && secOverride !== null) {
-      return Number(secOverride);
-    }
-    const dbDeposit = q.securityDeposit ?? q.SecurityDeposit;
-    if (dbDeposit !== undefined && dbDeposit !== null) {
-      return Number(dbDeposit);
-    }
-    const secMonths = this.getQuotationSecurityMonths(q);
-    if (secMonths === 0) return 0;
+    if (!q) return 0;
+    const storedMonths = Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 0);
     const monthlyRent = this.getQuotationMonthlyRent(q);
-    const baseDeposit = monthlyRent * secMonths;
     const discType = q.discountType ?? q.DiscountType;
-    const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
-    if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0 && monthlyRent > 0) {
-      const pct = Math.min(100, Math.max(0, (discVal / monthlyRent) * 100));
-      return Math.max(0, parseFloat((baseDeposit * (1 - pct / 100)).toFixed(2)));
-    }
-    const discPct = this.getQuotationDiscountPercentage(q);
-    if (discPct > 0) {
-      return Math.max(0, parseFloat((baseDeposit * (1 - discPct / 100)).toFixed(2)));
-    }
-    return baseDeposit;
+    const discPct = (discType === 'Amount' || discType === 'Fixed')
+      ? Manage.rentDiscountPct('Amount', q.discountValue ?? q.DiscountValue, monthlyRent)
+      : this.getQuotationDiscountPercentage(q);
+    return Manage.storedDeposit(this.isPrivateRoom(q), q.securityDeposit ?? q.SecurityDeposit, storedMonths, monthlyRent, discPct);
   }
 
   getQuotationSupportCharges(q: any): number {
@@ -8178,9 +8273,19 @@ export class Manage implements OnInit {
     operatingHours: '24/7',
     monthlyFee: 0,
     securityDeposit: 0,
+    securityDepositMonths: 0,
     refundDays: 30
   };
   selectedAgreementItem: any = null;
+
+  /** Read-only deposit on Send Agreement, from the quotation's stored amount and months. */
+  get sendAgreementDepositText(): string {
+    const amount = Number(this.sendAgreementData?.securityDeposit || 0);
+    if (!(amount > 0)) return 'No security deposit';
+    const months = Number(this.sendAgreementData?.securityDepositMonths || 0);
+    const pkr = `PKR ${amount.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+    return months > 0 ? `${pkr} (${months} month${months === 1 ? '' : 's'})` : pkr;
+  }
 
   openSendAgreement(item?: any) {
     this.selectedAgreementItem = item || null;
@@ -8243,7 +8348,9 @@ export class Manage implements OnInit {
       discountedMonthlyFee = Math.max(0, baseMonthlyFee - (itemDiscAmt / itemContractM));
     }
     const monthlyFee = parseFloat((discountedMonthlyFee * bpm).toFixed(2));
-    const secDeposit = item ? (this.getQuotationSecurityDeposit(item) || Number(item.securityDeposit ?? item.SecurityDeposit ?? item.securityDepositOverride ?? item.SecurityDepositOverride ?? 0)) : 0;
+    // Deposit from the quotation as stored (amount and months); not editable here.
+    const secDeposit = item ? this.getQuotationSecurityDeposit(item) : 0;
+    const secDepositMonths = secDeposit > 0 ? this.getQuotationSecurityMonths(item) : 0;
 
     this.sendAgreementData = {
       quotationId: item?.quotationId || item?.id || item?.Id || null,
@@ -8260,6 +8367,7 @@ export class Manage implements OnInit {
       operatingHours: opHours,
       monthlyFee: monthlyFee,
       securityDeposit: secDeposit,
+      securityDepositMonths: secDepositMonths,
       refundDays: item?.refundDays || 30,
       overrideEmail: customerEmail,
       spaceName: item?.spaceName || item?.SpaceName || '',
@@ -8376,7 +8484,8 @@ export class Manage implements OnInit {
             const qTaxAmount = this.getQuotationTaxAmount(q) || 0;
             const qCycleNetRent = parseFloat((qDiscountedMonthly * qBpm).toFixed(2));
             this.sendAgreementData.monthlyFee = parseFloat((qCycleNetRent + qTaxAmount).toFixed(2));
-            this.sendAgreementData.securityDeposit = this.getQuotationSecurityDeposit(q) || Number(q.securityDeposit ?? q.SecurityDeposit ?? 0);
+            this.sendAgreementData.securityDeposit = this.getQuotationSecurityDeposit(q);
+            this.sendAgreementData.securityDepositMonths = this.sendAgreementData.securityDeposit > 0 ? this.getQuotationSecurityMonths(q) : 0;
 
             if (q.startDateTime || q.startDate || q.StartDateTime || q.StartDate) {
               const d = new Date(q.startDateTime || q.startDate || q.StartDateTime || q.StartDate);
@@ -8488,6 +8597,7 @@ export class Manage implements OnInit {
       refundDays: Number(this.sendAgreementData.refundDays || 30),
       FeeAmount: Number(this.sendAgreementData.monthlyFee || 0),
       feeAmount: Number(this.sendAgreementData.monthlyFee || 0),
+      // Informational: the API takes the deposit from the quotation / booking as stored.
       SecurityDeposit: Number(this.sendAgreementData.securityDeposit || 0),
       securityDeposit: Number(this.sendAgreementData.securityDeposit || 0),
       ContractStartDate: this.sendAgreementData.contractStartDate ? new Date(this.sendAgreementData.contractStartDate).toISOString() : null,
