@@ -145,10 +145,23 @@ footer {
   font-size: 0.8rem;
 }
 
+/* Narrower screens: fewer columns (5 columns made the page wider than a phone and the fixed top bar scroll sideways). */
+@media (max-width: 1024px) {
+  .footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px 20px;
+  }
+  .footer-brand { grid-column: span 2; }
+}
+
 @media (max-width: 768px) {
   .footer-grid {
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 16px;
   }
+  .footer-brand,
+  .footer-col-map { grid-column: 1 / -1; }
+  .footer-brand p { max-width: none; }
   
   .footer-col h4 {
     font-size: 0.8rem;
@@ -159,3 +172,14 @@ footer {
     font-size: 0.8rem;
   }
 }
+
+@media (max-width: 420px) {
+  footer { padding: 44px 0 20px; }
+  .footer-grid { grid-template-columns: minmax(0, 1fr); }
+  .social-links a { width: 44px; height: 44px; }
+  .location-btn { min-height: 44px; }
+}
+
+/* Long e-mail addresses and links wrap instead of widening the page. */
+.footer-col ul li a,
+.footer-col ul li span { overflow-wrap: anywhere; min-width: 0; }

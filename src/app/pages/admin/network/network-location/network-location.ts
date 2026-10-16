@@ -3,6 +3,7 @@ import { UnifiService } from '../../../../services/unifi.service';
 import { AdminService } from '../../../../services/admin.service';
 import { ToastService } from '../../../../services/toast.service';
 import { errMsg } from '../network-shared';
+import { KeepInView } from '../../../../components/keep-in-view/keep-in-view.directive';
 
 /**
  * "Location: I-8" chip on Network Overview. Super admins pick which WorkNest locations the UniFi network belongs
@@ -11,6 +12,7 @@ import { errMsg } from '../network-shared';
 @Component({
   selector: 'app-network-location',
   standalone: true,
+  imports: [KeepInView],
   template: `
     @if (scope(); as s) {
       <span class="loc-wrap">
@@ -22,7 +24,7 @@ import { errMsg } from '../network-shared';
         </button>
         @if (open()) {
           <div class="loc-backdrop" (click)="open.set(false)"></div>
-          <div class="loc-menu" role="listbox" aria-multiselectable="true">
+          <div class="loc-menu" role="listbox" aria-multiselectable="true" appKeepInView>
             <p class="loc-hint">This UniFi network belongs to:</p>
             @for (l of locations(); track l.id) {
               <label class="loc-option">

@@ -237,7 +237,6 @@ nav.over-hero .hamburger span {
     width: min(320px, 85vw);
     height: 100dvh;
     background: #ffffff;
-    box-shadow: -4px 0 32px rgba(15, 23, 42, 0.12);
     padding: 0;
     flex-direction: column;
     align-items: stretch;
@@ -245,13 +244,18 @@ nav.over-hero .hamburger span {
     gap: 0;
     transform: translateX(100%);
     pointer-events: none;
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    /* closed: no shadow (it showed as a grey strip on the right edge) and hidden from Tab after sliding out */
+    visibility: hidden;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.28s;
     z-index: 1003;
   }
 
   .nav-menu.open {
     pointer-events: all;
     transform: translateX(0);
+    visibility: visible;
+    box-shadow: -4px 0 32px rgba(15, 23, 42, 0.12);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .nav-menu-content {
@@ -602,4 +606,13 @@ nav.over-hero .profile-chevron {
 .btn-block {
   width: 100%;
   justify-content: center;
+}
+
+/* Phones: 16px side gutter, finger-sized menu button and close button. */
+@media (max-width: 767.98px) {
+  .nav-container { padding: 0 16px; }
+  .hamburger { width: 44px; height: 44px; align-items: center; justify-content: center; margin-right: -10px; }
+  .mobile-menu-close { width: 44px; height: 44px; }
+  .logo { font-size: 1.5rem; }
+  .logo img { width: 40px; height: 40px; }
 }
