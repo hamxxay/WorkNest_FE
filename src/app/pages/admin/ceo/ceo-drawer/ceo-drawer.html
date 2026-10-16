@@ -156,8 +156,10 @@
                   </div>
                 }
                 <span class="sp-sum">
-                  @if (spaceStats().occupied) {
+                  @if (spaceMixed()) {
                     {{ count(spaceStats().occupied) }} of {{ count(spaceStats().all) }} in use · {{ count(spaceStats().seatsInUse) }} seats taken
+                  } @else if (spaceStats().occupied) {
+                    {{ count(spaceStats().occupied) }} {{ spaceStats().occupied === 1 ? 'room' : 'rooms' }} in use · {{ count(spaceStats().seatsInUse) }} seats taken
                   } @else { None of these {{ count(spaceStats().all) }} is in use }
                 </span>
               </div>
