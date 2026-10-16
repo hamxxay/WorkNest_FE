@@ -3,9 +3,10 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
+  CeoBreakdown, CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
+import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
 import {
   AGING_COLORS, AGING_FALLBACK, AXIS_MONEY, Chart, ChartKeyNav, DrillLevel, DrillRequest, GRID, INQUIRY_TYPES, LEGEND, TEAL,
   TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, firstNameOf, fullMoney, inquiryTypeKey,
@@ -26,27 +27,24 @@ interface Kpi {
   actionLabel?: string;
 }
 
-type ChartKey = 'revenue' | 'aging' | 'occupancy' | 'bookings';
-
-/** Same y-axis width on the stacked occupancy / new bookings charts, so their months line up. */
-const Y_AXIS_WIDTH = (scale: any) => { scale.width = 46; };
+type ChartKey = 'revenue' | 'aging' | 'occupancy';
 
 /**
  * CEO dashboard (/admin/ceo): company-wide money, occupancy, sales and team figures for this month / quarter /
  * year, all locations or one. Every chart and list drills down in a side drawer (breakdown, then records).
- * Read-only. Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook).
+ * Read-only. Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook, GET api/ceo/rooms for
+ * the Rooms section, which loads on its own).
  */
 @Component({
   selector: 'app-ceo-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection],
   templateUrl: './ceo-dashboard.html',
   styleUrl: './ceo-dashboard.css'
 })
 export class CeoDashboard {
   private ceo = inject(CeoService);
   private auth = inject(AuthService);
-  private host = inject(ElementRef<HTMLElement>);
 
   readonly money = money;
   readonly fullMoney = fullMoney;
@@ -73,6 +71,8 @@ export class CeoDashboard {
   forecastError = signal<CeoError | null>(null);
 
   drill = signal<DrillRequest | null>(null);
+  /** Bumped by the refresh button: the Rooms section reloads too. */
+  roomsReload = signal(0);
   /** Screen reader text for the chart that has keyboard focus. */
   chartAnnounce = signal('');
 
@@ -90,7 +90,6 @@ export class CeoDashboard {
   private revenueCanvas = viewChild<ElementRef<HTMLCanvasElement>>('revenueCanvas');
   private agingCanvas = viewChild<ElementRef<HTMLCanvasElement>>('agingCanvas');
   private occCanvas = viewChild<ElementRef<HTMLCanvasElement>>('occCanvas');
-  private bookingsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('bookingsCanvas');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -159,6 +158,7 @@ export class CeoDashboard {
   refresh() {
     this.load();
     this.loadForecast();
+    this.roomsReload.update(n => n + 1);
   }
 
   setPeriod(p: CeoPeriod) { if (p !== this.period()) this.period.set(p); }
@@ -214,25 +214,25 @@ export class CeoDashboard {
         key: 'invoiced', label: `Invoiced this ${w}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
         sub: `${money(m.invoicedPrev)} last ${w}`, tone: 'neutral',
         trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs last ${w}`,
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced this ${w} by ${this.revenueBy()}`
       },
       {
         key: 'collected', label: `Collected this ${w}`, value: money(m.collected), full: fullMoney(m.collected),
         sub: `${money(m.collectedPrev)} last ${w}`, tone: 'neutral',
         trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs last ${w}`,
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected this ${w} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
         tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate this ${w} by ${this.revenueBy()}`
       },
       {
         key: 'outstanding', label: 'Outstanding', value: money(m.outstanding), full: fullMoney(m.outstanding),
         sub: `${count(m.outstandingCount)} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}`,
         tone: m.outstanding > 0 ? 'neutral' : 'ok',
-        action: () => this.focusPanel('panel-aging'), actionLabel: 'Show receivables aging'
+        action: () => this.openOutstanding(), actionLabel: 'Open outstanding by days past due'
       },
       {
         key: 'overdue', label: 'Overdue', value: money(m.overdue), full: fullMoney(m.overdue),
@@ -284,10 +284,13 @@ export class CeoDashboard {
         sub: `${count(o.occupiedSpaces)} of ${count(o.totalSpaces)} spaces in use`,
         tone: o.totalSpaces === 0 ? 'neutral' : o.occupancyPct >= 70 ? 'ok' : o.occupancyPct >= 40 ? 'neutral' : 'warn',
         trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs a ${w} ago`,
-        action: () => this.focusPanel('panel-by-location'), actionLabel: 'Show occupancy by location'
+        action: () => this.openOccupancy(), actionLabel: 'Open the occupied rooms by location'
       },
       {
-        key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral'
+        key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral',
+        // records/bookings filters by the day a booking was made: from 2000-01-01 keeps the older ones that still run.
+        action: () => this.openRecords('Active bookings', 'Running today', 'bookings', { status: 'active', from: '2000-01-01' }),
+        actionLabel: 'Open the bookings running today'
       },
       {
         key: 'new', label: `New bookings this ${w}`, value: count(o.newBookings),
@@ -375,6 +378,79 @@ export class CeoDashboard {
 
   closeDrill() { this.drill.set(null); }
 
+  // KPI drill-downs. Level 2 lists built from the dashboard's own figures (the months of the period, the aging
+  // buckets, occupancy by location) lead to the API breakdowns and then the records, as the charts do.
+
+  /** The month the figures run to (the last of the 12-month series), "yyyy-MM". */
+  private currentMonth(): string {
+    const last = this.m()?.months.at(-1)?.month;
+    if (last) return last.slice(0, 7);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  /** What Invoiced / Collected open first: this month by location, a quarter or year by month. */
+  revenueBy = computed(() => (this.shownPeriod() === 'month' ? 'location' : 'month'));
+
+  /** The months of the period so far (calendar quarter / year to date), invoiced and collected. */
+  private periodMonths = computed<CeoBreakdown>(() => {
+    const months = this.m()?.months ?? [];
+    const [y, mo] = this.currentMonth().split('-').map(Number);
+    const first = this.shownPeriod() === 'year' ? 1 : this.shownPeriod() === 'quarter' ? Math.floor((mo - 1) / 3) * 3 + 1 : mo;
+    const rows = months
+      .filter(x => { const [yy, mm] = x.month.split('-').map(Number); return yy === y && mm >= first && mm <= mo; })
+      .map(x => ({ key: x.month.slice(0, 7), label: monthLong(x.month), value: x.invoiced, value2: x.collected, count: null }));
+    return { title: 'Invoiced and collected by month', subtitle: this.periodTitle(), valueLabel: 'Invoiced', value2Label: 'Collected', rows };
+  });
+
+  /** Outstanding by days past due (the aging buckets). */
+  private agingBuckets = computed<CeoBreakdown>(() => ({
+    title: 'Outstanding by days past due', subtitle: 'Unpaid invoices, as of today', valueLabel: 'Outstanding', value2Label: null,
+    rows: (this.m()?.aging ?? []).map(a => ({ key: a.bucket, label: a.label, value: a.amount, value2: null, count: a.count }))
+  }));
+
+  /** Occupancy by location, as of today. */
+  private occupancyLocations = computed<CeoBreakdown>(() => ({
+    title: 'Occupancy by location', subtitle: 'Occupied of all spaces, as of today', valueLabel: 'Occupied', value2Label: 'Spaces',
+    rows: (this.o()?.byLocation ?? []).map(l => ({
+      key: l.locationId > 0 ? String(l.locationId) : '', label: l.name, value: l.occupied, value2: l.total, count: null
+    }))
+  }));
+
+  /** Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices. */
+  openRevenue(root: string, status: 'paid' | null) {
+    const extra = status ? { status } : {};
+    if (this.shownPeriod() === 'month') {
+      const month = this.currentMonth();
+      this.openDrill(root, { kind: 'breakdown', metric: 'revenue', params: { month, ...extra }, crumb: monthLong(month) });
+    } else {
+      this.openDrill(root, {
+        kind: 'breakdown', metric: 'revenue-months', params: extra, crumb: this.periodTitle(), local: () => this.periodMonths()
+      });
+    }
+  }
+
+  /** Outstanding: the aging buckets, then a bucket by location, then its invoices. */
+  openOutstanding() {
+    this.openDrill('Outstanding', { kind: 'breakdown', metric: 'aging-buckets', params: {}, crumb: 'By days past due', local: () => this.agingBuckets() });
+  }
+
+  /** Occupancy: by location, then a location by space type, then its spaces. */
+  openOccupancy() {
+    // Only the occupied rooms (the chart's location / type drills still show occupied and vacant).
+    this.openDrill('Occupancy', {
+      kind: 'breakdown', metric: 'occupancy-locations', params: { occupied: true }, crumb: 'Occupied rooms by location',
+      local: () => this.occupancyLocations()
+    });
+  }
+
+  /** Sales figures in the funnel header: conversion (converted quotations), quoted (quotations), booked (bookings). */
+  openSalesFigure(which: 'conversion' | 'quoted' | 'booked') {
+    if (which === 'conversion') this.openRecords('Sales funnel', 'Converted quotations', 'quotations', { stage: 'converted' });
+    else if (which === 'quoted') this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' });
+    else this.openRecords('Sales funnel', 'Bookings', 'bookings', {});
+  }
+
   openRevenueMonth(i: number) {
     const month = this.m()?.months[i];
     if (month) this.openDrill('Revenue', { kind: 'breakdown', metric: 'revenue', params: { month: month.month }, crumb: monthLong(month.month) });
@@ -422,19 +498,6 @@ export class CeoDashboard {
     this.openDrill('Team', { kind: 'breakdown', metric: 'staff', params: { userId }, crumb: name });
   }
 
-  /** KPI that points at a chart: scroll it into view and move focus there. */
-  focusPanel(id: string) {
-    const el = this.host.nativeElement.querySelector(`#${id}`) as HTMLElement | null;
-    if (!el) return;
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-    el.focus({ preventScroll: true });
-    el.classList.remove('flash');
-    void el.offsetWidth;
-    el.classList.add('flash');
-    setTimeout(() => el.classList.remove('flash'), 1600);
-  }
-
   // ---------- charts ----------
 
   readonly revenueNav = new ChartKeyNav({
@@ -460,7 +523,7 @@ export class CeoDashboard {
   });
 
   readonly occNav = new ChartKeyNav({
-    charts: () => [this.charts.get('occupancy'), this.charts.get('bookings')],
+    charts: () => [this.charts.get('occupancy')],
     count: () => this.o()?.months.length ?? 0,
     describe: i => {
       const x = this.o()?.months[i];
@@ -559,71 +622,58 @@ export class CeoDashboard {
       }
     });
 
-    // Occupancy (line, %) and new bookings (bars, count): two small charts on one time axis, never two y-scales.
+    // Occupancy & new bookings: one chart per month, new bookings as bars (left axis, count) and occupancy as a
+    // line drawn on top of them (right axis, 0-100%). A bar or a point opens the new bookings by location.
     const occEmpty = this.occEmpty();
+    // Four steps on the bookings axis, so its grid lines meet the 0 / 25 / 50 / 75 / 100% ticks on the right.
+    const maxNew = Math.max(0, ...occ.map(x => x.newBookings));
+    const raw = Math.max(1, Math.ceil(maxNew / 4));
+    const step = raw > 10 ? Math.ceil(raw / 5) * 5 : raw;
     this.upsert('occupancy', occEmpty ? undefined : this.occCanvas(), {
-      type: 'line',
-      data: {
-        labels: occ.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{
-          label: 'Occupancy', data: occ.map(x => x.occupancyPct), borderColor: TEAL, borderWidth: 2, tension: 0.35,
-          fill: true, backgroundColor: (ctx: any) => {
-            const { chart } = ctx; const area = chart.chartArea;
-            if (!area) return 'rgba(13,148,136,0.10)';
-            const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-            g.addColorStop(0, 'rgba(13,148,136,0.22)'); g.addColorStop(1, 'rgba(13,148,136,0.02)');
-            return g;
-          },
-          pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: '#fff', pointBorderColor: TEAL, pointBorderWidth: 2,
-          pointHoverBackgroundColor: TEAL, pointHoverBorderColor: '#fff'
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-        onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.openBookingsMonth(els[0].index); },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP,
-            callbacks: {
-              title: (items: any[]) => monthLong(occ[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` Occupancy: ${pct(c.parsed.y)}`,
-              footer: (items: any[]) => { const x = occ[items[0]?.dataIndex]; return x ? `${x.newBookings} new booking${x.newBookings === 1 ? '' : 's'} · click for locations` : ''; }
-            }
-          }
-        },
-        scales: {
-          // offset + fixed axis width: the points sit exactly above the new-bookings bars below.
-          x: { offset: true, grid: { display: false }, border: { display: false }, ticks: { display: false } },
-          y: { beginAtZero: true, max: 100, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { callback: (v: any) => v + '%', stepSize: 25, padding: 8 } }
-        }
-      }
-    });
-    this.upsert('bookings', occEmpty ? undefined : this.bookingsCanvas(), {
       type: 'bar',
       data: {
         labels: occ.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{ label: 'New bookings', data: occ.map(x => x.newBookings), backgroundColor: '#5eead4', hoverBackgroundColor: TEAL, borderRadius: 4, maxBarThickness: 22 }]
+        datasets: [
+          {
+            type: 'bar', label: 'New bookings', yAxisID: 'y', order: 2, data: occ.map(x => x.newBookings),
+            backgroundColor: '#5eead4', hoverBackgroundColor: TEAL, borderRadius: 4, maxBarThickness: 22, borderSkipped: 'start'
+          },
+          {
+            // order 1: drawn over the bars
+            type: 'line', label: 'Occupancy', yAxisID: 'pct', order: 1, data: occ.map(x => x.occupancyPct),
+            borderColor: TEAL, borderWidth: 2, tension: 0.3, fill: false,
+            pointRadius: 3.5, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: TEAL_DARK, pointBorderColor: '#fff',
+            pointBorderWidth: 1.5, pointHoverBackgroundColor: TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
+          }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         onHover: pointerOnHover,
         onClick: (_e: any, els: any[]) => { if (els.length) this.openBookingsMonth(els[0].index); },
         plugins: {
-          legend: { display: false },
+          // New bookings first in the legend and the tooltip, whatever the drawing order.
+          legend: { ...LEGEND, labels: { ...LEGEND.labels, sort: (a: any, b: any) => a.datasetIndex - b.datasetIndex } },
           tooltip: {
             ...TOOLTIP,
+            itemSort: (a: any, b: any) => a.datasetIndex - b.datasetIndex,
             callbacks: {
               title: (items: any[]) => monthLong(occ[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` New bookings: ${c.parsed.y}`,
+              label: (c: any) => c.dataset.yAxisID === 'pct' ? ` Occupancy: ${pct(c.parsed.y)}` : ` New bookings: ${c.parsed.y}`,
               footer: () => 'Click for locations'
             }
           }
         },
         scales: {
           x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
-          y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { precision: 0, padding: 8, maxTicksLimit: 4 } }
+          y: {
+            position: 'left', min: 0, max: step * 4, grid: GRID, border: { display: false },
+            ticks: { stepSize: step, precision: 0, padding: 8 }
+          },
+          pct: {
+            position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, border: { display: false },
+            ticks: { stepSize: 25, padding: 8, callback: (v: any) => v + '%' }
+          }
         }
       }
     });

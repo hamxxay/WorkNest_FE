@@ -126,6 +126,24 @@
 .dr-table tbody tr.hl { background: #f0fdfa; }
 .dr-table tbody tr.hl th { box-shadow: inset 3px 0 0 #0d9488; }
 
+/* spaces: filter + summary above the table, one line per room, vacant rooms quieter */
+.sp-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 10px; background: #eef2f6; gap: 2px; }
+.seg button {
+  height: 30px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; font: inherit; font-size: 0.8rem;
+  font-weight: 600; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s, color .15s;
+}
+.seg button span { font-size: 0.72rem; font-weight: 700; color: #94a3b8; font-variant-numeric: tabular-nums; }
+.seg button:hover { color: #0f172a; }
+.seg button.on { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
+.seg button.on span { color: #0d9488; }
+.seg button:focus-visible { outline: 2px solid #0d9488; outline-offset: 1px; }
+.sp-sum { font-size: 0.8rem; color: #64748b; font-weight: 500; }
+.dr-table.records.spaces tbody th, .dr-table.records.spaces tbody td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
+.dr-table.records.spaces tbody tr:hover { background: #f8fafc; }
+.dr-table.records.spaces tr.vacant th strong { color: #475569; font-weight: 600; }
+.dr-table .none { color: #cbd5e1; }
+
 /* ---------- states ---------- */
 .state-box {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;

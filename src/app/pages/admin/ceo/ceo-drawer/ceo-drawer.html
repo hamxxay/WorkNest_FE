@@ -146,6 +146,24 @@
               <span>Nothing matches this selection.</span>
             </div>
           } @else {
+            @if (recordKind() === 'spaces') {
+              <div class="sp-bar">
+                @if (spaceMixed()) {
+                  <div class="seg" role="group" aria-label="Show spaces">
+                    <button type="button" [class.on]="spaceFilter() === 'all'" [attr.aria-pressed]="spaceFilter() === 'all'" (click)="setSpaceFilter('all')">All <span>{{ count(spaceStats().all) }}</span></button>
+                    <button type="button" [class.on]="spaceFilter() === 'occupied'" [attr.aria-pressed]="spaceFilter() === 'occupied'" (click)="setSpaceFilter('occupied')">Occupied <span>{{ count(spaceStats().occupied) }}</span></button>
+                    <button type="button" [class.on]="spaceFilter() === 'vacant'" [attr.aria-pressed]="spaceFilter() === 'vacant'" (click)="setSpaceFilter('vacant')">Vacant <span>{{ count(spaceStats().vacant) }}</span></button>
+                  </div>
+                }
+                <span class="sp-sum">
+                  @if (spaceMixed()) {
+                    {{ count(spaceStats().occupied) }} of {{ count(spaceStats().all) }} in use · {{ count(spaceStats().seatsInUse) }} seats taken
+                  } @else if (spaceStats().occupied) {
+                    {{ count(spaceStats().occupied) }} {{ spaceStats().occupied === 1 ? 'room' : 'rooms' }} in use · {{ count(spaceStats().seatsInUse) }} seats taken
+                  } @else { None of these {{ count(spaceStats().all) }} is in use }
+                </span>
+              </div>
+            }
             <div class="table-scroll">
               @switch (recordKind()) {
                 @case ('invoices') {
@@ -169,17 +187,28 @@
                   </table>
                 }
                 @case ('spaces') {
-                  <table class="dr-table records">
-                    <thead><tr><th scope="col">Space</th><th scope="col">Location</th><th scope="col" class="num">Seats</th><th scope="col">Status</th><th scope="col">Customer</th><th scope="col">Booked until</th></tr></thead>
+                  <table class="dr-table records spaces">
+                    <thead><tr>
+                      <th scope="col">Space</th><th scope="col" class="num">Seats</th>
+                      @if (spaceMixed()) { <th scope="col">Status</th> }
+                      <th scope="col">Customer</th><th scope="col">Booked until</th>
+                    </tr></thead>
                     <tbody>
-                      @for (r of spaceRows(); track r.spaceId || $index) {
-                        <tr>
-                          <th scope="row"><strong>{{ r.name || '-' }}</strong><small>{{ r.spaceType }}</small></th>
-                          <td>{{ r.location || '-' }}</td>
+                      @for (r of spaceShown(); track r.spaceId || $index) {
+                        <tr [class.vacant]="!r.occupied">
+                          <th scope="row"><strong>{{ r.name || '-' }}</strong>@if (spaceSub(r); as sub) { <small>{{ sub }}</small> }</th>
                           <td class="num">{{ r.capacity ?? '-' }}</td>
-                          <td><span class="pill" [class]="'pill tone-' + (r.occupied ? 'ok' : 'neutral')">{{ r.occupied ? 'Occupied' : 'Vacant' }}</span></td>
-                          <td><span class="clip">{{ r.customer || '-' }}</span></td>
-                          <td>@if (r.bookingEndOn) { {{ r.bookingEndOn | date:'d MMM y' }} } @else { - }</td>
+                          @if (spaceMixed()) {
+                            <td><span class="pill" [class]="'pill tone-' + (r.occupied ? 'ok' : 'neutral')">{{ r.occupied ? 'Occupied' : 'Vacant' }}</span></td>
+                          }
+                          <td>@if (r.occupied) { <span class="clip wide" [title]="r.customer">{{ r.customer || 'Booked' }}</span> } @else { <span class="none">-</span> }</td>
+                          <td>
+                            @if (r.bookingEndOn) {
+                              {{ r.bookingEndOn | date:'d MMM y' }}
+                              @let d = daysFrom(r.bookingEndOn);
+                              @if (d !== null && d <= 60) { <small class="soon">{{ leaseDaysText(d) }}</small> }
+                            } @else { <span class="none">-</span> }
+                          </td>
                         </tr>
                       }
                     </tbody>
