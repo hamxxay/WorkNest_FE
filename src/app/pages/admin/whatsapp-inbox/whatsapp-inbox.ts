@@ -22,7 +22,9 @@ export class WhatsAppInbox implements OnInit {
   private toast = inject(ToastService);
   private auth = inject(AuthService);
 
-  readonly canBroadcast = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('sales_executive');
+  /** Replies, new messages and broadcasts: admins and super admins only (the API refuses everyone else). Sales
+   * executives read the conversations. */
+  readonly canSend = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
 
   conversations = signal<WaConversation[]>([]);
   loadingList = signal(false);
@@ -104,7 +106,7 @@ export class WhatsAppInbox implements OnInit {
   send() {
     const c = this.selected();
     const text = this.replyText.trim();
-    if (!c || !text || this.sending()) return;
+    if (!this.canSend || !c || !text || this.sending()) return;
     this.sending.set(true);
     this.wa.reply(c.id, text).subscribe({
       next: res => {
@@ -139,6 +141,7 @@ export class WhatsAppInbox implements OnInit {
   }
 
   startConversation() {
+    if (!this.canSend) return;
     const f = this.startForm;
     if (!f.phone.trim() || !f.message.trim()) { this.toast.error('Enter the WhatsApp number and a message.'); return; }
     const phoneMsg = phoneError(f.phone, true);
@@ -159,6 +162,7 @@ export class WhatsAppInbox implements OnInit {
   }
 
   sendBroadcast() {
+    if (!this.canSend) return;
     const f = this.broadcastForm;
     if (!f.message.trim()) { this.toast.error('Type the broadcast message.'); return; }
     const audience = f.tag.trim() ? `contacts tagged "${f.tag.trim()}"` : 'ALL WhatsApp contacts';
