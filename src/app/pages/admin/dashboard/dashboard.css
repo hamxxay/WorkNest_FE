@@ -313,7 +313,7 @@
 
 .type-toggle-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1507,7 +1507,7 @@
 .skeleton-block .sk { display: block; border-radius: 8px; background: linear-gradient(90deg, #eef2f6 25%, #f8fafc 37%, #eef2f6 63%); background-size: 400% 100%; animation: dash-shimmer 1.3s ease infinite; }
 .skeleton-block .sk-title { height: 16px; width: 220px; }
 .skeleton-block .sk-text { height: 11px; width: 380px; max-width: 80%; margin-bottom: 6px; }
-.skeleton-block .sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.skeleton-block .sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 14px; }
 .skeleton-block .sk-tile { height: 120px; border-radius: 12px; }
 .skeleton-block .sk-row { height: 38px; }
 @keyframes dash-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
@@ -1662,7 +1662,7 @@
 .ops-dashboard .pill-failed { background: #fee2e2; color: #b91c1c; }
 
 /* Reports */
-.ops-dashboard .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.ops-dashboard .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 14px; }
 .ops-dashboard .report-tile {
   display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 14px;
   border: 1px solid #e2e8f0; background: #fff; text-decoration: none; color: inherit;
@@ -1683,3 +1683,52 @@
 .ops-dashboard > .admin-card { animation: dash-rise-2 0.45s ease both; }
 @keyframes dash-rise-2 { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ops-dashboard > .admin-card { animation: none; } }
+
+/* ---------- phones ---------- */
+@media (max-width: 640px) {
+  .ops-dashboard .admin-card { padding: 16px; }
+  .period-seg button { height: 40px; }
+  .icon-btn, .btn-report, .btn-new-ann { height: 44px; }
+  .icon-btn { width: 44px; }
+  .loc-chip-btn { min-height: 32px; }
+  .loc-option { min-height: 40px; }
+  .ops-dashboard .report-tile { padding: 14px; }
+  .ops-dashboard .btn-page { height: 40px; }
+}
+@media (max-width: 640px) {
+  /* filters: one per row, full width */
+  .ops-dashboard .filters-panel { flex-direction: column; align-items: stretch; }
+  .ops-dashboard .filter-item > select,
+  .ops-dashboard .filter-item .search-input-wrap { width: 100%; }
+  .ops-dashboard .card-title-row > div { min-width: 0; }
+  .ops-dashboard .card-title-row > div:last-child { flex-wrap: wrap; }
+  .ops-dashboard .card-title-row .btn { white-space: normal; text-align: left; min-height: 40px; }
+  .ops-dashboard .summary-header h3,
+  .ops-dashboard .card-title-row h3 { font-size: 1.05rem; }
+  .ops-dashboard .pagination-footer { gap: 10px; }
+}
+@media (max-width: 480px) {
+  .ops-dashboard .report-tile { flex-wrap: wrap; }
+  .ops-dashboard .report-text { flex: 1 1 160px; }
+  .ops-dashboard .report-go { flex-basis: 100%; justify-content: flex-end; }
+}
+@media (max-width: 400px) {
+  .dash-header h1 { font-size: 1.25rem; }
+  /* the three header buttons share the row; the long one takes a row of its own */
+  .btn-report { flex: 1; justify-content: center; }
+}
+
+/* Popups on phones: fit the screen, one choice per row, footer buttons share the row. */
+@media (max-width: 560px) {
+  .modal-overlay { padding: 12px; }
+  .modal-card { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .modal-header { padding: 16px; gap: 10px; }
+  .modal-header h2 { font-size: 1.1rem; }
+  .modal-body { padding: 16px; }
+  .modal-footer { padding: 12px 16px; flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1 1 auto; justify-content: center; min-height: 44px; white-space: normal; }
+  .btn-close { width: 44px; height: 44px; flex: none; }
+  .type-toggle-grid { grid-template-columns: minmax(0, 1fr); }
+  .input-glass, .modal-body :is(input, select, textarea) { font-size: 16px !important; }
+  .scope-tab { min-height: 40px; }
+}

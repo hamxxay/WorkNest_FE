@@ -70,3 +70,18 @@
   .ac-head { flex-direction: column; }
   .ac-stats { grid-template-columns: 1fr; }
 }
+
+/* ---------- phones ---------- */
+@media (max-width: 600px) {
+  .ac-head-actions { flex-wrap: wrap; white-space: normal; }
+  .ac-stat-value { font-size: 1.5rem; }
+  .ac-tabs button { min-height: 36px; }
+  .ac-btn { height: 40px; }
+  /* the table scrolls sideways in its box instead of squeezing a column to one word per line */
+  .ac-table { min-width: 560px; }
+  .ac-table td.reason { min-width: 200px; }
+  .ac-modal { max-height: calc(100dvh - 32px); overflow-y: auto; }
+  .ac-modal-actions { flex-wrap: wrap; }
+  .ac-modal-actions .ac-btn { flex: 1; }
+  .ac-field input, .ac-field textarea { font-size: 16px; }
+}

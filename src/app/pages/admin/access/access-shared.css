@@ -116,3 +116,32 @@ select.form-control { -webkit-appearance: none; appearance: none; padding-right:
 .pill-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
 .pill { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
 .pill.active { background: #0d9488; border-color: #0d9488; color: #fff; }
+
+/* ---------- phones and small tablets ---------- */
+.kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); }
+.card-header-row { flex-wrap: wrap; }
+.pager { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .access-page { padding: 1.1rem 14px 1.5rem; }
+  .page-header { margin-bottom: 1.1rem; }
+  .page-header h2 { font-size: 1.3rem; }
+  .card { padding: 1rem; }
+  .kpi-value { font-size: 1.35rem; }
+  /* filters: one per row, full width, finger-sized */
+  .toolbar { padding: 0.8rem; }
+  .toolbar .field { flex: 1 1 100%; min-width: 0; }
+  .form-control, .form-control.search { min-width: 0; width: 100%; height: 44px; font-size: 16px; }
+  .toolbar .btn { height: 44px; }
+  .header-actions .btn, .header-actions .form-control { min-height: 44px; }
+  .btn-sm { min-height: 36px; }
+  .status-strip { gap: 0.9rem 1.25rem; padding: 0.9rem 1rem; }
+  .status-item.grow { min-width: 0; flex-basis: 100%; }
+  .loc-select { height: 36px; max-width: 160px; font-size: 16px; }
+  .pill { min-height: 34px; }
+  /* popups fit the screen */
+  .modal-backdrop { padding: 12px; }
+  .modal-card { padding: 0 1rem 1rem; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); }
+  .modal-head { margin: 0 -1rem 0.9rem; padding: 1rem 1rem 0.8rem; }
+  .close-btn { width: 44px; height: 44px; flex: none; margin: -10px -10px 0 0; }
+  .grid-2 > .card > .chart-box { min-height: 220px; }
+}

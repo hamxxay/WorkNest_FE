@@ -11,7 +11,7 @@
 @keyframes inqFade { from { opacity: 0; } to { opacity: 1; } }
 
 .inq-modal { --inq-ink: #0f172a; --inq-text: #334155; --inq-muted: #64748b; --inq-line: #e2e8f0; --inq-soft: #f8fafc; --inq-teal: #0d9488;
-  width: min(580px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: #fff;
+  width: min(580px, 100%); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; background: #fff;
   border-radius: 18px; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45), 0 0 0 1px rgba(15, 23, 42, .04); overflow: hidden;
   animation: inqIn .18s ease-out; text-align: left; }
 @keyframes inqIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
@@ -131,6 +131,14 @@
 .inq-modal .btn-outline-admin:disabled { opacity: .4; }
 
 @media (max-width: 560px) {
+  .inq-overlay { padding: 12px; }
+  .inq-modal { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 16px; }
+  .inq-modal .form-input-admin, .inq-modal :is(input, select, textarea) { font-size: 16px !important; }
+  .inq-close { flex-basis: 44px; height: 44px; margin: -6px -8px 0 auto; }
+  .inq-modal .btn-admin { min-height: 44px; }
+  .inq-chip { min-height: 40px; }
+  .inq-details > div { flex-wrap: wrap; }
+  .inq-details dd { text-align: left; }
   .inq-grid, .inq-grid.id-grid, .inq-choice-grid.two { grid-template-columns: 1fr; }
   .inq-head { padding: 18px 18px 14px; }
   .inq-body { padding: 16px 18px 6px; }

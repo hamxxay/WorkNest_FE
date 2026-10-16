@@ -593,6 +593,11 @@
   box-shadow: 12px 0 40px rgba(2, 6, 23, 0.45);
 }
 
+/* "Scroll to" targets (e.g. a dashboard card opened from a KPI) stop below the sticky top bar. */
+.admin-shell.phone .admin-main {
+  scroll-padding-top: 64px;
+}
+
 /* The page behind the open drawer does not scroll. */
 .admin-shell.phone.nav-open .admin-main {
   overflow: hidden;
