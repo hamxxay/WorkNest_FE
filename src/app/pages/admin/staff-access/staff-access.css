@@ -76,3 +76,5 @@
   .mode-toggle { flex-wrap: wrap; }
   .pill { min-height: 40px; }
 }
+/* Popups without a header bar (enrolment): the title gets the header's top spacing instead of touching the edge. */
+.modal-card > h3:first-child { margin: 0 0 0.75rem; padding-top: 1.25rem; }

@@ -691,3 +691,8 @@
   .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
   .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
 }
+@media (max-width: 640px) {
+  /* Quotation preview document: less padding so the paper fits the phone (print keeps its own layout). */
+  #quotation-printable { padding: 14px !important; }
+  #quotation-printable h1 { font-size: 1.4rem !important; }
+}

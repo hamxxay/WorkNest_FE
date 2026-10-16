@@ -596,7 +596,7 @@
   :host { padding: 16px; }
   .page-header { margin-bottom: 16px; }
   .page-title { font-size: 1.25rem; }
-  .card { margin-bottom: 16px; }
+  .card { margin-bottom: 16px; padding: 8px; }
   .card-header { padding: 12px 14px; }
   .search-box { flex: 1 1 100%; max-width: none; min-height: 44px; box-sizing: border-box; }
   .search-box input, .form-group input, .form-group select, .form-group textarea { font-size: 16px; }
