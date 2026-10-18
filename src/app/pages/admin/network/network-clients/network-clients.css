@@ -1,3 +1,6 @@
+/* All clients: keep the type on one line ("Access control"). */
+.type-cell { white-space: nowrap; }
+
 /* Client details drawer */
 .drawer-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: #fff; z-index: 1001; overflow-y: auto; padding: 24px 24px 32px;

@@ -157,7 +157,7 @@
               <tr class="clickable" (click)="openClient(c.mac, $event)">
                 <td><div class="dev"><span class="dev-icon" [title]="c.kindLabel"><net-icon [name]="clientIcon(c.kind)" [size]="16" /></span>
                   <div><div class="dev-name">{{ c.name }}</div>@if (c.vendor) { <div class="muted small">{{ c.vendor }}</div> }</div></div></td>
-                <td>@if (c.kind === 'other') { <span class="muted">{{ c.kindLabel }}</span> } @else { {{ c.kindLabel }} }</td>
+                <td class="type-cell">@if (c.kind === 'other') { <span class="muted">{{ c.kindLabel }}</span> } @else { {{ c.kindLabel }} }</td>
                 <td>
                   @if (c.wired) { <span class="conn"><net-icon name="cable" [size]="14" />Wired{{ c.port != null ? ' · Port ' + c.port : '' }}</span> }
                   @else { <span class="conn"><net-icon name="wifi" [size]="14" />{{ c.ssid || 'Wi-Fi' }}{{ c.band ? ' · ' + c.band : '' }}</span> }
