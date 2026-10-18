@@ -9,7 +9,7 @@ import {
   exportPagePdf, fmt, hbar, hbarOptions, logWhen, normMac, signalInfo, sum, timeLabel, timelineStats
 } from '../network-shared';
 
-type SortKey = 'name' | 'conn' | 'uplink' | 'signal' | 'ip' | 'exp' | 'data' | 'uptime';
+type SortKey = 'name' | 'kind' | 'conn' | 'uplink' | 'signal' | 'ip' | 'exp' | 'data' | 'uptime';
 type ConnType = '' | 'wifi' | 'wired' | 'guest';
 
 const CLIENT_LABELS = { upLabel: 'Connected', downLabel: 'Disconnected', leadLabel: 'Not connected yet' };
@@ -126,6 +126,7 @@ export class NetworkClients implements OnInit, OnDestroy {
     const up = this.uplink(), kind = this.kind(), dir = this.dir();
     const key: (c: UnifiClient) => string | number = {
       name: (c: UnifiClient) => c.name.toLowerCase(),
+      kind: (c: UnifiClient) => `${c.kind === 'other' ? '~' : (c.kindLabel || '').toLowerCase()} ${c.name.toLowerCase()}`,
       conn: (c: UnifiClient) => (c.wired ? 'b' : 'a') + (c.ssid || ''),
       uplink: (c: UnifiClient) => (c.uplinkName || '').toLowerCase(),
       signal: (c: UnifiClient) => c.signal ?? -999,
