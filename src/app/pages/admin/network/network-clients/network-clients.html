@@ -142,6 +142,7 @@
       <table class="clean-table" #clientsTable>
         <thead><tr>
           <th class="sortable" [attr.aria-sort]="ariaSort('name')" (click)="setSort('name')">Client<span class="sort-icon">{{ sortMark('name') }}</span></th>
+          <th class="sortable" [attr.aria-sort]="ariaSort('kind')" (click)="setSort('kind')">Type<span class="sort-icon">{{ sortMark('kind') }}</span></th>
           <th class="sortable" [attr.aria-sort]="ariaSort('conn')" (click)="setSort('conn')">Connection<span class="sort-icon">{{ sortMark('conn') }}</span></th>
           <th class="sortable" [attr.aria-sort]="ariaSort('uplink')" (click)="setSort('uplink')">Connected to<span class="sort-icon">{{ sortMark('uplink') }}</span></th>
           <th class="sortable" [attr.aria-sort]="ariaSort('signal')" (click)="setSort('signal')">Signal<span class="sort-icon">{{ sortMark('signal') }}</span></th>
@@ -155,7 +156,8 @@
             @for (c of rows(); track c.mac) {
               <tr class="clickable" (click)="openClient(c.mac, $event)">
                 <td><div class="dev"><span class="dev-icon" [title]="c.kindLabel"><net-icon [name]="clientIcon(c.kind)" [size]="16" /></span>
-                  <div><div class="dev-name">{{ c.name }}</div><div class="muted small">{{ c.vendor ? c.kindLabel + ' · ' + c.vendor : c.kindLabel }}</div></div></div></td>
+                  <div><div class="dev-name">{{ c.name }}</div>@if (c.vendor) { <div class="muted small">{{ c.vendor }}</div> }</div></div></td>
+                <td>@if (c.kind === 'other') { <span class="muted">{{ c.kindLabel }}</span> } @else { {{ c.kindLabel }} }</td>
                 <td>
                   @if (c.wired) { <span class="conn"><net-icon name="cable" [size]="14" />Wired{{ c.port != null ? ' · Port ' + c.port : '' }}</span> }
                   @else { <span class="conn"><net-icon name="wifi" [size]="14" />{{ c.ssid || 'Wi-Fi' }}{{ c.band ? ' · ' + c.band : '' }}</span> }
@@ -168,12 +170,12 @@
                 <td class="num">{{ dur(c.uptime) }}</td>
               </tr>
             } @empty {
-              <tr><td colspan="8" class="empty-state">No clients match.</td></tr>
+              <tr><td colspan="9" class="empty-state">No clients match.</td></tr>
             }
           } @else if (loading()) {
-            @for (r of [1, 2, 3, 4, 5, 6, 7, 8]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8]; track c) { <td><div class="sk sk-line" [style.width.%]="c === 1 ? 80 : 60"></div></td> }</tr> }
+            @for (r of [1, 2, 3, 4, 5, 6, 7, 8]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8, 9]; track c) { <td><div class="sk sk-line" [style.width.%]="c === 1 ? 80 : 60"></div></td> }</tr> }
           } @else {
-            <tr><td colspan="8" class="empty-state">Client data is unavailable right now.</td></tr>
+            <tr><td colspan="9" class="empty-state">Client data is unavailable right now.</td></tr>
           }
         </tbody>
       </table>
