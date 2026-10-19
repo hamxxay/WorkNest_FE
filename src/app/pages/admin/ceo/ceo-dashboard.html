@@ -682,6 +682,10 @@
           </div>
         }
       </section>
+
+      <!-- ===================== NETWORK (UniFi; own endpoint, follows the location picker) ===================== -->
+      <app-dash-network source="ceo" [locationId]="locationId()" [locations]="locations()" allLabel="All locations"
+        [reload]="networkReload()" [quietReload]="networkQuietReload()" />
     </div>
   }
 

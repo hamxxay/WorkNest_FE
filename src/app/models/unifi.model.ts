@@ -487,6 +487,26 @@ export interface UnifiScope {
   canEdit: boolean;
 }
 
+/** One UniFi site and the WorkNest locations it serves (GET api/unifi/site-locations). */
+export interface UnifiSiteLocation {
+  id: string;
+  name: string;
+  locationIds: number[];
+  everyLocation: boolean;
+  /** site = its own setting, network = the network-wide setting (location chip), every = nothing saved. */
+  source: 'site' | 'network' | 'every';
+}
+
+/** Which locations each UniFi site serves (CEO / Sales Manager dashboards show a site's network under them). */
+export interface UnifiSiteLocations {
+  /** False until the database update NET_01 has run (every site then uses the network-wide setting). */
+  available: boolean;
+  message: string | null;
+  canEdit: boolean;
+  networkLocationIds: number[];
+  sites: UnifiSiteLocation[];
+}
+
 /** UniFi speed profile (user group): per-device speeds, and the SSIDs using it. */
 export interface UnifiSpeedProfile {
   id: string;

@@ -32,7 +32,7 @@ import { KeepInView } from '../../../../components/keep-in-view/keep-in-view.dir
                 <span>{{ l.name }}</span>
               </label>
             }
-            <p class="loc-hint small">Admins and sales executives of other locations won't see the Network pages. None ticked = every location.</p>
+            <p class="loc-hint small">Admins and sales executives of other locations won't see the Network pages. None ticked = every location. Each UniFi site uses this location on the CEO and Sales Manager dashboards unless it has its own (Sites and locations).</p>
             <div class="loc-actions">
               <button type="button" class="btn-sm btn-outline" (click)="open.set(false)">Cancel</button>
               <button type="button" class="btn-sm btn-primary" (click)="save()" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save' }}</button>

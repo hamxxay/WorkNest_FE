@@ -871,6 +871,10 @@
       }
     }
   </section>
+
+  <!-- ===================== NETWORK (UniFi; own endpoint, only the manager's locations, follows the location picker) ===================== -->
+  <app-dash-network source="sales-manager" [locationId]="locationId()" [locations]="locations()" [allLabel]="allLabel"
+    [reload]="networkReload()" [quietReload]="networkQuietReload()" />
   </div>
 
   <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>

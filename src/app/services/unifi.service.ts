@@ -6,7 +6,8 @@ import {
   UnifiSummary, UnifiClientsResponse, UnifiTopology, UnifiWansResponse, UnifiIspResponse, UnifiWifiResponse,
   UnifiClientUsage, UnifiTopUsage, UnifiSpeedtestStart, UnifiSpeedtestStatus, UnifiDeviceHistory,
   UnifiConfig, UnifiAliasResult, UnifiLog, UnifiDeviceDetail,
-  UnifiSsid, UnifiSsidsResponse, UnifiMacFilterAction, UnifiMacFilterLogEntry, UnifiScope, UnifiSpeedProfile
+  UnifiSsid, UnifiSsidsResponse, UnifiMacFilterAction, UnifiMacFilterLogEntry, UnifiScope, UnifiSpeedProfile,
+  UnifiSiteLocations
 } from '../models/unifi.model';
 
 /** UniFi network monitoring (proxied by the API from the UniFi Site Manager / console). */
@@ -137,6 +138,16 @@ export class UnifiService {
   /** Super admin: saves the locations the network belongs to (empty = every location). */
   setScope(locationIds: number[]): Observable<UnifiScope> {
     return this.http.put<UnifiScope>(`${this.api}/scope`, { locationIds });
+  }
+
+  /** Each UniFi site and the locations it serves (own setting, else the network-wide one). */
+  getSiteLocations(): Observable<UnifiSiteLocations> {
+    return this.http.get<UnifiSiteLocations>(`${this.api}/site-locations`);
+  }
+
+  /** Super admin: the locations one site serves (empty = use the network-wide setting again). */
+  setSiteLocations(siteId: string, locationIds: number[]): Observable<UnifiSiteLocations> {
+    return this.http.put<UnifiSiteLocations>(`${this.api}/site-locations/${encodeURIComponent(siteId)}`, { locationIds });
   }
 
   /** Latest MAC filter changes, optionally for one SSID. */
