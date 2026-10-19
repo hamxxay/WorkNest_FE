@@ -31,8 +31,8 @@
   </ng-template>
 
   @if (loading()) {
-    <div class="kpi-grid kpi-5" aria-hidden="true">
-      @for (i of [1,2,3,4,5]; track i) {
+    <div class="kpi-grid kpi-4" aria-hidden="true">
+      @for (i of [1,2,3,4]; track i) {
         <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
       }
     </div>
@@ -99,7 +99,7 @@
           </div>
         }
 
-        <div class="kpi-grid kpi-5">
+        <div class="kpi-grid kpi-4">
           @for (k of kpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
         </div>
 
@@ -213,7 +213,7 @@
             <div class="panel-head">
               <div>
                 <h3>Internet</h3>
-                <p class="panel-sub">Lines and latency over the last 24 hours</p>
+                <p class="panel-sub">Each line's speed now, link and last speed test, and latency over the last 24 hours</p>
               </div>
               @if (d.internet; as i) {
                 <div class="head-stats">
@@ -224,17 +224,40 @@
             </div>
             @if (lines().length) {
               <ul class="net-lines">
-                @for (w of lines(); track $index) {
+                @for (r of lineRows(); track r.key) {
                   <li>
-                    <span class="nl-dot" [class.down]="!w.up" aria-hidden="true"></span>
-                    <span class="nl-main">
-                      <strong>{{ w.label }}@if (w.isp) { <span class="nl-isp">· {{ w.isp }}</span> }</strong>
-                      <small>{{ lineMeta(w) }}</small>
-                    </span>
-                    <span class="pill" [class.danger]="!w.up">{{ w.up ? 'Up' : 'Down' }}</span>
+                    <div class="nl-top">
+                      <span class="nl-dot" [class.down]="!r.w.up" aria-hidden="true"></span>
+                      <span class="nl-main">
+                        <strong>{{ r.w.label }}@if (r.w.isp) { <span class="nl-isp">· {{ r.w.isp }}</span> }</strong>
+                        <small>{{ r.meta }}</small>
+                      </span>
+                      <span class="pill" [class.danger]="!r.w.up">{{ r.w.up ? 'Up' : 'Down' }}</span>
+                    </div>
+                    <dl class="nl-figs">
+                      <div><dt>Download now</dt><dd>{{ r.downNow }}</dd></div>
+                      <div><dt>Upload now</dt><dd>{{ r.upNow }}</dd></div>
+                      <div><dt>Link speed</dt><dd>{{ r.link }}</dd></div>
+                      <div><dt>Last test (down / up)</dt><dd [title]="r.testTitle">{{ r.test }}@if (r.testWhen) { <small>{{ r.testWhen }}</small> }</dd></div>
+                      <div><dt>Data 24 h (down / up)</dt><dd [title]="r.dataTitle">{{ r.data24 }}</dd></div>
+                    </dl>
+                    @if (r.spark; as sp) {
+                      <div class="nl-spark">
+                        <svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                          <path [attr.d]="sp.up" fill="none" [attr.stroke]="wiredColor" stroke-width="1.2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+                          <path [attr.d]="sp.down" fill="none" [attr.stroke]="wifiColor" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+                        </svg>
+                        <span class="nl-spark-cap">
+                          <span><i [style.background]="wifiColor"></i>Download</span>
+                          <span><i [style.background]="wiredColor"></i>Upload</span>
+                          <span>24 h, peak {{ sp.peak }}</span>
+                        </span>
+                      </div>
+                    }
                   </li>
                 }
               </ul>
+              @if (d.internet?.speedsMessage) { <p class="note nl-note">{{ d.internet?.speedsMessage }}</p> }
             }
             <div class="chart-box h-net">
               <canvas #latencyCanvas role="img" aria-label="Internet latency over the last 24 hours"></canvas>
