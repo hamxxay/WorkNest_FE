@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ContactService } from '../../../services/contact.service';
+import { CustomInvoiceService, customInvoiceErrorMessage } from '../../../services/custom-invoice.service';
 import { MessageTemplateService } from '../../../services/message-template.service';
 import { AccountCoaService } from '../../../services/account-coa.service';
 import { AmountFieldService } from '../../../services/amount-field.service';
@@ -1242,6 +1243,7 @@ export class Manage implements OnInit {
   private whtRateSvc = inject(WhtRateService);
   private toast = inject(ToastService);
   private contactSvc = inject(ContactService);
+  private customInvoices = inject(CustomInvoiceService);
   private cdr = inject(ChangeDetectorRef);
 
   showError(msg: string, title: string = 'Error') {
@@ -3938,6 +3940,8 @@ export class Manage implements OnInit {
 
   isEntityFormDirty(): boolean {
     if (!this.formData) return false;
+    const ci = this.ciAccess();
+    if (this.editItem && ci && ci.value !== ci.original) return true;
     if (this.editItem) {
       return Object.keys(this.formData).some(k => {
         const val = this.formData[k];
@@ -4160,6 +4164,7 @@ export class Manage implements OnInit {
       if (!this.cityOptions().length) this.loadCityOptions();
       // Own account as an Admin: the form leaves out role and location (rebuilt for this edit).
       this.config.set(this.buildConfig(this.entity));
+      this.loadCustomInvoiceAccess(item);
     }
     this.selectedAmenityIds = [];
     if (this.entity === 'customers') {
@@ -4293,6 +4298,61 @@ export class Manage implements OnInit {
       this.formData = {};
       this.editItem = null;
       this.error.set('');
+      this.ciAccess.set(null);
+    });
+  }
+
+  /**
+   * Users (a super admin editing an Admin): "Can create custom invoices". Read from GET api/custom-invoices/access and
+   * saved on its own (POST api/custom-invoices/access/{userId}) after the user's details are saved.
+   */
+  readonly ciAccess = signal<{ userId: number; loading: boolean; error: string; original: boolean; value: boolean } | null>(null);
+
+  /** Shown while the form's role is Admin (super admins always have access; other roles cannot have it). */
+  get showCustomInvoiceAccess(): boolean {
+    return this.entity === 'users' && !!this.editItem && this.isSuperAdmin && !!this.ciAccess()
+      && this.normalizeRole(this.formData['role']) === 'admin';
+  }
+
+  private loadCustomInvoiceAccess(item: any): void {
+    this.ciAccess.set(null);
+    if (!this.isSuperAdmin) return;
+    const userId = [item?.id, item?.Id, item?.userId].map(Number).find(n => Number.isInteger(n) && n > 0) ?? 0;
+    if (!userId) return;
+    this.ciAccess.set({ userId, loading: true, error: '', original: false, value: false });
+    this.customInvoices.getAccessList().subscribe({
+      next: list => {
+        if (this.ciAccess()?.userId !== userId) return;
+        const has = list.find(r => r.userId === userId)?.hasAccess === true;
+        this.ciAccess.set({ userId, loading: false, error: '', original: has, value: has });
+      },
+      error: err => {
+        if (this.ciAccess()?.userId !== userId) return;
+        this.ciAccess.set({
+          userId, loading: false, original: false, value: false,
+          error: customInvoiceErrorMessage(err, "Custom invoice access couldn't be loaded.")
+        });
+      }
+    });
+  }
+
+  setCustomInvoiceAccess(value: boolean): void {
+    const a = this.ciAccess();
+    if (a && !a.loading && !a.error) this.ciAccess.set({ ...a, value });
+  }
+
+  /** After the user is saved: saves a changed "Can create custom invoices" (its own call; a failure is reported). */
+  private saveCustomInvoiceAccess(): void {
+    const a = this.ciAccess();
+    const isAdmin = this.normalizeRole(this.formData['role']) === 'admin';
+    this.ciAccess.set(null);
+    if (!a || a.loading || a.error || a.value === a.original || !isAdmin) return;
+    this.customInvoices.setAccess(a.userId, a.value).subscribe({
+      next: () => this.showSuccess(a.value ? 'They can now create custom invoices.' : 'They can no longer create custom invoices.',
+        'Custom invoice access'),
+      error: err => this.showError(
+        `The user was saved, but custom invoice access was not changed: ${customInvoiceErrorMessage(err, 'please try again.')}`,
+        'Custom invoice access')
     });
   }
 
@@ -4608,6 +4668,7 @@ export class Manage implements OnInit {
         }
         this.saving.set(false);
         this.showModal.set(false);
+        if (this.entity === 'users' && this.editItem) this.saveCustomInvoiceAccess();
         this.success.set(this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.'));
         setTimeout(() => this.success.set(''), 3000);
 
@@ -7297,7 +7358,8 @@ export class Manage implements OnInit {
     }
   }
   // Invoice Details View
-  // Create Custom Invoice Modal State
+  // Next invoice (Bookings) / Review & send invoice (Invoices row) modal state. Free-form custom invoices are made on
+  // the Custom Invoice page (/admin/custom-invoice).
   sendingInitialInvoiceId = signal<number | null>(null);
   sentInitialInvoices = new Set<number>();
 
@@ -7330,9 +7392,7 @@ export class Manage implements OnInit {
     currencyCode: 'PKR',
     notes: ''
   };
-  customInvoiceLines: Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> = [
-    { description: 'Workspace Rent / Custom Fee', quantity: 1, unitPrice: 0, discountAmount: 0, taxRate: 0.016 }
-  ];
+  customInvoiceLines: Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> = [];
 
   // Initial Invoice Preview Modal State
   readonly showInitialInvoicePreviewModal = signal(false);
@@ -7459,12 +7519,6 @@ export class Manage implements OnInit {
   }
 
   buildCustomInvoiceLinesFromItem(item: any, isNextInvoice: boolean = false, selectedMonths?: number): Array<{ description: string; quantity: number; unitPrice: number; discountAmount: number; taxRate: number }> {
-    if (!item) {
-      const m = selectedMonths || this.customInvoiceSelectedMonths || 1;
-      const rate = this.customInvoiceMonthlyRate || 0;
-      return [{ description: `Workspace Rent / Custom Fee (${m} Month(s))`, quantity: 1, unitPrice: rate * m, discountAmount: 0, taxRate: 0.016 }];
-    }
-
     const bookingId = item.bookingId ?? item.BookingId ?? item.id ?? item.Id;
     const spaceLabel = item.spaceName || item.SpaceName || item.spaceTitle || (item.invoiceNumber || item.InvoiceNumber ? `Invoice ${item.invoiceNumber || item.InvoiceNumber}` : "Workspace");
 
@@ -7566,7 +7620,9 @@ export class Manage implements OnInit {
     ];
   }
 
-  openCreateCustomInvoiceModal(item?: any, isNextInvoice: boolean = false) {
+  /** Opened from a booking row (next invoice) or an invoice row (review & send); always with that row. */
+  openCreateCustomInvoiceModal(item: any, isNextInvoice: boolean = false) {
+    if (!item) return;
     this.customInvoiceCurrentItem = item;
     this.customInvoiceIsNextInvoice = isNextInvoice;
 
@@ -7625,7 +7681,7 @@ export class Manage implements OnInit {
     const isInvoiceItem = !!(item?.invoiceNumber || item?.InvoiceNumber || item?.invoiceTypeId || item?.InvoiceTypeId);
     const invoiceId = isInvoiceItem ? (item?.id || item?.Id || 0) : 0;
     const bookingId = item?.bookingId || item?.BookingId || (!isInvoiceItem ? (item?.id || item?.Id || 0) : 0);
-    const targetUserId = item ? (item.userId || item.UserId || item.customerId || item.CustomerId || item.user?.id || item.User?.Id || 0) : 0;
+    const targetUserId = item.userId || item.UserId || item.customerId || item.CustomerId || item.user?.id || item.User?.Id || 0;
     const issueDateStr = item?.issuedOn || item?.IssuedOn || item?.createdDate || item?.CreatedDate || item?.createdOn;
     const dueDateStr = item?.dueOn || item?.DueOn || item?.dueDate || item?.DueDate;
 
@@ -7635,7 +7691,7 @@ export class Manage implements OnInit {
       issuedOn: issueDateStr ? localDateIso(new Date(issueDateStr)) : localDateIso(),
       dueOn: dueDateStr ? localDateIso(new Date(dueDateStr)) : localDateIso(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
       currencyCode: item?.currencyCode || item?.CurrencyCode || "PKR",
-      notes: item?.notes || item?.Notes || (item ? `Invoice for ${item.spaceName || item.SpaceName || item.invoiceNumber || item.InvoiceNumber || ("Booking #" + (item.id || item.Id))}` : "")
+      notes: item?.notes || item?.Notes || `Invoice for ${item.spaceName || item.SpaceName || item.invoiceNumber || item.InvoiceNumber || ("Booking #" + (item.id || item.Id))}`
     };
 
     this.customInvoiceLines = this.buildCustomInvoiceLinesFromItem(item, isNextInvoice, configuredMonths);
@@ -7739,14 +7795,6 @@ export class Manage implements OnInit {
         this.customInvoiceIsNextInvoice,
         selectedMonths
       );
-    } else {
-      const rate = this.customInvoiceMonthlyRate || 0;
-      if (this.customInvoiceLines && this.customInvoiceLines.length > 0) {
-        const firstLine = this.customInvoiceLines[0];
-        firstLine.quantity = 1;
-        firstLine.unitPrice = rate * selectedMonths;
-        firstLine.description = `Workspace Rent / Custom Fee (${selectedMonths} Month(s))`;
-      }
     }
   }
 

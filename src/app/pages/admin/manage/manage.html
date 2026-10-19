@@ -42,16 +42,6 @@
         Create Booking
       </button>
       }
-      @if (entity === 'invoices') {
-      <button class="btn-admin btn-primary-admin" (click)="openCreateCustomInvoiceModal()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" x2="12" y1="5" y2="19" />
-          <line x1="5" x2="19" y2="12" y2="12" />
-        </svg>
-        Create Custom Invoice
-      </button>
-      }
       @if (entity === 'agreements') {
       <button class="btn-admin btn-primary-admin" (click)="openSendAgreement()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -949,6 +939,24 @@
         }
       </div>
       }
+      }
+      @if (showCustomInvoiceAccess) {
+      @let cia = ciAccess()!;
+      <div class="form-group-admin">
+        <label class="checkbox-label">
+          <input type="checkbox" name="ciAccess" [checked]="cia.value" [disabled]="cia.loading || !!cia.error"
+            (change)="setCustomInvoiceAccess($any($event.target).checked)" aria-describedby="ci-access-hint" />
+          Can create custom invoices
+        </label>
+        @if (cia.loading) {
+        <small class="field-hint-text" id="ci-access-hint">Checking their access...</small>
+        } @else if (cia.error) {
+        <small class="field-error-text" id="ci-access-hint">{{ cia.error }}</small>
+        } @else {
+        <small class="field-hint-text" id="ci-access-hint">Opens the Custom Invoice page for this admin. Saved separately after
+          the other details; you are told if only this part fails.</small>
+        }
+      </div>
       }
       <div class="modal-actions">
         <button type="button" class="btn-admin btn-outline-admin" (click)="closeModal()">Cancel</button>
@@ -3964,7 +3972,8 @@
 </div>
 }
 
-<!-- Create Custom Invoice Modal -->
+<!-- Next invoice (Bookings) / Review & send invoice (Invoices row) modal. Free-form custom invoices are made on the
+     Custom Invoice page (/admin/custom-invoice), which also posts the voucher. -->
 @if (showCreateCustomInvoiceModal()) {
 <div class="modal-overlay" (click)="closeCreateCustomInvoiceModal()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:760px">
@@ -3975,7 +3984,7 @@
         <path d="m6 6 12 12" />
       </svg>
     </button>
-    <h2>Create Custom Invoice Entry</h2>
+    <h2>{{ customInvoiceIsNextInvoice ? 'Create Next Invoice' : 'Review &amp; Send Invoice' }}</h2>
 
     <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="form-group-admin">
