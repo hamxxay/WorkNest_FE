@@ -16,12 +16,14 @@ import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService, AgreementESignature } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
-import { of, timeout } from 'rxjs';
+import { firstValueFrom, of, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso } from '../../../utils/dates';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
 import { InquiryRef, inquiryKey, inquiryRef, inquiryRefParam, inquirySource, parseInquiryRefParam } from '../../../utils/inquiry-ref';
+import { LIST_DATE_LABEL, ListFilterParams, ListStatusOption, isFilteredList, listRows, listTotal } from '../../../utils/list-filters';
+import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
 
 interface ColDef { key: string; label: string; type?: string; }
@@ -54,6 +56,8 @@ export class Manage implements OnInit {
   readonly config = signal<EntityConfig>({ title: '', columns: [], getFn: () => of({ data: [], total: 0 }) });
 
   loading = signal(true);
+  /** Set when the list could not be loaded: shown with a Retry button instead of "No records found.". */
+  readonly loadError = signal('');
   items = signal<any[]>([]);
   totalCount = signal(0);
 
@@ -1301,6 +1305,7 @@ export class Manage implements OnInit {
           this.page.set(1);
           this.searchQuery = '';
           this.branchFilter = '';
+          this.resetListFilters();
           this.loading.set(true);
         }
         this.entity = newEntity;
@@ -1327,6 +1332,7 @@ export class Manage implements OnInit {
         if (this.entity === 'quotations') this.openQuotationFromInquiryParams();
         if (this.entity === 'bookings') this.openBookingFromParams();
         if (this.entity === 'contacts' || this.entity === 'complaints') this.loadItemBranches();
+        if (this.hasListFilters) { this.loadItemBranches(); this.loadListStatusOptions(); }
       });
     });
   }
@@ -3259,6 +3265,7 @@ export class Manage implements OnInit {
 
   private load(cb?: () => void) {
     this.loading.set(true);
+    this.loadError.set('');
     this.config().getFn(this.page(), this.pageSize(), this.searchQuery).subscribe({
       next: (res: any) => {
         let data = Array.isArray(res) ? res
@@ -3277,7 +3284,7 @@ export class Manage implements OnInit {
             // Bookings are paged on the server, so only keep a just-created booking (flagged
             // _localCreated) on the unfiltered first page until the API returns it.
             const backendIds = new Set(data.map((x: any) => String(x.bookingId ?? x.id ?? x.BookingId ?? '')));
-            const keepLocal = this.page() === 1 && !this.searchQuery;
+            const keepLocal = this.page() === 1 && !this.searchQuery && !this.listFiltersActive;
             const localOnly = !keepLocal ? [] : currentItems.filter((x: any) => {
               const id = String(x.bookingId ?? x.id ?? x.BookingId ?? '');
               return x._localCreated && id && !backendIds.has(id);
@@ -3415,11 +3422,29 @@ export class Manage implements OnInit {
         this.loading.set(false);
         if (cb) cb();
       },
-      error: () => {
+      error: (err: any) => {
+        // Not "No records found": say the list could not be loaded (the page offers Retry).
+        this.items.set([]);
+        this.totalCount.set(0);
+        this.loadError.set(this.listLoadErrorText(err));
         this.loading.set(false);
         if (cb) cb();
       }
     });
+  }
+
+  /** Message of a list that failed to load: the API's own message (e.g. a database update to run), else the cause. */
+  private listLoadErrorText(err: any): string {
+    const title = this.config().title || 'the list';
+    if (err?.status === 0) return `Could not load ${title}: the server could not be reached. Check your connection and try again.`;
+    const msg = err?.error?.message || err?.error?.Message || err?.error?.errorMessage;
+    if (typeof msg === 'string' && msg.trim()) return msg.trim();
+    return `Could not load ${title}${err?.status ? ` (error ${err.status})` : ''}. Please try again.`;
+  }
+
+  /** Retry button of the error state. */
+  retryLoad() {
+    this.load();
   }
 
 
@@ -3529,7 +3554,9 @@ export class Manage implements OnInit {
         return item.billingPeriodLabel || item.billingPeriod || item.BillingPeriod || item.spaceCategory || item.SpaceCategory || '-';
       }
       if (col.key === 'bookingStatusLabel') {
-        const st = item.bookingStatusLabel || item.bookingStatus || item.BookingStatus || item.status || item.Status;
+        // No label (the older pending status 1 has no WN_BookingStatuses row): from the status id, so it reads Pending
+        // like the Pending status filter that includes it.
+        const st = item.bookingStatusLabel || item.bookingStatus || item.BookingStatus || item.status || item.Status || item.bookingStatusId;
         if (typeof st === 'number') {
           // WN_BookingStatuses: 3 Rejected, 5 Pending, 6 No Show, 33 Confirmed, 86 Cancelled (1 = old pending)
           const statusNames: Record<number, string> = { 1: 'Pending', 3: 'Rejected', 5: 'Pending', 6: 'No Show', 33: 'Confirmed', 86: 'Cancelled' };
@@ -5107,7 +5134,8 @@ export class Manage implements OnInit {
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
-        getFn: (p, l, s) => this.admin.getCustomers(p, l, s),
+        // Location / Status / Created filters (listFilterParams) are applied on the server.
+        getFn: (p, l, s) => this.admin.getCustomers(p, l, s, this.listFilterParams()),
         createFn: (d) => this.admin.createCustomer(d),
         updateFn: (id, d) => this.admin.updateCustomer(id, d),
         deleteFn: (id) => this.admin.deleteCustomer(id),
@@ -5259,10 +5287,9 @@ export class Manage implements OnInit {
           { key: 'notes', label: 'Notes', type: 'textarea' },
         ],
         getFn: (p, l, s) => {
-          // The API limits location-bound staff to every location they're assigned to.
-          const locId = undefined;
-          // Server-side paging + search (the API returns { data, total }).
-          return this.admin.getBookings(p, l, s, locId);
+          // The API limits location-bound staff to every location they're assigned to; the Location filter narrows it.
+          // Server-side paging + search + filters (the API returns { data, total }).
+          return this.admin.getBookings(p, l, s, this.listLocationId, this.listFilterParams());
         },
         updateFn: (id, d) => this.admin.updateBooking(id, d),
         statusFn: (id, statusId) => this.admin.updateBookingStatus(id, statusId),
@@ -5292,7 +5319,7 @@ export class Manage implements OnInit {
             ]
           },
         ],
-        getFn: (p, l, s) => this.admin.getPayments(p, l, s),
+        getFn: (p, l, s) => this.admin.getPayments(p, l, s, this.listFilterParams()),
         createFn: (d) => this.admin.createPayment(d),
         statusFn: (id, statusId) => this.admin.updatePaymentStatus(id, statusId),
         statusOptions: ['Paid', 'Failed', 'Refunded'],
@@ -5420,9 +5447,8 @@ export class Manage implements OnInit {
           { key: 'createdAt', label: 'Created', type: 'date' },
         ],
         getFn: (p, l, s) => {
-          // The API limits location-bound staff to every location they're assigned to.
-          const locId = undefined;
-          return this.quotationSvc.getQuotations(p, l, s, locId);
+          // The API limits location-bound staff to every location they're assigned to; the Location filter narrows it.
+          return this.quotationSvc.getQuotations(p, l, s, this.listLocationId, this.listFilterParams());
         },
       };
 
@@ -5441,9 +5467,8 @@ export class Manage implements OnInit {
           { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
         ],
         getFn: (p, l, s) => {
-          // The API limits location-bound staff to every location they're assigned to.
-          const locId = undefined;
-          return this.admin.getInvoices(p, l, s, undefined, locId);
+          // The API limits location-bound staff to every location they're assigned to; the Location filter narrows it.
+          return this.admin.getInvoices(p, l, s, undefined, this.listLocationId, this.listFilterParams());
         },
       };
 
@@ -5704,6 +5729,202 @@ export class Manage implements OnInit {
             : err?.error?.message || `Could not save the type${err?.status ? ` (error ${err.status})` : ''}.`);
         }
       });
+  }
+
+  // ---------- List filters and Excel export (Customers, Bookings, Quotations, Invoices, Payments) ----------
+  // Location (the branches above: itemBranches / branchFilter), Status (choices read from the database) and a date
+  // range, all applied on the server (API script LST_01_list_filters) together with the search box; changing one goes
+  // back to page 1. Export Excel saves every row that matches them (all pages), with the columns the list shows.
+
+  /** This list has the Location / Status / date filters and Export Excel. */
+  get hasListFilters(): boolean {
+    return isFilteredList(this.entity);
+  }
+
+  /** Status filter: '' = every status, else the value of one of listStatusOptions. */
+  listStatusFilter = '';
+  /** Date range (YYYY-MM-DD, both days included) on the date listDateLabel names. */
+  listDateFrom = '';
+  listDateTo = '';
+  readonly listStatusOptions = signal<ListStatusOption[]>([]);
+  private listDateTimer: any;
+
+  get listDateLabel(): string {
+    return isFilteredList(this.entity) ? LIST_DATE_LABEL[this.entity] : 'Date';
+  }
+
+  /** The Location filter (undefined = every location the user sees). */
+  get listLocationId(): number | undefined {
+    return Number(this.branchFilter) || undefined;
+  }
+
+  get listFiltersActive(): boolean {
+    return this.hasListFilters && !!(this.branchFilter || this.listStatusFilter || this.listDateFrom || this.listDateTo);
+  }
+
+  /** The filters sent with the list request; the API only gets the ones that are set. */
+  private listFilterParams(): ListFilterParams {
+    return {
+      locationId: this.listLocationId,
+      status: this.listStatusFilter || undefined,
+      from: this.listDateFrom || undefined,
+      to: this.listDateTo || undefined,
+    };
+  }
+
+  private resetListFilters() {
+    clearTimeout(this.listDateTimer);
+    this.listStatusFilter = '';
+    this.listDateFrom = '';
+    this.listDateTo = '';
+    this.listStatusOptions.set([]);
+    this.loadError.set('');
+  }
+
+  private loadListStatusOptions() {
+    const entity = this.entity;
+    if (!isFilteredList(entity)) return;
+    this.admin.getListStatusOptions(entity).subscribe({
+      next: options => { if (this.entity === entity) this.listStatusOptions.set(options); },
+      // No choices (e.g. before the database update LST_01 has run): the Status filter is not shown.
+      error: () => { if (this.entity === entity) this.listStatusOptions.set([]); }
+    });
+  }
+
+  onListStatusFilter(value: string) {
+    this.listStatusFilter = value || '';
+    this.applyListFilters();
+  }
+
+  /** A whole date (or none); half-typed dates are not sent. */
+  private static isListDate(value: string): boolean {
+    return !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number(value.slice(0, 4)) >= 2000);
+  }
+
+  onListDateFrom(value: string) {
+    this.listDateFrom = value || '';
+    if (this.listDateFrom && this.listDateTo && this.listDateTo < this.listDateFrom) this.listDateTo = this.listDateFrom;
+    this.applyListDates();
+  }
+
+  onListDateTo(value: string) {
+    this.listDateTo = value || '';
+    if (this.listDateFrom && this.listDateTo && this.listDateFrom > this.listDateTo) this.listDateFrom = this.listDateTo;
+    this.applyListDates();
+  }
+
+  /** Dates are applied a moment after the last change (typing a date changes it several times). */
+  private applyListDates() {
+    clearTimeout(this.listDateTimer);
+    if (!Manage.isListDate(this.listDateFrom) || !Manage.isListDate(this.listDateTo)) return;
+    this.listDateTimer = setTimeout(() => this.applyListFilters(), 300);
+  }
+
+  clearListFilters() {
+    clearTimeout(this.listDateTimer);
+    this.branchFilter = '';
+    this.listStatusFilter = '';
+    this.listDateFrom = '';
+    this.listDateTo = '';
+    this.applyListFilters();
+  }
+
+  private applyListFilters() {
+    this.page.set(1);
+    this.load();
+  }
+
+  /** Export Excel is running; exportProgress = "rows read of total". */
+  readonly exporting = signal(false);
+  readonly exportProgress = signal('');
+  /** At most this many rows go into one file (the API reads at most 10,000 rows of a list). */
+  static readonly EXPORT_MAX_ROWS = 10000;
+
+  /** Rows per request: the payments list answers at most 100, and each quotation is read in full on the server. */
+  private get exportPageSize(): number {
+    return this.entity === 'payments' || this.entity === 'quotations' ? 100 : 500;
+  }
+
+  /**
+   * Saves every row matching the search and the filters (all pages, read through the list endpoint) as an .xlsx file,
+   * with the list's columns (values as the list shows them; dates as Excel dates, amounts as numbers).
+   */
+  async exportExcel() {
+    if (this.exporting() || !this.hasListFilters) return;
+    const cfg = this.config();
+    const search = this.searchQuery;
+    const size = this.exportPageSize;
+    const max = Manage.EXPORT_MAX_ROWS;
+    this.exporting.set(true);
+    this.exportProgress.set('');
+    try {
+      const rows: any[] = [];
+      const seen = new Set<string>();
+      let total: number | null = null;
+      for (let page = 1; rows.length < max; page++) {
+        const res = await firstValueFrom(cfg.getFn(page, size, search).pipe(timeout(180000)));
+        const batch = listRows(res);
+        total = listTotal(res) ?? total;
+        for (const row of batch) {
+          // A row that moved to the next page while reading (a new record came in) is not written twice.
+          const key = String(row?.id ?? row?.Id ?? row?.bookingId ?? row?.BookingId ?? '');
+          if (key && seen.has(key)) continue;
+          if (key) seen.add(key);
+          rows.push(row);
+        }
+        this.exportProgress.set(total != null ? `${Math.min(rows.length, total)} of ${total}` : `${rows.length}`);
+        if (batch.length < size || (total != null && rows.length >= total)) break;
+      }
+      if (!rows.length) {
+        this.showError('There are no rows to export for this search and these filters.', 'Export Excel');
+        return;
+      }
+      const kept = rows.slice(0, max);
+      const columns = this.exportColumns();
+      const blob = buildXlsx({
+        name: cfg.title,
+        columns: columns.map(c => ({ header: c.header, type: c.type })),
+        rows: kept.map(item => columns.map(c => c.value(item))),
+      });
+      const stem = cfg.title.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Export';
+      downloadBlob(blob, `${stem}_${localDateIso()}.xlsx`);
+      const capped = total != null ? total > max : rows.length >= max;
+      this.showSuccess(capped
+        ? `Exported the first ${max.toLocaleString()} rows. Narrow the search or the filters to export the rest.`
+        : `Exported ${kept.length.toLocaleString()} row${kept.length === 1 ? '' : 's'}.`, 'Export Excel');
+    } catch (err: any) {
+      this.showError(err?.name === 'TimeoutError'
+        ? 'The server took too long to answer. Try again, or narrow the search or the filters.'
+        : this.listLoadErrorText(err), 'Export Excel');
+    } finally {
+      this.exporting.set(false);
+      this.exportProgress.set('');
+    }
+  }
+
+  /** The export columns: the list's columns (values via getCellValue), plus the location and the booking number. */
+  private exportColumns(): { header: string; type: XlsxCellType; value: (item: any) => unknown }[] {
+    const listCols = this.config().columns;
+    const typeOf = (t?: string): XlsxCellType =>
+      t === 'currency' ? 'number' : t === 'date' ? 'date' : t === 'datetime' ? 'datetime' : 'text';
+    const cols = listCols.map(col => ({
+      header: col.label,
+      type: typeOf(col.type),
+      value: (item: any): unknown => {
+        if (col.type === 'boolean') return item?.[col.key] ? 'Yes' : 'No';
+        const v = this.getCellValue(item, col);
+        return v === '-' ? '' : v;
+      }
+    }));
+    const afterSpace = listCols.findIndex(c => c.key === 'spaceName') + 1;
+    const location = { header: 'Location', type: 'text' as XlsxCellType, value: (i: any): unknown => i?.locationName ?? i?.LocationName ?? '' };
+    if (afterSpace > 0 && (this.entity === 'bookings' || this.entity === 'quotations' || this.entity === 'invoices')) {
+      cols.splice(afterSpace, 0, location);
+    }
+    if (this.entity === 'bookings') {
+      cols.unshift({ header: 'Booking #', type: 'text', value: (i: any): unknown => i?.bookingId ?? i?.BookingId ?? '' });
+    }
+    return cols;
   }
 
   // ---------- Branch of tour inquiries and complaints ----------

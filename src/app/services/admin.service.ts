@@ -17,6 +17,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { InquiryRef, inquiryPath } from '../utils/inquiry-ref';
+import { FilteredList, LIST_API_PATH, ListFilterParams, ListStatusOption, appendListFilters } from '../utils/list-filters';
 import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest, OccupiedSpaces } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
@@ -199,12 +200,13 @@ export class AdminService {
   // ============= BOOKING MANAGEMENT =============
 
   /** Get paginated list of bookings */
-  getBookings(page?: number, limit?: number, search?: string, locationId?: number): Observable<ApiResponse<Booking[]>> {
+  getBookings(page?: number, limit?: number, search?: string, locationId?: number, filters?: ListFilterParams): Observable<ApiResponse<Booking[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Booking[]>>(`${this.api}/booking${qs}`);
   }
@@ -262,11 +264,12 @@ export class AdminService {
   getMembershipSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/membership/${id}/summary`); }
 
   // Payments
-  getPayments(page?: number, limit?: number, search?: string): Observable<ApiResponse<Payment[]>> {
+  getPayments(page?: number, limit?: number, search?: string, filters?: ListFilterParams): Observable<ApiResponse<Payment[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Payment[]>>(`${this.api}/payment${qs}`);
   }
@@ -286,13 +289,14 @@ export class AdminService {
   // ============= INVOICE MANAGEMENT =============
 
   /** Get paginated list of invoices with optional type filter (1: Regular, 3: Security Deposit) */
-  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number): Observable<ApiResponse<any[]>> {
+  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number, filters?: ListFilterParams): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (typeId != null && typeId > 0) params.set('typeId', String(typeId));
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice${qs}`);
   }
@@ -464,13 +468,23 @@ export class AdminService {
   }
 
   // Customers
-  getCustomers(page?: number, limit?: number, search?: string): Observable<ApiResponse<any[]>> {
+  getCustomers(page?: number, limit?: number, search?: string, filters?: ListFilterParams): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/customer${qs}`);
+  }
+
+  /** Choices of a list's Status filter, from the database (GET api/{list}/statuses): [{ value, label }]. */
+  getListStatusOptions(list: FilteredList): Observable<ListStatusOption[]> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/${LIST_API_PATH[list]}/statuses`).pipe(
+      map(res => (Array.isArray(res?.data) ? res.data : [])
+        .map((o: any) => ({ value: String(o?.value ?? o?.Value ?? '').trim(), label: String(o?.label ?? o?.Label ?? '').trim() }))
+        .filter((o: ListStatusOption) => o.value !== '' && o.label !== ''))
+    );
   }
   searchCustomers(query: string): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/customer/search?q=${encodeURIComponent(query)}`);
