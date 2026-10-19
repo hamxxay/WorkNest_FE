@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, input, signal, untracked } from '@
 import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { AdminService } from '../../../../services/admin.service';
-import { DashboardOverview, DashPeriod } from '../dashboard-overview/dashboard-overview';
+import { DashboardOverview, DashPeriod, dashDay } from '../dashboard-overview/dashboard-overview';
 
 export type DashRole = 'sales_executive' | 'admin' | 'super_admin';
 
@@ -28,6 +28,9 @@ export class RoleDashboard {
   locationIds = input<number[]>([]);
   refreshTick = input<number>(0);
   period = input<DashPeriod>('month');
+  /** Custom range (period 'custom'): first and last day, 'yyyy-MM-dd'; null otherwise. */
+  customFrom = input<string | null>(null);
+  customTo = input<string | null>(null);
 
   loading = signal(true);
   failed = signal(false);
@@ -38,7 +41,9 @@ export class RoleDashboard {
   fullMoney(v: number | null | undefined): string {
     return 'PKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   }
-  periodWord = computed(() => `this ${this.period()}`);
+  periodWord = computed(() => (this.period() === 'custom' && this.customFrom() && this.customTo()
+    ? `from ${dashDay(this.customFrom())} to ${dashDay(this.customTo())}`
+    : `this ${this.period() === 'custom' ? 'month' : this.period()}`));
 
   constructor() {
     effect(() => {
@@ -46,13 +51,15 @@ export class RoleDashboard {
       this.locationIds();
       this.refreshTick();
       this.period();
+      this.customFrom();
+      this.customTo();
       untracked(() => this.load());
     });
   }
 
   load() {
     if (!this.data()) this.loading.set(true);
-    this.admin.getRoleDashboard(this.period(), this.locationIds()).subscribe({
+    this.admin.getRoleDashboard(this.period(), this.locationIds(), this.customFrom(), this.customTo()).subscribe({
       next: (res) => { this.data.set(res); this.failed.set(false); this.loading.set(false); },
       error: () => { this.failed.set(true); this.loading.set(false); }
     });
