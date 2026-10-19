@@ -221,8 +221,11 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .person { display: flex; align-items: center; gap: 10px; }
 .person-avatar { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #e0f2f1; color: #0f766e; font-weight: 700; font-size: 0.8rem; }
 .person-main { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.role-tag { font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 1px 8px; background: #eff6ff; color: #1d4ed8; }
-.role-tag.admin { background: #f0fdfa; color: #0f766e; }
+/* Team: a sales executive's revenue (opens the converted quotations behind it). */
+.revenue-bar { min-width: 170px; }
+.revenue-btn { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; padding: 2px 4px; margin: -2px -4px; }
+.revenue-btn:hover, .revenue-btn:focus-visible { color: #0f766e; text-decoration: underline; text-underline-offset: 3px; }
+.revenue-none { color: #94a3b8; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------- team cards ---------- */
 .team-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 20px; }

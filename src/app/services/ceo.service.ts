@@ -85,13 +85,19 @@ export interface CeoSales {
   inquiriesAllLocations: boolean;
 }
 
+/** A location: its sales executives and the quotations made on its spaces in the period (by anyone, as the funnel). */
 export interface CeoTeamLocation {
-  locationId: number; name: string; admins: number; salesExecutives: number; quotations: number; converted: number;
+  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number;
 }
+/**
+ * A sales executive (the API sends no other role). revenue = the dashboard's converted value: the total of the
+ * quotations they created in the period that were converted to a booking (PKR).
+ */
 export interface CeoPerson {
-  userId: number; name: string; role: string; locations: string; quotations: number; converted: number; convertedValue: number;
+  userId: number; name: string; role: string; locations: string; quotations: number; converted: number; revenue: number;
 }
-export interface CeoTeam { perLocation: CeoTeamLocation[]; people: CeoPerson[]; }
+/** Team section: only the sales executives (filtered by the API), highest revenue first, and their totals. */
+export interface CeoTeam { perLocation: CeoTeamLocation[]; people: CeoPerson[]; salesExecutives: number; revenue: number; }
 
 export interface CeoDashboard {
   period: CeoPeriod;
@@ -599,15 +605,19 @@ export class CeoService {
         : s.inquiriesAllLocations === true || s.inquiriesAllLocations === 1 || String(s.inquiriesAllLocations).toLowerCase() === 'true'
     };
 
+    // The API lists only the sales executives (19 Oct 2026); revenue is their converted value (an older API: convertedValue).
+    const people: CeoPerson[] = t ? arr(t.people, (x: any) => ({
+      userId: num(x.userId), name: str(x.name) || 'Team member', role: str(x.role), locations: str(x.locations),
+      quotations: num(x.quotations), converted: num(x.converted), revenue: num(x.revenue ?? x.convertedValue)
+    })) : [];
     const team: CeoTeam | null = t && {
       perLocation: arr(t.perLocation, (x: any) => ({
-        locationId: num(x.locationId), name: str(x.name) || 'Location', admins: num(x.admins), salesExecutives: num(x.salesExecutives),
+        locationId: num(x.locationId), name: str(x.name) || 'Location', salesExecutives: num(x.salesExecutives),
         quotations: num(x.quotations), converted: num(x.converted)
       })),
-      people: arr(t.people, (x: any) => ({
-        userId: num(x.userId), name: str(x.name) || 'Team member', role: str(x.role), locations: str(x.locations),
-        quotations: num(x.quotations), converted: num(x.converted), convertedValue: num(x.convertedValue)
-      }))
+      people,
+      salesExecutives: t.salesExecutives != null ? num(t.salesExecutives) : people.length,
+      revenue: t.revenue != null ? num(t.revenue) : people.reduce((a, p) => a + p.revenue, 0)
     };
 
     return {

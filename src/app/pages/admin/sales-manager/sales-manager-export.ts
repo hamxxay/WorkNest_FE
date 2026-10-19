@@ -15,7 +15,8 @@ export function salesWorkbook(d: SmDashboard, cmp: SmComplaints | null, meta: Ex
   const sheets: XlsxSheet[] = [summarySheet('WorkNest Sales dashboard', meta, [
     'Counts and desks (desks of a booking or quotation = its capacity, else its space; meeting rooms count 0).',
     'Previous period: the same number of days just before a custom range, else the same days one period earlier.',
-    'The 12-month series, follow-ups due and leases expiring do not change with the period.'
+    'The 12-month series, follow-ups due and leases expiring do not change with the period.',
+    'Team: the sales executives at the locations covered (no admins or other roles).'
   ])];
 
   const kpis: XlsxCell[][] = [['Section', 'Figure', 'Value', `Previous (${meta.previousWords})`, 'Note']];
@@ -71,12 +72,13 @@ export function salesWorkbook(d: SmDashboard, cmp: SmComplaints | null, meta: Ex
     });
   }
   if (t) {
+    // The sales executives under the manager (the API sends no other role).
     sheets.push({
-      name: 'Team',
-      rows: [['Name', 'Role', 'Locations', 'Inquiries handled', 'Quotations', 'Accepted', 'Converted', 'Conversion (%)', 'Desks sold', 'Follow-ups due'],
+      name: 'Sales executives',
+      rows: [['Name', 'Locations', 'Inquiries handled', 'Quotations', 'Accepted', 'Converted', 'Conversion (%)', 'Desks sold', 'Follow-ups due'],
         ...[...t.people]
           .sort((a, b) => b.desksSold - a.desksSold || b.converted - a.converted || b.quotations - a.quotations || a.name.localeCompare(b.name))
-          .map(p => [p.name, p.role, p.locations, p.inquiriesHandled, p.quotations, p.accepted, p.converted, pct1(p.conversionRate), p.desksSold,
+          .map(p => [p.name, p.locations, p.inquiriesHandled, p.quotations, p.accepted, p.converted, pct1(p.conversionRate), p.desksSold,
             p.followUpsDue])]
     });
     sheets.push({
