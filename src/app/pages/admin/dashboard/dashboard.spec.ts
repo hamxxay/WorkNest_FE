@@ -69,7 +69,7 @@ describe('Dashboard - server-side totals', () => {
   });
 
   it('shows a failure with its message instead of empty figures', () => {
-    main.getSummary.and.returnValue(throwError(() => ({ status: 503, needsDbUpdate: true, title: 'Database update needed', message: 'Run DASH_01_main_dashboard_TEST.sql on the database, then refresh this page.' })));
+    main.getSummary.and.returnValue(throwError(() => ({ status: 503, needsDbUpdate: true, title: 'Database update needed', message: 'Run the script DASH_01_main_dashboard_TEST on the database, then refresh this page.' })));
     component.loadSummary();
     expect(component.summaryStatus()).toBe('error');
     expect(component.summaryError()?.message).toContain('DASH_01_main_dashboard');

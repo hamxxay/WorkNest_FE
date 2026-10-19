@@ -117,8 +117,9 @@ export interface MainInventoryPage { total: number; page: number; pageSize: numb
 
 const WORDING: DashErrorWording = {
   name: 'dashboard',
-  // Shown under the title "Database update needed" (503 before DASH_01 has run).
-  dbMessage: 'Run DASH_01_main_dashboard_TEST.sql on the database (DASH_01_main_dashboard_LIVE.sql on the live one), then refresh this page.'
+  // Shown under the title "Database update needed" (503 before DASH_01 has run). No ".sql": messages that mention SQL
+  // are hidden as technical text.
+  dbMessage: 'Run the script DASH_01_main_dashboard_TEST on the database (DASH_01_main_dashboard_LIVE on the live one), then refresh this page.'
 };
 
 const bool = (v: unknown): boolean => v === true || v === 1 || String(v).toLowerCase() === 'true';
