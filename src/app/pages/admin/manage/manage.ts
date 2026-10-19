@@ -1315,6 +1315,7 @@ export class Manage implements OnInit {
           this.loading.set(true);
         }
         this.entity = newEntity;
+        if (this.entity === 'invoices') this.applyListPeriodParam();
         this.config.set(this.buildConfig(this.entity));
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
@@ -5909,6 +5910,16 @@ export class Manage implements OnInit {
     }
     this.listPeriod = period;
     this.applyListFilters();
+  }
+
+  /**
+   * The period asked for by the link that opened the page (?period=all from the dashboards' Outstanding / Overdue links:
+   * unpaid invoices of earlier months are the point there). Unknown or missing: the default, this month.
+   */
+  private applyListPeriodParam() {
+    const asked = this.route.snapshot.queryParamMap.get('period');
+    const match = LIST_PERIOD_OPTIONS.find(o => o.value === asked && o.value !== 'custom');
+    if (match) this.listPeriod = match.value;
   }
 
   /** Text of an empty list. */
