@@ -1,0 +1,190 @@
+@if (open()) {
+<div class="drawer-backdrop" (click)="close()" (wheel)="$event.preventDefault()" aria-hidden="true"></div>
+<aside class="drawer" #panel role="dialog" aria-modal="true" aria-labelledby="ceo-disc-drawer-title" tabindex="-1">
+  <header class="drawer-head">
+    <div class="drawer-nav">
+      @if (entries().length > 1) {
+        <button type="button" class="nav-btn" (click)="back()" aria-label="Back to the previous level">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          Back
+        </button>
+      }
+      <nav class="crumbs" aria-label="Drill-down path">
+        <ol>
+          @for (c of crumbs(); track $index; let i = $index; let last = $last) {
+            <li>
+              @if (i > 0 && !last) {
+                <button type="button" class="crumb-link" (click)="goTo(i)">{{ c }}</button>
+              } @else {
+                <span [class.crumb-current]="last" [attr.aria-current]="last ? 'page' : null">{{ c }}</span>
+              }
+              @if (!last) {
+                <svg class="crumb-sep" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+      <button type="button" class="nav-btn drawer-export" (click)="exportExcel()" [disabled]="!canExport()" title="This list as an Excel workbook" aria-label="Export this list to Excel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+        <span class="drawer-export-label">Export Excel</span>
+      </button>
+      <button type="button" class="close-btn" (click)="close()" aria-label="Close (Escape)" title="Close (Esc)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <h2 id="ceo-disc-drawer-title" #heading tabindex="-1">
+      @if (current()?.status === 'loading' && !current()?.records) {
+        <span class="sk sk-title" aria-hidden="true"></span><span class="sr-only">Loading</span>
+      } @else {
+        {{ title() }}
+      }
+    </h2>
+    @if (current()?.level?.kind === 'groups') {
+      <p class="drawer-sub">A month, on the bookings running in the period · below the expected price plus fixed discounts · view only</p>
+    }
+    @if (current()?.level?.kind === 'records' && current()?.status === 'ok') {
+      @let r = current()!.records!;
+      <p class="drawer-sub">
+        @if (recordTotal() > recordShown()) { Showing the biggest {{ count(recordShown()) }} of {{ count(recordTotal()) }} }
+        @else { {{ count(recordTotal()) }} {{ recordKind() === 'invoices' ? 'invoice' : 'booking' }}{{ recordTotal() === 1 ? '' : 's' }} }
+        @if (r.discountTotal > 0) {
+          @if (recordKind() === 'invoices') {
+            · {{ fullMoney(r.discountTotal) }} off {{ fullMoney(r.baseTotal) }} ({{ pct(r.discountPct) }})
+          } @else {
+            · {{ fullMoney(r.discountTotal) }} a month off {{ fullMoney(r.baseTotal) }} expected ({{ pct(r.discountPct) }})
+          }
+        }
+        · view only
+      </p>
+    }
+  </header>
+
+  <div class="drawer-body">
+    @switch (current()?.status) {
+      @case ('loading') {
+        <div class="state-loading" aria-busy="true">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="sk-row"><span class="sk sk-line w40"></span><span class="sk sk-line w20"></span><span class="sk sk-line w20"></span></div>
+          }
+        </div>
+      }
+      @case ('error') {
+        <div class="state-box" [class.db]="current()?.error?.needsDbUpdate" role="alert">
+          <span class="state-icon">
+            @if (current()?.error?.needsDbUpdate) {
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            }
+          </span>
+          <strong>{{ current()?.error?.title }}</strong>
+          <span>{{ current()?.error?.message }}</span>
+          <button type="button" class="btn-ghost" (click)="retry()">Try again</button>
+        </div>
+      }
+      @case ('ok') {
+        @if (current()?.level?.kind === 'groups') {
+          @if (!groups().length) {
+            <div class="state-box">
+              <span class="state-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span>
+              <strong>Nothing to break down</strong>
+              <span>There are no bookings for this selection.</span>
+            </div>
+          } @else {
+            <div class="table-scroll">
+              <table class="dr-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ groupSpec()?.rowLabel }}</th>
+                    <th scope="col" class="num">Discount a month</th>
+                    <th scope="col" class="num">Of expected</th>
+                    <th scope="col" class="num">Discounted</th>
+                    @if (groupBy() === 'location') { <th scope="col" class="num">On invoices</th> }
+                    <th scope="col" class="col-go"><span class="sr-only">Open</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (g of groups(); track g.key ?? g.name) {
+                    <tr class="clickable" (click)="openGroup(g)">
+                      <th scope="row">
+                        <button type="button" class="row-btn" (click)="openGroup(g); $event.stopPropagation()" [attr.aria-label]="'Open the discounted bookings of ' + g.name">{{ g.name }}</button>
+                        @if (g.role) { <small>{{ g.role }}</small> }
+                        <span class="row-bar disc-bar" aria-hidden="true"><span [style.width.%]="(g.discountMonthly / groupMax()) * 100"></span></span>
+                        @if (groupBy() === 'location' && g.invoicesDiscounted) {
+                          <button type="button" class="alt-link" (click)="openGroupInvoices(g); $event.stopPropagation()" [attr.aria-label]="'Open the invoices with a discount at ' + g.name">{{ count(g.invoicesDiscounted) }} invoice{{ g.invoicesDiscounted === 1 ? '' : 's' }} with a discount</button>
+                        }
+                      </th>
+                      <td class="num strong" [title]="fullMoney(g.discountMonthly)">{{ money(g.discountMonthly) }}</td>
+                      <td class="num">{{ g.baseMonthly ? pct(g.discountPct) : '-' }}</td>
+                      <td class="num">{{ count(g.discounted) }} of {{ count(g.bookings) }}</td>
+                      @if (groupBy() === 'location') { <td class="num" [title]="fullMoney(g.invoiceDiscount)">{{ money(g.invoiceDiscount) }}</td> }
+                      <td class="col-go" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></td>
+                    </tr>
+                  }
+                </tbody>
+                @if (groups().length > 1) {
+                  <tfoot>
+                    <tr>
+                      <th scope="row">Total</th>
+                      <td class="num" [title]="fullMoney(groupTotals().discount)">{{ money(groupTotals().discount) }}</td>
+                      <td class="num">{{ pct(groupTotals().pct) }}</td>
+                      <td class="num">{{ count(groupTotals().discounted) }} of {{ count(groupTotals().bookings) }}</td>
+                      @if (groupBy() === 'location') { <td class="num" [title]="fullMoney(groupTotals().invoices)">{{ money(groupTotals().invoices) }}</td> }
+                      <td class="col-go"></td>
+                    </tr>
+                  </tfoot>
+                }
+              </table>
+            </div>
+            <p class="hint">Select a row for its discounted bookings.</p>
+          }
+        } @else if (!recordShown()) {
+          <div class="state-box">
+            <span class="state-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+            <strong>No records</strong>
+            <span>Nothing matches this selection.</span>
+          </div>
+        } @else if (recordKind() === 'invoices') {
+          <div class="table-scroll">
+            <table class="dr-table records">
+              <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col" class="num">Before discount</th><th scope="col" class="num">Discount</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+              <tbody>
+                @for (r of invoiceRows(); track r.invoiceId || $index) {
+                  <tr>
+                    <th scope="row"><strong>{{ r.invoiceNumber || '-' }}</strong><small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small></th>
+                    <td><span class="clip">{{ r.customer }}</span><small>{{ placeOf(r) }}</small></td>
+                    <td class="num" [title]="fullMoney(r.subTotal)">{{ money(r.subTotal) }}</td>
+                    <td class="num strong" [title]="fullMoney(r.discount)">{{ money(r.discount) }}</td>
+                    <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}</td>
+                    <td><span class="pill" [class.tone-ok]="r.paid">{{ r.status || '-' }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="table-scroll">
+            <table class="dr-table records">
+              <thead><tr><th scope="col">Customer</th><th scope="col">Room</th><th scope="col" class="num">Expected</th><th scope="col" class="num">Sold</th><th scope="col" class="num">Discount</th><th scope="col">Sold by</th></tr></thead>
+              <tbody>
+                @for (r of bookingRows(); track r.bookingId) {
+                  <tr [class.hl]="highlight() === r.bookingId">
+                    <th scope="row"><strong class="clip">{{ r.customer }}</strong><small>Booking #{{ r.bookingId }}@if (r.startedInPeriod) { · new }</small></th>
+                    <td><span class="clip">{{ r.room || '-' }}</span><small>{{ r.shift }} · {{ r.seats }} seat{{ r.seats === 1 ? '' : 's' }}@if (manyLocations() && r.location) { · {{ r.location }} }</small></td>
+                    <td class="num" [title]="expectedNote(r)">@if (r.expectedMonthly !== null) { {{ money(r.expectedMonthly) }} } @else { <span class="none">-</span> }</td>
+                    <td class="num" [title]="fullMoney(r.soldMonthly) + ' a month'">{{ money(r.soldMonthly) }}@if (r.fixedMonthly > 0) { <small>after {{ money(r.fixedMonthly) }} fixed</small> }</td>
+                    <td class="num strong" [title]="discountNote(r)">{{ money(r.discountMonthly) }}<small class="disc-pct">{{ pct(r.discountPct) }} off</small></td>
+                    <td><span class="clip">{{ r.seller || 'Not recorded' }}</span>@if (r.sellerRole) { <small>{{ r.sellerRole }}</small> }</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="hint">Amounts a month. Expected: the room price x seats (24/7), less the location's shift discount for Morning / Evening.</p>
+        }
+      }
+    }
+  </div>
+</aside>
+}
