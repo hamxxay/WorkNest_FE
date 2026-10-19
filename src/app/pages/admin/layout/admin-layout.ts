@@ -6,6 +6,7 @@ import { Subscription, filter } from 'rxjs';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
+import { CustomInvoiceService } from '../../../services/custom-invoice.service';
 import {
   ACCESS_OFFICER_HOME, CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isAccessOfficerUrl, isCeoUrl, isSalesExecutiveUrl,
   isSalesManagerUrl
@@ -53,6 +54,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   private admin = inject(AdminService);
   private unifi = inject(UnifiService);
   private titleService = inject(Title);
+  private customInvoices = inject(CustomInvoiceService);
 
   /** Items waiting on staff, keyed by sidebar route (from api/admin/nav-badges). Last good values are kept on errors. */
   badges = signal<Record<string, number>>({});
@@ -104,6 +106,8 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },
     { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
     { route: '/admin/fee-receipts', group: 'Finance',       label: 'Receipts',            icon: 'receipt'         },
+    // Shown to super admins, and to admins a super admin has given access (api/custom-invoices/access/me).
+    { route: '/admin/custom-invoice', group: 'Finance',     label: 'Custom Invoice',      icon: 'custom-invoice', customInvoiceOnly: true },
     { route: '/admin/contacts', group: 'Sales',       label: 'Tour Inquiries',    icon: 'contacts'        },
     { route: '/admin/complaints', group: 'Sales',     label: 'Complaints',        icon: 'complaints'      },
     { route: '/admin/whatsapp', group: 'Sales',       label: 'WhatsApp Inbox',    icon: 'whatsapp'        },
@@ -192,6 +196,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     // A CEO / Sales Manager / Access Officer has no sidebar badges or network section (those APIs are staff-only).
     if (this.dashboardHome) return;
     this.loadNetworkScope();
+    this.loadCustomInvoiceAccess();
     this.loadBadges();
     this.pollTimer = setInterval(() => { if (!document.hidden) this.loadBadges(); }, AdminLayout.POLL_MS);
     // Browsers slow timers in background tabs: refresh as soon as the tab is visible / focused again.
@@ -287,7 +292,19 @@ export class AdminLayout implements OnInit, OnDestroy {
   /** Visible menu items (role rules applied), grouped under section headings. */
   private visibleItems(): any[] {
     return this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
+      && (!i.customInvoiceOnly || this.customInvoiceAllowed())
       && (i.group !== 'Network' || this.networkAllowed()));
+  }
+
+  /**
+   * Custom Invoice: super admins always; an admin once api/custom-invoices/access/me says canUse (hidden until then,
+   * and when the check fails). The page's guard and the API check it again.
+   */
+  readonly customInvoiceAllowed = computed(() =>
+    this.isSuperAdmin || (this.isAdmin && this.customInvoices.myAccess()?.canUse === true));
+  private loadCustomInvoiceAccess() {
+    if (this.isSuperAdmin || !this.isAdmin) return;
+    this.customInvoices.getMyAccess().subscribe({ error: () => { /* keep the item hidden */ } });
   }
 
   /** False when the UniFi network belongs to other locations than this admin's / sales executive's (api/unifi/scope). */
