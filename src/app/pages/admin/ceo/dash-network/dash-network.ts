@@ -53,28 +53,39 @@ function ms(v: number | null | undefined): string {
 }
 
 /**
- * A line's 24-hour traffic as two sparkline paths (download, upload) on a 100 x 24 box; a step without figures breaks
- * the line. Null when there is nothing to draw.
+ * A line's 24-hour traffic as two sparkline paths (download, upload) on a 100 x 24 box, and the download's area (a soft
+ * fill under it); a step without figures breaks the line. Null when there is nothing to draw.
  */
-function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; peak: string } | null {
+function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; area: string; peak: string } | null {
   const n = points.length;
   if (n < 2) return null;
   const peakDown = Math.max(0, ...points.map(p => p.down ?? 0));
   const peakUp = Math.max(0, ...points.map(p => p.up ?? 0));
   const max = Math.max(peakDown, peakUp);
   if (!(max > 0)) return null;
+  const x = (i: number) => ((i / (n - 1)) * 100).toFixed(2);
+  const y = (v: number) => (23 - (v / max) * 21).toFixed(2);
   const path = (field: 'down' | 'up') => {
     let d = '';
     let pen = false;
     points.forEach((p, i) => {
       const v = p[field];
       if (v === null) { pen = false; return; }
-      d += `${pen ? 'L' : 'M'}${((i / (n - 1)) * 100).toFixed(2)},${(23 - (v / max) * 21).toFixed(2)} `;
+      d += `${pen ? 'L' : 'M'}${x(i)},${y(v)} `;
       pen = true;
     });
     return d.trim();
   };
-  return { down: path('down'), up: path('up'), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
+  // The area: each unbroken run of download figures closed down to the baseline.
+  let area = '';
+  let run: number[] = [];
+  const close = () => {
+    if (run.length > 1) area += `M${x(run[0])},24 ${run.map(i => `L${x(i)},${y(points[i].down!)}`).join(' ')} L${x(run[run.length - 1])},24 Z `;
+    run = [];
+  };
+  points.forEach((p, i) => { if (p.down === null) close(); else run.push(i); });
+  close();
+  return { down: path('down'), up: path('up'), area: area.trim(), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
 }
 
 /**
@@ -343,6 +354,8 @@ export class DashNetworkSection {
   latencyEmpty = computed(() => !(this.data()?.internet?.latency ?? []).some(s => s.points.some(p => p.avg !== null)));
 
   alerts = computed(() => this.data()?.alerts ?? []);
+  /** A critical issue among them (the panel's icon turns red). */
+  hasCritical = computed(() => this.alerts().some(a => a.level === 'critical'));
 
   // ---------- helpers ----------
 
@@ -390,7 +403,7 @@ export class DashNetworkSection {
 
     // 1. Clients over time: Wi-Fi / wired / guest stacked (average in each step), and the most at once as a dashed line.
     const area = (label: string, field: 'wifi' | 'wired' | 'guest', color: string, fill: string | boolean) => ({
-      label, data: pts.map(p => p[field]), stack: 'clients', borderColor: color, backgroundColor: color + 'cc', fill,
+      label, data: pts.map(p => p[field]), stack: 'clients', borderColor: color, backgroundColor: color + '59', fill,
       borderWidth: 1.5, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 8, spanGaps: false
     });
     this.upsert('clients', this.historyEmpty() ? undefined : clientsCanvas, {

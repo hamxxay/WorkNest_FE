@@ -459,7 +459,7 @@ export class CeoRoomsSection {
           label: 'Difference a month', data: off.map(x => x.sale.varianceMonthly),
           backgroundColor: off.map(x => PRICING_COLORS[x.sale.pricing]),
           hoverBackgroundColor: off.map(x => PRICING_HOVER[x.sale.pricing]),
-          borderRadius: 5, borderSkipped: false, maxBarThickness: 22, categoryPercentage: 0.8, barPercentage: 0.9
+          borderRadius: 4, borderSkipped: 'start', maxBarThickness: 20, categoryPercentage: 0.8, barPercentage: 0.9
         }]
       },
       options: {
@@ -562,7 +562,7 @@ export class CeoRoomsSection {
           label: p.label, data: rent.map(r => r[p.key]), stack: 'rent',
           backgroundColor: p.color, hoverBackgroundColor: p.hover,
           borderColor: '#fff', borderWidth: { top: 0, right: 2, bottom: 0, left: 0 }, borderSkipped: false, borderRadius: 4,
-          maxBarThickness: 30, categoryPercentage: 0.8, barPercentage: 0.9
+          maxBarThickness: 24, categoryPercentage: 0.8, barPercentage: 0.9
         }))
       },
       options: {

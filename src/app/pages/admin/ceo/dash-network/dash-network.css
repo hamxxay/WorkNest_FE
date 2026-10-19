@@ -1,83 +1,147 @@
-/* The Network section uses the CEO dashboard's stylesheet (ceo-dashboard.css, loaded first) for its cards, panels,
-   charts and states, on the CEO and the Sales Manager dashboards alike. Only the pieces the rest of the page does not
-   have are here. */
+/* Network section (CEO and Sales Manager dashboards). Cards, panels, charts, pills and states come from ceo-dashboard.css
+   (loaded first); only what the rest of the page does not have is here. Colours read the dashboard's tokens (--ceo-*) and
+   fall back to the same values. */
+:host {
+  --nw-ink: var(--ceo-ink, #0f172a);
+  --nw-text: var(--ceo-text, #334155);
+  --nw-muted: var(--ceo-muted, #64748b);
+  --nw-faint: var(--ceo-faint, #94a3b8);
+  --nw-line: var(--ceo-line, #e2e8f0);
+  --nw-line-soft: var(--ceo-line-soft, #f1f5f9);
+  --nw-surface: var(--ceo-surface, #fff);
+  --nw-surface-2: var(--ceo-surface-2, #f8fafc);
+  --nw-track: var(--ceo-track, #f1f5f9);
+  --nw-accent: var(--ceo-accent, #0d9488);
+  --nw-accent-strong: var(--ceo-accent-strong, #0f766e);
+  --nw-good: var(--ceo-good, #047857);
+  --nw-bad: var(--ceo-bad, #b91c1c);
+  --nw-bad-soft: var(--ceo-bad-soft, #fee2e2);
+  --nw-warn: var(--ceo-warn, #b45309);
+  --nw-warn-soft: var(--ceo-warn-soft, #fef3c7);
+  --nw-radius-sm: var(--ceo-radius-sm, 10px);
+  --nw-focus: var(--ceo-focus, #0d9488);
+}
 
 .net-body { transition: opacity .2s ease; }
 .net-body.is-refreshing { opacity: .55; pointer-events: none; }
-.chart-empty-icon.db { background: #fef3c7; color: #b45309; }
-.chart-box.h-net { height: 200px; margin-top: 12px; }
+.chart-empty-icon.db { background: var(--nw-warn-soft); color: var(--nw-warn); }
+.chart-box.h-net { height: 190px; }
+/* a panel's title gives way first, so its figures and switches stay on the right while there is room */
+@media (min-width: 761px) { .panel-head > div:first-child { flex: 1 1 260px; min-width: 0; } }
 /* four KPI cards (clients, devices, lines, latency): one row, two by two on tablets and phones */
 .kpi-grid.kpi-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .kpi-grid.kpi-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .kpi-grid.kpi-4 { gap: 10px; } }
 @media (max-width: 359.98px) { .kpi-grid.kpi-4 { grid-template-columns: minmax(0, 1fr); } }
 
-/* range switch (24 hours / 7 days), same look as the period switch in the header */
+/* range switch (24 hours / 7 days): the header's period switch, smaller */
 .net-seg { display: inline-flex; gap: 2px; background: #eef2f6; border-radius: 9px; padding: 3px; }
-.net-seg button { height: 26px; padding: 0 10px; border: none; border-radius: 7px; background: none; font-family: inherit; font-size: 0.74rem; font-weight: 600; color: #475569; cursor: pointer; }
-.net-seg button:hover:not(.active) { color: #0f172a; }
-.net-seg button.active { background: #fff; color: #0f766e; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
+.net-seg button {
+  height: 28px; padding: 0 11px; border: none; border-radius: 7px; background: none; font-family: inherit; font-size: 0.76rem;
+  font-weight: 600; color: #475569; cursor: pointer; white-space: nowrap; transition: color .12s, background .12s;
+}
+.net-seg button:hover:not(.active) { color: var(--nw-ink); }
+.net-seg button.active { background: var(--nw-surface); color: var(--nw-ink); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
+.net-seg button:focus-visible { outline: 2px solid var(--nw-focus); outline-offset: 1px; }
 
-/* needs attention */
+/* a small label over a chart that shares a panel with other figures */
+.net-subhead {
+  margin: 18px 0 8px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--nw-faint);
+}
+.panel-head + .net-subhead { margin-top: 0; }
+
+/* ---------- needs attention ---------- */
 .net-alerts { margin-bottom: 20px; }
+.net-alerts .panel-head { margin-bottom: 8px; }
+.net-alert-title { display: flex; align-items: center; gap: 12px; }
+.net-alert-icon {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--nw-warn-soft); color: var(--nw-warn);
+}
+.net-alerts.critical .net-alert-icon { background: var(--nw-bad-soft); color: var(--nw-bad); }
 .net-alert-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.net-alert-list li { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid #f1f5f9; font-size: 0.84rem; color: #0f172a; }
-.net-alert-list li:last-child { border-bottom: none; }
-.net-alert-text { flex: 1; min-width: 0; }
-.net-alert-where { color: #64748b; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.net-alert-list li {
+  display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 10px 0; border-top: 1px solid var(--nw-line-soft); font-size: 0.84rem; color: var(--nw-ink);
+}
+.net-alert-list .pill { justify-self: start; }
+.net-alert-text { min-width: 0; }
+.net-alert-where { max-width: 260px; color: var(--nw-muted); font-size: 0.78rem; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* clients by type: legend rows (figures only, nothing to open) */
+/* ---------- clients by type: legend rows (figures only, nothing to open) ---------- */
 .net-legend { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .net-legend li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 0.8rem; color: #475569; }
 .net-legend i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .net-legend .lg-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.net-legend small { color: #94a3b8; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
-.net-legend strong { min-width: 28px; text-align: right; color: #0f172a; font-variant-numeric: tabular-nums; }
+.net-legend small { min-width: 40px; text-align: right; color: var(--nw-faint); font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+.net-legend strong { min-width: 32px; text-align: right; color: var(--nw-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* devices: one split bar per type */
-.net-devices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.net-devices li { display: flex; flex-direction: column; gap: 6px; }
+/* ---------- devices: one split bar per type ---------- */
+.net-devices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.net-devices li { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--nw-line-soft); }
+.net-devices li:first-child { border-top: none; padding-top: 4px; }
 .nd-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.nd-name { font-weight: 600; font-size: 0.86rem; color: #0f172a; }
-.nd-count { font-size: 0.78rem; color: #64748b; font-variant-numeric: tabular-nums; }
-.nd-track { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #f1f5f9; gap: 2px; }
+.nd-name { font-weight: 600; font-size: 0.86rem; color: var(--nw-ink); }
+.nd-count { font-size: 0.78rem; color: var(--nw-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nd-count strong { font-size: 0.88rem; font-weight: 700; color: var(--nw-ink); }
+.nd-track { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: var(--nw-track); }
 .nd-track span { display: block; height: 100%; min-width: 4px; }
-.nd-off { font-size: 0.76rem; color: #b91c1c; }
-.net-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 16px; font-size: 0.74rem; font-weight: 600; color: #64748b; }
-.net-key span { display: inline-flex; align-items: center; gap: 6px; }
-.net-key .sw { width: 10px; height: 10px; border-radius: 3px; }
-.net-key .muted { font-weight: 500; color: #94a3b8; }
+.nd-off { display: flex; align-items: flex-start; gap: 6px; font-size: 0.76rem; color: var(--nw-bad); line-height: 1.4; }
+.nd-off::before { content: ""; width: 6px; height: 6px; margin-top: 0.45em; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.net-key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--nw-line-soft); font-size: 0.75rem; font-weight: 500; color: var(--nw-muted); }
+.net-key span { display: inline-flex; align-items: center; gap: 7px; }
+.net-key .sw { width: 8px; height: 8px; border-radius: 50%; }
+.net-key .muted { color: var(--nw-faint); }
 
-/* internet lines: name and state, then the line's figures (speed now, link, last test, data), then its 24 h traffic */
-.net-lines { list-style: none; margin: 0; padding: 0; }
-.net-lines li { padding: 12px 2px; border-bottom: 1px solid #f1f5f9; }
-.net-lines li:last-child { border-bottom: none; }
+/* ---------- internet lines: name and state, the line's figures in a grid, then its 24 h traffic ---------- */
+.net-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
+.net-lines li { padding: 14px 16px; border: 1px solid var(--nw-line-soft); border-radius: 12px; background: var(--nw-surface-2); }
+.net-lines li.is-down { background: #fffafa; border-color: #fde2e2; }
 .nl-top { display: flex; align-items: center; gap: 12px; }
-.nl-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px 14px; margin: 10px 0 0 21px; }
-.nl-figs div { min-width: 0; }
-.nl-figs dt { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; color: #94a3b8; }
-.nl-figs dd { margin: 2px 0 0; font-size: 0.86rem; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nl-figs dd small { margin-left: 6px; font-size: 0.72rem; font-weight: 500; color: #64748b; }
-.nl-spark { margin: 10px 0 0 21px; }
-.nl-spark svg { display: block; width: 100%; height: 28px; }
-.nl-spark-cap { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 0.7rem; font-weight: 600; color: #64748b; }
-.nl-spark-cap span { display: inline-flex; align-items: center; gap: 5px; }
-.nl-spark-cap i { width: 10px; height: 3px; border-radius: 2px; }
-.nl-note { margin: 6px 0 0; }
-.nl-dot { width: 9px; height: 9px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
-.nl-dot.down { background: #ef4444; }
+.nl-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px #d1fae5; flex-shrink: 0; }
+.nl-dot.down { background: #ef4444; box-shadow: 0 0 0 3px var(--nw-bad-soft); }
 .nl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.nl-main strong { font-size: 0.86rem; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nl-isp { font-weight: 500; color: #475569; }
-.nl-main small { font-size: 0.76rem; color: #64748b; }
+.nl-main strong { font-size: 0.88rem; font-weight: 700; color: var(--nw-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nl-isp { font-weight: 500; color: var(--nw-muted); }
+.nl-main small { font-size: 0.75rem; color: var(--nw-muted); }
+.net-lines .pill { flex-shrink: 0; background: #d1fae5; color: var(--nw-good); }
+.net-lines .pill.danger { background: var(--nw-bad-soft); color: var(--nw-bad); }
+/* five figures: three over two in a half-width panel, one row when the panel is wide, two columns when narrow */
+.nl-figs {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px 16px;
+  margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--nw-line);
+}
+.nl-figs div { grid-column: span 2; min-width: 0; }
+.nl-figs div:nth-child(n+4) { grid-column: span 3; }
+.nl-figs dt { font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; color: var(--nw-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nl-figs dd { margin: 3px 0 0; font-size: 0.88rem; font-weight: 700; color: var(--nw-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nl-figs dd small { display: block; margin-top: 1px; font-size: 0.72rem; font-weight: 500; color: var(--nw-muted); }
+@container (min-width: 720px) {
+  .nl-figs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .nl-figs div, .nl-figs div:nth-child(n+4) { grid-column: auto; }
+}
+@container (max-width: 380px) {
+  .nl-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nl-figs div, .nl-figs div:nth-child(n+4) { grid-column: auto; }
+  .nl-figs div:last-child { grid-column: 1 / -1; }
+}
+.nl-spark { margin-top: 14px; }
+.nl-spark svg { display: block; width: 100%; height: 36px; overflow: visible; border-bottom: 1px solid var(--nw-line); }
+.nl-spark-cap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 7px; font-size: 0.72rem; font-weight: 500; color: var(--nw-muted); }
+.nl-spark-cap span { display: inline-flex; align-items: center; gap: 6px; }
+.nl-spark-cap i { width: 12px; height: 3px; border-radius: 2px; }
+.nl-spark-cap .nl-peak { margin-left: auto; color: var(--nw-faint); font-variant-numeric: tabular-nums; }
+.nl-note { margin: 10px 0 0; }
 
 .net-sites { margin-top: 0; }
 
 @media (max-width: 640px) {
-  .nl-figs, .nl-spark { margin-left: 0; }
-  .nl-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .net-alert-list li { flex-wrap: wrap; }
-  .net-alert-where { max-width: 100%; flex-basis: 100%; padding-left: 2px; }
+  .net-lines li { padding: 12px; }
+  .net-alert-list li { grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; }
+  .net-alert-where { grid-column: 2; max-width: none; text-align: left; }
+  .net-alert-icon { width: 32px; height: 32px; }
   .net-seg button { height: 34px; }
-  .chart-box.h-net { height: 180px; }
+  .chart-box.h-net { height: 170px; }
+  .nl-spark-cap .nl-peak { margin-left: 0; flex-basis: 100%; }
 }
+@media (prefers-reduced-motion: reduce) { .net-body, .net-seg button { transition: none; } }
