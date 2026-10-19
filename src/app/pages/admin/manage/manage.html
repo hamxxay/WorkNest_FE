@@ -937,6 +937,13 @@
           <input type="checkbox" [(ngModel)]="formData[field.key]" [name]="field.key" />
           {{ field.label }}
         </label>
+        } @else if (field.type === 'password') {
+        <!-- new-password: the browser must not fill in the signed-in admin's own saved password here. -->
+        <input class="form-input-admin" type="password" [(ngModel)]="formData[field.key]" [name]="field.key"
+          autocomplete="new-password" [placeholder]="editItem ? 'Leave blank to keep the current password' : 'At least 6 characters'" />
+        @if (editItem) {
+        <small class="field-hint-text">Type a new password only to change it. The user then signs in with it.</small>
+        }
         } @else {
         <input class="form-input-admin" [type]="field.type" [(ngModel)]="formData[field.key]" [name]="field.key" />
         }

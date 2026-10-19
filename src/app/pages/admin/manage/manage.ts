@@ -4380,6 +4380,13 @@ export class Manage implements OnInit {
         this.saving.set(false);
         return;
       }
+      // Same rule as the API (6 to 128 characters). Editing: empty keeps the current password.
+      if (password && (password.length < 6 || password.length > 128)) {
+        this.error.set('The password must be 6 to 128 characters.');
+        this.showError(this.error());
+        this.saving.set(false);
+        return;
+      }
 
       if (!this.isLocationRole(role)) {
         // Admins, Sales Executives, Sales Managers and Access Officers are tied to locations; Super Admins, CEOs and
@@ -5161,7 +5168,8 @@ export class Manage implements OnInit {
         fields: [
           { key: 'name', label: 'Full Name', type: 'text', required: true },
           { key: 'email', label: 'Email Address', type: 'email', required: true },
-          { key: 'password', label: 'Password', type: 'password', required: !this.editItem },
+          // Editing: a new password (saved since 19 Oct 2026; empty keeps the current one).
+          { key: 'password', label: this.editItem ? 'New Password' : 'Password', type: 'password', required: !this.editItem },
           // Your own role and locations are set by a Super Admin, not on your own profile.
           ...(this.editingOwnAccountAsAdmin ? [] : [
             { key: 'role', label: 'Role', type: 'select', options: this.rolesICanAssign, required: true },
