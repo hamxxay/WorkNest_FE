@@ -6,8 +6,10 @@ import { environment } from '../../environments/environment';
 
 /** Matches the API rule (fee receipt SPs): an invoice is a WHT invoice when its type is 6 or it carries WHT. */
 const isWhtInvoice = (invoiceTypeId: number, whtAmount: number) => invoiceTypeId === 6 || whtAmount > 0;
+/** Invoice type 7: made on the Custom Invoice page (paid in full only, like WHT invoices). */
+const CUSTOM_INVOICE_TYPE_ID = 7;
 const invoiceTypeLabel = (invoiceTypeId: number, whtAmount: number) =>
-  isWhtInvoice(invoiceTypeId, whtAmount) ? 'WHT Invoice' : 'Standard Invoice';
+  isWhtInvoice(invoiceTypeId, whtAmount) ? 'WHT Invoice' : invoiceTypeId === CUSTOM_INVOICE_TYPE_ID ? 'Custom Invoice' : 'Standard Invoice';
 
 export interface UnpaidInvoiceDto {
   invoiceId: number;
@@ -43,8 +45,10 @@ export interface UnpaidInvoiceDto {
   paymentStatus: string;
   /** Unpaid | Partial | Overdue. */
   statusLabel: string;
-  /** False for withholding-tax invoices (paid in full only) and before the database update FR_01. */
+  /** False for withholding-tax and custom invoices (paid in full only) and before the database update FR_01. */
   allowPartial: boolean;
+  /** A custom invoice (type 7, or isCustom from the API): the receipt is for the whole balance. */
+  isCustom: boolean;
 }
 
 /** Full = the invoice's whole remaining balance (worked out by the server when saving); Partial = an amount up to it. */
@@ -234,6 +238,7 @@ export class FeeReceiptService {
           const invNum = r.invoiceNumber ?? '';
           const invoiceTypeId = Number(r.invoiceTypeId ?? 0);
           const whtAmount = Number(r.whtAmount ?? 0);
+          const isCustom = invoiceTypeId === CUSTOM_INVOICE_TYPE_ID || r.isCustom === true;
           return {
             invoiceId: r.invoiceId ?? 0,
             invoiceIdGuid: r.invoiceIdGUID ?? '',
@@ -264,7 +269,8 @@ export class FeeReceiptService {
             balanceAmount: Number(r.balanceAmount ?? r.netReceivableAmount ?? 0),
             paymentStatus: r.paymentStatus ?? 'Unpaid',
             statusLabel: r.statusLabel ?? 'Unpaid',
-            allowPartial: r.allowPartial === true
+            allowPartial: r.allowPartial === true && !isCustom,
+            isCustom
           };
         });
       })
