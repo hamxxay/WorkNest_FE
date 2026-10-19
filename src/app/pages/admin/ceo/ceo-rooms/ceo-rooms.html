@@ -5,21 +5,23 @@
     <span>Private offices and shared spaces: occupancy and price against list · {{ periodTitle() }}</span>
   </div>
 
-  <!-- KPI card (clickable when it leads somewhere) -->
+  <!-- KPI card (clickable when it leads somewhere); a category card adds its days occupied on a second line -->
   <ng-template #kpiCard let-k>
     @if (k.action) {
-      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()" [title]="k.full || ''">
+      <button type="button" [class]="'kpi-card clickable tone-' + k.tone + (k.cat ? ' kpi-cat' : '')" (click)="k.action()" [title]="k.full || ''">
         <span class="kpi-label">{{ k.label }}</span>
         <span class="kpi-value">{{ k.value }}</span>
         <span class="kpi-foot"><span class="kpi-sub">{{ k.sub }}</span></span>
+        @if (k.sub2) { <span class="kpi-sub kpi-sub-2">{{ k.sub2 }}</span> }
         <span class="sr-only">{{ k.actionLabel }}</span>
         <svg class="kpi-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
       </button>
     } @else {
-      <div [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+      <div [class]="'kpi-card tone-' + k.tone + (k.cat ? ' kpi-cat' : '')" [title]="k.full || ''">
         <span class="kpi-label">{{ k.label }}</span>
         <span class="kpi-value">{{ k.value }}</span>
         <span class="kpi-foot"><span class="kpi-sub">{{ k.sub }}</span></span>
+        @if (k.sub2) { <span class="kpi-sub kpi-sub-2">{{ k.sub2 }}</span> }
       </div>
     }
   </ng-template>
@@ -31,9 +33,9 @@
   </ng-template>
 
   @if (loading()) {
-    <div class="kpi-grid kpi-6" aria-hidden="true">
-      @for (i of [1,2,3,4,5,6]; track i) {
-        <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+    <div class="kpi-grid kpi-rooms" aria-hidden="true">
+      @for (i of [1,2,3,4,5]; track i) {
+        <div class="kpi-card skeleton-card" [class.kpi-cat]="i <= 2"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
       }
     </div>
     <div class="ins-grid" aria-hidden="true">
@@ -69,7 +71,7 @@
       }
 
       <div class="rooms-body" [class.is-refreshing]="refreshing()" [attr.aria-busy]="refreshing()">
-        <div class="kpi-grid kpi-6">
+        <div [class]="'kpi-grid ' + kpiLayout()">
           @for (k of kpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
         </div>
 
@@ -246,12 +248,20 @@
               <p class="panel-sub">Every room and how it was sold {{ thisWord() }} · select a room for its tenant and price</p>
             </div>
             <div class="head-stats">
-              <div><span>Let</span><strong>{{ count(letRooms()) }}<small> of {{ count(rooms().length) }}</small></strong></div>
+              <div><span>Let</span><strong>{{ count(letRooms()) }}<small> of {{ count(tiles().length) }}</small></strong></div>
               <div><span>In use now</span><strong>{{ count(mapCounts().inuse) }}</strong></div>
             </div>
           </div>
 
           <div class="map-controls">
+            @if (mapCategories().length > 1) {
+              <div class="period-seg" role="group" aria-label="Rooms of the category">
+                <button type="button" [class.active]="category() === null" [attr.aria-pressed]="category() === null" (click)="setCategory(null)">All rooms</button>
+                @for (c of mapCategories(); track c.categoryCode) {
+                  <button type="button" [class.active]="category() === c.categoryCode" [attr.aria-pressed]="category() === c.categoryCode" (click)="setCategory(c.categoryCode)">{{ c.label }}</button>
+                }
+              </div>
+            }
             <div class="period-seg" role="group" aria-label="Bookings of the shift">
               @for (f of shiftFilters; track f.key) {
                 <button type="button" [class.active]="shift() === f.key" [attr.aria-pressed]="shift() === f.key" (click)="setShift(f.key)">{{ f.label === 'All' ? 'All shifts' : f.label }}</button>

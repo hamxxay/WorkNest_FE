@@ -1,4 +1,4 @@
-import type { CeoDashboard, CeoForecastMonth, CeoRooms } from '../../../services/ceo.service';
+import { roomCategoryLabel, roomCategoryOf, type CeoDashboard, type CeoForecastMonth, type CeoRooms } from '../../../services/ceo.service';
 import type { DashRange } from '../../../services/dashboard-api';
 import type { XlsxCell, XlsxSheet } from '../../../utils/xlsx';
 import { ratio } from './ceo-shared';
@@ -95,6 +95,11 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
       ['Rooms', 'Occupied now', r.occupiedNow, null, ''],
       ['Rooms', 'Vacant now', r.vacantNow, null, ''],
       ['Rooms', 'Days occupied (%)', pct1(r.periodOccupancyPct), null, 'Days of the period with a confirmed booking'],
+      // each room category on its own (private offices, shared spaces)
+      ...r.byCategory.flatMap((c): XlsxCell[][] => [
+        ['Rooms', `${c.label}: occupied now`, c.occupiedNow, null, `of ${c.rooms} (${pct1(c.occupancyNowPct)}%), ${c.vacantNow} vacant`],
+        ['Rooms', `${c.label}: days occupied (%)`, pct1(c.periodOccupancyPct), null, 'Days of the period with a confirmed booking']
+      ]),
       ['Rooms', 'Sales under the price', r.under, null, `PKR ${Math.round(r.underGapMonthly).toLocaleString('en-US')} a month short`],
       ['Rooms', 'Sales at the price', r.at, null, ''],
       ['Rooms', 'Sales over the price', r.over, null, `PKR ${Math.round(r.overPremiumMonthly).toLocaleString('en-US')} a month extra`],
@@ -154,11 +159,19 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
 
   // ---------- Rooms ----------
   if (rooms?.available && rooms.rooms.length) {
+    const cats = rooms.summary.byCategory;
+    const categoryOf = (code: string) => cats.find(c => c.categoryCode === code)?.label ?? roomCategoryLabel(code);
+    const all = rooms.summary;
     sheets.push({
       name: 'Rooms',
-      rows: [['Room', 'Code', 'Location', 'Space type', 'Seats', 'List per seat (PKR)', 'List per room (PKR)', 'In use now', 'Days occupied (%)', 'Sales'],
-        ...rooms.rooms.map(r => [r.name, r.code, r.location, r.spaceType, r.seats, money2(r.listSeatPrice), money2(r.listRoomPrice),
-          r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length])]
+      rows: [['Room', 'Code', 'Location', 'Category', 'Space type', 'Seats', 'List per seat (PKR)', 'List per room (PKR)', 'In use now', 'Days occupied (%)', 'Sales'],
+        ...rooms.rooms.map(r => [r.name, r.code, r.location, categoryOf(roomCategoryOf(r)), r.spaceType, r.seats, money2(r.listSeatPrice),
+          money2(r.listRoomPrice), r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length]),
+        // the figures per category under the rooms (the same rooms; they add up to All rooms)
+        [],
+        ['By category', 'Rooms', 'Occupied now', 'Vacant now', 'Occupied now (%)', 'Days occupied (%)'],
+        ...cats.map(c => [c.label, c.rooms, c.occupiedNow, c.vacantNow, pct1(c.occupancyNowPct), pct1(c.periodOccupancyPct)]),
+        ['All rooms', all.rooms, all.occupiedNow, all.vacantNow, pct1(all.occupancyNowPct), pct1(all.periodOccupancyPct)]]
     });
     const pricing: Record<string, string> = { under: 'Under', at: 'At', over: 'Over', unpriced: 'No list price' };
     sheets.push({
