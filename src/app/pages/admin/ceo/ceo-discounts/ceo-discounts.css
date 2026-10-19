@@ -1,0 +1,27 @@
+/* The Discounts section and its drawer use the CEO dashboard's stylesheets (ceo-dashboard.css / ceo-drawer.css, loaded
+   first) for cards, panels, bar lists, tables, states and the drawer. Only what they do not have is here: a 4-card row,
+   and the discount colour (the Rooms section's "under" red) on bars. */
+
+.disc-body { transition: opacity .2s ease; }
+.disc-body.is-refreshing { opacity: .55; pointer-events: none; }
+
+.kpi-grid.kpi-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.bar-fill.disc, .mini-fill.disc, .row-bar.disc-bar span { background: var(--ceo-under, #dc2626); }
+
+.disc-role { margin-left: 6px; font-size: 0.72rem; font-weight: 500; color: #94a3b8; }
+.disc-sub { display: block; margin-top: 2px; font-size: 0.72rem; font-weight: 500; color: #94a3b8; }
+.disc-amt { font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.disc-amt small { font-weight: 600; color: #b91c1c; margin-left: 4px; }
+.dr-table small.disc-pct { color: #b91c1c; font-weight: 600; }
+.disc-more { margin: 8px 10px 0; font-size: 0.8rem; }
+.chart-empty-icon.db { background: #fef3c7; color: #b45309; }
+.chart-empty-icon.ok { background: #d1fae5; color: #047857; }
+
+@media (max-width: 900px) {
+  .kpi-grid.kpi-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1280px) and (min-width: 901px) {
+  .ins-grid > .span-4 { grid-column: span 6; }
+  .ins-grid > .span-4:last-child { grid-column: span 12; }
+}
