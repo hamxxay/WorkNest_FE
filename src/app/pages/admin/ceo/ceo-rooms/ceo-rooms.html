@@ -162,7 +162,7 @@
                 <div class="chart-empty ok">
                   <span class="chart-empty-icon ok"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
                   <strong>Every booking {{ thisWord() }} is at the price</strong>
-                  <span>None sold under or over the list (shift price for Morning and Evening).</span>
+                  <span>None sold under or over the list price.</span>
                 </div>
               }
             </div>
@@ -172,7 +172,7 @@
                   {{ count(s()!.at) }} booking{{ s()!.at === 1 ? ' is' : 's are' }} at the price and not drawn
                   (<button type="button" class="link-btn inline" (click)="showMap({ filter: 'at' })">show on the room map</button>).
                 }
-                The price: the list for 24/7; for Morning and Evening the list less the location's shift discount cap. Within 0.5% counts as at the price.
+                The price: the room's list price per seat, for every shift (a shift discount shows as under the price). Within 0.5% counts as at the price.
                 @if (unpricedCount()) { {{ count(unpricedCount()) }} booking{{ unpricedCount() === 1 ? '' : 's' }} on rooms with no list price {{ unpricedCount() === 1 ? 'is' : 'are' }} left out. }
               </p>
             }

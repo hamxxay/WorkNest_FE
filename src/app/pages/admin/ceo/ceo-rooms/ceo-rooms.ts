@@ -34,7 +34,7 @@ const AXIS_PX = 44;
 
 /**
  * Rooms section of the CEO dashboard: private offices and shared spaces, their occupancy (now and in the period) and
- * the price each confirmed booking was sold at against the list (Morning / Evening against the shift price). KPI
+ * the price each confirmed booking was sold at against the list price per seat (every shift). KPI
  * cards, four charts and a room map (every room as a tile coloured by its price, a card with the selected room's
  * tenant and price); a chart mark selects its room on the map. Follows the dashboard's
  * period and location. Data: GET api/ceo/rooms (database update CEO_02; before it, only the API's message shows).
@@ -262,14 +262,12 @@ export class CeoRoomsSection {
     });
   });
 
-  /** Expected per seat explained for a shift booking ("35,000 less the Morning cap of 20%"). */
+  /** Expected per seat explained ("List 35,000 a seat; the Evening discount can take up to 40% off"). */
   expectedNote(s: CeoRoomSale): string {
     if (s.pricing === 'unpriced') return 'The room has no list price';
-    // 24/7 is compared with the full list (a cap stored for 24/7 is not applied).
-    if (s.shift === '24/7') return `List ${amount(s.listSeatPriceAtSale)} a seat`;
-    return s.shiftDiscountCapPct
-      ? `List ${amount(s.listSeatPriceAtSale)} less the ${s.shift} cap of ${pct(s.shiftDiscountCapPct)}`
-      : `List ${amount(s.listSeatPriceAtSale)}, no ${s.shift} cap set`;
+    // Every shift is compared with the list price; the shift cap is only the most that may be taken off.
+    const list = `List ${amount(s.listSeatPriceAtSale)} a seat`;
+    return s.shiftDiscountCapPct ? `${list}; the ${s.shift} discount can take up to ${pct(s.shiftDiscountCapPct)} off` : list;
   }
 
   // ---------- charts: data ----------
