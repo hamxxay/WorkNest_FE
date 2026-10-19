@@ -23,7 +23,7 @@ import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
 import { InquiryRef, inquiryKey, inquiryRef, inquiryRefParam, inquirySource, parseInquiryRefParam } from '../../../utils/inquiry-ref';
 import { LIST_DATE_LABEL, ListFilterParams, ListStatusOption, isFilteredList, listRows, listTotal } from '../../../utils/list-filters';
-import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx';
+import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx-table';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
 
 interface ColDef { key: string; label: string; type?: string; }
