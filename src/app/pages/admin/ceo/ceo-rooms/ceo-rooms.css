@@ -32,13 +32,17 @@
 .rooms-body.is-refreshing { opacity: .55; pointer-events: none; }
 
 /* ---------- grid ---------- */
-.kpi-grid.kpi-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-/* One card per room category (private offices, shared spaces), then under / at / over: one row of five on wide
-   screens, the two category cards over the three price cards below 1400px, two by two on phones (the last card across). */
-.kpi-grid.kpi-rooms { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+/* KPI columns come from the shell (--kpi-cols; two a row on tablets, one on phones). The Rooms row: one card per room
+   category (private offices, shared spaces), then under / at / over, as one row of five; between 1025 and 1200px the
+   two category cards over the three price cards (the shell's two a row takes over at 1024px). */
+.kpi-rooms { --kpi-cols: 5; }
+@media (max-width: 1200px) and (min-width: 1024.02px) {
+  .kpi-rooms { --kpi-cols: 6; }
+  .kpi-rooms > .kpi-card { grid-column: span 2; }
+  .kpi-rooms > .kpi-card.kpi-cat { grid-column: span 3; }
+}
 /* a category card's figures may take two lines rather than be cut */
 .kpi-cat .kpi-sub { white-space: normal; overflow-wrap: anywhere; }
-.kpi-cat .kpi-sub-2 { margin-top: -2px; }
 .span-12 { grid-column: span 12; }
 /* two panels stacked beside the donut; the last one takes the rest of the height */
 .stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
@@ -199,12 +203,6 @@
 .pill.price.unpriced { background: var(--rm-surface-2); color: var(--rm-muted); box-shadow: inset 0 0 0 1px var(--rm-line); }
 
 /* ---------- responsive ---------- */
-@media (max-width: 1400px) {
-  .kpi-grid.kpi-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .kpi-grid.kpi-rooms { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .kpi-rooms > .kpi-card { grid-column: span 2; }
-  .kpi-rooms > .kpi-card.kpi-cat { grid-column: span 3; }
-}
 @media (max-width: 1100px) {
   .map-layout { grid-template-columns: minmax(0, 1fr); }
   /* the chosen room's card rises from the bottom of the screen (the map can be long); nothing shows until one is chosen */
@@ -218,9 +216,6 @@
   @keyframes rc-up { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 }
 @media (max-width: 640px) {
-  .kpi-grid.kpi-6, .kpi-grid.kpi-rooms { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .kpi-rooms > .kpi-card, .kpi-rooms > .kpi-card.kpi-cat { grid-column: auto; }
-  .kpi-rooms > .kpi-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .map-controls .period-seg { width: 100%; }
   .map-controls .period-seg button { flex: 1 0 auto; height: 38px; }
   .chip { height: 36px; }
@@ -228,10 +223,6 @@
   .tiles { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
   .tile { height: 42px; }
   .shift-bar { grid-template-columns: 60px minmax(0, 1fr) 32px; min-height: 44px; }
-}
-@media (max-width: 359.98px) {
-  .kpi-grid.kpi-6, .kpi-grid.kpi-rooms { grid-template-columns: minmax(0, 1fr); }
-  .kpi-rooms > .kpi-card:last-child:nth-child(odd) { grid-column: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .rooms-body, .tile { transition: none; }
