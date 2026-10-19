@@ -38,7 +38,7 @@
           [disabled]="!editor.can().redo()" title="Redo (Ctrl+Y)">
           Redo
         </button>
-        <button type="button" class="toolbar-btn" (click)="clearFormatting()" title="Clear Formatting">
+        <button type="button" class="toolbar-btn" (click)="clearFormatting()" title="Clear formatting" aria-label="Clear formatting">
           <span style="text-decoration: line-through; opacity: 0.7;">T</span>
         </button>
       </div>
@@ -48,7 +48,7 @@
       <!-- Typography / Headings -->
       <div class="toolbar-group">
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().setParagraph().run()"
-          [class.is-active]="editor.isActive('paragraph')" title="Normal Text (Paragraph)">
+          [class.is-active]="editor.isActive('paragraph')" title="Normal text (paragraph)" aria-label="Normal text (paragraph)">
           P
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleHeading({ level: 1 }).run()"
@@ -74,19 +74,19 @@
       <!-- Inline Formatting -->
       <div class="toolbar-group">
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleBold().run()"
-          [class.is-active]="editor.isActive('bold')" title="Bold (Ctrl+B)">
+          [class.is-active]="editor.isActive('bold')" title="Bold (Ctrl+B)" aria-label="Bold (Ctrl+B)">
           <strong>B</strong>
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleItalic().run()"
-          [class.is-active]="editor.isActive('italic')" title="Italic (Ctrl+I)">
+          [class.is-active]="editor.isActive('italic')" title="Italic (Ctrl+I)" aria-label="Italic (Ctrl+I)">
           <em>I</em>
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleUnderline().run()"
-          [class.is-active]="editor.isActive('underline')" title="Underline (Ctrl+U)">
+          [class.is-active]="editor.isActive('underline')" title="Underline (Ctrl+U)" aria-label="Underline (Ctrl+U)">
           <u>U</u>
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleStrike().run()"
-          [class.is-active]="editor.isActive('strike')" title="Strikethrough">
+          [class.is-active]="editor.isActive('strike')" title="Strikethrough" aria-label="Strikethrough">
           <s>S</s>
         </button>
         <button type="button" class="toolbar-btn" (click)="editor.chain().focus().toggleSubscript().run()"
@@ -112,7 +112,7 @@
           <span class="color-indicator" [style.background-color]="currentColor"></span>
           <input type="color" [value]="currentColor" (input)="onColorInput($event)" class="color-input-hidden" />
         </label>
-        <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetColor()" title="Reset Text Color">
+        <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetColor()" title="Reset text color" aria-label="Reset text color">
           &times;
         </button>
 
@@ -122,7 +122,7 @@
           <input type="color" [value]="currentHighlight" (input)="onHighlightInput($event)"
             class="color-input-hidden" />
         </label>
-        <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetHighlight()" title="Remove Highlight">
+        <button type="button" class="toolbar-btn btn-icon-sm" (click)="unsetHighlight()" title="Remove highlight" aria-label="Remove highlight">
           &times;
         </button>
       </div>
@@ -282,7 +282,7 @@
   <div class="modal-content confirm-modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Publish New Template Version?</h3>
-      <button class="modal-close" (click)="closePublishConfirm()">&times;</button>
+      <button class="modal-close" (click)="closePublishConfirm()" title="Close" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
       <p>Publishing will create a <strong>new immutable active version</strong> of the lease agreement template.</p>

@@ -94,7 +94,7 @@
         @for (f of activeFilters(); track f.key) {
           <span class="filter-chip">
             {{ f.label }}
-            <button type="button" (click)="clearFilter(f.key)" [attr.aria-label]="'Remove filter ' + f.label">
+            <button type="button" (click)="clearFilter(f.key)" [title]="'Remove filter ' + f.label" [attr.aria-label]="'Remove filter ' + f.label">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </span>
@@ -196,11 +196,11 @@
       <div class="results-footer">
         <span class="range-text">Showing <strong>{{ rangeStart() | number }}&ndash;{{ rangeEnd() | number }}</strong> of {{ totalCount() | number }}</span>
         <div class="pager">
-          <button type="button" class="page-btn" [disabled]="!canPrev()" (click)="onPageChange(1)" aria-label="First page">&laquo;</button>
-          <button type="button" class="page-btn" [disabled]="!canPrev()" (click)="onPageChange(page() - 1)" aria-label="Previous page">&lsaquo;</button>
+          <button type="button" class="page-btn" [disabled]="!canPrev()" (click)="onPageChange(1)" title="First page" aria-label="First page">&laquo;</button>
+          <button type="button" class="page-btn" [disabled]="!canPrev()" (click)="onPageChange(page() - 1)" title="Previous page" aria-label="Previous page">&lsaquo;</button>
           <span class="page-indicator">Page {{ page() | number }} of {{ totalPages() | number }}</span>
-          <button type="button" class="page-btn" [disabled]="!canNext()" (click)="onPageChange(page() + 1)" aria-label="Next page">&rsaquo;</button>
-          <button type="button" class="page-btn" [disabled]="!canNext()" (click)="onPageChange(totalPages())" aria-label="Last page">&raquo;</button>
+          <button type="button" class="page-btn" [disabled]="!canNext()" (click)="onPageChange(page() + 1)" title="Next page" aria-label="Next page">&rsaquo;</button>
+          <button type="button" class="page-btn" [disabled]="!canNext()" (click)="onPageChange(totalPages())" title="Last page" aria-label="Last page">&raquo;</button>
         </div>
       </div>
     }
@@ -210,7 +210,7 @@
   @if (detailModalOpen()) {
     <div class="modal-overlay" (click)="closeDetail()">
       <div class="modal-content modal-detail" role="dialog" aria-modal="true" aria-labelledby="al-detail-title" (click)="$event.stopPropagation()">
-        <button type="button" class="modal-close" (click)="closeDetail()" aria-label="Close">
+        <button type="button" class="modal-close" (click)="closeDetail()" title="Close" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
 

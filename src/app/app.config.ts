@@ -8,6 +8,8 @@
 import { 
   ApplicationConfig, 
   provideBrowserGlobalErrorListeners, 
+  provideEnvironmentInitializer,
+  inject,
   APP_INITIALIZER,
   ErrorHandler
 } from '@angular/core';
@@ -34,6 +36,7 @@ import { authInterceptor } from './interceptors/auth.interceptor';
 import { errorInterceptor } from './interceptors/error.interceptor';
 import { GlobalErrorHandler } from './interceptors/global-error-handler';
 import { AuthService } from './services/auth.service';
+import { GlobalTooltipService } from './services/global-tooltip.service';
 
 // ============================================================
 // Main Application Configuration
@@ -76,6 +79,12 @@ export const appConfig: ApplicationConfig = {
       // errorInterceptor runs closest to the server, so every caller (and authInterceptor) sees readable messages.
       withInterceptors([authInterceptor, errorInterceptor])
     ),
+
+    // --------------------------------------------------------
+    // Global tooltip: icon buttons show their label on hover / keyboard focus
+    // (one document-level listener, no per-component imports)
+    // --------------------------------------------------------
+    provideEnvironmentInitializer(() => inject(GlobalTooltipService).start()),
 
     // --------------------------------------------------------
     // App Initialization (Auth Session Bootstrap)

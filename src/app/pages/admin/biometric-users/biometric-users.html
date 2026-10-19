@@ -132,7 +132,7 @@
         <input type="search" placeholder="Search name, employee #, CNIC, room..." [ngModel]="searchQuery()"
           (ngModelChange)="searchQuery.set($event); onSearchChange()" class="bio-input-search" />
         @if (searchQuery()) {
-        <button class="bio-search-clear" (click)="searchQuery.set(''); onSearchChange()">
+        <button class="bio-search-clear" (click)="searchQuery.set(''); onSearchChange()" title="Clear search" aria-label="Clear search">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -382,7 +382,7 @@
     <!-- Action Button -->
     <td style="text-align: right;">
       <button class="bio-btn-icon" (click)="$event.stopPropagation(); openUserDetails(m)"
-        title="View Member Access Details">
+        title="View member access details" aria-label="View member access details">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="1" />
@@ -416,19 +416,19 @@
       </span>
 
       <div class="bio-page-buttons">
-        <button class="bio-page-btn" [disabled]="currentPage() <= 1" (click)="setPage(1)" title="First page">
+        <button class="bio-page-btn" [disabled]="currentPage() <= 1" (click)="setPage(1)" title="First page" aria-label="First page">
           «
         </button>
         <button class="bio-page-btn" [disabled]="currentPage() <= 1" (click)="setPage(currentPage() - 1)"
-          title="Previous page">
+          title="Previous page" aria-label="Previous page">
           ‹
         </button>
         <button class="bio-page-btn" [disabled]="currentPage() >= totalPages()" (click)="setPage(currentPage() + 1)"
-          title="Next page">
+          title="Next page" aria-label="Next page">
           ›
         </button>
         <button class="bio-page-btn" [disabled]="currentPage() >= totalPages()" (click)="setPage(totalPages())"
-          title="Last page">
+          title="Last page" aria-label="Last page">
           »
         </button>
       </div>
@@ -458,7 +458,7 @@
           </div>
         </div>
       </div>
-      <button class="bio-modal-close" (click)="closeUserDetails()" title="Close">
+      <button class="bio-modal-close" (click)="closeUserDetails()" title="Close" aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18" />

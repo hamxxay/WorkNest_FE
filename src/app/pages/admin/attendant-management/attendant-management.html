@@ -340,7 +340,7 @@
         <h2 id="amAddTitle">Add person to space</h2>
         <p>{{ addModalContext }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="closeAddModal()" aria-label="Close">
+      <button type="button" class="inq-close" (click)="closeAddModal()" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -490,7 +490,7 @@
         <h2 id="amEnrollTitle">{{ enrollTitle }}</h2>
         <p>{{ enrollAttendant?.name }}{{ selectedSpace?.spaceName ? ' · ' + selectedSpace.spaceName : '' }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="closeEnrollModal()" [disabled]="enrolling()" aria-label="Close">
+      <button type="button" class="inq-close" (click)="closeEnrollModal()" [disabled]="enrolling()" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -588,7 +588,7 @@
         <h2 id="amExtendTitle">Temporary access</h2>
         <p>{{ selectedSpace?.spaceName }}{{ suspension()?.invoiceNumber ? ' · challan ' + suspension()?.invoiceNumber : '' }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="closeExtendModal()" [disabled]="extending()" aria-label="Close">
+      <button type="button" class="inq-close" (click)="closeExtendModal()" [disabled]="extending()" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -645,7 +645,7 @@
         <h2 id="amWarnTitle">Room capacity reached</h2>
         <p>{{ selectedSpace?.spaceName }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="showWarningModal.set(false)" aria-label="Close">
+      <button type="button" class="inq-close" (click)="showWarningModal.set(false)" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="amIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>

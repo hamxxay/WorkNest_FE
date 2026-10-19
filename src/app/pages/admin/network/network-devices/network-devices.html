@@ -7,7 +7,7 @@
     <div class="dash-header-actions no-print">
       <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
       <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
-      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh devices"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh devices" aria-label="Refresh devices"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
     </div>
   </div>
 
