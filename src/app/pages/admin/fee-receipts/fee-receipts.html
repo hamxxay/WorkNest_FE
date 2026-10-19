@@ -461,7 +461,7 @@
               class="fr-select fr-filter-select"
               [ngModel]="listStatus()"
               (ngModelChange)="listStatus.set($event); onFilterChange()">
-              <option [ngValue]="null">All Statuses</option>
+              <option [ngValue]="null">All</option>
               <option [ngValue]="1">Active</option>
               <option [ngValue]="0">Void</option>
             </select>
