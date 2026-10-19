@@ -27,10 +27,7 @@ export function networkSheets(d: NetDashboard | null): XlsxSheet[] {
     ['Online now', c.total],
     ['Wi-Fi', c.wifi],
     ['Wired', c.wired],
-    ['Guest', c.guest],
-    ['Most at once, last 24 hours', c.peak24h],
-    ['At', localStamp(c.peak24hAt)],
-    ['Average, last 24 hours', c.avg24h]
+    ['Guest', c.guest]
   ];
   if (d.devices) {
     rows.push([], ['Network devices', 'Online', 'Offline', 'Offline devices']);
@@ -43,8 +40,21 @@ export function networkSheets(d: NetDashboard | null): XlsxSheet[] {
   }
   if (d.internet) {
     const i = d.internet;
-    rows.push([], ['Internet line', 'Provider', 'Role', 'Up', 'Uptime 24 h (%)', 'Issues', 'Site']);
-    i.lines.forEach(w => rows.push([w.label, w.isp, w.role, w.up ? 'Yes' : 'No', w.uptimePct, w.issues, w.site]));
+    // Speeds in Mbps and data in GB as numbers; an unknown figure is an empty cell, never 0.
+    const gb = (b: number | null) => (b === null ? null : Math.round((b / 1e9) * 100) / 100);
+    rows.push([], [
+      'Internet line', 'Provider', 'Role', 'Up', 'Uptime 24 h (%)', 'Issues', 'Site',
+      'Download now (Mbps)', 'Upload now (Mbps)', 'Link speed (Mbps)',
+      'Last speed test, download (Mbps)', 'Last speed test, upload (Mbps)', 'Last speed test, ping (ms)', 'Last speed test, at',
+      'Downloaded 24 h (GB)', 'Uploaded 24 h (GB)'
+    ]);
+    i.lines.forEach(w => rows.push([
+      w.label, w.isp, w.role, w.up ? 'Yes' : 'No', w.uptimePct, w.issues, w.site,
+      w.downMbps, w.upMbps, w.linkMbps,
+      w.speedtest?.downMbps ?? null, w.speedtest?.upMbps ?? null, w.speedtest?.pingMs ?? null, localStamp(w.speedtest?.at ?? null),
+      gb(w.down24hBytes), gb(w.up24hBytes)
+    ]));
+    if (i.speedsMessage) rows.push([i.speedsMessage]);
     rows.push([], ['Internet health', 'Value'],
       ['Latency now (ms)', i.latencyMs], ['Average latency, 24 hours (ms)', i.latencyAvgMs], ['Most packet loss, 24 hours (%)', i.lossMaxPct],
       ['WAN uptime (%)', i.uptimePct]);

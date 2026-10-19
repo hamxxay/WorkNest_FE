@@ -5,8 +5,9 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import type { DashError } from '../../../../services/dashboard-api';
 import {
-  NetDashboard, NetHistoryPoint, NetWan, NetworkDashboardService, NetworkSource
+  NetDashboard, NetHistoryPoint, NetTrafficPoint, NetWan, NetworkDashboardService, NetworkSource
 } from '../../../../services/network-dashboard.service';
+import { bytesText, linkText, mbpsText, pairText, stampText, whenText } from './net-format';
 import {
   Chart, ChartKeyNav, DashKpi, GRID, LEGEND, TEAL, TEAL_DARK, TOOLTIP, applyChartDefaults, count, pct
 } from '../ceo-shared';
@@ -49,6 +50,31 @@ function stepTitle(t: string): string {
 function ms(v: number | null | undefined): string {
   if (v === null || v === undefined) return '-';
   return `${Math.abs(v - Math.round(v)) < 0.05 ? Math.round(v) : v.toFixed(1)} ms`;
+}
+
+/**
+ * A line's 24-hour traffic as two sparkline paths (download, upload) on a 100 x 24 box; a step without figures breaks
+ * the line. Null when there is nothing to draw.
+ */
+function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; peak: string } | null {
+  const n = points.length;
+  if (n < 2) return null;
+  const peakDown = Math.max(0, ...points.map(p => p.down ?? 0));
+  const peakUp = Math.max(0, ...points.map(p => p.up ?? 0));
+  const max = Math.max(peakDown, peakUp);
+  if (!(max > 0)) return null;
+  const path = (field: 'down' | 'up') => {
+    let d = '';
+    let pen = false;
+    points.forEach((p, i) => {
+      const v = p[field];
+      if (v === null) { pen = false; return; }
+      d += `${pen ? 'L' : 'M'}${((i / (n - 1)) * 100).toFixed(2)},${(23 - (v / max) * 21).toFixed(2)} `;
+      pen = true;
+    });
+    return d.trim();
+  };
+  return { down: path('down'), up: path('up'), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
 }
 
 /**
@@ -198,8 +224,6 @@ export class DashNetworkSection {
     const c = d.clients!;
     const dv = d.devices;
     const i = d.internet;
-    const peakAt = c.peak24hAt ? new Date(c.peak24hAt) : null;
-    const peakTime = peakAt && !isNaN(peakAt.getTime()) ? peakAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const latency = i?.latencyMs ?? null;
     const loss = i?.lossMaxPct ?? null;
     return [
@@ -207,12 +231,6 @@ export class DashNetworkSection {
         key: 'clients', label: 'Clients online now', value: count(c.total),
         sub: `${count(c.wifi)} Wi-Fi · ${count(c.wired)} wired · ${count(c.guest)} guest`, tone: 'neutral',
         action: () => this.focusEl('net-panel-clients'), actionLabel: 'Show clients over time'
-      },
-      {
-        key: 'peak', label: 'Busiest in 24 hours', value: c.peak24h === null ? '-' : count(c.peak24h),
-        sub: c.peak24h === null ? 'History is still filling in'
-          : [peakTime ? `at ${peakTime}` : '', c.avg24h !== null ? `average ${count(c.avg24h)}` : ''].filter(Boolean).join(' · '),
-        tone: 'neutral'
       },
       {
         key: 'devices', label: 'Network devices online',
@@ -294,6 +312,24 @@ export class DashNetworkSection {
   // ---------- internet ----------
 
   lines = computed(() => this.data()?.internet?.lines ?? []);
+  /** Each line with its figures written out: speed now, link, last speed test, data in 24 h, sparkline. */
+  lineRows = computed(() => this.lines().map((w, i) => {
+    const st = w.speedtest;
+    return {
+      w,
+      key: `${w.site}|${w.label}|${i}`,
+      meta: this.lineMeta(w),
+      downNow: mbpsText(w.downMbps),
+      upNow: mbpsText(w.upMbps),
+      link: linkText(w.linkMbps),
+      test: st ? pairText(st.downMbps, st.upMbps) : '-',
+      testWhen: whenText(st?.at),
+      testTitle: st ? ['Download / upload', st.pingMs !== null ? `ping ${ms(st.pingMs)}` : '', stampText(st.at)].filter(Boolean).join(' · ') : '',
+      data24: w.down24hBytes === null && w.up24hBytes === null ? '-' : `${bytesText(w.down24hBytes)} / ${bytesText(w.up24hBytes)}`,
+      dataTitle: 'Downloaded / uploaded in the last 24 hours',
+      spark: sparkOf(w.traffic)
+    };
+  }));
   /** "Primary · uptime 100% · 1 issue" (and the site when there are several). */
   lineMeta(w: NetWan): string {
     return [

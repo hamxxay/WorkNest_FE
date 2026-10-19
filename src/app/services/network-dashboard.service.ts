@@ -25,10 +25,7 @@ export interface NetSite {
   source: 'site' | 'network' | 'every';
 }
 
-export interface NetClients {
-  total: number; wifi: number; wired: number; guest: number;
-  peak24h: number | null; peak24hAt: string | null; avg24h: number | null;
-}
+export interface NetClients { total: number; wifi: number; wired: number; guest: number; }
 
 export interface NetDeviceType { type: string; label: string; online: number; offline: number; offlineNames: string[]; }
 export interface NetDevices { total: number; online: number; offline: number; notInstalled: number; byType: NetDeviceType[]; }
@@ -40,13 +37,33 @@ export interface NetClientTypes { available: boolean; message: string | null; to
 export interface NetHistoryPoint { t: string; wifi: number | null; wired: number | null; guest: number | null; peak: number | null; }
 export interface NetHistory { day: NetHistoryPoint[]; week: NetHistoryPoint[]; dayStepMinutes: number; weekStepMinutes: number; }
 
-export interface NetWan { site: string; label: string; isp: string; up: boolean; role: string; uptimePct: number | null; issues: number; }
+/** A line's latest speed test (Mbps, ms; at = when it ran, UTC). */
+export interface NetSpeedtest { downMbps: number | null; upMbps: number | null; pingMs: number | null; at: string | null; }
+/** 15-minute average traffic of a line (Mbps). */
+export interface NetTrafficPoint { t: string; down: number | null; up: number | null; }
+export interface NetWan {
+  site: string; label: string; isp: string; up: boolean; role: string; uptimePct: number | null; issues: number;
+  /** The gateway's own figures were read for this line (the main console's gateway). */
+  live: boolean;
+  /** Speed right now (Mbps); null = unknown or the line is down (shown as a dash, never 0). */
+  downMbps: number | null;
+  upMbps: number | null;
+  /** Link (port) speed in Mbps, 1000 = 1 Gbps; null = unknown. */
+  linkMbps: number | null;
+  speedtest: NetSpeedtest | null;
+  /** Data carried in the last 24 hours (bytes); null = unknown. */
+  down24hBytes: number | null;
+  up24hBytes: number | null;
+  traffic: NetTrafficPoint[];
+}
 export interface NetLatencyPoint { t: string; avg: number | null; peak: number | null; loss: number | null; }
 export interface NetLatencySeries { siteId: string; name: string; points: NetLatencyPoint[]; }
 export interface NetInternet {
   linesUp: number; linesTotal: number; uptimePct: number | null;
   latencyMs: number | null; latencyAvgMs: number | null; lossMaxPct: number | null;
   lines: NetWan[]; latency: NetLatencySeries[];
+  /** Why some or all lines have no live speed figures; null = they all have them. */
+  speedsMessage: string | null;
 }
 
 export interface NetAlert { level: 'critical' | 'serious' | string; text: string; where: string; }
@@ -91,10 +108,7 @@ function toNetDashboard(raw: unknown): NetDashboard {
       id: str(s.id), name: str(s.name), locationIds: arr(s.locationIds, num), everyLocation: s.everyLocation === true,
       source: s.source === 'site' || s.source === 'network' ? s.source : 'every'
     })),
-    clients: c && {
-      total: num(c.total), wifi: num(c.wifi), wired: num(c.wired), guest: num(c.guest),
-      peak24h: numOrNull(c.peak24h), peak24hAt: strOrNull(c.peak24hAt), avg24h: numOrNull(c.avg24h)
-    },
+    clients: c && { total: num(c.total), wifi: num(c.wifi), wired: num(c.wired), guest: num(c.guest) },
     devices: dv && {
       total: num(dv.total), online: num(dv.online), offline: num(dv.offline), notInstalled: num(dv.notInstalled),
       byType: arr(dv.byType, (t: any): NetDeviceType => ({
@@ -115,10 +129,23 @@ function toNetDashboard(raw: unknown): NetDashboard {
     internet: i && {
       linesUp: num(i.linesUp), linesTotal: num(i.linesTotal), uptimePct: numOrNull(i.uptimePct),
       latencyMs: numOrNull(i.latencyMs), latencyAvgMs: numOrNull(i.latencyAvgMs), lossMaxPct: numOrNull(i.lossMaxPct),
-      lines: arr(i.lines, (w: any): NetWan => ({
-        site: str(w.site), label: str(w.label), isp: str(w.isp), up: w.up === true, role: str(w.role),
-        uptimePct: numOrNull(w.uptimePct), issues: num(w.issues)
-      })),
+      lines: arr(i.lines, (w: any): NetWan => {
+        const st = obj(w.speedtest);
+        // A speed of 0 from an older or partial answer means "not known" here: shown as a dash, never "0 Mbps".
+        const positive = (v: unknown) => { const n = numOrNull(v); return n !== null && n > 0 ? n : null; };
+        return {
+          site: str(w.site), label: str(w.label), isp: str(w.isp), up: w.up === true, role: str(w.role),
+          uptimePct: numOrNull(w.uptimePct), issues: num(w.issues),
+          live: w.live === true,
+          downMbps: numOrNull(w.downMbps), upMbps: numOrNull(w.upMbps), linkMbps: positive(w.linkMbps),
+          speedtest: st && (positive(st.downMbps) !== null || positive(st.upMbps) !== null)
+            ? { downMbps: positive(st.downMbps), upMbps: positive(st.upMbps), pingMs: positive(st.pingMs), at: strOrNull(st.at) }
+            : null,
+          down24hBytes: numOrNull(w.down24hBytes), up24hBytes: numOrNull(w.up24hBytes),
+          traffic: arr(w.traffic, (p: any): NetTrafficPoint => ({ t: str(p.t), down: numOrNull(p.down), up: numOrNull(p.up) }))
+        };
+      }),
+      speedsMessage: strOrNull(i.speedsMessage),
       latency: arr(i.latency, (s: any): NetLatencySeries => ({
         siteId: str(s.siteId), name: str(s.name),
         points: arr(s.points, (p: any): NetLatencyPoint => ({ t: str(p.t), avg: numOrNull(p.avg), peak: numOrNull(p.peak), loss: numOrNull(p.loss) }))
