@@ -7,6 +7,8 @@ import {
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
+import { DashNetworkSection } from './dash-network/dash-network';
+import { networkSheets } from './dash-network/network-export';
 import {
   AGING_COLORS, AGING_FALLBACK, AXIS_MONEY, Chart, ChartKeyNav, DrillLevel, DrillRequest, GRID, INQUIRY_TYPES, LEGEND, TEAL,
   TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, displayNameOf, firstNameOf, fullMoney,
@@ -41,12 +43,12 @@ type ChartKey = 'revenue' | 'aging' | 'occupancy';
  * and list drills down in a side drawer (breakdown, then records, for the same period). Read-only. Reloads quietly
  * every 5 minutes while the tab is visible (not while a drawer is open); Export PDF (the page as shown) and Export
  * Excel (the figures behind it). Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook,
- * GET api/ceo/rooms for the Rooms section, which loads on its own).
+ * GET api/ceo/rooms for the Rooms section and GET api/ceo/network for the Network section, which load on their own).
  */
 @Component({
   selector: 'app-ceo-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection, DashNetworkSection],
   templateUrl: './ceo-dashboard.html',
   styleUrl: './ceo-dashboard.css'
 })
@@ -88,6 +90,9 @@ export class CeoDashboard {
   roomsReload = signal(0);
   /** Bumped by the auto refresh: the Rooms section reloads quietly. */
   roomsQuietReload = signal(0);
+  /** The same for the Network section (UniFi; loads on its own, follows the location picker). */
+  networkReload = signal(0);
+  networkQuietReload = signal(0);
   /** Export running ('pdf' | 'xlsx'); null = none. */
   exporting = signal<'pdf' | 'xlsx' | null>(null);
   exportError = signal('');
@@ -111,6 +116,7 @@ export class CeoDashboard {
   /** What Export PDF prints: the sections under the header. */
   private exportRoot = viewChild<ElementRef<HTMLElement>>('exportRoot');
   private roomsSection = viewChild(CeoRoomsSection);
+  private networkSection = viewChild(DashNetworkSection);
   private host = inject(ElementRef<HTMLElement>);
 
   /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
@@ -194,6 +200,7 @@ export class CeoDashboard {
     this.load();
     this.loadForecast();
     this.roomsReload.update(n => n + 1);
+    this.networkReload.update(n => n + 1);
   }
 
   /** The 5-minute refresh: every section, quietly (an open drawer is never reached: the refresh waits for it). */
@@ -201,6 +208,7 @@ export class CeoDashboard {
     this.load(true);
     this.loadForecast(true);
     this.roomsQuietReload.update(n => n + 1);
+    this.networkQuietReload.update(n => n + 1);
   }
 
   setPeriod(p: CeoPeriod) {
@@ -266,7 +274,7 @@ export class CeoDashboard {
           meta.location,
           meta.preparedBy ? `Prepared by ${meta.preparedBy}` : ''
         ],
-        hide: '.view-toggle, .kpi-go, .row-go'
+        hide: '.view-toggle, .kpi-go, .row-go, .net-seg'
       });
     } catch {
       this.exportError.set('The PDF could not be made. Please try again.');
@@ -283,7 +291,8 @@ export class CeoDashboard {
     this.exportError.set('');
     try {
       const rooms = this.roomsSection()?.data() ?? null;
-      downloadXlsx(`${this.exportName()}.xlsx`, ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()));
+      const network = networkSheets(this.networkSection()?.data() ?? null);
+      downloadXlsx(`${this.exportName()}.xlsx`, [...ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()), ...network]);
     } catch {
       this.exportError.set('The Excel file could not be made. Please try again.');
     } finally {
