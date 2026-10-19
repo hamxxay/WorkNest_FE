@@ -145,3 +145,6 @@
   .nl-spark-cap .nl-peak { margin-left: 0; flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .net-body, .net-seg button { transition: none; } }
+
+/* Network devices: as tall as its rows, not stretched to the Internet panel beside it. */
+.nw-hug { align-self: start; }
