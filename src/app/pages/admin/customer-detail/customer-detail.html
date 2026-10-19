@@ -1,0 +1,592 @@
+<div class="cd-page">
+  <nav class="cd-crumbs" aria-label="Breadcrumb">
+    <a routerLink="/admin/customers" class="back-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+      Customers
+    </a>
+  </nav>
+
+  @if (profileLoading() && !profile()) {
+  <!-- First load: header and cards as skeletons -->
+  <div class="cd-header" aria-busy="true">
+    <span class="sk avatar-sk"></span>
+    <div class="cd-head-main">
+      <span class="sk sk-title"></span>
+      <span class="sk sk-line w40"></span>
+    </div>
+  </div>
+  <div class="kpi-grid" aria-hidden="true">
+    @for (i of [1, 2, 3, 4, 5]; track i) {
+    <div class="kpi-card"><span class="sk sk-line w60"></span><span class="sk sk-value"></span><span class="sk sk-line w40"></span></div>
+    }
+  </div>
+  <span class="sr-only" role="status">Loading customer</span>
+  } @else if (profileError(); as err) {
+  <div class="page-state" [class.not-found]="err.notFound" role="alert">
+    <span class="state-icon" aria-hidden="true">
+      @if (err.notFound) {
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+      } @else {
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+      }
+    </span>
+    @if (err.notFound) {
+    <h2>Customer not found</h2>
+    <p>This customer does not exist, or belongs to a location you are not assigned to.</p>
+    <a routerLink="/admin/customers" class="btn-ghost">Back to customers</a>
+    } @else {
+    <h2>Could not load this customer</h2>
+    <p>{{ err.message }}</p>
+    <button type="button" class="btn-ghost" (click)="refresh()">Try again</button>
+    }
+  </div>
+  } @else if (profile(); as p) {
+
+  <!-- ===== Header ===== -->
+  <header class="cd-header">
+    <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+    <div class="cd-head-main">
+      <h1>{{ p.fullName }}</h1>
+      <div class="cd-meta">
+        @if (p.code) { <span class="code-chip">{{ p.code }}</span> }
+        <span class="pill" [class]="'pill tone-' + (p.isActive ? 'ok' : 'muted')">{{ p.isActive ? 'Active' : 'Inactive' }}</span>
+        @if (p.company) { <span class="meta-text">{{ p.company }}</span> }
+        @if (summary()?.locations; as locs) {
+        <span class="loc-chip">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" /></svg>
+          {{ locs }}
+        </span>
+        }
+      </div>
+    </div>
+    <div class="cd-head-actions">
+      <button type="button" class="icon-btn" (click)="refresh()" [disabled]="overviewLoading()" aria-label="Refresh" title="Refresh">
+        <svg [class.spin]="overviewLoading()" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== Summary figures ===== -->
+  <section aria-label="Summary">
+    @if (overviewLoading()) {
+    <div class="kpi-grid" aria-busy="true">
+      @for (i of [1, 2, 3, 4, 5]; track i) {
+      <div class="kpi-card"><span class="sk sk-line w60"></span><span class="sk sk-value"></span><span class="sk sk-line w40"></span></div>
+      }
+    </div>
+    } @else if (overviewError(); as err) {
+    <div class="section-notice" [class.db]="err.needsDbUpdate" role="alert">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+      <span><strong>Summary figures are not available.</strong> {{ err.message }}</span>
+      @if (!err.needsDbUpdate) {
+      <button type="button" class="link-btn" (click)="loadOverview()">Try again</button>
+      }
+    </div>
+    } @else if (summary(); as s) {
+    <div class="kpi-grid">
+      <div class="kpi-card" [class]="'kpi-card tone-' + (s.activeBookings > 0 ? 'ok' : 'neutral')">
+        <span class="kpi-label">Active bookings</span>
+        <span class="kpi-value">{{ s.activeBookings | number }}</span>
+        <span class="kpi-sub">{{ s.totalBookings | number }} {{ s.totalBookings === 1 ? 'booking' : 'bookings' }} in all</span>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Total invoiced</span>
+        <span class="kpi-value" [title]="money(s.totalInvoiced)">{{ compact(s.totalInvoiced) }}<span class="sr-only"> ({{ money(s.totalInvoiced) }})</span></span>
+        <span class="kpi-sub">{{ s.invoiceCount | number }} {{ s.invoiceCount === 1 ? 'invoice' : 'invoices' }}</span>
+      </div>
+      <div class="kpi-card tone-ok">
+        <span class="kpi-label">Paid</span>
+        <span class="kpi-value" [title]="money(s.totalPaid)">{{ compact(s.totalPaid) }}<span class="sr-only"> ({{ money(s.totalPaid) }})</span></span>
+        <span class="kpi-sub">
+          @if (s.totalInvoiced > 0) { {{ (s.totalPaid / s.totalInvoiced * 100) | number:'1.0-0' }}% of invoiced } @else { Nothing invoiced yet }
+        </span>
+      </div>
+      <div class="kpi-card" [class]="'kpi-card tone-' + (s.overdue > 0 ? 'danger' : s.outstanding > 0 ? 'warn' : 'ok')">
+        <span class="kpi-label">Outstanding balance</span>
+        <span class="kpi-value" [title]="money(s.outstanding)">{{ compact(s.outstanding) }}<span class="sr-only"> ({{ money(s.outstanding) }})</span></span>
+        <span class="kpi-sub">
+          @if (s.overdue > 0) { {{ compact(s.overdue) }} overdue ({{ s.overdueCount }}) }
+          @else if (s.outstandingCount > 0) { {{ s.outstandingCount }} open {{ s.outstandingCount === 1 ? 'invoice' : 'invoices' }} }
+          @else { Nothing to pay }
+        </span>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Security deposit held</span>
+        <span class="kpi-value" [title]="money(s.depositHeld)">{{ compact(s.depositHeld) }}<span class="sr-only"> ({{ money(s.depositHeld) }})</span></span>
+        <span class="kpi-sub">{{ s.depositCount | number }} {{ s.depositCount === 1 ? 'deposit' : 'deposits' }} held</span>
+      </div>
+    </div>
+    }
+  </section>
+
+  <!-- ===== Profile + recent activity ===== -->
+  <div class="cd-grid">
+    <section class="dash-panel span-8" aria-labelledby="cd-profile-h">
+      <div class="panel-head">
+        <h2 id="cd-profile-h">Profile</h2>
+      </div>
+      <dl class="facts">
+        <div class="span2"><dt>Email</dt><dd>@if (p.email) { <a [href]="'mailto:' + p.email">{{ p.email }}</a> } @else { - }</dd></div>
+        <div><dt>Phone</dt><dd>@if (p.phone) { <a [href]="'tel:' + p.phone">{{ p.phone }}</a> } @else { - }</dd></div>
+        <div><dt>Customer code</dt><dd>{{ p.code || '-' }}</dd></div>
+        <div><dt>Company</dt><dd>{{ p.company || '-' }}</dd></div>
+        <div><dt>CNIC / Passport</dt><dd>{{ p.cnic || '-' }}</dd></div>
+        @if (p.ntn) { <div><dt>NTN</dt><dd>{{ p.ntn }}</dd></div> }
+        @if (p.secp) { <div><dt>SECP reg. no.</dt><dd>{{ p.secp }}</dd></div> }
+        <div><dt>City</dt><dd>{{ p.city || '-' }}</dd></div>
+        <div>
+          <dt>Location</dt>
+          <dd>
+            @if (overviewLoading()) { <span class="sk sk-line w60 inline-sk"></span> }
+            @else { {{ summary()?.locations || '-' }} }
+          </dd>
+        </div>
+        <div><dt>Customer since</dt><dd>{{ p.createdAt ? (p.createdAt | date:'d MMM y') : '-' }}</dd></div>
+        <div class="wide"><dt>Address</dt><dd>{{ p.address || '-' }}</dd></div>
+        @if (p.notes) { <div class="wide"><dt>Notes</dt><dd class="notes">{{ p.notes }}</dd></div> }
+      </dl>
+    </section>
+
+    <section class="dash-panel span-4" aria-labelledby="cd-recent-h">
+      <div class="panel-head">
+        <h2 id="cd-recent-h">Recent activity</h2>
+        @if (overview()?.timeline?.length) {
+        <button type="button" class="link-btn" (click)="showAllActivity()">See all</button>
+        }
+      </div>
+      @if (overviewLoading()) {
+      @for (i of [1, 2, 3, 4]; track i) {
+      <div class="sk-row"><span class="sk sk-dot"></span><span class="sk sk-line w70"></span></div>
+      }
+      } @else if (overviewError(); as err) {
+      <div class="empty error"><strong>Activity is not available</strong><span>{{ err.message }}</span></div>
+      } @else if (!recentEvents().length) {
+      <div class="empty"><strong>No activity yet</strong><span>Quotations, bookings, invoices and payments will show here.</span></div>
+      } @else {
+      <ol class="timeline compact">
+        @for (e of recentEvents(); track trackEvent($index, e)) {
+        <ng-container *ngTemplateOutlet="eventTpl; context: { $implicit: e }" />
+        }
+      </ol>
+      }
+    </section>
+  </div>
+
+  <!-- ===== Tabs ===== -->
+  <section class="dash-panel tabs-panel" id="cd-tabs" aria-label="Customer records">
+    <div class="tab-strip" role="tablist" aria-label="Customer records">
+      @for (t of tabs(); track t.key; let i = $index) {
+      <button type="button" role="tab" class="tab" [id]="'cd-tab-' + t.key" [attr.aria-selected]="tab() === t.key"
+        [attr.aria-controls]="'cd-panel-' + t.key" [attr.tabindex]="tab() === t.key ? 0 : -1" [class.active]="tab() === t.key"
+        (click)="selectTab(t.key)" (keydown)="onTabKey($event, i)">
+        {{ t.label }}
+        @if (t.count !== null) { <span class="tab-count">{{ t.count }}</span> }
+      </button>
+      }
+    </div>
+
+    <div class="tab-body" role="tabpanel" [id]="'cd-panel-' + tab()" [attr.aria-labelledby]="'cd-tab-' + tab()" tabindex="0">
+      @switch (tab()) {
+
+      <!-- Bookings -->
+      @case ('bookings') {
+      @if (overviewLoading()) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
+      @else if (overviewError(); as err) { <ng-container *ngTemplateOutlet="sectionError; context: { $implicit: err, what: 'Bookings' }" /> }
+      @else if (!overview()?.bookings?.length) {
+      <div class="empty"><strong>No bookings yet</strong><span>Bookings made for this customer will show here.</span></div>
+      } @else {
+      <div class="table-scroll">
+        <table class="rtable">
+          <thead>
+            <tr><th>Space</th><th>Location</th><th>Period</th><th class="num">Monthly rent</th><th class="num">Balance</th><th>Status</th><th class="col-act"><span class="sr-only">Actions</span></th></tr>
+          </thead>
+          <tbody>
+            @for (b of visible(overview()!.bookings, 'bookings'); track b.bookingId) {
+            <tr>
+              <td data-label="Space">
+                <span class="cell-main">{{ b.spaceName || '-' }}</span>
+                @if (b.spaceType) { <small>{{ b.spaceType }}</small> }
+              </td>
+              <td data-label="Location">{{ b.locationName || '-' }}</td>
+              <td data-label="Period">
+                {{ b.startOn ? (b.startOn | date:'d MMM y') : '-' }} - {{ b.endOn ? (b.endOn | date:'d MMM y') : '-' }}
+                @if (b.billingPeriod) { <small>{{ b.billingPeriod }}</small> }
+              </td>
+              <td data-label="Monthly rent" class="num">{{ money(b.monthlyRent) }}</td>
+              <td data-label="Balance" class="num">{{ money(b.balance) }}</td>
+              <td data-label="Status">
+                <span [class]="'pill tone-' + tone(b.status)">{{ b.status || 'Not set' }}</span>
+                @if (b.isActive) { <span class="pill tone-info running">Running</span> }
+              </td>
+              <td class="col-act">
+                <a class="row-link" routerLink="/admin/bookings" [queryParams]="{ booking: b.bookingId }"
+                  [attr.aria-label]="'Open booking ' + b.bookingId + (b.spaceName ? ' (' + b.spaceName + ')' : '')">
+                  Open
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                </a>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="showMore; context: { key: 'bookings', total: overview()!.bookings.length }" />
+      }
+      }
+
+      <!-- Quotations -->
+      @case ('quotations') {
+      @let qs = quotations();
+      @if (qs.loading && !qs.data) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
+      @else if (qs.error; as err) {
+      <div class="empty error" role="alert"><strong>Quotations could not be loaded</strong><span>{{ err.message }}</span>
+        <button type="button" class="btn-ghost" (click)="loadQuotations(qs.data?.page ?? 1)">Try again</button></div>
+      } @else if (!qs.data?.rows?.length) {
+      <div class="empty"><strong>No quotations yet</strong><span>Quotations sent to this customer will show here.</span></div>
+      } @else {
+      <div class="table-scroll" [class.dim]="qs.loading">
+        <table class="rtable">
+          <thead>
+            <tr><th>Quotation</th><th>Space</th><th>Date</th><th>Valid until</th><th class="num">Total</th><th>Status</th><th class="col-act"><span class="sr-only">Actions</span></th></tr>
+          </thead>
+          <tbody>
+            @for (q of qs.data!.rows; track q.id) {
+            <tr>
+              <td data-label="Quotation"><span class="cell-main">{{ q.quotationNumber }}</span><small>Version {{ q.version }}</small></td>
+              <td data-label="Space">
+                {{ q.spaceName || '-' }}
+                @if (q.locationName) { <small>{{ q.locationName }}</small> }
+              </td>
+              <td data-label="Date" class="nw">{{ q.quotationDate ? (q.quotationDate | date:'d MMM y') : '-' }}</td>
+              <td data-label="Valid until">
+                {{ q.validUntil ? (q.validUntil | date:'d MMM y') : '-' }}
+                @if (q.isExpired) { <span class="pill tone-bad">Expired</span> }
+              </td>
+              <td data-label="Total" class="num">{{ money(q.totalAmount) }}</td>
+              <td data-label="Status"><span [class]="'pill tone-' + tone(q.status)">{{ q.status ? humanize(q.status) : 'Draft' }}</span></td>
+              <td class="col-act">
+                <button type="button" class="row-link" (click)="downloadQuotation(q)" [disabled]="downloading() === 'quotation-' + q.id"
+                  [attr.aria-label]="'Download quotation ' + q.quotationNumber + ' version ' + q.version + ' PDF'">
+                  <ng-container *ngTemplateOutlet="pdfIcon; context: { busy: downloading() === 'quotation-' + q.id }" /> PDF
+                </button>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="pager; context: { state: qs, go: 'quotations' }" />
+      }
+      }
+
+      <!-- Invoices -->
+      @case ('invoices') {
+      @let inv = invoices();
+      @if (inv.loading && !inv.data) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
+      @else if (inv.error; as err) {
+      <div class="empty error" role="alert"><strong>Invoices could not be loaded</strong><span>{{ err.message }}</span>
+        <button type="button" class="btn-ghost" (click)="loadInvoices(inv.data?.page ?? 1)">Try again</button></div>
+      } @else if (!inv.data?.rows?.length) {
+      <div class="empty"><strong>No invoices yet</strong><span>Invoices issued to this customer will show here.</span></div>
+      } @else {
+      <div class="table-scroll" [class.dim]="inv.loading">
+        <table class="rtable">
+          <thead>
+            <tr><th>Invoice</th><th>Issued</th><th>Due</th><th>Billing period</th><th class="num">Total</th><th>Status</th><th class="col-act"><span class="sr-only">Actions</span></th></tr>
+          </thead>
+          <tbody>
+            @for (i of inv.data!.rows; track i.id) {
+            <tr>
+              <td data-label="Invoice"><span class="cell-main">{{ i.invoiceNumber }}</span></td>
+              <td data-label="Issued" class="nw">{{ i.issuedOn ? (i.issuedOn | date:'d MMM y') : '-' }}</td>
+              <td data-label="Due" class="nw">{{ i.dueOn ? (i.dueOn | date:'d MMM y') : '-' }}</td>
+              <td data-label="Billing period">
+                @if (i.periodStart) { {{ i.periodStart | date:'d MMM y' }} - {{ i.periodEnd ? (i.periodEnd | date:'d MMM y') : '-' }} } @else { - }
+              </td>
+              <td data-label="Total" class="num">{{ money(i.grandTotal, i.currency) }}</td>
+              <td data-label="Status"><span [class]="'pill tone-' + tone(i.status)">{{ i.status || 'Unknown' }}</span></td>
+              <td class="col-act">
+                <button type="button" class="row-link" (click)="downloadInvoice(i)" [disabled]="downloading() === 'invoice-' + i.id"
+                  [attr.aria-label]="'Download invoice ' + i.invoiceNumber + ' PDF'">
+                  <ng-container *ngTemplateOutlet="pdfIcon; context: { busy: downloading() === 'invoice-' + i.id }" /> PDF
+                </button>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="pager; context: { state: inv, go: 'invoices' }" />
+      }
+      }
+
+      <!-- Payments: fee receipts, payments, security deposits -->
+      @case ('payments') {
+      @if (overviewLoading()) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
+      @else if (overviewError(); as err) { <ng-container *ngTemplateOutlet="sectionError; context: { $implicit: err, what: 'Payments' }" /> }
+      @else {
+      @let o = overview()!;
+      <div class="sub-head">
+        <h3>Fee receipts <span class="sub-count">{{ o.receipts.length }}</span></h3>
+        <a routerLink="/admin/fee-receipts" class="link-btn">Open Receipts page</a>
+      </div>
+      @if (!o.receipts.length) {
+      <div class="empty slim"><span>No fee receipts yet.</span></div>
+      } @else {
+      <div class="table-scroll">
+        <table class="rtable">
+          <thead>
+            <tr><th>Receipt</th><th>Date</th><th>Invoice</th><th>Method</th><th class="num">Amount</th><th>Status</th><th>Recorded by</th></tr>
+          </thead>
+          <tbody>
+            @for (r of visible(o.receipts, 'receipts'); track r.id) {
+            <tr>
+              <td data-label="Receipt"><span class="cell-main">{{ r.code || ('#' + r.id) }}</span>@if (r.locationName) { <small>{{ r.locationName }}</small> }</td>
+              <td data-label="Date" class="nw">{{ r.receiptDate ? (r.receiptDate | date:'d MMM y') : '-' }}</td>
+              <td data-label="Invoice">{{ r.invoiceNumber || '-' }}</td>
+              <td data-label="Method">{{ r.paymentType || '-' }}@if (r.account) { <small>{{ r.account }}</small> }</td>
+              <td data-label="Amount" class="num">{{ money(r.amount) }}</td>
+              <td data-label="Status">
+                <span [class]="'pill tone-' + (r.isVoid ? 'bad' : 'ok')">{{ r.status || '-' }}</span>
+                @if (r.isVoid && r.voidReason) { <small>{{ r.voidReason }}</small> }
+              </td>
+              <td data-label="Recorded by">{{ r.createdByName || '-' }}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="showMore; context: { key: 'receipts', total: o.receipts.length }" />
+      }
+
+      <div class="sub-head">
+        <h3>Payments <span class="sub-count">{{ o.payments.length }}</span></h3>
+      </div>
+      @if (!o.payments.length) {
+      <div class="empty slim"><span>No payments yet.</span></div>
+      } @else {
+      <div class="table-scroll">
+        <table class="rtable">
+          <thead>
+            <tr><th>Date</th><th>Method</th><th>Reference</th><th>Invoice</th><th class="num">Amount</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            @for (pm of visible(o.payments, 'payments'); track pm.id) {
+            <tr>
+              <td data-label="Date" class="nw">{{ (pm.paidOn || pm.createdOn) ? ((pm.paidOn || pm.createdOn) | date:'d MMM y, h:mm a') : '-' }}</td>
+              <td data-label="Method">{{ pm.method || '-' }}</td>
+              <td data-label="Reference">{{ pm.reference || '-' }}</td>
+              <td data-label="Invoice">{{ pm.invoiceNumber || (pm.bookingId ? 'Booking ' + pm.bookingId : '-') }}</td>
+              <td data-label="Amount" class="num">{{ money(pm.amount, pm.currency) }}</td>
+              <td data-label="Status"><span [class]="'pill tone-' + tone(pm.status)">{{ pm.status || '-' }}</span></td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="showMore; context: { key: 'payments', total: o.payments.length }" />
+      }
+
+      <div class="sub-head">
+        <h3>Security deposits <span class="sub-count">{{ o.deposits.length }}</span></h3>
+      </div>
+      @if (!o.deposits.length) {
+      <div class="empty slim"><span>No security deposits recorded.</span></div>
+      } @else {
+      <div class="table-scroll">
+        <table class="rtable">
+          <thead>
+            <tr><th>Reference</th><th>Booking</th><th>Held on</th><th class="num">Amount</th><th>State</th><th>Closed on</th></tr>
+          </thead>
+          <tbody>
+            @for (d of visible(o.deposits, 'deposits'); track d.id) {
+            <tr>
+              <td data-label="Reference"><span class="cell-main">{{ d.refNo || ('#' + d.id) }}</span></td>
+              <td data-label="Booking">{{ d.bookingId ? ('#' + d.bookingId) : '-' }}</td>
+              <td data-label="Held on" class="nw">{{ d.createdOn ? (d.createdOn | date:'d MMM y') : '-' }}</td>
+              <td data-label="Amount" class="num">{{ money(d.amount) }}</td>
+              <td data-label="State">
+                <span [class]="'pill tone-' + tone(d.state)">{{ d.state || '-' }}</span>
+                @if (d.forfeitReason) { <small>{{ d.forfeitReason }}</small> }
+              </td>
+              <td data-label="Closed on" class="nw">{{ (d.releasedOn || d.forfeitedOn) ? ((d.releasedOn || d.forfeitedOn) | date:'d MMM y') : '-' }}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="showMore; context: { key: 'deposits', total: o.deposits.length }" />
+      }
+      }
+      }
+
+      <!-- Agreements -->
+      @case ('agreements') {
+      @if (overviewLoading()) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
+      @else if (overviewError(); as err) { <ng-container *ngTemplateOutlet="sectionError; context: { $implicit: err, what: 'Agreements' }" /> }
+      @else if (!overview()?.agreements?.length) {
+      <div class="empty"><strong>No agreements yet</strong><span>Lease agreements sent to this customer will show here.</span></div>
+      } @else {
+      <div class="table-scroll">
+        <table class="rtable">
+          <thead>
+            <tr><th>Agreement</th><th>Space</th><th>Sent</th><th>Signed</th><th class="num">Fee</th><th class="num">Deposit</th><th>Status</th><th class="col-act"><span class="sr-only">Actions</span></th></tr>
+          </thead>
+          <tbody>
+            @for (a of visible(overview()!.agreements, 'agreements'); track a.id) {
+            <tr>
+              <td data-label="Agreement">
+                <span class="cell-main">Agreement #{{ a.id }}</span>
+                @if (a.quotationNumber) { <small>{{ a.quotationNumber }}{{ a.quotationVersion ? ' v' + a.quotationVersion : '' }}</small> }
+              </td>
+              <td data-label="Space">{{ a.spaceName || '-' }}@if (a.locationName) { <small>{{ a.locationName }}</small> }</td>
+              <td data-label="Sent" class="nw">{{ a.sentAt ? (a.sentAt | date:'d MMM y') : '-' }}</td>
+              <td data-label="Signed" class="nw">{{ a.signedDate ? (a.signedDate | date:'d MMM y') : '-' }}</td>
+              <td data-label="Fee" class="num">{{ money(a.feeAmount) }}</td>
+              <td data-label="Deposit" class="num">{{ money(a.securityDeposit) }}</td>
+              <td data-label="Status"><span [class]="'pill tone-' + tone(a.status)">{{ a.status ? humanize(a.status) : '-' }}</span></td>
+              <td class="col-act">
+                <span class="act-group">
+                  <button type="button" class="row-link" (click)="downloadAgreement(a.id, false)" [disabled]="downloading() === 'agreement-' + a.id + '-a'"
+                    [attr.aria-label]="'Download agreement ' + a.id + ' PDF'">
+                    <ng-container *ngTemplateOutlet="pdfIcon; context: { busy: downloading() === 'agreement-' + a.id + '-a' }" /> PDF
+                  </button>
+                  @if (a.hasSignedPdf) {
+                  <button type="button" class="row-link" (click)="downloadAgreement(a.id, true)" [disabled]="downloading() === 'agreement-' + a.id + '-s'"
+                    [attr.aria-label]="'Download signed copy of agreement ' + a.id">
+                    <ng-container *ngTemplateOutlet="pdfIcon; context: { busy: downloading() === 'agreement-' + a.id + '-s' }" /> Signed copy
+                  </button>
+                  }
+                </span>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <ng-container *ngTemplateOutlet="showMore; context: { key: 'agreements', total: overview()!.agreements.length }" />
+      }
+      }
+
+      <!-- Activity -->
+      @case ('activity') {
+      @if (overviewLoading()) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
+      @else if (overviewError(); as err) { <ng-container *ngTemplateOutlet="sectionError; context: { $implicit: err, what: 'Activity' }" /> }
+      @else if (!overview()?.timeline?.length) {
+      <div class="empty"><strong>No activity yet</strong><span>Quotations, bookings, invoices and payments will show here.</span></div>
+      } @else {
+      <ol class="timeline">
+        @for (e of visible(overview()!.timeline, 'activity'); track trackEvent($index, e)) {
+        <ng-container *ngTemplateOutlet="eventTpl; context: { $implicit: e }" />
+        }
+      </ol>
+      <ng-container *ngTemplateOutlet="showMore; context: { key: 'activity', total: overview()!.timeline.length }" />
+      }
+      }
+      }
+    </div>
+  </section>
+  }
+</div>
+
+<!-- ===== Templates ===== -->
+<ng-template #eventTpl let-e>
+  <li class="tl-item" [class]="'tl-item kind-' + e.kind">
+    <span class="tl-icon" aria-hidden="true">
+      @switch (e.kind) {
+      @case ('quotation') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 13H8" /><path d="M16 17H8" /></svg> }
+      @case ('booking') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg> }
+      @case ('invoice') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M16 8h-8" /><path d="M16 12h-8" /></svg> }
+      @case ('receipt') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg> }
+      @case ('payment') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2" /><path d="M2 10h20" /></svg> }
+      @case ('agreement') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.86.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.86z" /></svg> }
+      @case ('deposit') { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></svg> }
+      @default { <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg> }
+      }
+    </span>
+    <div class="tl-body">
+      <div class="tl-top">
+        <span class="tl-title">{{ e.title }}</span>
+        @if (e.amount !== null && e.amount > 0) { <span class="tl-amount">{{ money(e.amount) }}</span> }
+      </div>
+      <div class="tl-meta">
+        <span class="kind-tag">{{ kindLabel(e.kind) }}</span>
+        @if (e.reference) { <span class="tl-ref">{{ e.reference }}</span> }
+        @if (e.at) { <time [attr.datetime]="e.at">{{ e.dateOnly ? (e.at | date:'d MMM y') : (e.at | date:'d MMM y, h:mm a') }}</time> }
+        @if (e.actorName) { <span>by {{ e.actorName }}</span> }
+      </div>
+      @if (e.detail) { <p class="tl-detail">{{ e.detail }}</p> }
+      @if (e.note) { <p class="tl-note">Customer note: {{ e.note }}</p> }
+    </div>
+  </li>
+</ng-template>
+
+<ng-template #tableSkeleton>
+  <div aria-busy="true">
+    @for (i of [1, 2, 3, 4]; track i) {
+    <div class="sk-row"><span class="sk sk-line w20"></span><span class="sk sk-line w40"></span><span class="sk sk-line w20"></span></div>
+    }
+    <span class="sr-only" role="status">Loading</span>
+  </div>
+</ng-template>
+
+<ng-template #sectionError let-err let-what="what">
+  <div class="empty error" [class.db]="err.needsDbUpdate" role="alert">
+    <strong>{{ what }} could not be loaded</strong>
+    <span>{{ err.message }}</span>
+    @if (!err.needsDbUpdate) {
+    <button type="button" class="btn-ghost" (click)="loadOverview()">Try again</button>
+    }
+  </div>
+</ng-template>
+
+<ng-template #showMore let-key="key" let-total="total">
+  @if (total > shortList) {
+  <div class="list-foot">
+    <button type="button" class="link-btn" (click)="toggle(key)" [attr.aria-expanded]="isExpanded(key)">
+      {{ isExpanded(key) ? 'Show fewer' : 'Show all ' + total }}
+    </button>
+    @if (total >= 100) { <span class="foot-note">Showing the latest 100.</span> }
+  </div>
+  }
+</ng-template>
+
+<ng-template #pager let-state="state" let-go="go">
+  @if (state.data && pages(state.data) > 1) {
+  <div class="list-foot pager">
+    <span class="foot-note">Page {{ state.data.page }} of {{ pages(state.data) }} ({{ state.data.total }} in all)</span>
+    <span class="pager-btns">
+      <button type="button" class="pager-btn" [disabled]="state.loading || state.data.page <= 1"
+        (click)="go === 'invoices' ? loadInvoices(state.data.page - 1) : loadQuotations(state.data.page - 1)" aria-label="Previous page">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+      </button>
+      <button type="button" class="pager-btn" [disabled]="state.loading || state.data.page >= pages(state.data)"
+        (click)="go === 'invoices' ? loadInvoices(state.data.page + 1) : loadQuotations(state.data.page + 1)" aria-label="Next page">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+      </button>
+    </span>
+  </div>
+  }
+</ng-template>
+
+<ng-template #pdfIcon let-busy="busy">
+  @if (busy) {
+  <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+  } @else {
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></svg>
+  }
+</ng-template>

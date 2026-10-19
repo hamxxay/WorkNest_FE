@@ -3,20 +3,24 @@ import { ToastService } from '../../../services/toast.service';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { AdminService } from '../../../services/admin.service';
-import { QuotationService } from '../../../services/quotation.service';
 import { AuthService } from '../../../services/auth.service';
+import {
+  MainDashboardService, MainDetailRow, MainInventoryRow, MainSortField, MainStatus, MainTag
+} from '../../../services/main-dashboard.service';
+import { DashError } from '../../../services/dashboard-api';
 import { AccessOverview } from './access-overview/access-overview';
-import { DashboardOverview, DashPeriod } from './dashboard-overview/dashboard-overview';
+import { DashboardOverview, DashPeriod, dashDay, dashRangeDays } from './dashboard-overview/dashboard-overview';
 import { RoleDashboard, DashRole } from './role-dashboard/role-dashboard';
 import { ForecastPanel } from './forecast-panel/forecast-panel';
 import { WeeklyReportMenu } from './weekly-report-menu/weekly-report-menu';
 import { KeepInView } from '../../../components/keep-in-view/keep-in-view.directive';
 import { Location, AnnouncementItem, CreateAnnouncementRequest } from '../../../models/admin.model';
-import { spaceTypeLocationId, spaceTypesHaveLocations } from '../../../utils/space-types';
 
-export type TagFilterType = 'booked' | 'vacant' | 'quoted' | 'expiring';
+export type TagFilterType = MainTag;
 
+/** A row of the Space Operations & Inventory table (one page comes from GET api/dashboard/inventory). */
 export interface SpaceOperationItem {
   spaceId: number;
   spaceCode: string;
@@ -26,14 +30,14 @@ export interface SpaceOperationItem {
   spaceTypeName: string;
   locationId?: number | null;
   locationName?: string | null;
-  status: 'Booked' | 'Quoted' | 'Available' | 'Expired';
+  status: MainStatus;
   bookingId?: number | null;
   customerName?: string | null;
   companyName?: string | null;
   bookingStart?: string | Date | null;
   bookingEnd?: string | Date | null;
   bookingStatus?: string | null;
-  shiftType?: '24_7' | 'morning' | 'evening' | string;
+  shiftType?: string | null;
   quotationId?: number | null;
   quotationNumber?: string | null;
   quotationCustomerName?: string | null;
@@ -44,9 +48,6 @@ export interface SpaceOperationItem {
   daysRemainingNum?: number | null;
   remainingTimeFormatted?: string;
   isExpiringSoon?: boolean;
-  attendantsCount?: number;
-  isOverCapacity?: boolean;
-  excessAttendants?: number;
   isPrivateSpace?: boolean;
 }
 
@@ -109,22 +110,39 @@ export interface SpaceTypeExpiringDetail {
   bookingStatus: string;
 }
 
-/** Booking statuses that occupy a space (same set as the dashboard SQL): old 1 / 2, 5 Pending, 33 Confirmed. */
-const LIVE_BOOKING_STATUS_IDS = [1, 2, 5, 33];
-
+/** A space type card (GET api/dashboard/main-summary: counted by the API for every space, booking and quotation). */
 export interface SpaceTypeCardData {
   spaceTypeId: number;
   spaceTypeName: string;
+  locationId: number | null;
+  locationName: string | null;
   totalSpaces: number;
   bookedCount: number;
   vacantCount: number;
   quotedCount: number;
   expiringCount: number;
-  bookedDetails: SpaceTypeBookedDetail[];
-  vacantDetails: SpaceTypeVacantDetail[];
-  quotedDetails: SpaceTypeQuotedDetail[];
-  expiringDetails: SpaceTypeExpiringDetail[];
 }
+
+/** The list open under a card tag: loaded page by page from GET api/dashboard/main-summary/details. */
+interface TagTray {
+  spaceTypeId: number;
+  tag: TagFilterType;
+  status: 'loading' | 'ok' | 'error';
+  error: DashError | null;
+  rows: MainDetailRow[];
+  total: number;
+  page: number;
+  /** Loading the next page (the rows so far stay). */
+  more: boolean;
+}
+
+type LoadStatus = 'loading' | 'ok' | 'error';
+type SortField = MainSortField;
+
+/** Longest custom range (as the API): two years. */
+const MAX_CUSTOM_DAYS = 731;
+/** Rows a card tag list loads at a time. */
+const TRAY_PAGE_SIZE = 25;
 
 @Component({
   selector: 'app-dashboard',
@@ -134,7 +152,7 @@ export interface SpaceTypeCardData {
 })
 export class Dashboard implements OnInit, OnDestroy {
   private admin = inject(AdminService);
-  private quotationService = inject(QuotationService);
+  private mainApi = inject(MainDashboardService);
   private router = inject(Router);
   protected auth = inject(AuthService);
   private toast = inject(ToastService);
@@ -163,13 +181,31 @@ export class Dashboard implements OnInit, OnDestroy {
     return this.auth.user()?.locationId ?? null;
   }
 
-  loading = signal(true);
-
-  // Redesigned Space Types Breakdown Cards with shift-aware details
+  // ---------- space type cards (GET api/dashboard/main-summary) ----------
+  summaryStatus = signal<LoadStatus>('loading');
+  summaryError = signal<DashError | null>(null);
   spaceTypeCards = signal<SpaceTypeCardData[]>([]);
+  /** Every space in scope ("All Types (N Spaces)"). */
+  totalSpacesCount = signal(0);
+  /** Cards span more than one location: each card names its location (types belong to a location). */
+  cardsShowLocation = computed(() => new Set(this.spaceTypeCards().map(c => c.locationId ?? 0)).size > 1);
+
+  // ---------- Space Operations & Inventory table (GET api/dashboard/inventory, one page at a time) ----------
+  inventoryStatus = signal<LoadStatus>('loading');
+  inventoryError = signal<DashError | null>(null);
+  inventoryRows = signal<SpaceOperationItem[]>([]);
+  inventoryTotal = signal(0);
+  /** A reload while the table (and its filters) stay on screen. */
+  inventoryBusy = signal(false);
+  private inventoryLoaded = false;
+
+  /** First load of either section (skeletons, header spinner); later loads keep the figures on screen. */
+  loading = computed(() => this.summaryStatus() === 'loading' || this.inventoryStatus() === 'loading');
 
   // Active Dropdown state: { spaceTypeId, tag } or null
   activeDropdown = signal<{ spaceTypeId: number; tag: TagFilterType } | null>(null);
+  /** The list under the open tag. */
+  tray = signal<TagTray | null>(null);
 
   // Locations list signal
   locationsList = signal<Location[]>([]);
@@ -186,59 +222,47 @@ export class Dashboard implements OnInit, OnDestroy {
     const next = cur.includes(n) ? cur.filter(x => x !== n) : [...cur, n];
     // Unticking the last one means "all": a sales executive then sees all of their locations.
     this.kpiLocationIds.set(next);
-    this.loadFallbackData();
+    this.onScopeChange();
   }
   selectAllKpiLocations() {
     this.kpiLocationIds.set([]);
-    this.loadFallbackData();
+    this.onScopeChange();
   }
-  /** Sales executive (not also admin): sees only the locations assigned to them. */
   /** Admin or sales executive (not super admin): sees only the locations assigned to them. */
   get isSalesExecutiveOnly(): boolean {
     return this.auth.isLocationBound();
   }
 
-  // Main Spaces Operational List
-  allSpaces = signal<SpaceOperationItem[]>([]);
-
-  // Space type rows (GET api/spacetype); each belongs to a location on the current API.
-  private readonly spaceTypeRows = signal<any[]>([]);
-
   /**
-   * Space Types dropdown options: names of the types at the inventory Location filter's location (types belong to
-   * a location); every type's name for All Locations, or when the API doesn't say where types belong.
+   * Space Types dropdown options: the names of the cards' types (the types of the dashboard's locations), narrowed to
+   * the inventory Location filter's location when one is chosen (types belong to a location).
    */
   readonly spaceTypeOptions = computed(() => {
-    let rows = this.spaceTypeRows();
+    let cards = this.spaceTypeCards();
     const sel = this.selectedLocation();
-    if (sel !== 'ALL' && spaceTypesHaveLocations(rows)) {
-      const loc: any = this.locationsList().find((l: any) => l.name === sel || String(l.id) === sel);
-      rows = loc
-        ? rows.filter(t => spaceTypeLocationId(t) === Number(loc.id ?? loc.Id))
-        : rows.filter(t => (t.locationName ?? t.LocationName) === sel);
-    }
-    return Array.from(new Set(rows.map(t => String(t.name || t.Name || t.description || 'Other'))));
+    if (sel !== 'ALL') cards = cards.filter(c => c.locationId == null || String(c.locationId) === sel);
+    return Array.from(new Set(cards.map(c => c.spaceTypeName)));
   });
 
   // Filter Signals for Inventory Table
   searchSpace = signal('');
   searchCustomer = signal('');
   selectedSpaceType = signal('ALL');
+  /** 'ALL' or a location id. */
   selectedLocation = signal('ALL');
-  selectedStatus = signal('ALL');
+  selectedStatus = signal<'ALL' | MainStatus>('ALL');
+  readonly statusOptions: MainStatus[] = ['Available', 'Quoted', 'Booked'];
   privateSpacesOnlyFilter = signal(false);
   expiringThreshold = signal(30); // Default 30 days threshold
 
   // Sorting Signals
-  sortBy = signal<'urgency' | 'spaceCode' | 'customer' | 'bookingStart' | 'bookingEnd' | 'remainingTime' | 'status'>('urgency');
+  sortBy = signal<SortField>('urgency');
   sortOrder = signal<'asc' | 'desc'>('asc');
 
   // Pagination Signals
   page = signal(1);
   pageSize = signal(10);
   pageSizeOptions = [10, 25, 50, 100];
-
-  totalSpacesCount = computed(() => this.allSpaces().length);
 
   // ============= ANNOUNCEMENTS & ALERTS STATE SIGNALS =============
   announcementsList = signal<AnnouncementItem[]>([]);
@@ -268,11 +292,75 @@ export class Dashboard implements OnInit, OnDestroy {
   announcementFormError = signal<string>('');
   announcementFormSuccess = signal<string>('');
 
-  // ---------- Period selector + one-page PDF report ----------
+  // "By Space" picker: spaces of the dashboard's locations, searched on the server (code or name), 50 at a time.
+  spacePickerOptions = signal<{ spaceId: number; label: string }[]>([]);
+  spacePickerSearch = signal('');
+  spacePickerStatus = signal<LoadStatus>('ok');
+  spacePickerError = signal('');
+  spacePickerTotal = signal(0);
+  private spacePickerSub: Subscription | null = null;
+  private spacePickerTimer?: ReturnType<typeof setTimeout>;
+
+  // ---------- Period selector (month / quarter / year / custom) + one-page PDF report ----------
   period = signal<DashPeriod>('month');
-  readonly periods: { key: DashPeriod; label: string }[] = [
+  readonly periods: { key: Exclude<DashPeriod, 'custom'>; label: string }[] = [
     { key: 'month', label: 'This month' }, { key: 'quarter', label: 'Quarter' }, { key: 'year', label: 'Year' }
   ];
+  /** The custom range in use (period 'custom'), 'yyyy-MM-dd'. */
+  customFrom = signal<string | null>(null);
+  customTo = signal<string | null>(null);
+  /** The custom range editor (from / to + Apply) and what is typed in it. */
+  customOpen = signal(false);
+  draftFrom = signal('');
+  draftTo = signal('');
+  customError = signal('');
+  /** "1 Jul 2026 to 30 Sep 2026" while the custom range is in use. */
+  customLabel = computed(() => (this.period() === 'custom' && this.customFrom() && this.customTo()
+    ? `${dashDay(this.customFrom())} to ${dashDay(this.customTo())}` : ''));
+  /** What the child panels get: the range only while period is custom. */
+  rangeFrom = computed(() => (this.period() === 'custom' ? this.customFrom() : null));
+  rangeTo = computed(() => (this.period() === 'custom' ? this.customTo() : null));
+
+  setPeriod(p: Exclude<DashPeriod, 'custom'>) {
+    this.customOpen.set(false);
+    this.customError.set('');
+    this.period.set(p);
+  }
+
+  /** Opens the from / to editor (the current range, else the 1st of this month to today). */
+  openCustom() {
+    if (this.customOpen()) { this.customOpen.set(false); return; }
+    const today = this.ymd(new Date());
+    this.draftFrom.set(this.customFrom() ?? `${today.slice(0, 8)}01`);
+    this.draftTo.set(this.customTo() ?? today);
+    this.customError.set('');
+    this.customOpen.set(true);
+  }
+
+  cancelCustom() {
+    this.customOpen.set(false);
+    this.customError.set('');
+  }
+
+  /** Checks the range (both days, from on or before to, at most two years) and shows it everywhere. */
+  applyCustom() {
+    const from = this.draftFrom().trim(), to = this.draftTo().trim();
+    const ok = /^\d{4}-\d{2}-\d{2}$/;
+    if (!ok.test(from) || !ok.test(to)) { this.customError.set('Choose both dates.'); return; }
+    if (from > to) { this.customError.set('The start date must be on or before the end date.'); return; }
+    if (from < '2000-01-01' || to > '2100-12-31') { this.customError.set('Choose dates between 2000 and 2100.'); return; }
+    if (dashRangeDays(from, to) > MAX_CUSTOM_DAYS) { this.customError.set(`Choose at most ${MAX_CUSTOM_DAYS} days (two years).`); return; }
+    this.customError.set('');
+    this.customFrom.set(from);
+    this.customTo.set(to);
+    this.period.set('custom');
+    this.customOpen.set(false);
+  }
+
+  private ymd(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   private overview = viewChild(DashboardOverview);
   downloadReport() {
     const u = this.auth.user();
@@ -287,6 +375,11 @@ export class Dashboard implements OnInit, OnDestroy {
   private nowTick = signal(Date.now());
   private autoRefresh?: ReturnType<typeof setInterval>;
   private clock?: ReturnType<typeof setInterval>;
+  private searchTimer?: ReturnType<typeof setTimeout>;
+  private summarySub: Subscription | null = null;
+  private inventorySub: Subscription | null = null;
+  private traySub: Subscription | null = null;
+  private locationsSub: Subscription | null = null;
 
   greeting = computed(() => {
     this.nowTick();
@@ -341,493 +434,228 @@ export class Dashboard implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.autoRefresh) clearInterval(this.autoRefresh);
     if (this.clock) clearInterval(this.clock);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    if (this.spacePickerTimer) clearTimeout(this.spacePickerTimer);
+    [this.summarySub, this.inventorySub, this.traySub, this.locationsSub, this.spacePickerSub].forEach(s => s?.unsubscribe());
   }
 
   /** Reload every section (header button + 5-minute auto refresh). */
   refreshAll(silent = false) {
     this.refreshTick.update(v => v + 1);
-    if (silent) this.loadFallbackData(); else this.loadDashboardData();
+    if (!silent) this.loadLocations();
+    this.loadSpaceData();
     this.loadAnnouncements();
   }
 
   loadDashboardData() {
-    this.loading.set(true);
-    this.loadFallbackData();
+    this.loadLocations();
+    this.loadSpaceData();
   }
+
+  /** The location picker (the API lists only the user's own locations for location-bound roles). */
+  private loadLocations() {
+    this.locationsSub?.unsubscribe();
+    this.locationsSub = this.admin.getLocations(1, 1000).subscribe({
+      next: (res: any) => {
+        const rows: Location[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data
+          : Array.isArray(res?.items) ? res.items : Array.isArray(res?.data?.items) ? res.data.items : [];
+        this.locationsList.set(rows);
+        if (!this.kpiLocationsInitialised) {
+          this.kpiLocationsInitialised = true;
+          // A sales executive with one location sees just that one; with several, all of them until they pick.
+          if (this.isSalesExecutiveOnly && rows.length === 1) this.kpiLocationIds.set([Number((rows[0] as any).id ?? (rows[0] as any).Id)]);
+        }
+      },
+      // The picker stays as it is (the figures still cover every location the user may see).
+      error: (e: any) => this.toast.error(e?.error?.message || 'Could not load the locations for the location picker.')
+    });
+  }
+
+  /** Cards, the open tag list and the current inventory page. */
+  private loadSpaceData() {
+    this.loadSummary();
+    this.loadInventory();
+    const t = this.tray();
+    if (t) this.loadTray(t.spaceTypeId, t.tag, false);
+  }
+
+  /** The dashboard's locations changed: everything that follows them, the table from its first page. */
+  private onScopeChange() {
+    this.page.set(1);
+    this.loadSummary();
+    this.loadInventory();
+    const t = this.tray();
+    if (t) this.loadTray(t.spaceTypeId, t.tag, false);
+  }
+
+  loadSummary() {
+    this.summarySub?.unsubscribe();
+    if (!this.spaceTypeCards().length || this.summaryStatus() === 'error') this.summaryStatus.set('loading');
+    this.summarySub = this.mainApi.getSummary(this.kpiLocationIds(), this.expiringThreshold()).subscribe({
+      next: s => {
+        this.spaceTypeCards.set(s.cards);
+        this.totalSpacesCount.set(s.totalSpaces);
+        this.summaryError.set(null);
+        this.summaryStatus.set('ok');
+        this.lastUpdated.set(new Date());
+        this.nowTick.set(Date.now());
+      },
+      error: (err: DashError) => {
+        this.summaryError.set(err);
+        this.summaryStatus.set('error');
+      }
+    });
+  }
+
+  loadInventory() {
+    this.inventorySub?.unsubscribe();
+    // Skeleton only before the table has loaded once; afterwards the filters stay usable while it reloads.
+    if (!this.inventoryLoaded) this.inventoryStatus.set('loading');
+    this.inventoryBusy.set(true);
+    const loc = this.selectedLocation();
+    const type = this.selectedSpaceType();
+    const status = this.selectedStatus();
+    this.inventorySub = this.mainApi.getInventory({
+      locationIds: this.kpiLocationIds(),
+      location: loc !== 'ALL' && !isNaN(Number(loc)) ? Number(loc) : null,
+      search: this.searchSpace(),
+      customer: this.searchCustomer(),
+      spaceType: type !== 'ALL' ? type : null,
+      status: status !== 'ALL' ? status : null,
+      privateOnly: this.privateSpacesOnlyFilter(),
+      expiringDays: this.expiringThreshold(),
+      sortBy: this.sortBy(),
+      sortDir: this.sortOrder(),
+      page: this.page(),
+      pageSize: this.pageSize()
+    }).subscribe({
+      next: p => {
+        this.inventoryRows.set(p.items.map(r => this.toItem(r)));
+        this.inventoryTotal.set(p.total);
+        this.inventoryError.set(null);
+        this.inventoryStatus.set('ok');
+        this.inventoryBusy.set(false);
+        this.inventoryLoaded = true;
+        // A page past the end (rows went away since): show the last page.
+        if (!p.items.length && p.total > 0 && this.page() > 1) {
+          this.page.set(Math.max(1, Math.ceil(p.total / this.pageSize())));
+          this.loadInventory();
+        }
+      },
+      error: (err: DashError) => {
+        this.inventoryError.set(err);
+        this.inventoryStatus.set('error');
+        this.inventoryBusy.set(false);
+      }
+    });
+  }
+
+  private toItem(r: MainInventoryRow): SpaceOperationItem {
+    const time = r.status === 'Booked' ? this.formatTimeRemaining(r.bookingEnd) : null;
+    return {
+      ...r,
+      shiftType: r.shiftType,
+      daysRemainingNum: r.daysRemaining,
+      remainingTimeFormatted: time?.text ?? '—'
+    };
+  }
+
+  /** Occupied / open shift labels of a booked space, from the shifts its live bookings take now. */
+  private shiftLabels(r: MainDetailRow): { occupied: string[]; open: string[] } {
+    if (r.has247 || (!r.hasMorning && !r.hasEvening)) return { occupied: ['24/7 (Full Day)'], open: ['None (Fully Occupied)'] };
+    const occupied: string[] = [], open: string[] = [];
+    (r.hasMorning ? occupied : open).push('Morning (6am-6pm)');
+    (r.hasEvening ? occupied : open).push('Evening (6pm-6am)');
+    if (!open.length) open.push('None (Fully Occupied)');
+    return { occupied, open };
+  }
+
+  bookedRows = computed<SpaceTypeBookedDetail[]>(() => {
+    const t = this.tray();
+    if (t?.tag !== 'booked') return [];
+    return t.rows.map(r => {
+      const sh = this.shiftLabels(r);
+      return {
+        spaceId: r.spaceId, spaceCode: r.spaceCode, spaceName: r.spaceName, capacity: r.capacity,
+        locationName: r.locationName ?? undefined, customerName: r.customerName || 'Customer', companyName: r.companyName ?? undefined,
+        occupiedShifts: sh.occupied, openShifts: sh.open, bookingId: r.bookingId, bookingStart: r.bookingStart, bookingEnd: r.bookingEnd,
+        bookingStatus: r.bookingStatus || 'Confirmed'
+      };
+    });
+  });
+
+  vacantRows = computed<SpaceTypeVacantDetail[]>(() => {
+    const t = this.tray();
+    if (t?.tag !== 'vacant') return [];
+    return t.rows.map(r => ({
+      spaceId: r.spaceId, spaceCode: r.spaceCode, spaceName: r.spaceName, capacity: r.capacity,
+      locationName: r.locationName ?? undefined, nextBookingDate: r.nextBookingDate, nextBookingCustomer: r.nextBookingCustomer
+    }));
+  });
+
+  quotedRows = computed<SpaceTypeQuotedDetail[]>(() => {
+    const t = this.tray();
+    if (t?.tag !== 'quoted') return [];
+    return t.rows.map(r => ({
+      spaceId: r.spaceId, spaceCode: r.spaceCode, spaceName: r.spaceName, capacity: r.capacity,
+      locationName: r.locationName ?? undefined, customerName: r.customerName || 'Customer', companyName: r.companyName ?? undefined,
+      quotationId: r.quotationId ?? undefined, quotationNumber: r.quotationNumber || `#Q-${r.quotationId}`,
+      quotationStatus: r.quotationStatus || 'Pending', quotationDate: r.quotationDate ?? '', quotationExpiryDate: r.quotationExpiryDate,
+      quotationAmount: r.quotationAmount, isAlsoBooked: r.isAlsoBooked
+    }));
+  });
+
+  expiringRows = computed<SpaceTypeExpiringDetail[]>(() => {
+    const t = this.tray();
+    if (t?.tag !== 'expiring') return [];
+    return t.rows.map(r => {
+      const time = this.formatTimeRemaining(r.bookingEnd);
+      return {
+        spaceId: r.spaceId, spaceCode: r.spaceCode, spaceName: r.spaceName, capacity: r.capacity,
+        locationName: r.locationName ?? undefined, customerName: r.customerName || 'Customer', companyName: r.companyName ?? undefined,
+        bookingId: r.bookingId ?? undefined, bookingStart: r.bookingStart ?? '', bookingEnd: r.bookingEnd ?? '',
+        daysRemaining: r.daysRemaining ?? time.days, remainingTimeFormatted: time.text, bookingStatus: r.bookingStatus || 'Confirmed'
+      };
+    });
+  });
+
+  /** The open list has more rows on the server than on screen. */
+  trayHasMore = computed(() => { const t = this.tray(); return !!t && t.status === 'ok' && t.rows.length < t.total; });
 
   /**
-   * Helper to normalize ShiftType strings from backend
+   * Loads a tag list: from its first page (opened, refreshed) or the next page (Show more, appended). A refresh keeps
+   * the rows on screen until the new ones arrive.
    */
-  normalizeShift(rawShift?: string | null): '24_7' | 'morning' | 'evening' {
-    if (!rawShift) return '24_7';
-    const s = String(rawShift).toLowerCase().trim();
-    if (s.includes('morning') || s.includes('6am') || s === '2') return 'morning';
-    if (s.includes('evening') || s.includes('night') || s.includes('6pm') || s === '3') return 'evening';
-    return '24_7';
+  loadTray(spaceTypeId: number, tag: TagFilterType, next: boolean) {
+    const cur = this.tray();
+    const same = cur && cur.spaceTypeId === spaceTypeId && cur.tag === tag;
+    const page = next && same ? cur!.page + 1 : 1;
+    this.traySub?.unsubscribe();
+    if (next && same) this.tray.set({ ...cur!, more: true });
+    else this.tray.set({
+      spaceTypeId, tag, status: same && cur!.status === 'ok' ? 'ok' : 'loading', error: null,
+      rows: same ? cur!.rows : [], total: same ? cur!.total : 0, page: 1, more: false
+    });
+    this.traySub = this.mainApi.getDetails(this.kpiLocationIds(), spaceTypeId, tag, this.expiringThreshold(), page, TRAY_PAGE_SIZE).subscribe({
+      next: d => {
+        const t = this.tray();
+        if (!t || t.spaceTypeId !== spaceTypeId || t.tag !== tag) return;
+        this.tray.set({ ...t, status: 'ok', error: null, rows: page > 1 ? [...t.rows, ...d.items] : d.items, total: d.total, page, more: false });
+      },
+      error: (err: DashError) => {
+        const t = this.tray();
+        if (!t || t.spaceTypeId !== spaceTypeId || t.tag !== tag) return;
+        // Show more failing keeps the rows already shown and says so under them.
+        this.tray.set(page > 1 ? { ...t, more: false, error: err } : { ...t, status: 'error', error: err, more: false });
+      }
+    });
   }
 
-  private loadFallbackData() {
-    const safe = (obs: any) => obs.toPromise().catch(() => null);
-
-    Promise.all([
-      safe(this.admin.getSpaces(1, 1000)),
-      safe(this.admin.getBookings(1, 1000)),
-      safe(this.quotationService.getQuotations(1, 1000)),
-      safe(this.admin.getCustomers(1, 1000)),
-      safe(this.admin.getSpaceTypes(1, 100)),
-      safe(this.admin.getLocations(1, 1000))
-    ]).then(([spacesRes, bookingsRes, quotationsRes, customersRes, typesRes, locationsRes]) => {
-      const extract = (res: any) => {
-        if (!res) return [];
-        if (Array.isArray(res)) return res;
-        if (Array.isArray(res?.data)) return res.data;
-        if (Array.isArray(res?.items)) return res.items;
-        if (Array.isArray(res?.data?.items)) return res.data.items;
-        return [];
-      };
-
-      let rawSpaces = extract(spacesRes);
-      let rawBookings = extract(bookingsRes);
-      let rawQuotations = extract(quotationsRes);
-      const rawCustomers = extract(customersRes);
-      const rawTypes = extract(typesRes);
-      let rawLocations: Location[] = extract(locationsRes);
-
-      // The location list is already limited by the API to the user's own locations (sales executive).
-      this.locationsList.set(rawLocations);
-      if (!this.kpiLocationsInitialised) {
-        this.kpiLocationsInitialised = true;
-        // A sales executive with one location sees just that one; with several, all of them until they pick.
-        if (this.isSalesExecutiveOnly && rawLocations.length === 1) this.kpiLocationIds.set([Number((rawLocations[0] as any).id ?? (rawLocations[0] as any).Id)]);
-      }
-      const selected = new Set(this.kpiLocationIds());
-      if (selected.size) {
-        rawSpaces = rawSpaces.filter((s: any) => {
-          const loc = s.locationId ?? s.LocationId;
-          return loc != null && selected.has(Number(loc));
-        });
-        const spaceIds = new Set(rawSpaces.map((s: any) => s.id ?? s.spaceId ?? s.SpaceId));
-        rawBookings = rawBookings.filter((b: any) => {
-          const loc = b.locationId ?? b.LocationId;
-          if (loc != null && selected.has(Number(loc))) return true;
-          const sId = b.spaceId ?? b.SpaceId;
-          return sId != null && spaceIds.has(sId);
-        });
-        rawQuotations = rawQuotations.filter((q: any) => {
-          const loc = q.locationId ?? q.LocationId;
-          if (loc != null && selected.has(Number(loc))) return true;
-          const sId = q.spaceId ?? q.SpaceId;
-          return sId != null && spaceIds.has(sId);
-        });
-      }
-
-      this.locationsList.set(rawLocations);
-
-      const typeMap = new Map<number, string>();
-      rawTypes.forEach((t: any) => {
-        const id = t.id || t.Id;
-        const name = t.name || t.Name || t.description || 'Other';
-        if (id) typeMap.set(id, name);
-      });
-      this.spaceTypeRows.set(rawTypes);
-
-      const now = new Date();
-      const thresholdDays = this.expiringThreshold();
-
-      // Group active bookings per spaceId
-      const spaceActiveBookingsMap = new Map<number, any[]>();
-      // Group future bookings per spaceId (for next scheduled booking)
-      const spaceFutureBookingsMap = new Map<number, any[]>();
-
-      rawBookings.forEach((b: any) => {
-        const isDeleted = b.isDeleted || b.IsDeleted || false;
-        const statusId = b.bookingStatusId ?? b.BookingStatusId ?? b.statusId ?? b.StatusId;
-        const statusStr = String(b.bookingStatusLabel || b.bookingStatus || b.status || '').toLowerCase();
-        const isCancelledOrDone = statusStr.includes('cancel') || statusStr.includes('reject') || statusStr.includes('complete')
-          || statusStr.includes('no show') || statusStr.includes('noshow');
-        
-        const startDateStr = b.startOn || b.StartOn || b.startDateTime || b.StartDateTime;
-        const startDate = startDateStr ? new Date(startDateStr) : null;
-        const endDateStr = b.endOn || b.EndOn || b.endDateTime || b.EndDateTime;
-        const endDate = endDateStr ? new Date(endDateStr) : null;
-
-        const sId = b.spaceId || b.SpaceId;
-        if (!sId || isDeleted || isCancelledOrDone) return;
-
-        // Live = WN_BookingStatuses 5 Pending / 33 Confirmed, plus old 1 / 2 still on older rows.
-        const isLive = !statusId || LIVE_BOOKING_STATUS_IDS.includes(Number(statusId));
-        const isActiveBooking = isLive && endDate && endDate >= now && (!startDate || startDate <= now);
-        const isFutureBooking = isLive && startDate && startDate > now;
-
-        if (isActiveBooking) {
-          if (!spaceActiveBookingsMap.has(sId)) {
-            spaceActiveBookingsMap.set(sId, []);
-          }
-          spaceActiveBookingsMap.get(sId)!.push(b);
-        } else if (isFutureBooking) {
-          if (!spaceFutureBookingsMap.has(sId)) {
-            spaceFutureBookingsMap.set(sId, []);
-          }
-          spaceFutureBookingsMap.get(sId)!.push(b);
-        }
-      });
-
-      // Active quotations map per spaceId (latest active quotation)
-      const spaceQuotationMap = new Map<number, any>();
-
-      rawQuotations.forEach((q: any) => {
-        const statusStr = String(q.status || q.Status || '').toLowerCase();
-        const isActiveFlag = q.isActive ?? q.IsActive ?? true;
-        const isConvertedOrDead = statusStr === 'converted' || statusStr === 'expired' || statusStr === 'cancelled' || statusStr === 'rejected';
-        const validUntilStr = q.validUntil || q.ValidUntil;
-        const validUntil = validUntilStr ? new Date(validUntilStr) : null;
-
-        const isActiveQuotation = isActiveFlag && !isConvertedOrDead && (!validUntil || validUntil >= now);
-
-        if (isActiveQuotation && q.spaceId) {
-          const existingQ = spaceQuotationMap.get(q.spaceId);
-          if (!existingQ || new Date(existingQ.createdDate || 0) < new Date(q.createdDate || 0)) {
-            spaceQuotationMap.set(q.spaceId, q);
-          }
-        }
-      });
-
-      // Customer helper
-      const resolveCustomer = (customerId: any, customerEmail: string | null, userId: any, fallbackName: string | null) => {
-        const custEmailLower = (customerEmail || '').toLowerCase();
-        const custObj = rawCustomers.find((c: any) =>
-          (c.id || c.Id) === customerId ||
-          (c.userId || c.UserId) === userId ||
-          (custEmailLower && (c.email || c.Email || '').toLowerCase() === custEmailLower)
-        );
-
-        const fullName = custObj
-          ? ([custObj.firstName || custObj.FirstName, custObj.lastName || custObj.LastName].filter(Boolean).join(' ').trim() || custObj.name || custObj.Name)
-          : null;
-
-        const compName = custObj
-          ? (custObj.companyName || custObj.CompanyName || custObj.company || custObj.Company || custObj.customerCompany || custObj.companyTitle)
-          : null;
-
-        return {
-          name: fullName || fallbackName || 'Customer',
-          company: compName || null
-        };
-      };
-
-      // Construct SpaceOperationItem for each space (for Inventory Table)
-      const processedSpaces: SpaceOperationItem[] = rawSpaces.map((s: any, idx: number) => {
-        const sId = s.id || s.Id;
-        const sCode = s.code || s.Code || `Space-${sId}`;
-        const sName = s.name || s.Name || `Space ${sId}`;
-        const sCap = s.capacity || s.Capacity || 1;
-        const typeId = s.spaceTypeIdInt || s.SpaceTypeIdInt || s.spaceTypeId || s.SpaceTypeId || 0;
-        const typeName = typeMap.get(typeId) || s.spaceTypeName || s.SpaceTypeName || 'Other';
-
-        let locId = s.locationId || s.LocationId || null;
-        let locName = s.locationName || s.LocationName || s.branchName || s.BranchName;
-        if (!locName && locId && rawLocations.length > 0) {
-          const matchLoc = rawLocations.find((l: any) => l.id === locId);
-          if (matchLoc) locName = matchLoc.name;
-        }
-        if (!locName) {
-          const defaultLocs = ['Gulberg Executive Center', 'DHA Tech Hub', 'Blue Area Commercial Plaza'];
-          locName = defaultLocs[idx % defaultLocs.length];
-        }
-
-        const activeBookings = spaceActiveBookingsMap.get(sId) || [];
-        const primaryBooking = activeBookings[0] || null;
-        const activeQuotation = spaceQuotationMap.get(sId);
-
-        let spaceStatus: 'Booked' | 'Quoted' | 'Available' | 'Expired' = 'Available';
-        let bStart: any = null;
-        let bEnd: any = null;
-        let bCustName: string | null = null;
-        let bCompName: string | null = null;
-        let bStatusStr: string | null = null;
-        let bId: number | null = null;
-        let bShift: string | undefined = undefined;
-        let rawAttendantsCount = 0;
-
-        let qId: number | null = null;
-        let qNum: string | null = null;
-        let qCustName: string | null = null;
-        let qDate: any = null;
-        let qExpiry: any = null;
-        let qAmt: number | null = null;
-        let qStatusStr: string | null = null;
-
-        if (primaryBooking) {
-          spaceStatus = 'Booked';
-          bId = primaryBooking.id || primaryBooking.Id;
-          bStart = primaryBooking.startOn || primaryBooking.StartOn || primaryBooking.startDateTime;
-          bEnd = primaryBooking.endOn || primaryBooking.EndOn || primaryBooking.endDateTime;
-          bStatusStr = primaryBooking.bookingStatusLabel || primaryBooking.bookingStatus || primaryBooking.status || 'Confirmed';
-          bShift = primaryBooking.shiftType || primaryBooking.ShiftType || primaryBooking.offeringType || '24_7';
-
-          const resolvedCust = resolveCustomer(
-            primaryBooking.customerId,
-            primaryBooking.userEmail || primaryBooking.customerEmail,
-            primaryBooking.userId,
-            primaryBooking.customerName
-          );
-          bCustName = resolvedCust.name;
-          bCompName = resolvedCust.company;
-
-          rawAttendantsCount = primaryBooking.attendantsCount ?? primaryBooking.occupantsCount ?? (primaryBooking.attendants ? primaryBooking.attendants.length : 0);
-        } else if (activeQuotation) {
-          spaceStatus = 'Quoted';
-          qId = activeQuotation.id || activeQuotation.Id;
-          qNum = activeQuotation.quotationNumber || activeQuotation.QuotationNumber || `#Q-${qId}`;
-          qDate = activeQuotation.quotationDate || activeQuotation.QuotationDate;
-          qExpiry = activeQuotation.validUntil || activeQuotation.ValidUntil;
-          qAmt = Number(activeQuotation.totalAmount || activeQuotation.TotalAmount || 0);
-          qStatusStr = activeQuotation.status || activeQuotation.Status || 'Pending';
-
-          const resolvedCust = resolveCustomer(
-            activeQuotation.customerId,
-            activeQuotation.customerEmail || activeQuotation.userEmail,
-            null,
-            activeQuotation.customerName
-          );
-          qCustName = resolvedCust.name;
-        }
-
-        const timeInfo = this.formatTimeRemaining(bEnd);
-        const isExpiring = spaceStatus === 'Booked' && timeInfo.days > 0 && timeInfo.days <= thresholdDays;
-
-        const lowerType = typeName.toLowerCase();
-        const isPrivate = lowerType.includes('private') || lowerType.includes('office') || lowerType.includes('suite') || lowerType.includes('room') || sCap > 1;
-        const isOverCap = spaceStatus === 'Booked' && rawAttendantsCount > sCap;
-        const excessAtt = isOverCap ? (rawAttendantsCount - sCap) : 0;
-
-        return {
-          spaceId: sId,
-          spaceCode: sCode,
-          spaceName: sName,
-          capacity: sCap,
-          spaceTypeId: typeId,
-          spaceTypeName: typeName,
-          locationId: locId,
-          locationName: locName,
-          status: spaceStatus,
-          bookingId: bId,
-          customerName: bCustName,
-          companyName: bCompName,
-          bookingStart: bStart,
-          bookingEnd: bEnd,
-          bookingStatus: bStatusStr,
-          shiftType: bShift,
-          quotationId: qId,
-          quotationNumber: qNum,
-          quotationCustomerName: qCustName,
-          quotationDate: qDate,
-          quotationExpiryDate: qExpiry,
-          quotationAmount: qAmt,
-          quotationStatus: qStatusStr,
-          daysRemainingNum: timeInfo.days,
-          remainingTimeFormatted: timeInfo.text,
-          isExpiringSoon: isExpiring,
-          attendantsCount: rawAttendantsCount,
-          isOverCapacity: isOverCap,
-          excessAttendants: excessAtt,
-          isPrivateSpace: isPrivate
-        };
-      });
-
-      this.allSpaces.set(processedSpaces);
-
-      // =========================================================================
-      // BUILD REDESIGNED SPACE TYPE CAPACITY & OCCUPANCY CARDS
-      // =========================================================================
-      const cardsMap = new Map<number, SpaceTypeCardData>();
-
-      // Initialize entry for all known space types from database
-      rawTypes.forEach((t: any) => {
-        const id = Number(t.id || t.Id);
-        const name = String(t.name || t.Name || t.description || 'Other');
-        if (id && !cardsMap.has(id)) {
-          cardsMap.set(id, {
-            spaceTypeId: id,
-            spaceTypeName: name,
-            totalSpaces: 0,
-            bookedCount: 0,
-            vacantCount: 0,
-            quotedCount: 0,
-            expiringCount: 0,
-            bookedDetails: [],
-            vacantDetails: [],
-            quotedDetails: [],
-            expiringDetails: []
-          });
-        }
-      });
-
-      // Aggregate each space into its space type card
-      processedSpaces.forEach(sp => {
-        let card = cardsMap.get(sp.spaceTypeId);
-        if (!card) {
-          card = {
-            spaceTypeId: sp.spaceTypeId,
-            spaceTypeName: sp.spaceTypeName,
-            totalSpaces: 0,
-            bookedCount: 0,
-            vacantCount: 0,
-            quotedCount: 0,
-            expiringCount: 0,
-            bookedDetails: [],
-            vacantDetails: [],
-            quotedDetails: [],
-            expiringDetails: []
-          };
-          cardsMap.set(sp.spaceTypeId, card);
-        }
-
-        card.totalSpaces++;
-
-        const activeBookings = spaceActiveBookingsMap.get(sp.spaceId) || [];
-        const isBooked = activeBookings.length > 0;
-
-        // 1. BOOKED SPACES
-        if (isBooked) {
-          card.bookedCount++;
-
-          const has24_7 = activeBookings.some(b => this.normalizeShift(b.shiftType || b.ShiftType || b.offeringType) === '24_7');
-          const hasMorning = activeBookings.some(b => this.normalizeShift(b.shiftType || b.ShiftType || b.offeringType) === 'morning');
-          const hasEvening = activeBookings.some(b => this.normalizeShift(b.shiftType || b.ShiftType || b.offeringType) === 'evening');
-
-          const occupiedShifts: string[] = [];
-          const openShifts: string[] = [];
-
-          if (has24_7) {
-            occupiedShifts.push('24/7 (Full Day)');
-            openShifts.push('None (Fully Occupied)');
-          } else {
-            if (hasMorning) occupiedShifts.push('Morning (6am-6pm)');
-            else openShifts.push('Morning (6am-6pm)');
-
-            if (hasEvening) occupiedShifts.push('Evening (6pm-6am)');
-            else openShifts.push('Evening (6pm-6am)');
-
-            if (openShifts.length === 0) {
-              openShifts.push('None (Fully Occupied)');
-            }
-          }
-
-          const primaryB = activeBookings[0];
-          const resolvedCust = resolveCustomer(
-            primaryB.customerId,
-            primaryB.userEmail || primaryB.customerEmail,
-            primaryB.userId,
-            primaryB.customerName
-          );
-
-          card.bookedDetails.push({
-            spaceId: sp.spaceId,
-            spaceCode: sp.spaceCode,
-            spaceName: sp.spaceName,
-            capacity: sp.capacity,
-            locationName: sp.locationName || undefined,
-            customerName: resolvedCust.name,
-            companyName: resolvedCust.company || undefined,
-            occupiedShifts,
-            openShifts,
-            bookingId: primaryB.id || primaryB.Id,
-            bookingStart: primaryB.startOn || primaryB.StartOn || primaryB.startDateTime,
-            bookingEnd: primaryB.endOn || primaryB.EndOn || primaryB.endDateTime,
-            bookingStatus: primaryB.bookingStatusLabel || primaryB.bookingStatus || 'Confirmed'
-          });
-
-          // Check if any active booking on this space is Expiring Soon
-          activeBookings.forEach(b => {
-            const endDate = b.endOn || b.EndOn || b.endDateTime;
-            const timeInfo = this.formatTimeRemaining(endDate);
-            if (timeInfo.days > 0 && timeInfo.days <= thresholdDays) {
-              card.expiringCount++;
-              card.expiringDetails.push({
-                spaceId: sp.spaceId,
-                spaceCode: sp.spaceCode,
-                spaceName: sp.spaceName,
-                capacity: sp.capacity,
-                locationName: sp.locationName || undefined,
-                customerName: resolvedCust.name,
-                companyName: resolvedCust.company || undefined,
-                bookingId: b.id || b.Id,
-                bookingStart: b.startOn || b.StartOn || b.startDateTime,
-                bookingEnd: endDate,
-                daysRemaining: timeInfo.days,
-                remainingTimeFormatted: timeInfo.text,
-                bookingStatus: b.bookingStatusLabel || b.bookingStatus || 'Confirmed'
-              });
-            }
-          });
-        } else {
-          // 2. VACANT SPACES (zero active bookings on any shift)
-          card.vacantCount++;
-
-          const futureBookings = spaceFutureBookingsMap.get(sp.spaceId) || [];
-          let nextDate: any = null;
-          let nextCust: string | null = null;
-
-          if (futureBookings.length > 0) {
-            futureBookings.sort((a, b) => new Date(a.startOn || a.startDateTime || 0).getTime() - new Date(b.startOn || b.startDateTime || 0).getTime());
-            const fb = futureBookings[0];
-            nextDate = fb.startOn || fb.StartOn || fb.startDateTime;
-            const resolvedCust = resolveCustomer(fb.customerId, fb.userEmail || fb.customerEmail, fb.userId, fb.customerName);
-            nextCust = resolvedCust.name;
-          }
-
-          card.vacantDetails.push({
-            spaceId: sp.spaceId,
-            spaceCode: sp.spaceCode,
-            spaceName: sp.spaceName,
-            capacity: sp.capacity,
-            locationName: sp.locationName || undefined,
-            nextBookingDate: nextDate,
-            nextBookingCustomer: nextCust
-          });
-        }
-
-        // 3. QUOTED SPACES (Active unconverted quotation - can coexist with Booked status)
-        const qObj = spaceQuotationMap.get(sp.spaceId);
-        if (qObj) {
-          card.quotedCount++;
-          const resolvedCust = resolveCustomer(
-            qObj.customerId,
-            qObj.customerEmail || qObj.userEmail,
-            null,
-            qObj.customerName
-          );
-
-          card.quotedDetails.push({
-            spaceId: sp.spaceId,
-            spaceCode: sp.spaceCode,
-            spaceName: sp.spaceName,
-            capacity: sp.capacity,
-            locationName: sp.locationName || undefined,
-            customerName: resolvedCust.name,
-            companyName: resolvedCust.company || undefined,
-            quotationId: qObj.id || qObj.Id,
-            quotationNumber: qObj.quotationNumber || qObj.QuotationNumber || `#Q-${qObj.id}`,
-            quotationStatus: qObj.status || qObj.Status || 'Pending',
-            quotationDate: qObj.quotationDate || qObj.QuotationDate || qObj.createdDate,
-            quotationExpiryDate: qObj.validUntil || qObj.ValidUntil,
-            quotationAmount: Number(qObj.totalAmount || qObj.TotalAmount || 0),
-            isAlsoBooked: isBooked
-          });
-        }
-      });
-
-      // Filter out types with 0 total spaces if not active, or keep cards sorted
-      const cardList = Array.from(cardsMap.values())
-        .filter(c => c.totalSpaces > 0 || c.spaceTypeName !== 'Other')
-        .sort((a, b) => b.totalSpaces - a.totalSpaces);
-
-      this.spaceTypeCards.set(cardList);
-      this.loading.set(false);
-      this.lastUpdated.set(new Date());
-      this.nowTick.set(Date.now());
-    });
+  retryTray() {
+    const t = this.tray();
+    if (!t) return;
+    if (t.status === 'ok' && t.error) this.loadTray(t.spaceTypeId, t.tag, true);
+    else this.loadTray(t.spaceTypeId, t.tag, false);
   }
 
   // =========================================================================
@@ -838,15 +666,18 @@ export class Dashboard implements OnInit, OnDestroy {
     event.stopPropagation(); // Prevents triggering card-level filter
     const cur = this.activeDropdown();
     if (cur && cur.spaceTypeId === spaceTypeId && cur.tag === tag) {
-      this.activeDropdown.set(null);
+      this.closeDropdown();
     } else {
       this.activeDropdown.set({ spaceTypeId, tag });
+      this.loadTray(spaceTypeId, tag, false);
     }
   }
 
   closeDropdown(event?: Event) {
     if (event) event.stopPropagation();
     this.activeDropdown.set(null);
+    this.traySub?.unsubscribe();
+    this.tray.set(null);
   }
 
   selectCardSpaceType(spaceTypeName: string) {
@@ -884,123 +715,22 @@ export class Dashboard implements OnInit, OnDestroy {
     }
   }
 
-  // =========================================================================
-  // FILTERED SPACES COMPUTED SIGNAL (FOR INVENTORY TABLE)
-  // =========================================================================
-  filteredSpaces = computed(() => {
-    let list = [...this.allSpaces()];
-    const sSpace = this.searchSpace().toLowerCase().trim();
-    const sCust = this.searchCustomer().toLowerCase().trim();
-    const sType = this.selectedSpaceType();
-    const sLoc = this.selectedLocation();
-    const sStatus = this.selectedStatus();
-    const sPrivOnly = this.privateSpacesOnlyFilter();
-
-    if (sSpace) {
-      list = list.filter(item => 
-        item.spaceCode.toLowerCase().includes(sSpace) || 
-        item.spaceName.toLowerCase().includes(sSpace)
-      );
-    }
-
-    if (sCust) {
-      list = list.filter(item => {
-        const cName = (item.customerName || item.quotationCustomerName || '').toLowerCase();
-        const compName = (item.companyName || '').toLowerCase();
-        return cName.includes(sCust) || compName.includes(sCust);
-      });
-    }
-
-    if (sType !== 'ALL') {
-      list = list.filter(item => item.spaceTypeName === sType);
-    }
-
-    if (sLoc !== 'ALL') {
-      list = list.filter(item => item.locationName === sLoc || String(item.locationId) === sLoc);
-    }
-
-    if (sStatus !== 'ALL') {
-      list = list.filter(item => item.status === sStatus);
-    }
-
-    if (sPrivOnly) {
-      list = list.filter(item => item.isPrivateSpace);
-    }
-
-    // Apply Sorting
-    const sortField = this.sortBy();
-    const isAsc = this.sortOrder() === 'asc';
-
-    list.sort((a, b) => {
-      let valA: any = '';
-      let valB: any = '';
-
-      if (sortField === 'urgency') {
-        const getPriority = (item: SpaceOperationItem) => {
-          if (item.status === 'Booked' && item.isExpiringSoon) return 1;
-          if (item.status === 'Booked') return 2;
-          if (item.status === 'Quoted') return 3;
-          return 4;
-        };
-        const prioA = getPriority(a);
-        const prioB = getPriority(b);
-        if (prioA !== prioB) return prioA - prioB;
-
-        if (prioA === 1) return (a.daysRemainingNum || 0) - (b.daysRemainingNum || 0);
-        return a.spaceCode.localeCompare(b.spaceCode, undefined, { numeric: true });
-      }
-
-      switch (sortField) {
-        case 'spaceCode':
-          return isAsc 
-            ? a.spaceCode.localeCompare(b.spaceCode, undefined, { numeric: true })
-            : b.spaceCode.localeCompare(a.spaceCode, undefined, { numeric: true });
-        case 'customer':
-          valA = (a.customerName || a.quotationCustomerName || '—').toLowerCase();
-          valB = (b.customerName || b.quotationCustomerName || '—').toLowerCase();
-          break;
-        case 'bookingStart':
-          valA = a.bookingStart ? new Date(a.bookingStart).getTime() : 0;
-          valB = b.bookingStart ? new Date(b.bookingStart).getTime() : 0;
-          break;
-        case 'bookingEnd':
-          valA = a.bookingEnd ? new Date(a.bookingEnd).getTime() : 0;
-          valB = b.bookingEnd ? new Date(b.bookingEnd).getTime() : 0;
-          break;
-        case 'remainingTime':
-          valA = a.daysRemainingNum ?? 99999;
-          valB = b.daysRemainingNum ?? 99999;
-          break;
-        case 'status':
-          valA = a.status;
-          valB = b.status;
-          break;
-      }
-
-      if (valA < valB) return isAsc ? -1 : 1;
-      if (valA > valB) return isAsc ? 1 : -1;
-      return 0;
-    });
-
-    return list;
-  });
-
-  // Pagination Computations
-  totalPages = computed(() => Math.max(1, Math.ceil(this.filteredSpaces().length / this.pageSize())));
+  // Pagination Computations (the server pages the table)
+  totalPages = computed(() => Math.max(1, Math.ceil(this.inventoryTotal() / this.pageSize())));
   canPrev = computed(() => this.page() > 1);
   canNext = computed(() => this.page() < this.totalPages());
 
-  paginatedSpaces = computed(() => {
-    const list = this.filteredSpaces();
-    const p = this.page();
-    const size = this.pageSize();
-    const start = (p - 1) * size;
-    return list.slice(start, start + size);
-  });
-
-  // Filter & Page Handlers
+  // Filter & Page Handlers: every change asks the server for the matching page.
   onFilterChange() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     this.page.set(1);
+    this.loadInventory();
+  }
+
+  /** Search boxes: wait for a pause in typing before asking the server. */
+  onSearchInput() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.onFilterChange(), 350);
   }
 
   /** Inventory Location filter changed: a chosen space type that isn't at the new location falls back to all types. */
@@ -1012,13 +742,15 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   setThreshold(days: number) {
-    this.expiringThreshold.set(days);
-    this.onFilterChange();
-    this.loadDashboardData();
-    this.loadAnnouncements();
+    this.expiringThreshold.set(Number(days) || 30);
+    this.page.set(1);
+    this.loadSummary();
+    this.loadInventory();
+    const t = this.tray();
+    if (t) this.loadTray(t.spaceTypeId, t.tag, false);
   }
 
-  toggleSort(field: 'urgency' | 'spaceCode' | 'customer' | 'bookingStart' | 'bookingEnd' | 'remainingTime' | 'status') {
+  toggleSort(field: SortField) {
     if (this.sortBy() === field) {
       this.sortOrder.set(this.sortOrder() === 'asc' ? 'desc' : 'asc');
     } else {
@@ -1026,19 +758,21 @@ export class Dashboard implements OnInit, OnDestroy {
       this.sortOrder.set('asc');
     }
     this.page.set(1);
+    this.loadInventory();
   }
 
   prevPage() {
-    if (this.canPrev()) this.page.set(this.page() - 1);
+    if (this.canPrev()) { this.page.set(this.page() - 1); this.loadInventory(); }
   }
 
   nextPage() {
-    if (this.canNext()) this.page.set(this.page() + 1);
+    if (this.canNext()) { this.page.set(this.page() + 1); this.loadInventory(); }
   }
 
   setPageSize(size: number) {
-    this.pageSize.set(size);
+    this.pageSize.set(Number(size) || 10);
     this.page.set(1);
+    this.loadInventory();
   }
 
   // Navigation Links
@@ -1056,7 +790,7 @@ export class Dashboard implements OnInit, OnDestroy {
     }
   }
 
-  viewQuotationDetails(quotationId?: number | null, quotationNumber?: string) {
+  viewQuotationDetails(quotationId?: number | null, quotationNumber?: string | null) {
     if (quotationNumber) {
       this.router.navigate(['/admin/quotations'], { queryParams: { search: quotationNumber } });
     } else if (quotationId) {
@@ -1064,6 +798,39 @@ export class Dashboard implements OnInit, OnDestroy {
     } else {
       this.router.navigate(['/admin/quotations']);
     }
+  }
+
+  // ---------- announcement "By Space" picker ----------
+
+  setAnnouncementScope(scope: 'All' | 'Location' | 'Space' | 'CustomList') {
+    this.announcementTargetScope.set(scope);
+    if (scope === 'Space' && this.spacePickerStatus() !== 'loading' && !this.spacePickerOptions().length) this.loadSpacePicker();
+  }
+
+  onSpacePickerSearch(value: string) {
+    this.spacePickerSearch.set(value);
+    if (this.spacePickerTimer) clearTimeout(this.spacePickerTimer);
+    this.spacePickerTimer = setTimeout(() => this.loadSpacePicker(), 350);
+  }
+
+  loadSpacePicker() {
+    this.spacePickerSub?.unsubscribe();
+    this.spacePickerStatus.set('loading');
+    this.spacePickerSub = this.mainApi.getInventory({
+      locationIds: this.kpiLocationIds(), location: null, search: this.spacePickerSearch(), customer: '', spaceType: null,
+      status: null, privateOnly: false, expiringDays: this.expiringThreshold(), sortBy: 'spaceCode', sortDir: 'asc', page: 1, pageSize: 50
+    }).subscribe({
+      next: p => {
+        this.spacePickerOptions.set(p.items.map(r => ({ spaceId: r.spaceId, label: `${r.spaceCode} - ${r.spaceName} (${r.spaceTypeName})` })));
+        this.spacePickerTotal.set(p.total);
+        this.spacePickerStatus.set('ok');
+        this.spacePickerError.set('');
+      },
+      error: (err: DashError) => {
+        this.spacePickerStatus.set('error');
+        this.spacePickerError.set(err.message);
+      }
+    });
   }
 
   // ============= ANNOUNCEMENTS & ALERTS METHODS =============

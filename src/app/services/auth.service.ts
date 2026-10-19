@@ -404,6 +404,8 @@ export class AuthService {
         }
 
         return this.syncGoogleLoginToApi$(credential.user, idToken).pipe(
+          // HTTP 200 with isSuccessful: false (e.g. "Google login failed. Please try again.") is a failure too.
+          switchMap(res => res?.isSuccessful === false ? throwError(() => ({ status: 200, error: res })) : of(res)),
           catchError((err) => {
             // Email not verified / account turned off: say so (never fall back to a session without a token).
             if (this.isSignInRefusal(err)) {
@@ -416,10 +418,10 @@ export class AuthService {
                 userId: credential.user.uid,
                 roles: []
               }).pipe(
-                map(user => user ? { data: user } : null)
+                switchMap(user => user ? of({ data: user }) : this.apiSignInFailed$(err))
               );
             }
-            return of(null);
+            return this.apiSignInFailed$(err);
           }),
           switchMap(response => this.toAuthSuccess(credential, response))
         );
@@ -1021,6 +1023,20 @@ export class AuthService {
    * A turned-off account is also signed out of Firebase (and the stored session cleared); an unverified one stays
    * signed in to Firebase so the verification email can be sent to it.
    */
+  /**
+   * The API could not confirm the Google sign-in (rejected token, server error, no connection) and there is no API
+   * session to fall back on. Without a confirmed role the sign-in used to go ahead as a customer, which sent staff to
+   * worknestpk.com with no explanation; it now stops here with the server's reason.
+   */
+  private apiSignInFailed$(error: any): Observable<never> {
+    const serverMessage = String(error?.error?.message ?? '').trim();
+    const status = Number(error?.status ?? 0);
+    const reason = serverMessage || (status ? `server error ${status}` : 'the server could not be reached');
+    const detail = /[.!?]$/.test(reason) ? reason : `${reason}.`;
+    const failure = { error: { message: `WorkNest could not confirm your sign-in: ${detail} Please try again, or contact WorkNest if it keeps happening.` } };
+    return this.endLocalSession$().pipe(switchMap(() => throwError(() => failure)));
+  }
+
   private refuseSignIn$(error: any): Observable<never> {
     const code = authFailureCode(error) ?? EMAIL_NOT_VERIFIED;
     const serverMessage = String(error?.error?.message ?? '').trim();

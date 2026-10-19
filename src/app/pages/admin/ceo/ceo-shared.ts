@@ -162,6 +162,16 @@ export function firstNameOf(user: { displayName?: string; email?: string } | nul
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
+/**
+ * The person's WorkNest name (WN_Users.Name) for "Prepared by" on an export; '' when only the email is known (an email
+ * prefix is never shown as a name).
+ */
+export function displayNameOf(user: { displayName?: string; email?: string } | null | undefined): string {
+  const name = (user?.displayName || '').trim();
+  const prefix = (user?.email || '').split('@')[0].trim();
+  return name && name.toLowerCase() !== prefix.toLowerCase() ? name : '';
+}
+
 /** Whole days from today to an ISO date (negative = past); null when there is no valid date. */
 export function daysUntil(date: string | null | undefined): number | null {
   if (!date) return null;

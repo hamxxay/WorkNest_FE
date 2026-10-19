@@ -122,29 +122,38 @@ export class BookingService {
     return this.http.patch<any>(`${this.apiUrl}/${id}/cancel`, {});
   }
 
+  // ---- Free meeting-room hours (private office customers; API booking/meeting-room/*, script MR_01) ----
+
   /**
-   * Get monthly free meeting room entitlement details for a given date
+   * Monthly free meeting-room allowance for the month of `date` (YYYY-MM-DD):
+   * { hasEntitlement, allocatedMinutes, usedMinutes, remainingMinutes, maxBookingHours, locationName, message, ... }
    */
   getMeetingRoomEntitlement(date: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/meeting-room/entitlement?date=${date}`);
+    return this.http.get<any>(`${this.apiUrl}/meeting-room/entitlement`, { params: { date } });
+  }
+
+  /** Meeting rooms the customer may book with free hours on `date`, each with the times already taken (`busy`). */
+  getFreeMeetingRooms(date: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/meeting-room/rooms`, { params: { date } });
   }
 
   /**
-   * Create a free meeting room booking using monthly entitlement hours
+   * Create a free meeting room booking using monthly entitlement hours.
+   * startOn: Pakistan wall-clock time without an offset, e.g. "2026-10-20T10:00:00".
    */
   bookFreeMeetingRoom(booking: { spaceId: number; startOn: string; durationHours: number; notes?: string }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/meeting-room/book`, booking);
   }
 
   /**
-   * Cancel a free meeting room booking
+   * Cancel a free meeting room booking (own booking, before it starts)
    */
   cancelFreeMeetingRoom(id: number, cancelReason?: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/meeting-room/${id}/cancel`, { cancelReason });
+    return this.http.post<any>(`${this.apiUrl}/meeting-room/${id}/cancel`, { cancelReason: cancelReason || null });
   }
 
   /**
-   * Get user's own free meeting room bookings list
+   * Get user's own free meeting room bookings list (newest first)
    */
   getMyFreeMeetingRooms(): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/meeting-room/my`);

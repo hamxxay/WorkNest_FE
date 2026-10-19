@@ -16,6 +16,8 @@ export interface OverviewDrillScope {
   /** Locations to total (one or several); empty = all the user may see (or locationId). */
   locationIds: number[];
   locationId: number | null;
+  /** The dashboard's period (month / quarter / year, or custom); top customers follow it. */
+  period: string;
   /** Custom date range, 'yyyy-MM-dd'; used when both are set (they replace the period). */
   customFrom: string | null;
   customTo: string | null;
@@ -91,6 +93,7 @@ export function overviewDrillSource(details: DashboardDetailsService, scope: () 
         ...rest,
         locationIds: s.locationIds.length ? s.locationIds.join(',') : null,
         locationId: s.locationIds.length ? null : s.locationId,
+        period: range || s.period === 'custom' ? null : s.period,
         from: range ? s.customFrom : null,
         to: range ? s.customTo : null
       }).pipe(map((d): DrillRecords => ({

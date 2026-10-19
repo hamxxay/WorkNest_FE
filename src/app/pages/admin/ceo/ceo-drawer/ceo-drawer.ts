@@ -11,6 +11,9 @@ import {
 import type {
   SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
 } from '../../../../services/sales-manager.service';
+import { DashRange, drillPeriodQuery } from '../../../../services/dashboard-api';
+import { XlsxCell, downloadXlsx } from '../../../../utils/xlsx';
+import { fileDate, fileSlug } from '../../../../utils/page-pdf';
 import {
   AGING_COLORS, AXIS_MONEY, Chart, DrillLevel, DrillMetricSpec, DrillRecords, DrillRequest, DrillSource, GRID, INQUIRY_TYPES,
   LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, complaintStatusStyle, count,
@@ -48,8 +51,12 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
-    // status: 'paid' when opened from Collected (the API's breakdown leaves it out; the invoices use it).
-    next: (p, r) => ({ kind: 'records', records: 'invoices', params: { month: p['month'], locationId: r.key, status: p['status'] }, crumb: r.label }),
+    // status: 'paid' when opened from Collected (the API's breakdown leaves it out; the invoices use it). A custom period
+    // opens it with from / to instead of a month (the invoices issued in that range).
+    next: (p, r) => ({
+      kind: 'records', records: 'invoices',
+      params: { month: p['month'], from: p['from'], to: p['to'], locationId: r.key, status: p['status'] }, crumb: r.label
+    }),
     nextLabel: (p, r) => `Open the ${p['status'] === 'paid' ? 'paid ' : ''}invoices of ${r.label}`
   },
   // ----- level 2 lists built from the dashboard's own figures (DrillLevel.local) -----
@@ -132,6 +139,8 @@ export class CeoDrawer {
   /** Where the levels come from; null = the CEO API. */
   source = input<DrillSource | null>(null);
   period = input<CeoPeriod>('month');
+  /** The dashboard's custom range (period custom); every level asks for the same range. */
+  range = input<DashRange | null>(null);
   /** The dashboard's location filter; a level's own locationId wins. */
   locationId = input<number | null>(null);
   closed = output<void>();
@@ -206,9 +215,9 @@ export class CeoDrawer {
       });
     });
 
-    // Period or location changed under an open drawer: reload what is on screen.
+    // Period, range or location changed under an open drawer: reload what is on screen.
     effect(() => {
-      this.period(); this.locationId();
+      this.period(); this.range(); this.locationId();
       untracked(() => { const e = this.current(); if (e) this.load(e); });
     });
 
@@ -306,7 +315,8 @@ export class CeoDrawer {
   private load(entry: Entry) {
     this.sub?.unsubscribe();
     this.patch(entry.uid, { status: 'loading', error: undefined });
-    const params: CeoParams = { period: this.period(), locationId: this.locationId(), ...entry.level.params };
+    // The dashboard's period (a custom one as periodFrom / periodTo) and location; the level's own params win.
+    const params: CeoParams = { ...drillPeriodQuery(this.period(), this.range()), locationId: this.locationId(), ...entry.level.params };
     const src = this.src();
     if (entry.level.kind === 'breakdown' && entry.level.local) {
       this.patch(entry.uid, { status: 'ok', breakdown: entry.level.local() });
@@ -502,6 +512,63 @@ export class CeoDrawer {
     if (isNaN(d.getTime())) return null;
     const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
     return Math.round((d.getTime() - t.getTime()) / 86400000);
+  }
+
+  // ---------- Excel: the level on screen ----------
+
+  canExport = computed(() => {
+    const e = this.current();
+    if (e?.status !== 'ok') return false;
+    return e.level.kind === 'breakdown' ? this.rows().length > 0 : (e.records?.rows.length ?? 0) > 0;
+  });
+
+  /**
+   * The breakdown (its rows with both values, the derived % and the count) or the records list (every field but the
+   * ids, as the API sends them) as an .xlsx; a second sheet says what it is.
+   */
+  exportExcel() {
+    const e = this.current();
+    if (!e || !this.canExport()) return;
+    let table: XlsxCell[][];
+    if (e.level.kind === 'breakdown' && e.breakdown) {
+      const spec = this.spec();
+      const b = e.breakdown;
+      const v2 = this.hasValue2(), cnt = this.hasCount(), derived = spec?.derived;
+      const unit = spec?.money ? ' (PKR)' : '';
+      const unit2 = (spec?.money2 ?? spec?.money) ? ' (PKR)' : '';
+      table = [
+        [spec?.rowLabel ?? 'Row', `${b.valueLabel}${unit}`, ...(v2 ? [`${b.value2Label || 'Second value'}${unit2}`] : []),
+          ...(derived ? [`${derived.label} (%)`] : []), ...(cnt ? ['Items'] : [])],
+        ...this.rows().map(r => {
+          const d = derived?.of(r);
+          return [r.label, r.value, ...(v2 ? [r.value2] : []), ...(derived ? [d === null || d === undefined ? null : Math.round(d * 10) / 10] : []),
+            ...(cnt ? [r.count] : [])];
+        })
+      ];
+    } else {
+      const list = (e.records?.rows ?? []) as Record<string, unknown>[];
+      const keys = Object.keys(list[0] ?? {}).filter(k => !/Id$/.test(k));
+      const head = (k: string) => {
+        const words = k.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+        return words.charAt(0).toUpperCase() + words.slice(1);
+      };
+      const cell = (v: unknown): XlsxCell =>
+        typeof v === 'boolean' ? (v ? 'Yes' : 'No') : typeof v === 'number' || typeof v === 'string' ? v : v === null || v === undefined ? null : String(v);
+      table = [keys.map(head), ...list.map(r => keys.map(k => cell(r[k])))];
+    }
+    const sub = e.breakdown?.subtitle;
+    const about: XlsxCell[][] = [
+      [this.title()],
+      ...(sub ? [[sub]] : []),
+      ['Path', this.crumbs().join(' / ')],
+      ...(e.level.kind === 'records' ? [['Rows', `${this.recordShown()} of ${this.recordTotal()}`]] : []),
+      ...(this.desks() ? [] : [['Money in PKR']]),
+      ['Generated', new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })]
+    ];
+    downloadXlsx(`${fileSlug('WorkNest', this.request()?.root ?? '', e.level.crumb)}-${fileDate()}.xlsx`, [
+      { name: e.level.kind === 'records' ? RECORD_TITLES[e.level.records] ?? 'Records' : 'Breakdown', rows: table },
+      { name: 'About', header: 0, rows: about }
+    ]);
   }
 
   // ---------- keyboard: Escape closes, Tab stays inside ----------

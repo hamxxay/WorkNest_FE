@@ -30,6 +30,9 @@
   transition: border-color .15s, background .15s;
 }
 .nav-btn:hover { border-color: #94a3b8; background: #f8fafc; }
+.nav-btn.drawer-export { margin-left: auto; padding: 0 10px; gap: 6px; }
+.nav-btn.drawer-export:disabled { opacity: .5; cursor: default; }
+.drawer-export + .close-btn { margin-left: 0; }
 .close-btn {
   margin-left: auto; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; border: 1px solid transparent;
   background: transparent; color: #475569; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
@@ -178,6 +181,8 @@
 
 @media (max-width: 640px) {
   .close-btn { width: 44px; height: 44px; margin-right: -6px; }
+  .drawer-export-label { display: none; }
+  .nav-btn.drawer-export { height: 40px; }
   .nav-btn { height: 40px; }
   .drawer-body { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
   .drawer-head { padding: 12px 16px 14px; }

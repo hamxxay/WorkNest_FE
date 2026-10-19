@@ -154,7 +154,7 @@
     <div class="panel-head">
       <div>
         <h3>Top customers</h3>
-        <p class="panel-sub">By amount invoiced this {{ periodWord() }}</p>
+        <p class="panel-sub">By amount invoiced {{ customersWhen() }}</p>
       </div>
     </div>
     <div class="chart-box h-md chart-nav" [attr.tabindex]="canNav('customers') ? 0 : null" [attr.role]="canNav('customers') ? 'group' : null"

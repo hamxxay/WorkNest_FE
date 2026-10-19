@@ -17,6 +17,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { InquiryRef, inquiryPath } from '../utils/inquiry-ref';
+import { FilteredList, LIST_API_PATH, ListFilterParams, ListStatusOption, appendListFilters } from '../utils/list-filters';
 import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest, OccupiedSpaces } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
@@ -199,12 +200,13 @@ export class AdminService {
   // ============= BOOKING MANAGEMENT =============
 
   /** Get paginated list of bookings */
-  getBookings(page?: number, limit?: number, search?: string, locationId?: number): Observable<ApiResponse<Booking[]>> {
+  getBookings(page?: number, limit?: number, search?: string, locationId?: number, filters?: ListFilterParams): Observable<ApiResponse<Booking[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Booking[]>>(`${this.api}/booking${qs}`);
   }
@@ -262,11 +264,12 @@ export class AdminService {
   getMembershipSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/membership/${id}/summary`); }
 
   // Payments
-  getPayments(page?: number, limit?: number, search?: string): Observable<ApiResponse<Payment[]>> {
+  getPayments(page?: number, limit?: number, search?: string, filters?: ListFilterParams): Observable<ApiResponse<Payment[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Payment[]>>(`${this.api}/payment${qs}`);
   }
@@ -286,13 +289,14 @@ export class AdminService {
   // ============= INVOICE MANAGEMENT =============
 
   /** Get paginated list of invoices with optional type filter (1: Regular, 3: Security Deposit) */
-  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number): Observable<ApiResponse<any[]>> {
+  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number, filters?: ListFilterParams): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (typeId != null && typeId > 0) params.set('typeId', String(typeId));
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice${qs}`);
   }
@@ -464,13 +468,23 @@ export class AdminService {
   }
 
   // Customers
-  getCustomers(page?: number, limit?: number, search?: string): Observable<ApiResponse<any[]>> {
+  getCustomers(page?: number, limit?: number, search?: string, filters?: ListFilterParams): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/customer${qs}`);
+  }
+
+  /** Choices of a list's Status filter, from the database (GET api/{list}/statuses): [{ value, label }]. */
+  getListStatusOptions(list: FilteredList): Observable<ListStatusOption[]> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/${LIST_API_PATH[list]}/statuses`).pipe(
+      map(res => (Array.isArray(res?.data) ? res.data : [])
+        .map((o: any) => ({ value: String(o?.value ?? o?.Value ?? '').trim(), label: String(o?.label ?? o?.Label ?? '').trim() }))
+        .filter((o: ListStatusOption) => o.value !== '' && o.label !== ''))
+    );
   }
   searchCustomers(query: string): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/customer/search?q=${encodeURIComponent(query)}`);
@@ -626,10 +640,13 @@ export class AdminService {
   }
   // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
   // locationIds: total these locations (one or several); empty = all the user may see (API limits sales executives to theirs).
-  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+  // period 'custom': from / to (yyyy-MM-dd, both days included) are sent as the range; the other periods ignore them.
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' | 'custom' = 'month', locationIds: number[] = [],
+    from?: string | null, to?: string | null): Observable<any> {
     const params: any = { period };
     if (locationIds.length) params.locationIds = locationIds.join(',');
     else if (locationId) params.locationId = locationId;
+    if (period === 'custom' && from && to) { params.from = from; params.to = to; }
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }
   // The rooms behind the overview's Occupancy card: every space in use right now (same rule and locations as the card).
@@ -641,9 +658,11 @@ export class AdminService {
   }
   // Role-based dashboard sections (sales executive: pipeline / inquiries / renewals / collections; admin: team &
   // service; super admin: also location comparison, staff, system health). Same location rules as the overview.
-  getRoleDashboard(period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+  getRoleDashboard(period: 'month' | 'quarter' | 'year' | 'custom' = 'month', locationIds: number[] = [],
+    from?: string | null, to?: string | null): Observable<any> {
     const params: any = { period };
     if (locationIds.length) params.locationIds = locationIds.join(',');
+    if (period === 'custom' && from && to) { params.from = from; params.to = to; }
     return this.http.get<any>(`${this.api}/dashboard/role`, { params });
   }
   // Revenue & occupancy forecast for the next N months (default 3) from current leases. Same location rules as the overview.

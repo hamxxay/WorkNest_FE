@@ -11,6 +11,38 @@ import { friendlyHttpMessage } from '../interceptors/error.interceptor';
 /** Query values; null / undefined / '' are left out of the request. */
 export type DashParams = Record<string, string | number | boolean | null | undefined>;
 
+/** A custom date range (yyyy-MM-dd, both days included): period = custom, API CS_01. */
+export interface DashRange { from: string; to: string; }
+
+/**
+ * The period of a dashboard call (dashboard, rooms, complaints): period, plus from / to for a custom range. A calendar
+ * period sends no dates, so those requests stay exactly as before (and work before the database update CS_01).
+ */
+export function periodQuery(period: string, range: DashRange | null | undefined): DashParams {
+  return period === 'custom' && range ? { period, from: range.from, to: range.to } : { period };
+}
+
+/**
+ * The period of a drill-down call (breakdown, records): a custom range goes as periodFrom / periodTo, since from / to
+ * there narrow a list on their own (e.g. the bookings made since 2000 that run today).
+ */
+export function drillPeriodQuery(period: string, range: DashRange | null | undefined): DashParams {
+  return period === 'custom' && range ? { period, periodFrom: range.from, periodTo: range.to } : { period };
+}
+
+/** The custom range a response covers (its from / to), or null. */
+export function rangeOf(d: any): DashRange | null {
+  const from = typeof d?.from === 'string' ? d.from : '';
+  const to = typeof d?.to === 'string' ? d.to : '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) ? { from, to } : null;
+}
+
+/** A period word from the API ("month" | "quarter" | "year" | "custom"), else the one asked for. */
+export function periodOf<P extends string>(raw: unknown, asked: P): P {
+  const p = typeof raw === 'string' ? raw : '';
+  return (p === 'month' || p === 'quarter' || p === 'year' || p === 'custom' ? p : asked) as P;
+}
+
 /** A failed dashboard request, worded for the page. */
 export interface DashError {
   status: number;

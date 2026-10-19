@@ -543,6 +543,14 @@
 /* Tour Inquiries / Complaints: Type and Location filters kept together between the search box and the page size. */
 .toolbar-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .toolbar-filters .type-filter { margin-left: 0; }
+/* Customers / Bookings / Quotations / Invoices / Payments: Location, Status and a date range (server-side filters). */
+.list-filters { gap: 12px; }
+.date-filter input { border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 8px; font-size: .82rem; color: #0f172a; background: #fff; }
+.date-filter input:disabled, .list-filters select:disabled { opacity: .6; }
+.btn-clear-filters { padding: 5px 12px; font-size: .8rem; }
+/* A list that could not be loaded: the message and Retry instead of "No records found.". */
+.empty-state.list-error p { color: #b91c1c; margin-bottom: 12px; }
+.empty-state .btn-admin { margin: 0 auto; }
 /* Branch of a tour inquiry / complaint (no branch = .type-unset, "No branch"). */
 .type-pill.branch-pill { background: #f0fdfa; color: #0f766e; }
 .col-key-fullName { min-width: 130px; }
@@ -640,6 +648,7 @@
   .toolbar-filters { width: 100%; gap: 10px; }
   .toolbar-filters .page-size-wrap { flex: 1 1 140px; }
   .toolbar-filters .page-size-wrap select { flex: 1; min-width: 0; }
+  .toolbar-filters .date-filter input { flex: 1; min-width: 0; min-height: 40px; font-size: 16px; }
   .toolbar-right { width: 100%; justify-content: space-between; }
   .page-size-wrap select { min-height: 40px; font-size: 16px; }
   .admin-pagination { justify-content: space-between; gap: 8px; }
