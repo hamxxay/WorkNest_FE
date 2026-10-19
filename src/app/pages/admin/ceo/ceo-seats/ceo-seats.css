@@ -1,6 +1,7 @@
 /* The Seats section uses the CEO dashboard's stylesheet (ceo-dashboard.css, loaded first) for its cards, panels,
    charts, bar lists, tables and states. Only the few pieces the rest of the page does not have are here; colours are
-   the dashboard's own (teal accent, slate text, amber for warnings). */
+   the site tokens (styles.css: --accent, --text-*, --bg-*) with the dashboard's own values as fallbacks, and the
+   dashboard's amber for warnings, so a restyle of the tokens applies here too. */
 
 .seats-body { transition: opacity .2s ease; }
 .seats-body.is-refreshing { opacity: .55; pointer-events: none; }
@@ -8,31 +9,31 @@
 /* six KPI cards, as the Rooms section */
 .kpi-grid.kpi-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .chart-empty-icon.db { background: #fef3c7; color: #b45309; }
-.head-stats strong small { font-size: 0.75rem; font-weight: 600; color: #94a3b8; }
+.head-stats strong small { font-size: 0.75rem; font-weight: 600; color: var(--text-muted, #94a3b8); }
 
 /* by location / space type: seats sold (bar) with rooms occupied as a mark on the same track */
 .seat-track { position: relative; overflow: visible; }
 .seat-track .bar-fill { position: relative; }
 .room-mark {
   position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px;
-  background: #475569; box-shadow: 0 0 0 2px #fff;
+  background: var(--text-secondary, #475569); box-shadow: 0 0 0 2px var(--bg-card, #fff);
 }
-.seat-meta { font-size: 0.72rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seat-meta { font-size: 0.72rem; color: var(--text-muted, #94a3b8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat-meta .warn { color: #b45309; font-weight: 600; }
-.seats-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -6px 0 8px; font-size: 0.72rem; font-weight: 600; color: #64748b; }
+.seats-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -6px 0 8px; font-size: 0.72rem; font-weight: 600; color: var(--text-secondary, #64748b); }
 .seats-key span { display: inline-flex; align-items: center; gap: 6px; }
 .sw { display: inline-block; flex-shrink: 0; }
-.sw.seat { width: 12px; height: 8px; border-radius: 999px; background: #0d9488; }
-.sw.room { width: 3px; height: 12px; border-radius: 2px; background: #475569; }
+.sw.seat { width: 12px; height: 8px; border-radius: 999px; background: var(--accent, #0d9488); }
+.sw.room { width: 3px; height: 12px; border-radius: 2px; background: var(--text-secondary, #475569); }
 
 /* seats with one shift free to sell */
-.one-shift { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #f8fafc; font-size: 0.78rem; color: #64748b; }
-.one-shift strong { font-size: 0.84rem; color: #0f172a; }
+.one-shift { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--bg-secondary, #f8fafc); font-size: 0.78rem; color: var(--text-secondary, #64748b); }
+.one-shift strong { font-size: 0.84rem; color: var(--text-primary, #0f172a); }
 .one-shift.has { background: #fffbeb; }
 .one-shift.has strong { color: #92400e; }
 
 /* the 12-month table: this month is "now" */
-.now-tag { margin-left: 6px; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #0f766e; }
+.now-tag { margin-left: 6px; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-hover, #0f766e); }
 
 @media (max-width: 1400px) {
   .kpi-grid.kpi-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
