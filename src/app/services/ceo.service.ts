@@ -229,7 +229,23 @@ export interface CeoRoom {
   occupiedNow: boolean;
   /** Days of the period so far with a confirmed booking, % (0-100). */
   periodOccupancyPct: number;
+  /** The days behind periodOccupancyPct (null when the API does not send them). */
+  occupiedDays: number | null;
+  periodDays: number | null;
   sales: CeoRoomSale[];
+}
+
+/** Occupancy of one room category (private offices, shared spaces): the API's summary.byCategory. */
+export interface CeoRoomCategory {
+  /** WN_SpaceCategories.Code: PrivateOffice | SharedSpace ('' = rooms without one). */
+  categoryCode: string;
+  /** The category's label from the database (e.g. "Private Office"). */
+  label: string;
+  rooms: number; occupiedNow: number; vacantNow: number;
+  /** Occupied now / rooms, %. */
+  occupancyNowPct: number;
+  /** Days occupied: room-days with a confirmed booking / room-days of the period so far, %. */
+  periodOccupancyPct: number;
 }
 
 export interface CeoShiftSummary {
@@ -255,6 +271,11 @@ export interface CeoRoomsSummary {
   overPremiumMonthly: number;
   /** Always 24/7, Morning, Evening (in that order). */
   byShift: CeoShiftSummary[];
+  /**
+   * Always Private Office then Shared Space (zeros when there are none), then any other category the rooms carry;
+   * the same rooms as the totals above, so they add up to them.
+   */
+  byCategory: CeoRoomCategory[];
 }
 
 export interface CeoRooms {
@@ -356,8 +377,74 @@ function toRoom(r: any): CeoRoom {
     seats, listSeatPrice, listRoomPrice: numOrNull(r.listRoomPrice) ?? listSeatPrice * seats,
     occupiedNow: flag(r.occupiedNow),
     periodOccupancyPct: clampPct(sentPct ?? (occupiedDays !== null && periodDays ? (occupiedDays / periodDays) * 100 : 0)),
+    occupiedDays, periodDays,
     sales: arr(r.sales, (s: any) => toRoomSale(s, { seats, listSeatPrice }))
   };
+}
+
+// ---------- room categories (private offices, shared spaces) ----------
+
+/** The categories of the report's rooms, in the order the cards show them (always both, as the API). */
+export const ROOM_CATEGORIES: readonly string[] = ['PrivateOffice', 'SharedSpace'];
+
+/**
+ * A category's label only when the API sends none (an API from before byCategory): the words of its code
+ * ("PrivateOffice" -> "Private Office"), "Other" for rooms without one. The API's label (the database's) always wins.
+ */
+export function roomCategoryLabel(code: string): string {
+  const c = (code || '').trim();
+  if (!c) return 'Other';
+  return c.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, ch => ch.toUpperCase());
+}
+
+const sameCode = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** A room's category as the cards and the room map group it: a known code in the report's spelling, else as sent. */
+export function roomCategoryOf(room: Pick<CeoRoom, 'categoryCode'>): string {
+  const c = (room.categoryCode || '').trim();
+  return ROOM_CATEGORIES.find(k => sameCode(k, c)) ?? c;
+}
+
+/**
+ * Occupancy per category worked out from the rooms, by the API's rule: both report categories first (zeros when
+ * there are none), then any other code; days occupied from the rooms' days (room-days), else their mean %.
+ */
+export function summarizeRoomCategories(rooms: CeoRoom[]): CeoRoomCategory[] {
+  const codes = [...ROOM_CATEGORIES];
+  for (const r of rooms) {
+    const c = roomCategoryOf(r);
+    if (!codes.some(k => sameCode(k, c))) codes.push(c);
+  }
+  return codes.map(code => {
+    const g = rooms.filter(r => sameCode(roomCategoryOf(r), code));
+    const occupied = g.filter(r => r.occupiedNow).length;
+    const days = sumOf(g, r => r.periodDays ?? 0);
+    return {
+      categoryCode: code, label: roomCategoryLabel(code),
+      rooms: g.length, occupiedNow: occupied, vacantNow: g.length - occupied,
+      occupancyNowPct: ratioPct(occupied, g.length),
+      periodOccupancyPct: g.length && g.every(r => r.periodDays)
+        ? ratioPct(sumOf(g, r => r.occupiedDays ?? 0), days)
+        : g.length ? sumOf(g, r => r.periodOccupancyPct) / g.length : 0
+    };
+  });
+}
+
+/** The API's byCategory (its labels and figures), a missing figure from the rooms; none sent = worked out from them. */
+function categoriesOf(sent: unknown, calc: CeoRoomCategory[]): CeoRoomCategory[] {
+  const rows = arr(sent, (x: any) => obj(x)).filter((x): x is Record<string, any> => !!x);
+  if (!rows.length) return calc;
+  return rows.map(x => {
+    const code = str(x['categoryCode'] ?? x['code']).trim();
+    const c = calc.find(k => sameCode(k.categoryCode, code));
+    const n = (k: keyof CeoRoomCategory): number => numOrNull(x[k]) ?? (c ? (c[k] as number) : 0);
+    return {
+      categoryCode: c?.categoryCode ?? code,
+      label: str(x['label']).trim() || c?.label || roomCategoryLabel(code),
+      rooms: n('rooms'), occupiedNow: n('occupiedNow'), vacantNow: n('vacantNow'),
+      occupancyNowPct: clampPct(n('occupancyNowPct')), periodOccupancyPct: clampPct(n('periodOccupancyPct'))
+    };
+  });
 }
 
 /** The summary worked out from the rooms (used for whatever the API leaves out). */
@@ -389,7 +476,8 @@ export function summarizeRooms(rooms: CeoRoom[]): CeoRoomsSummary {
         soldMonthly: sumOf(xs, s => s.soldMonthly),
         varianceMonthly: sumOf(xs, s => s.varianceMonthly)
       };
-    })
+    }),
+    byCategory: summarizeRoomCategories(rooms)
   };
 }
 
@@ -444,7 +532,8 @@ export function toCeoRooms(raw: unknown, period: CeoPeriod): CeoRooms {
           shift: c.shift, sales: n('sales'), under: n('under'), at: n('at'), over: n('over'), unpriced: n('unpriced'),
           expectedMonthly: n('expectedMonthly'), soldMonthly: n('soldMonthly'), varianceMonthly: n('varianceMonthly')
         };
-      })
+      }),
+      byCategory: categoriesOf(s['byCategory'], calc.byCategory)
     }
   };
 }
