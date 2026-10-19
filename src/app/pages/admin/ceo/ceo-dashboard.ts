@@ -9,9 +9,15 @@ import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
 import {
   AGING_COLORS, AGING_FALLBACK, AXIS_MONEY, Chart, ChartKeyNav, DrillLevel, DrillRequest, GRID, INQUIRY_TYPES, LEGEND, TEAL,
-  TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, firstNameOf, fullMoney, inquiryTypeKey,
-  money, monthLong, monthShort, pct, periodWord, pointerOnHover, ratio, trend
+  TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, Trend, applyChartDefaults, count, displayNameOf, firstNameOf, fullMoney,
+  inquiryTypeKey, money, monthLong, monthShort, pct, pointerOnHover, ratio, trend
 } from './ceo-shared';
+import { RangeEditor, periodTitleOf, periodWords, previousRange } from './period-range';
+import { ceoWorkbook } from './ceo-export';
+import type { DashRange } from '../../../services/dashboard-api';
+import { AutoRefresh } from '../../../utils/auto-refresh';
+import { exportPagePdf, fileDate, fileSlug } from '../../../utils/page-pdf';
+import { downloadXlsx } from '../../../utils/xlsx';
 
 interface Kpi {
   key: string;
@@ -31,9 +37,11 @@ type ChartKey = 'revenue' | 'aging' | 'occupancy';
 
 /**
  * CEO dashboard (/admin/ceo): company-wide money, occupancy, sales and team figures for this month / quarter /
- * year, all locations or one. Every chart and list drills down in a side drawer (breakdown, then records).
- * Read-only. Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook, GET api/ceo/rooms for
- * the Rooms section, which loads on its own).
+ * year or a custom date range (compared with the same number of days before it), all locations or one. Every chart
+ * and list drills down in a side drawer (breakdown, then records, for the same period). Read-only. Reloads quietly
+ * every 5 minutes while the tab is visible (not while a drawer is open); Export PDF (the page as shown) and Export
+ * Excel (the figures behind it). Data: GET api/ceo/dashboard (+ GET api/dashboard/forecast for the 3-month outlook,
+ * GET api/ceo/rooms for the Rooms section, which loads on its own).
  */
 @Component({
   selector: 'app-ceo-dashboard',
@@ -57,6 +65,11 @@ export class CeoDashboard {
     { key: 'month', label: 'This month' }, { key: 'quarter', label: 'Quarter' }, { key: 'year', label: 'Year' }
   ];
   period = signal<CeoPeriod>('month');
+  /** The custom range (period custom); kept when another period is chosen, so Custom opens with it again. */
+  range = signal<DashRange | null>(null);
+  /** The range the requests use: only with period custom. */
+  activeRange = computed(() => (this.period() === 'custom' ? this.range() : null));
+  readonly rangeEditor = new RangeEditor();
   locationId = signal<number | null>(null);
 
   data = signal<CeoDashboardData | null>(null);
@@ -73,6 +86,11 @@ export class CeoDashboard {
   drill = signal<DrillRequest | null>(null);
   /** Bumped by the refresh button: the Rooms section reloads too. */
   roomsReload = signal(0);
+  /** Bumped by the auto refresh: the Rooms section reloads quietly. */
+  roomsQuietReload = signal(0);
+  /** Export running ('pdf' | 'xlsx'); null = none. */
+  exporting = signal<'pdf' | 'xlsx' | null>(null);
+  exportError = signal('');
   /** Screen reader text for the chart that has keyboard focus. */
   chartAnnounce = signal('');
 
@@ -90,18 +108,30 @@ export class CeoDashboard {
   private revenueCanvas = viewChild<ElementRef<HTMLCanvasElement>>('revenueCanvas');
   private agingCanvas = viewChild<ElementRef<HTMLCanvasElement>>('agingCanvas');
   private occCanvas = viewChild<ElementRef<HTMLCanvasElement>>('occCanvas');
+  /** What Export PDF prints: the sections under the header. */
+  private exportRoot = viewChild<ElementRef<HTMLElement>>('exportRoot');
+  private roomsSection = viewChild(CeoRoomsSection);
+  private host = inject(ElementRef<HTMLElement>);
+
+  /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
+  private auto = new AutoRefresh({
+    run: () => this.autoRefresh(),
+    paused: () => !!this.drill() || this.rangeEditor.open() || !!this.exporting() || this.loading() || this.refreshing()
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.sub?.unsubscribe();
       this.forecastSub?.unsubscribe();
       this.destroyCharts();
+      this.auto.stop();
       if (this.clock) clearInterval(this.clock);
     });
     this.clock = setInterval(() => this.nowTick.set(Date.now()), 30_000);
 
     effect(() => {
       this.period();
+      this.activeRange();
       this.locationId();
       untracked(() => { this.load(); this.loadForecast(); });
     });
@@ -109,12 +139,13 @@ export class CeoDashboard {
 
   // ---------- loading ----------
 
-  load() {
+  /** quiet: the auto refresh (no dimming; the figures on screen stay until the new ones arrive). */
+  load(quiet = false) {
     this.sub?.unsubscribe();
-    if (this.data()) this.refreshing.set(true); else this.loading.set(true);
+    if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const key = this.selectionKey();
     const locationId = this.locationId();
-    this.sub = this.ceo.getDashboard(this.period(), locationId).subscribe({
+    this.sub = this.ceo.getDashboard(this.period(), locationId, this.activeRange()).subscribe({
       next: d => {
         this.data.set(d);
         this.dataKey = key;
@@ -123,6 +154,7 @@ export class CeoDashboard {
         this.loading.set(false);
         this.refreshing.set(false);
         this.lastUpdated.set(new Date());
+        this.auto.markFresh();
         if (d.locations.length) {
           const byId = new Map(this.knownLocations().map(l => [l.locationId, l]));
           d.locations.forEach(l => byId.set(l.locationId, l));
@@ -144,11 +176,14 @@ export class CeoDashboard {
   private dataKey = '';
   /** The location the figures on screen belong to (null = all locations). */
   private shownLocationId = signal<number | null>(null);
-  private selectionKey(): string { return `${this.period()}|${this.locationId() ?? ''}`; }
+  private selectionKey(): string {
+    const r = this.activeRange();
+    return `${this.period()}|${r?.from ?? ''}|${r?.to ?? ''}|${this.locationId() ?? ''}`;
+  }
 
-  loadForecast() {
+  loadForecast(quiet = false) {
     this.forecastSub?.unsubscribe();
-    this.forecastLoading.set(true);
+    if (!quiet) this.forecastLoading.set(true);
     this.forecastSub = this.ceo.getForecast(this.locationId(), 3).subscribe({
       next: f => { this.forecast.set(f); this.forecastError.set(null); this.forecastLoading.set(false); },
       error: (err: CeoError) => { this.forecastError.set(CeoService.describeError(err)); this.forecastLoading.set(false); }
@@ -161,7 +196,100 @@ export class CeoDashboard {
     this.roomsReload.update(n => n + 1);
   }
 
-  setPeriod(p: CeoPeriod) { if (p !== this.period()) this.period.set(p); }
+  /** The 5-minute refresh: every section, quietly (an open drawer is never reached: the refresh waits for it). */
+  private autoRefresh() {
+    this.load(true);
+    this.loadForecast(true);
+    this.roomsQuietReload.update(n => n + 1);
+  }
+
+  setPeriod(p: CeoPeriod) {
+    this.rangeEditor.close();
+    if (p !== this.period()) this.period.set(p);
+  }
+
+  /** "Custom": the From / To editor (with the range on screen, or the current period to today). */
+  openRange() {
+    if (this.rangeEditor.open()) { this.rangeEditor.close(); return; }
+    this.rangeEditor.show(this.period(), this.range());
+    setTimeout(() => (this.host.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#ceo-range-from')?.focus());
+  }
+
+  applyRange(e: Event) {
+    e.preventDefault();
+    const r = this.rangeEditor.apply();
+    if (!r) return;
+    this.range.set(r);
+    this.period.set('custom');
+  }
+
+  closeRange() {
+    this.rangeEditor.close();
+    setTimeout(() => (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>('#ceo-range-btn')?.focus());
+  }
+
+  // ---------- export ----------
+
+  canExport = computed(() => !!this.data() && !this.loading() && !this.exporting());
+
+  /** File name stem: "WorkNest-CEO-dashboard-1-Oct-15-Oct-2026-I-8-2026-10-19". */
+  private exportName(): string {
+    const loc = this.shownLocationId() ? this.locationName() : '';
+    return `${fileSlug('WorkNest CEO dashboard', this.periodTitle(), loc)}-${fileDate()}`;
+  }
+
+  private exportMeta() {
+    const range = this.shownPeriod() === 'custom' ? this.shownRange() : null;
+    return {
+      periodTitle: this.periodTitle(),
+      range,
+      previousRange: range ? this.data()?.previousRange ?? previousRange(range) : null,
+      location: this.locationName(),
+      preparedBy: displayNameOf(this.auth.user()),
+      previousWords: this.words().last
+    };
+  }
+
+  /** Export PDF: the dashboard as it is on screen (charts included), A4 pages. */
+  async exportPdf() {
+    const el = this.exportRoot()?.nativeElement;
+    if (!el || !this.canExport()) return;
+    this.exporting.set('pdf');
+    this.exportError.set('');
+    try {
+      const meta = this.exportMeta();
+      await exportPagePdf(el, {
+        fileName: `${this.exportName()}.pdf`,
+        title: 'WorkNest CEO dashboard',
+        lines: [
+          meta.previousRange ? `${meta.periodTitle} (compared with ${meta.previousRange.from} to ${meta.previousRange.to})` : meta.periodTitle,
+          meta.location,
+          meta.preparedBy ? `Prepared by ${meta.preparedBy}` : ''
+        ],
+        hide: '.view-toggle, .kpi-go, .row-go'
+      });
+    } catch {
+      this.exportError.set('The PDF could not be made. Please try again.');
+    } finally {
+      this.exporting.set(null);
+    }
+  }
+
+  /** Export Excel: the KPIs, chart and table figures, one sheet per section (.xlsx). */
+  exportExcel() {
+    const d = this.data();
+    if (!d || !this.canExport()) return;
+    this.exporting.set('xlsx');
+    this.exportError.set('');
+    try {
+      const rooms = this.roomsSection()?.data() ?? null;
+      downloadXlsx(`${this.exportName()}.xlsx`, ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()));
+    } catch {
+      this.exportError.set('The Excel file could not be made. Please try again.');
+    } finally {
+      this.exporting.set(null);
+    }
+  }
 
   setLocation(value: string) {
     const id = Number(value);
@@ -189,9 +317,11 @@ export class CeoDashboard {
 
   /** Labels follow the figures on screen (while a new period loads, the old figures keep their own words). */
   private shownPeriod = computed<CeoPeriod>(() => this.data()?.period ?? this.period());
-  periodTitle = computed(() => this.data()?.periodLabel
-    || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.shownPeriod()]);
-  word = computed(() => periodWord(this.shownPeriod()));
+  private shownRange = computed(() => this.data()?.range ?? this.activeRange());
+  periodTitle = computed(() => this.data()?.periodLabel || periodTitleOf(this.shownPeriod(), this.shownRange()));
+  /** "this month" / "last month" / "a month ago"; a custom range: "in this range" / "previous 15 days" / "15 days earlier". */
+  words = computed(() => periodWords(this.shownPeriod(), this.shownRange()));
+  thisWord = computed(() => this.words().thisP);
 
   updatedAgo = computed(() => {
     const at = this.lastUpdated();
@@ -207,26 +337,26 @@ export class CeoDashboard {
   moneyKpis = computed<Kpi[]>(() => {
     const m = this.m();
     if (!m) return [];
-    const w = this.word();
+    const w = this.words();
     const rate = m.collectionRate;
     return [
       {
-        key: 'invoiced', label: `Invoiced this ${w}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
-        sub: `${money(m.invoicedPrev)} last ${w}`, tone: 'neutral',
-        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs last ${w}`,
-        action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced this ${w} by ${this.revenueBy()}`
+        key: 'invoiced', label: `Invoiced ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
+        sub: `${money(m.invoicedPrev)} ${w.last}`, tone: 'neutral',
+        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`,
+        action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced ${w.thisP} by ${this.revenueBy()}`
       },
       {
-        key: 'collected', label: `Collected this ${w}`, value: money(m.collected), full: fullMoney(m.collected),
-        sub: `${money(m.collectedPrev)} last ${w}`, tone: 'neutral',
-        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs last ${w}`,
-        action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected this ${w} by ${this.revenueBy()}`
+        key: 'collected', label: `Collected ${w.thisP}`, value: money(m.collected), full: fullMoney(m.collected),
+        sub: `${money(m.collectedPrev)} ${w.last}`, tone: 'neutral',
+        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`,
+        action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
         tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
-        action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate this ${w} by ${this.revenueBy()}`
+        action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'outstanding', label: 'Outstanding', value: money(m.outstanding), full: fullMoney(m.outstanding),
@@ -277,13 +407,13 @@ export class CeoDashboard {
   occupancyKpis = computed<Kpi[]>(() => {
     const o = this.o();
     if (!o) return [];
-    const w = this.word();
+    const w = this.words();
     return [
       {
         key: 'occupancy', label: 'Occupancy', value: pct(o.occupancyPct),
         sub: `${count(o.occupiedSpaces)} of ${count(o.totalSpaces)} spaces in use`,
         tone: o.totalSpaces === 0 ? 'neutral' : o.occupancyPct >= 70 ? 'ok' : o.occupancyPct >= 40 ? 'neutral' : 'warn',
-        trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs a ${w} ago`,
+        trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs ${w.ago}`,
         action: () => this.openOccupancy(), actionLabel: 'Open the occupied rooms by location'
       },
       {
@@ -293,9 +423,9 @@ export class CeoDashboard {
         actionLabel: 'Open the bookings running today'
       },
       {
-        key: 'new', label: `New bookings this ${w}`, value: count(o.newBookings),
-        sub: `${count(o.newBookingsPrev)} last ${w}`, tone: 'neutral',
-        trend: trend(o.newBookings, o.newBookingsPrev, 'n'), vs: `vs last ${w}`,
+        key: 'new', label: `New bookings ${w.thisP}`, value: count(o.newBookings),
+        sub: `${count(o.newBookingsPrev)} ${w.last}`, tone: 'neutral',
+        trend: trend(o.newBookings, o.newBookingsPrev, 'n'), vs: `vs ${w.last}`,
         action: () => this.openRecords('New bookings', this.periodTitle(), 'bookings', {}), actionLabel: 'Open the new bookings'
       }
     ];
@@ -376,7 +506,11 @@ export class CeoDashboard {
     this.openDrill(root, { kind: 'records', records: kind, params, crumb });
   }
 
-  closeDrill() { this.drill.set(null); }
+  closeDrill() {
+    this.drill.set(null);
+    // A refresh that waited for the drawer runs now.
+    this.auto.resume();
+  }
 
   // KPI drill-downs. Level 2 lists built from the dashboard's own figures (the months of the period, the aging
   // buckets, occupancy by location) lead to the API breakdowns and then the records, as the charts do.
@@ -389,8 +523,8 @@ export class CeoDashboard {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  /** What Invoiced / Collected open first: this month by location, a quarter or year by month. */
-  revenueBy = computed(() => (this.shownPeriod() === 'month' ? 'location' : 'month'));
+  /** What Invoiced / Collected open first: this month or a custom range by location, a quarter or year by month. */
+  revenueBy = computed(() => (this.shownPeriod() === 'month' || this.shownPeriod() === 'custom' ? 'location' : 'month'));
 
   /** The months of the period so far (calendar quarter / year to date), invoiced and collected. */
   private periodMonths = computed<CeoBreakdown>(() => {
@@ -420,7 +554,11 @@ export class CeoDashboard {
   /** Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices. */
   openRevenue(root: string, status: 'paid' | null) {
     const extra = status ? { status } : {};
-    if (this.shownPeriod() === 'month') {
+    const range = this.shownRange();
+    if (this.shownPeriod() === 'custom' && range) {
+      // A custom range: its invoices by location (issued from / to), then a location's invoices.
+      this.openDrill(root, { kind: 'breakdown', metric: 'revenue', params: { from: range.from, to: range.to, ...extra }, crumb: this.periodTitle() });
+    } else if (this.shownPeriod() === 'month') {
       const month = this.currentMonth();
       this.openDrill(root, { kind: 'breakdown', metric: 'revenue', params: { month, ...extra }, crumb: monthLong(month) });
     } else {
