@@ -72,6 +72,8 @@ export const routes: Routes = [
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
         { path: 'audit-log', loadComponent: () => import('./pages/admin/audit-log/audit-log').then(m => m.AuditLogComponent), canActivate: [superAdminGuard] },
         { path: 'login-history', loadComponent: () => import('./pages/admin/login-history/login-history').then(m => m.LoginHistoryComponent), canActivate: [superAdminGuard] },
+      // Background service switches (turn a server job on / off): super admin only.
+      { path: 'services', loadComponent: () => import('./pages/admin/services/services').then(m => m.ServicesPage), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]
   },
