@@ -296,7 +296,7 @@
             <div class="panel-head">
               <div>
                 <h3>Sales executives</h3>
-                <p class="panel-sub">{{ isSuperAdmin ? 'At every location' : 'At your locations' }} · select a person for their last 6 months</p>
+                <p class="panel-sub">{{ locationId() ? 'At ' + locationName() : isSuperAdmin ? 'At every location' : 'At your locations' }} · select a person for their last 6 months</p>
               </div>
               @if (teamFollowUps()) {
                 <div class="head-stats">
