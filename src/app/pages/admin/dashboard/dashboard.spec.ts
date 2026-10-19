@@ -1,211 +1,93 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
-import { Dashboard, SpaceTypeCardData } from './dashboard';
-import { AdminService } from '../../../services/admin.service';
-import { QuotationService } from '../../../services/quotation.service';
-import { AuthService } from '../../../services/auth.service';
+import { of, throwError } from 'rxjs';
 import { provideRouter } from '@angular/router';
+import { Dashboard } from './dashboard';
+import { AdminService } from '../../../services/admin.service';
+import { AuthService } from '../../../services/auth.service';
+import { MainDashboardService, MainDetailRow } from '../../../services/main-dashboard.service';
 
-describe('Dashboard Component - Operations Control Center 2-Widget Layout', () => {
+/**
+ * Main dashboard (DASH_01): the space type cards, their tag lists and the inventory table come from the API
+ * (counted there for every row); the page only maps and shows them, and shows failures with Retry.
+ */
+describe('Dashboard - server-side totals', () => {
   let component: Dashboard;
-  let adminServiceSpy: jasmine.SpyObj<AdminService>;
-  let quotationServiceSpy: jasmine.SpyObj<QuotationService>;
-  let authServiceSpy: jasmine.SpyObj<AuthService>;
+  let main: jasmine.SpyObj<MainDashboardService>;
 
-  const now = new Date();
-  const futureStart = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000); // 10 days in future
-  const futureEnd = new Date(now.getTime() + 40 * 24 * 60 * 60 * 1000);   // 40 days in future
-  const activeStart = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000); // 10 days ago
-  const activeEndSoon = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000); // 5 days remaining (within 30d threshold)
-  const activeEndLater = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // 60 days remaining (outside 30d threshold)
-
-  const mockSpaceTypes = [
-    { id: 1, name: 'Meeting Room', description: 'Meeting Room' },
-    { id: 2, name: 'Dedicated Desk', description: 'Dedicated Desk' },
-    { id: 3, name: 'Private Office', description: 'Private Office' }
-  ];
-
-  const mockLocations = [
-    { id: 10, name: 'Gulberg Executive Center' }
-  ];
-
-  const mockCustomers = [
-    { id: 101, firstName: 'Ali', lastName: 'Khan', company: 'TechWorks Ltd', email: 'ali@techworks.com' },
-    { id: 102, firstName: 'Sara', lastName: 'Ahmed', company: 'DesignStudio', email: 'sara@designstudio.com' }
-  ];
-
-  const mockSpaces = [
-    // Space 1: Has partial-shift booking (Morning only). Should count as BOOKED.
-    { id: 1, code: 'MR-101', name: 'Meeting Room 1', capacity: 10, spaceTypeId: 1, locationId: 10 },
-    // Space 2: Has active quotation AND active 24_7 booking. Should count under BOTH Booked and Quoted.
-    { id: 2, code: 'MR-102', name: 'Meeting Room 2', capacity: 12, spaceTypeId: 1, locationId: 10 },
-    // Space 3: Has NO active bookings (only a future booking). Should count as VACANT.
-    { id: 3, code: 'MR-103', name: 'Meeting Room 3', capacity: 8, spaceTypeId: 1, locationId: 10 },
-    // Space 4: Has an active booking expiring in 5 days. Should count as BOOKED and EXPIRING SOON (under 30d threshold).
-    { id: 4, code: 'DD-201', name: 'Desk 1', capacity: 1, spaceTypeId: 2, locationId: 10 },
-    // Space 5: Has an active booking expiring in 60 days. Should count as BOOKED but NOT Expiring Soon (under 30d threshold).
-    { id: 5, code: 'DD-202', name: 'Desk 2', capacity: 1, spaceTypeId: 2, locationId: 10 }
-  ];
-
-  const mockBookings = [
-    // Partial shift booking (Morning) on Space 1
-    {
-      id: 501,
-      spaceId: 1,
-      customerId: 101,
-      shiftType: 'morning',
-      startOn: activeStart.toISOString(),
-      endOn: activeEndLater.toISOString(),
-      bookingStatusLabel: 'Confirmed',
-      bookingStatusId: 1
-    },
-    // Full 24_7 booking on Space 2
-    {
-      id: 502,
-      spaceId: 2,
-      customerId: 102,
-      shiftType: '24_7',
-      startOn: activeStart.toISOString(),
-      endOn: activeEndLater.toISOString(),
-      bookingStatusLabel: 'Confirmed',
-      bookingStatusId: 1
-    },
-    // Future booking on Space 3 (starts in 10 days) -> Space 3 is currently VACANT
-    {
-      id: 503,
-      spaceId: 3,
-      customerId: 101,
-      shiftType: '24_7',
-      startOn: futureStart.toISOString(),
-      endOn: futureEnd.toISOString(),
-      bookingStatusLabel: 'Confirmed',
-      bookingStatusId: 1
-    },
-    // Booking on Space 4 expiring soon (5 days left)
-    {
-      id: 504,
-      spaceId: 4,
-      customerId: 101,
-      shiftType: '24_7',
-      startOn: activeStart.toISOString(),
-      endOn: activeEndSoon.toISOString(),
-      bookingStatusLabel: 'Confirmed',
-      bookingStatusId: 1
-    },
-    // Booking on Space 5 expiring later (60 days left)
-    {
-      id: 505,
-      spaceId: 5,
-      customerId: 102,
-      shiftType: 'evening',
-      startOn: activeStart.toISOString(),
-      endOn: activeEndLater.toISOString(),
-      bookingStatusLabel: 'Confirmed',
-      bookingStatusId: 1
-    }
-  ];
-
-  const mockQuotations = [
-    // Active quotation on Space 2 (which is ALSO booked)
-    {
-      id: 701,
-      quotationNumber: 'Q-701',
-      spaceId: 2,
-      customerId: 101,
-      status: 'Pending',
-      isActive: true,
-      totalAmount: 45000,
-      validUntil: activeEndLater.toISOString(),
-      createdDate: activeStart.toISOString()
-    }
-  ];
+  const detail = (over: Partial<MainDetailRow>): MainDetailRow => ({
+    spaceId: 1, spaceCode: 'MR-101', spaceName: 'Meeting Room 1', capacity: 10, locationName: 'I-8',
+    bookingId: 501, bookingStart: '2026-10-01T09:00:00', bookingEnd: '2026-12-01T18:00:00', bookingStatus: 'Confirmed',
+    customerName: 'Ali Khan', companyName: 'TechWorks Ltd', has247: false, hasMorning: true, hasEvening: false,
+    nextBookingDate: null, nextBookingCustomer: null, quotationId: null, quotationNumber: null, quotationStatus: null,
+    quotationDate: null, quotationExpiryDate: null, quotationAmount: null, isAlsoBooked: false, daysRemaining: null, ...over
+  });
 
   beforeEach(() => {
-    adminServiceSpy = jasmine.createSpyObj('AdminService', [
-      'getSpaces',
-      'getBookings',
-      'getCustomers',
-      'getSpaceTypes',
-      'getLocations'
-    ]);
-    quotationServiceSpy = jasmine.createSpyObj('QuotationService', ['getQuotations']);
-    authServiceSpy = jasmine.createSpyObj('AuthService', ['hasRole', 'user']);
-
-    adminServiceSpy.getSpaces.and.returnValue(of({ data: mockSpaces } as any));
-    adminServiceSpy.getBookings.and.returnValue(of({ data: mockBookings } as any));
-    adminServiceSpy.getCustomers.and.returnValue(of({ data: mockCustomers } as any));
-    adminServiceSpy.getSpaceTypes.and.returnValue(of({ data: mockSpaceTypes } as any));
-    adminServiceSpy.getLocations.and.returnValue(of({ data: mockLocations } as any));
-    quotationServiceSpy.getQuotations.and.returnValue(of({ data: mockQuotations } as any));
-
-    authServiceSpy.hasRole.and.returnValue(true);
-    authServiceSpy.user.and.returnValue({ locationId: null } as any);
+    const admin = jasmine.createSpyObj('AdminService', ['getLocations', 'getAnnouncements']);
+    admin.getLocations.and.returnValue(of({ data: [{ id: 1, name: 'I-8' }] }));
+    admin.getAnnouncements.and.returnValue(of({ data: { items: [] } }));
+    const auth = jasmine.createSpyObj('AuthService', ['hasRole', 'user', 'isLocationBound']);
+    auth.hasRole.and.returnValue(true);
+    auth.user.and.returnValue({ locationId: null } as any);
+    auth.isLocationBound.and.returnValue(false);
+    main = jasmine.createSpyObj('MainDashboardService', ['getSummary', 'getDetails', 'getInventory']);
+    main.getSummary.and.returnValue(of({
+      expiringDays: 30, totalSpaces: 1069, generatedAt: null,
+      cards: [{ spaceTypeId: 1, spaceTypeName: 'Private Office', locationId: 1, locationName: 'I-8', totalSpaces: 1069,
+        bookedCount: 900, vacantCount: 169, quotedCount: 3, expiringCount: 7 }]
+    }));
+    main.getInventory.and.returnValue(of({ total: 1069, page: 1, pageSize: 10, items: [] }));
+    main.getDetails.and.returnValue(of({ tag: 'booked', spaceTypeId: 1, total: 900, page: 1, pageSize: 25, items: [detail({})] }));
 
     TestBed.configureTestingModule({
       imports: [Dashboard],
       providers: [
         provideRouter([]),
-        { provide: AdminService, useValue: adminServiceSpy },
-        { provide: QuotationService, useValue: quotationServiceSpy },
-        { provide: AuthService, useValue: authServiceSpy }
+        { provide: AdminService, useValue: admin },
+        { provide: AuthService, useValue: auth },
+        { provide: MainDashboardService, useValue: main }
       ]
     });
-
-    const fixture = TestBed.createComponent(Dashboard);
-    component = fixture.componentInstance;
+    component = TestBed.createComponent(Dashboard).componentInstance;
   });
 
-  it('1. Booked count includes partial-shift spaces', async () => {
+  it('shows the API counts (no 1,000-row cap)', () => {
     component.loadDashboardData();
-    // Allow Promise.all resolution
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    const meetingRoomCard = component.spaceTypeCards().find(c => c.spaceTypeId === 1);
-    expect(meetingRoomCard).toBeDefined();
-    // Meeting rooms: Space 1 (morning shift) + Space 2 (24_7 shift) = 2 Booked
-    expect(meetingRoomCard!.bookedCount).toBe(2);
-
-    const space1Detail = meetingRoomCard!.bookedDetails.find(d => d.spaceId === 1);
-    expect(space1Detail).toBeDefined();
-    expect(space1Detail!.occupiedShifts).toContain('Morning (6am-6pm)');
-    expect(space1Detail!.openShifts).toContain('Evening (6pm-6am)');
+    expect(component.totalSpacesCount()).toBe(1069);
+    expect(component.spaceTypeCards()[0].bookedCount).toBe(900);
+    expect(component.inventoryTotal()).toBe(1069);
+    expect(component.totalPages()).toBe(107);
   });
 
-  it('2. Quoted count includes spaces that are also Booked', async () => {
+  it('builds the shift labels of a booked space from its live bookings', () => {
     component.loadDashboardData();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    const meetingRoomCard = component.spaceTypeCards().find(c => c.spaceTypeId === 1);
-    expect(meetingRoomCard).toBeDefined();
-    // Space 2 is both Booked and Quoted
-    expect(meetingRoomCard!.quotedCount).toBe(1);
-    expect(meetingRoomCard!.quotedDetails[0].spaceId).toBe(2);
-    expect(meetingRoomCard!.quotedDetails[0].isAlsoBooked).toBe(true);
+    component.toggleTagDropdown(new Event('click'), 1, 'booked');
+    const row = component.bookedRows()[0];
+    expect(row.occupiedShifts).toEqual(['Morning (6am-6pm)']);
+    expect(row.openShifts).toEqual(['Evening (6pm-6am)']);
+    expect(component.trayHasMore()).toBeTrue();
   });
 
-  it('3. Vacant count excludes any space with an active booking on any shift', async () => {
-    component.loadDashboardData();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    const meetingRoomCard = component.spaceTypeCards().find(c => c.spaceTypeId === 1);
-    expect(meetingRoomCard).toBeDefined();
-    // Only Space 3 is vacant (Space 1 is morning-booked, Space 2 is 24_7-booked)
-    expect(meetingRoomCard!.vacantCount).toBe(1);
-    expect(meetingRoomCard!.vacantDetails[0].spaceId).toBe(3);
-    expect(meetingRoomCard!.vacantDetails[0].nextBookingCustomer).toBe('Ali Khan');
+  it('shows a failure with its message instead of empty figures', () => {
+    main.getSummary.and.returnValue(throwError(() => ({ status: 503, needsDbUpdate: true, title: 'Database update needed', message: 'Run DASH_01_main_dashboard_TEST.sql on the database, then refresh this page.' })));
+    component.loadSummary();
+    expect(component.summaryStatus()).toBe('error');
+    expect(component.summaryError()?.message).toContain('DASH_01_main_dashboard');
   });
 
-  it('4. Expiring Soon count matches the expiringThreshold filter logic reused correctly per space type', async () => {
-    component.expiringThreshold.set(30); // 30 Days threshold
-    component.loadDashboardData();
-    await new Promise(resolve => setTimeout(resolve, 50));
+  it('checks the custom range before using it', () => {
+    component.openCustom();
+    component.draftFrom.set('2026-03-02');
+    component.draftTo.set('2026-03-01');
+    component.applyCustom();
+    expect(component.customError()).toContain('on or before');
+    expect(component.period()).toBe('month');
 
-    const deskCard = component.spaceTypeCards().find(c => c.spaceTypeId === 2);
-    expect(deskCard).toBeDefined();
-    expect(deskCard!.totalSpaces).toBe(2);
-    expect(deskCard!.bookedCount).toBe(2);
-    // Space 4 expires in 5 days (<= 30d threshold), Space 5 expires in 60 days (> 30d threshold)
-    expect(deskCard!.expiringCount).toBe(1);
-    expect(deskCard!.expiringDetails[0].spaceId).toBe(4);
+    component.draftFrom.set('2026-01-01');
+    component.draftTo.set('2026-03-31');
+    component.applyCustom();
+    expect(component.period()).toBe('custom');
+    expect(component.rangeFrom()).toBe('2026-01-01');
+    expect(component.rangeTo()).toBe('2026-03-31');
   });
 });

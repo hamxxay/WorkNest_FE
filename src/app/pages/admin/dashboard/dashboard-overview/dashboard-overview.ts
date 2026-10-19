@@ -6,7 +6,22 @@ import { Chart } from '../../access/access-shared';
 import { OccupiedRoomsDrawer } from '../occupied-rooms-drawer/occupied-rooms-drawer';
 
 type AttentionTab = 'overdue' | 'ending' | 'pending';
-export type DashPeriod = 'month' | 'quarter' | 'year';
+/** month / quarter / year to date, or custom: the dashboard's from .. to range (both days included). */
+export type DashPeriod = 'month' | 'quarter' | 'year' | 'custom';
+
+/** "1 Jul 2026" from "2026-07-01" (local date, no time zone shift). */
+export function dashDay(ymd: string | null | undefined): string {
+  const [y, m, d] = String(ymd || '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** Days from .. to, both included (0 when either is missing). */
+export function dashRangeDays(from: string | null | undefined, to: string | null | undefined): number {
+  const a = String(from || '').split('-').map(Number), b = String(to || '').split('-').map(Number);
+  if (a.length !== 3 || b.length !== 3 || a.some(isNaN) || b.some(isNaN)) return 0;
+  return Math.round((Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000) + 1;
+}
 
 interface Kpi {
   key: string;
@@ -44,12 +59,31 @@ export class DashboardOverview {
   locationIds = input<number[]>([]);
   /** Bumped by the dashboard to reload. */
   refreshTick = input<number>(0);
-  /** This month / quarter / year — every number and chart follows it. */
+  /** This month / quarter / year, or custom (customFrom .. customTo) — every number and chart follows it. */
   period = input<DashPeriod>('month');
+  /** Custom range (period 'custom'): first and last day, 'yyyy-MM-dd'; null otherwise. */
+  customFrom = input<string | null>(null);
+  customTo = input<string | null>(null);
 
-  periodWord = computed(() => this.period());
-  seriesLabel = computed(() => `Last ${this.period() === 'year' ? 24 : this.period() === 'quarter' ? 12 : 6} months`);
+  /** The custom range in use (both days set), else null. */
+  private range = computed(() => (this.period() === 'custom' && this.customFrom() && this.customTo()
+    ? { from: this.customFrom()!, to: this.customTo()! } : null));
+  /** "1 Jul 2026 to 30 Sep 2026" for a custom range; '' otherwise. */
+  rangeText = computed(() => { const r = this.range(); return r ? `${dashDay(r.from)} to ${dashDay(r.to)}` : ''; });
+  private rangeDays = computed(() => { const r = this.range(); return r ? dashRangeDays(r.from, r.to) : 0; });
+  periodWord = computed(() => (this.period() === 'custom' ? 'range' : this.period()));
+  seriesLabel = computed(() => this.range()
+    ? this.rangeText()
+    : `Last ${this.period() === 'year' ? 24 : this.period() === 'quarter' ? 12 : 6} months`);
   aheadLabel = computed(() => `Next ${this.period() === 'year' ? 12 : this.period() === 'quarter' ? 6 : 3} months`);
+  /** KPI wording: "Invoiced this month" / "Invoiced in the range". */
+  invoicedLabel = computed(() => (this.range() ? 'Invoiced in the range' : `Invoiced this ${this.periodWord()}`));
+  /** Occupancy / active bookings compare with one period (custom: as many days) ago. */
+  vsAgo = computed(() => { const n = this.rangeDays(); return this.range() ? `vs ${n} day${n === 1 ? '' : 's'} ago` : `vs a ${this.periodWord()} ago`; });
+  /** Invoiced compares with the previous period to date (custom: the same number of days just before it). */
+  vsPrev = computed(() => { const n = this.rangeDays(); return this.range() ? `vs the ${n} day${n === 1 ? '' : 's'} before` : `vs last ${this.periodWord()} to date`; });
+  /** Top customers: "this month" / "1 Jul 2026 to 30 Sep 2026". */
+  customersWhen = computed(() => (this.range() ? this.rangeText() : `this ${this.periodWord()}`));
 
   loading = signal(true);
   failed = signal(false);
@@ -80,6 +114,8 @@ export class DashboardOverview {
       this.locationIds();
       this.refreshTick();
       this.period();
+      this.customFrom();
+      this.customTo();
       untracked(() => this.load(loc));
     });
   }
@@ -87,7 +123,7 @@ export class DashboardOverview {
   load(loc: string) {
     if (!this.data()) this.loading.set(true);
     const id = loc && loc !== 'ALL' && !isNaN(Number(loc)) ? Number(loc) : null;
-    this.admin.getDashboardOverview(id, this.period(), this.locationIds()).subscribe({
+    this.admin.getDashboardOverview(id, this.period(), this.locationIds(), this.customFrom(), this.customTo()).subscribe({
       next: (res) => {
         this.data.set(res); this.failed.set(false); this.loading.set(false);
         setTimeout(() => this.renderCharts(res));
@@ -136,12 +172,12 @@ export class DashboardOverview {
         key: 'occupancy', label: 'Occupancy', value: `${d.occupancyPct}%`,
         sub: `${d.occupiedSpaces} of ${d.totalSpaces} spaces in use`, link: '/admin/spaces', opens: 'rooms',
         tone: d.occupancyPct >= 70 ? 'ok' : d.occupancyPct >= 40 ? 'neutral' : 'warn',
-        trend: this.trend(d.occupancyPct, d.occupancyPctLastMonth, 'pts'), vs: `vs a ${this.periodWord()} ago`
+        trend: this.trend(d.occupancyPct, d.occupancyPctLastMonth, 'pts'), vs: this.vsAgo()
       },
       {
         key: 'active', label: 'Active bookings', value: `${d.activeBookings}`,
         sub: 'Running today', link: '/admin/bookings', tone: 'neutral',
-        trend: this.trend(d.activeBookings, d.activeBookingsLastMonth, 'n'), vs: `vs a ${this.periodWord()} ago`
+        trend: this.trend(d.activeBookings, d.activeBookingsLastMonth, 'n'), vs: this.vsAgo()
       },
       {
         key: 'pending', label: 'Awaiting confirmation', value: `${d.pendingConfirmations}`,
@@ -159,9 +195,9 @@ export class DashboardOverview {
         tone: d.overdueCount ? 'danger' : 'ok'
       },
       {
-        key: 'invoiced', label: `Invoiced this ${this.periodWord()}`, value: this.money(d.invoicedThisPeriod), full: this.fullMoney(d.invoicedThisPeriod),
+        key: 'invoiced', label: this.invoicedLabel(), value: this.money(d.invoicedThisPeriod), full: this.fullMoney(d.invoicedThisPeriod),
         sub: `${this.money(d.paidThisPeriod)} of it paid`, link: '/admin/invoices', tone: 'neutral',
-        trend: this.trend(d.invoicedThisPeriod, d.invoicedPrevPeriod, '%'), vs: `vs last ${this.periodWord()} to date`
+        trend: this.trend(d.invoicedThisPeriod, d.invoicedPrevPeriod, '%'), vs: this.vsPrev()
       }
     ];
   });
@@ -228,7 +264,8 @@ export class DashboardOverview {
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const W = 297, M = 12;
-      const periodTitle = { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.period()];
+      const periodTitle = this.range() ? this.rangeText()
+        : ({ month: 'This month', quarter: 'This quarter', year: 'This year' } as Record<string, string>)[this.period()] ?? 'This month';
       const now = new Date();
 
       // Header band
@@ -264,7 +301,7 @@ export class DashboardOverview {
         { title: 'Receivables aging (as of today)', canvas: this.agingCanvas(), empty: e.aging, note: `Outstanding ${this.fullMoney(this.agingTotal())}` },
         { title: `Occupancy & new bookings (${this.seriesLabel().toLowerCase()})`, canvas: this.occCanvas(), empty: e.occupancy },
         { title: 'Occupancy by space type (today)', canvas: this.typeCanvas(), empty: e.types },
-        { title: `Top customers (this ${this.periodWord()})`, canvas: this.custCanvas(), empty: e.customers },
+        { title: `Top customers (${this.customersWhen()})`, canvas: this.custCanvas(), empty: e.customers },
         { title: `Leases expiring (${this.aheadLabel().toLowerCase()})`, canvas: this.expCanvas(), empty: e.expiries }
       ];
       const cols = 3, cg = 5, rg = 5, top = y0 + boxH + 6;
@@ -293,7 +330,8 @@ export class DashboardOverview {
       pdf.text('WorkNest', W - M, 205, { align: 'right' });
 
       const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      pdf.save(`WorkNest-Executive-Summary-${this.period()}-${stamp}.pdf`);
+      const r = this.range();
+      pdf.save(`WorkNest-Executive-Summary-${r ? `${r.from}-to-${r.to}` : this.period()}-${stamp}.pdf`);
     } finally {
       this.exporting.set(false);
     }

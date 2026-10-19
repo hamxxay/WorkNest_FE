@@ -626,10 +626,13 @@ export class AdminService {
   }
   // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
   // locationIds: total these locations (one or several); empty = all the user may see (API limits sales executives to theirs).
-  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+  // period 'custom': from / to (yyyy-MM-dd, both days included) are sent as the range; the other periods ignore them.
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' | 'custom' = 'month', locationIds: number[] = [],
+    from?: string | null, to?: string | null): Observable<any> {
     const params: any = { period };
     if (locationIds.length) params.locationIds = locationIds.join(',');
     else if (locationId) params.locationId = locationId;
+    if (period === 'custom' && from && to) { params.from = from; params.to = to; }
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
   }
   // The rooms behind the overview's Occupancy card: every space in use right now (same rule and locations as the card).
@@ -641,9 +644,11 @@ export class AdminService {
   }
   // Role-based dashboard sections (sales executive: pipeline / inquiries / renewals / collections; admin: team &
   // service; super admin: also location comparison, staff, system health). Same location rules as the overview.
-  getRoleDashboard(period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+  getRoleDashboard(period: 'month' | 'quarter' | 'year' | 'custom' = 'month', locationIds: number[] = [],
+    from?: string | null, to?: string | null): Observable<any> {
     const params: any = { period };
     if (locationIds.length) params.locationIds = locationIds.join(',');
+    if (period === 'custom' && from && to) { params.from = from; params.to = to; }
     return this.http.get<any>(`${this.api}/dashboard/role`, { params });
   }
   // Revenue & occupancy forecast for the next N months (default 3) from current leases. Same location rules as the overview.
