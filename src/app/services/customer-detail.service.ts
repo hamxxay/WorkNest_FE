@@ -7,13 +7,15 @@ import { arr, num, numOrNull, obj, serverMessageOf, str, strOrNull } from './das
 // ============================================================
 // Customer detail page (/admin/customers/:id). Every section loads on its own, so one failing section never blanks
 // the page:
-//   profile     GET customer/{id}                      (404 / isSuccessful false = no such customer for this user)
+//   profile     GET customer/{id}/detail               (isSuccessful false = no such customer; an API without this
+//                                                       endpoint yet: GET customer/{id})
 //   overview    GET customer/{id}/overview             (summary, bookings, receipts, payments, agreements, deposits,
 //                                                       timeline; 503 until the database script CD_01 has run)
 //   invoices    GET customer/{id}/invoices?page&limit  (as the mobile app's customer screen)
 //   quotations  GET quotation/by-customer/{id}?page&limit
-// Location-bound staff get 404 for a customer of other locations (API RecordScope). Rows are normalised here, so a
-// missing field shows as "-" instead of breaking the page.
+// Owner's rule: the page shows every customer the Customers list shows (profile and overview have no location
+// check); invoices and quotations keep their endpoints' own check (404 for a customer outside the user's
+// locations). Rows are normalised here, so a missing field shows as "-" instead of breaking the page.
 // ============================================================
 
 /** Shown in the overview sections until the database script has been run (the API answers 503). */
@@ -412,7 +414,11 @@ export class CustomerDetailService {
   private api = environment.apiUrl;
 
   getProfile(id: number): Observable<CustomerProfile> {
-    return this.http.get<any>(`${this.api}/customer/${id}`).pipe(
+    return this.http.get<any>(`${this.api}/customer/${id}/detail`).pipe(
+      // An API without the detail endpoint yet (404 with no message of its own): the customer record endpoint.
+      catchError(err => err instanceof HttpErrorResponse && err.status === 404 && !serverMessageOf(err)
+        ? this.http.get<any>(`${this.api}/customer/${id}`)
+        : throwError(() => err)),
       map(res => {
         const d = obj(unwrap(res, true));
         if (!d || !num(d.id)) throw { status: 404, needsDbUpdate: false, notFound: true, message: 'Customer not found.' } as SectionError;
