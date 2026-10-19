@@ -1859,6 +1859,8 @@
             }
           </select>
         </div>
+        <!-- Offering types (shifts) don't apply to meeting rooms, which are booked by the hour or day. -->
+        @if (!isQuotationMeetingRoom) {
         <div class="form-group-admin">
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="quotationOfferingTypeId" name="qOfferingType"
@@ -1868,6 +1870,7 @@
             }
           </select>
         </div>
+        }
         <div class="form-group-admin" data-field="spaceType"
           [class.has-error]="quotationFormErrorField === 'spaceType'">
           <label>Space Type *</label>
@@ -2314,6 +2317,8 @@
             }
           </select>
         </div>
+        <!-- Offering types (shifts) don't apply to meeting rooms, which are booked by the hour or day. -->
+        @if (!isAdminMeetingRoom) {
         <div class="form-group-admin">
           <label>Offering Type *</label>
           <select class="form-input-admin" [(ngModel)]="bookingOfferingTypeId" name="bookingOfferingTypeId"
@@ -2323,6 +2328,7 @@
             }
           </select>
         </div>
+        }
         <div class="form-group-admin" data-field="spaceType" [class.has-error]="bookingFormErrorField === 'spaceType'">
           <label>Space Type *</label>
           <select class="form-input-admin" [(ngModel)]="selectedSpaceTypeId" name="spaceTypeId" required
