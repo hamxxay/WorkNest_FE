@@ -7,6 +7,8 @@ import {
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
+import { CeoSeatsSection } from './ceo-seats/ceo-seats';
+import { seatsSheets } from './ceo-seats/seats-export';
 import { DashNetworkSection } from './dash-network/dash-network';
 import { networkSheets } from './dash-network/network-export';
 import {
@@ -48,7 +50,7 @@ type ChartKey = 'revenue' | 'aging' | 'occupancy';
 @Component({
   selector: 'app-ceo-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection, DashNetworkSection],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection, CeoSeatsSection, DashNetworkSection],
   templateUrl: './ceo-dashboard.html',
   styleUrl: './ceo-dashboard.css'
 })
@@ -116,6 +118,7 @@ export class CeoDashboard {
   /** What Export PDF prints: the sections under the header. */
   private exportRoot = viewChild<ElementRef<HTMLElement>>('exportRoot');
   private roomsSection = viewChild(CeoRoomsSection);
+  private seatsSection = viewChild(CeoSeatsSection);
   private networkSection = viewChild(DashNetworkSection);
   private host = inject(ElementRef<HTMLElement>);
 
@@ -292,7 +295,7 @@ export class CeoDashboard {
     try {
       const rooms = this.roomsSection()?.data() ?? null;
       const network = networkSheets(this.networkSection()?.data() ?? null);
-      downloadXlsx(`${this.exportName()}.xlsx`, [...ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()), ...network]);
+      downloadXlsx(`${this.exportName()}.xlsx`, [...ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()), ...seatsSheets(this.seatsSection()?.data() ?? null), ...network]);
     } catch {
       this.exportError.set('The Excel file could not be made. Please try again.');
     } finally {
