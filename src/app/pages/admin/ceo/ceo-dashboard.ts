@@ -7,6 +7,9 @@ import {
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
+import { CeoDiscountsSection, discountSheets } from './ceo-discounts/ceo-discounts';
+import { CeoSeatsSection } from './ceo-seats/ceo-seats';
+import { seatsSheets } from './ceo-seats/seats-export';
 import { DashNetworkSection } from './dash-network/dash-network';
 import { networkSheets } from './dash-network/network-export';
 import {
@@ -48,7 +51,7 @@ type ChartKey = 'revenue' | 'aging' | 'occupancy';
 @Component({
   selector: 'app-ceo-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection, DashNetworkSection],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, CeoRoomsSection, CeoSeatsSection, DashNetworkSection, CeoDiscountsSection],
   templateUrl: './ceo-dashboard.html',
   styleUrl: './ceo-dashboard.css'
 })
@@ -116,7 +119,9 @@ export class CeoDashboard {
   /** What Export PDF prints: the sections under the header. */
   private exportRoot = viewChild<ElementRef<HTMLElement>>('exportRoot');
   private roomsSection = viewChild(CeoRoomsSection);
+  private seatsSection = viewChild(CeoSeatsSection);
   private networkSection = viewChild(DashNetworkSection);
+  private discountsSection = viewChild(CeoDiscountsSection);
   private host = inject(ElementRef<HTMLElement>);
 
   /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
@@ -294,7 +299,7 @@ export class CeoDashboard {
     try {
       const rooms = this.roomsSection()?.data() ?? null;
       const network = networkSheets(this.networkSection()?.data() ?? null);
-      downloadXlsx(`${this.exportName()}.xlsx`, [...ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()), ...network]);
+      downloadXlsx(`${this.exportName()}.xlsx`, [...ceoWorkbook(d, this.forecast(), rooms, this.exportMeta()), ...discountSheets(this.discountsSection()?.data() ?? null), ...seatsSheets(this.seatsSection()?.data() ?? null), ...network]);
     } catch {
       this.exportError.set('The Excel file could not be made. Please try again.');
     } finally {

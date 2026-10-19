@@ -376,6 +376,8 @@
         }
       </section>
 
+      <app-ceo-discounts [period]="period()" [range]="activeRange()" [locationId]="locationId()" [reload]="roomsReload()" [quietReload]="roomsQuietReload()" />
+
       <!-- ===================== OCCUPANCY ===================== -->
       <section class="dash-section" aria-labelledby="ceo-h-occ">
         <div class="section-title">
@@ -534,6 +536,9 @@
           </div>
         }
       </section>
+
+      <!-- Seats: seat occupancy against room occupancy (its own request, GET api/ceo/seats) -->
+      <app-ceo-seats [period]="period()" [range]="activeRange()" [locationId]="locationId()" [reload]="roomsReload()" [quietReload]="roomsQuietReload()" />
 
       <!-- Rooms: occupancy and price against list per room (its own request, GET api/ceo/rooms) -->
       <app-ceo-rooms [period]="period()" [range]="activeRange()" [locationId]="locationId()" [reload]="roomsReload()" [quietReload]="roomsQuietReload()" />

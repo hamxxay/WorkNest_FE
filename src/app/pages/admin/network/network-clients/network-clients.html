@@ -7,7 +7,7 @@
     <div class="dash-header-actions no-print">
       <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
       <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
-      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh clients"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh clients" aria-label="Refresh clients"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
     </div>
   </div>
 
@@ -187,7 +187,7 @@
 @if (openMac()) {
   <div class="drawer-bg" (click)="closeDrawer()"></div>
   <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="client-name">
-    <button class="icon-btn drawer-close" (click)="closeDrawer()" aria-label="Close"><net-icon name="close" [size]="16" /></button>
+    <button class="icon-btn drawer-close" (click)="closeDrawer()" title="Close" aria-label="Close"><net-icon name="close" [size]="16" /></button>
     @if (client(); as c) {
       <div class="hero">
         <div class="hero-icon"><net-icon [name]="clientIcon(c.kind)" [size]="24" /></div>

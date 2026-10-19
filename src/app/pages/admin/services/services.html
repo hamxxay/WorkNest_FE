@@ -95,7 +95,7 @@
                 [attr.aria-checked]="row.item.isEnabled" [attr.aria-busy]="isPending(row.item.name) || null"
                 [attr.aria-labelledby]="switchId(row.item.name) + '-name'"
                 [attr.aria-describedby]="row.item.description ? switchId(row.item.name) + '-desc' : null"
-                [disabled]="isPending(row.item.name)" (click)="onToggle(row.item)">
+                [disabled]="isPending(row.item.name)" (click)="onToggle(row.item)" [title]="(row.item.isEnabled ? 'Turn off ' : 'Turn on ') + row.item.displayName">
                 <span class="sv-knob">
                   @if (isPending(row.item.name)) { <span class="sv-knob-spin" aria-hidden="true"></span> }
                 </span>
@@ -121,7 +121,7 @@
           <h2 id="svConfirmTitle">Pause {{ s.displayName }}?</h2>
           @if (s.description) { <p>{{ s.description }}</p> }
         </div>
-        <button type="button" class="inq-close" (click)="cancelOff()" aria-label="Close">
+        <button type="button" class="inq-close" (click)="cancelOff()" title="Close" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </header>
