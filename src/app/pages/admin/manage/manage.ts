@@ -6012,6 +6012,13 @@ export class Manage implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
   }
 
+  /** Customers list: the name opens the customer detail page (Ctrl / Cmd / Shift / middle click: the browser opens the link). */
+  openCustomerDetail(item: any, ev: MouseEvent) {
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button !== 0) return;
+    ev.preventDefault();
+    this.router.navigate(['/admin/customers', item.id]);
+  }
+
   /** After a quotation is saved from an inquiry: record the inquiry as converted and link the quotation. */
   private linkInquiryToQuotation(createdQ: any) {
     const inquiryId = this.pendingInquiryId;

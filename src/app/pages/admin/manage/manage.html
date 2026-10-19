@@ -282,6 +282,10 @@
               } @else if (col.type === 'role') {
               <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
                 }}</span>
+              } @else if (entity === 'customers' && col.key === 'fullName' && item.id) {
+              <!-- The name opens the customer detail page (/admin/customers/:id). -->
+              <a class="cell-text" [href]="'/admin/customers/' + item.id" (click)="openCustomerDetail(item, $event)"
+                [title]="'Open ' + (getCellValue(item, col) || 'customer')" style="color:#0f766e;font-weight:600;text-decoration:none">{{ getCellValue(item, col) || '-' }}</a>
               } @else {
               <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
               }

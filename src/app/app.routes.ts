@@ -30,6 +30,8 @@ export const routes: Routes = [
       { path: 'access',    loadComponent: () => import('./pages/admin/access-officer/access-officer').then(m => m.AccessOfficerPage), canActivate: [accessOfficerGuard] },
       { path: 'profile',   loadComponent: () => import('./pages/admin/profile/profile').then(m => m.AdminProfile) },
       { path: 'customers',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'customers' } },
+      // Customer detail (opened from the Customers list): same guard and roles as the list (adminGuard on /admin).
+      { path: 'customers/:id', loadComponent: () => import('./pages/admin/customer-detail/customer-detail').then(m => m.CustomerDetail) },
       { path: 'kyc',         loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
       { path: 'kyc/:id',     loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
       { path: 'users',       loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'users' } },
