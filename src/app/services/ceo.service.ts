@@ -174,7 +174,7 @@ export interface CeoForecastMonth {
 
 // ---------- Rooms report (GET api/ceo/rooms, database update CEO_02) ----------
 
-/** A booking's shift (every shift is compared with the list price; the shift cap is only the most that may be taken off). */
+/** A booking's shift: 24/7 is compared with the list price, Morning / Evening with the list less the shift's cap. */
 export type CeoShift = '24/7' | 'Morning' | 'Evening';
 export const CEO_SHIFTS: readonly CeoShift[] = ['24/7', 'Morning', 'Evening'];
 /**
@@ -193,7 +193,7 @@ export interface CeoRoomSale {
   endOn: string | null;
   /** The booking's own price row, else today's list per seat (0 = none). */
   listSeatPriceAtSale: number;
-  /** The location's stored cap for the shift: the most a salesperson may take off the list (information only). */
+  /** The location's stored cap for the shift; applied to Morning / Evening only (24/7 is compared with the full list). */
   shiftDiscountCapPct: number;
   /** Expected per seat and a month; 0 for an unpriced sale (as its variance figures). */
   expectedSeatPrice: number;
@@ -238,7 +238,7 @@ export interface CeoRoomsSummary {
   occupancyNowPct: number; periodOccupancyPct: number;
   /** sales = under + at + over + unpriced (no list price) */
   sales: number; under: number; at: number; over: number; unpriced: number;
-  /** Expected monthly of the sales (the list price, every shift). */
+  /** Expected monthly of the sales (list, less the shift cap for Morning / Evening). */
   listMonthly: number;
   soldMonthly: number;
   /** Net: sold less expected. */
@@ -321,8 +321,8 @@ function toRoomSale(s: any, room: { seats: number; listSeatPrice: number }): Ceo
   if (sentUnpriced) {
     return { ...base, expectedSeatPrice: 0, expectedMonthly: 0, varianceMonthly: 0, variancePct: 0, pricing: 'unpriced' };
   }
-  // Every shift is compared with the list price; the shift cap is only the most that may be taken off.
-  const expectedSeatPrice = numOrNull(s.expectedSeatPrice) ?? listSeatPriceAtSale;
+  const expectedSeatPrice = numOrNull(s.expectedSeatPrice)
+    ?? (shift === '24/7' ? listSeatPriceAtSale : listSeatPriceAtSale * (1 - cap / 100));
   const expectedMonthly = numOrNull(s.expectedMonthly) ?? expectedSeatPrice * (seatsSold || 1);
   const pricing = pricingOf(s.pricing, soldSeatPrice, expectedSeatPrice);
   if (pricing === 'unpriced') {
@@ -506,7 +506,7 @@ export class CeoService {
 
   /**
    * GET api/ceo/rooms: private offices and shared spaces with their occupancy (now and in the period) and every
-   * confirmed booking in the period priced against the list price per seat (every shift).
+   * confirmed booking in the period priced against the list (Morning / Evening against the shift price).
    * available: false until the database update CEO_02 is run.
    */
   getRooms(period: CeoPeriod, locationId: number | null, range: DashRange | null = null): Observable<CeoRooms> {
