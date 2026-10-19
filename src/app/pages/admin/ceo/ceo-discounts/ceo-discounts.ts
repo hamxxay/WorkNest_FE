@@ -128,15 +128,17 @@ export class CeoDiscountsSection {
         key: 'discounted', label: 'Bookings discounted', value: `${count(s.discounted)} of ${count(s.bookings)}`,
         sub: s.discounted ? `${pct(s.averageDiscountPct)} off on average` : `None ${word}`,
         tone: s.discounted ? 'warn' : 'ok',
-        action: s.discounted ? () => this.openRecords({}, 'Discounted bookings') : undefined,
-        actionLabel: 'Open the discounted bookings'
+        // None discounted: still open the bookings behind the figure (expected against sold, every one).
+        action: s.discounted ? () => this.openRecords({}, 'Discounted bookings') : s.bookings ? () => this.openRecords({ all: true }, 'Bookings') : undefined,
+        actionLabel: s.discounted ? 'Open the discounted bookings' : 'Open the bookings'
       },
       {
         key: 'new', label: 'New deals discounted', value: `${count(s.newDiscounted)} of ${count(s.newBookings)}`,
         sub: s.newDiscounted ? `${money(s.newDiscountMonthly)} a month off` : s.newBookings ? 'All at the price or above' : `No bookings started ${word}`,
         full: 'Bookings that started in the period', tone: s.newDiscounted ? 'warn' : 'neutral',
-        action: s.newDiscounted ? () => this.openRecords({ newOnly: true }, 'New deals') : undefined,
-        actionLabel: 'Open the new deals with a discount'
+        // Every new deal of the period, discounted or not (expected against sold), so "0 of 11" still shows its 11.
+        action: s.newBookings ? () => this.openRecords({ newOnly: true, all: true }, 'New deals') : undefined,
+        actionLabel: 'Open the new deals'
       },
       {
         key: 'invoices', label: 'Discount on invoices', value: money(s.invoiceDiscount), full: fullMoney(s.invoiceDiscount),
