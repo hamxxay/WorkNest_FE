@@ -896,6 +896,13 @@
   max-width: 440px;
 }
 
+/* Receipts History search: centre the magnifier in the box (this wrapper is not a flex row like .fr-search-input-wrap,
+   so without a top the absolutely placed icon sat at the top edge). */
+.fr-toolbar-search .fr-search-icon {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .fr-toolbar-input {
   height: 40px;
   padding-left: 38px !important;
