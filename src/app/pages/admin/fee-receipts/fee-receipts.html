@@ -131,6 +131,9 @@
                         @if (inv.invoiceTypeName === 'WHT Invoice') {
                           <span class="fr-badge fr-badge-wht">WHT Invoice</span>
                         }
+                        @if (inv.isCustom) {
+                          <span class="fr-badge fr-badge-custom">Custom Invoice</span>
+                        }
                         @if (inv.amountPaid > 0) {
                           <span class="fr-badge fr-badge-partial">Part paid</span>
                         }
@@ -232,10 +235,10 @@
                   (click)="setPaymentMode('Full')">Full</button>
                 <button type="button" role="radio" [attr.aria-checked]="paymentMode() === 'Partial'" [class.active]="paymentMode() === 'Partial'"
                   [disabled]="!partialAllowed()" (click)="setPaymentMode('Partial')"
-                  [title]="partialAllowed() ? 'Record part of the balance' : 'Withholding-tax invoices are paid in full only'">Partial</button>
+                  [title]="partialAllowed() ? 'Record part of the balance' : isCustomInvoice() ? 'Custom invoices are paid in full only' : 'Withholding-tax invoices are paid in full only'">Partial</button>
               </div>
               @if (!partialAllowed()) {
-                <span class="fr-field-hint">{{ inv.invoiceTypeName === 'WHT Invoice' ? 'Withholding-tax invoices are paid in full only.' : 'Part payments are not available for this invoice yet.' }}</span>
+                <span class="fr-field-hint">{{ isCustomInvoice() ? 'Custom invoices are paid in full only.' : inv.invoiceTypeName === 'WHT Invoice' ? 'Withholding-tax invoices are paid in full only.' : 'Part payments are not available for this invoice yet.' }}</span>
               }
             </div>
 

@@ -1,0 +1,78 @@
+<section class="ca-card" aria-labelledby="ca-title">
+  <header class="ca-head">
+    <div>
+      <h2 id="ca-title">Who can use this page</h2>
+      <p>Super admins always can. Turn the switch on for each admin who may create custom invoices. Admins can also be
+        given access from the Users page.</p>
+    </div>
+    <button type="button" class="ci-btn ci-btn-outline" (click)="load()" [disabled]="loading()">
+      <svg [class.ca-spin-icon]="loading()" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      Refresh
+    </button>
+  </header>
+
+  @if (items().length > 0) {
+    <div class="ca-tools">
+      <span class="ca-count"><strong>{{ withAccess() }}</strong> of {{ items().length }} admins have access</span>
+      <label class="ca-search">
+        <span class="sr-only">Filter admins</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" placeholder="Filter by name, email or location" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+      </label>
+    </div>
+  }
+
+  @if (loadError() && items().length === 0) {
+    <div class="ca-state ca-state-error" role="alert">
+      <strong>The admin users couldn't be loaded</strong>
+      <span>{{ loadError() }}</span>
+      <button type="button" class="ci-btn ci-btn-outline" (click)="load()" [disabled]="loading()">Try again</button>
+    </div>
+  } @else if (items().length === 0 && (loading() || !loaded())) {
+    <ul class="ca-list" aria-busy="true" aria-label="Loading admin users">
+      @for (i of [1, 2, 3]; track i) {
+        <li class="ca-row ca-skeleton"><span class="sk-a"></span><span class="sk-b"></span><span class="sk-switch"></span></li>
+      }
+    </ul>
+  } @else if (items().length === 0) {
+    <div class="ca-state">
+      <strong>No admin users</strong>
+      <span>There are no users with the admin role yet. Give someone the admin role on the Users page first.</span>
+    </div>
+  } @else {
+    <ul class="ca-list">
+      @for (item of shown(); track item.userId) {
+        <li class="ca-row" [class.on]="item.hasAccess">
+          <div class="ca-main">
+            <h3 class="ca-name" [id]="switchId(item.userId) + '-name'">{{ item.name || item.email }}</h3>
+            @if (item.name && item.email) { <p class="ca-email">{{ item.email }}</p> }
+            @if (item.locationNames.length) {
+              <p class="ca-locs">
+                @for (loc of item.locationNames; track loc) { <span class="ca-loc">{{ loc }}</span> }
+              </p>
+            }
+            @if (item.hasAccess && (item.grantedBy || item.grantedAt)) {
+              <p class="ca-meta">
+                Given{{ item.grantedBy ? ' by ' + item.grantedBy : '' }}
+                @if (grantedDate(item.grantedAt); as d) { on <time [attr.datetime]="d.toISOString()">{{ d | date:'d MMM y' }}</time> }
+              </p>
+            }
+            @if (rowErrors()[item.userId]; as error) {
+              <p class="ca-row-error" role="alert">Not changed: {{ error }}</p>
+            }
+          </div>
+          <div class="ca-control">
+            <span class="ca-switch-text" aria-hidden="true">{{ isPending(item.userId) ? 'Saving' : item.hasAccess ? 'On' : 'Off' }}</span>
+            <button type="button" role="switch" class="ca-switch" [id]="switchId(item.userId)" [class.on]="item.hasAccess"
+              [attr.aria-checked]="item.hasAccess" [attr.aria-busy]="isPending(item.userId) || null"
+              [attr.aria-labelledby]="switchId(item.userId) + '-name'" [disabled]="isPending(item.userId)" (click)="toggle(item)">
+              <span class="ca-knob">@if (isPending(item.userId)) { <span class="ca-knob-spin" aria-hidden="true"></span> }</span>
+            </button>
+          </div>
+        </li>
+      } @empty {
+        <li class="ca-state">No admin matches "{{ filter() }}".</li>
+      }
+    </ul>
+  }
+</section>

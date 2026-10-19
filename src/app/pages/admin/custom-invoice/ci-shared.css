@@ -1,0 +1,53 @@
+/* Custom Invoice page: buttons and colours shared by the page and its access panel (both include this file). */
+:host {
+  --ci-teal: #0d9488;
+  --ci-teal-dark: #0f766e;
+  --ci-teal-soft: #f0fdfa;
+  --ci-ink: #0f172a;
+  --ci-text: #334155;
+  --ci-muted: #64748b;
+  --ci-faint: #94a3b8;
+  --ci-line: #e2e8f0;
+  --ci-line-soft: #f1f5f9;
+  --ci-bg-soft: #f8fafc;
+  --ci-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: block;
+}
+
+.ci-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-size: .875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+}
+.ci-btn:focus-visible { outline: 2px solid var(--ci-teal); outline-offset: 2px; }
+.ci-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ci-btn-primary { background: var(--ci-teal); color: #fff; }
+.ci-btn-primary:hover:not(:disabled) { background: var(--ci-teal-dark); }
+.ci-btn-outline { background: #fff; color: #475569; border-color: var(--ci-line); }
+.ci-btn-outline:hover:not(:disabled) { background: var(--ci-bg-soft); border-color: #cbd5e1; }
+.ci-btn-danger { background: #dc2626; color: #fff; }
+.ci-btn-danger:hover:not(:disabled) { background: #b91c1c; }
+.ci-btn-link { min-height: 0; padding: 4px 2px; border: none; background: none; color: var(--ci-teal-dark); font-weight: 600; }
+.ci-btn-link:hover:not(:disabled) { text-decoration: underline; }
+.ci-btn-sm { min-height: 32px; padding: 5px 12px; font-size: .8rem; }
+
+.ci-spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor;
+  border-right-color: transparent; animation: ci-spin .7s linear infinite; }
+@keyframes ci-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ci-spin { animation: none; } }
+
+@media (max-width: 767.98px) {
+  .ci-btn { min-height: 44px; }
+  .ci-btn-sm { min-height: 40px; }
+}
