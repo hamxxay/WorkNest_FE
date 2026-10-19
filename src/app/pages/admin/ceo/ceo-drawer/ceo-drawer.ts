@@ -2,6 +2,7 @@ import {
   Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, input, output, signal, untracked, viewChild
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
   CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoLeaseRecord, CeoLocalMetric,
@@ -35,6 +36,12 @@ type BookingRow = Omit<CeoBookingRecord, 'totalAmount'> & Partial<Pick<CeoBookin
 type QuotationRow = Omit<CeoQuotationRecord, 'total'> & Partial<Pick<CeoQuotationRecord, 'total'> & Pick<SmQuotationRecord, 'desks'>>;
 /** Lease record: desks from the Sales Manager API, the monthly rent from the CEO API (records/leases). */
 type LeaseRow = Omit<SmLeaseRecord, 'desks'> & Partial<Pick<SmLeaseRecord, 'desks'> & Pick<CeoLeaseRecord, 'monthlyAmount'>>;
+/** Invoice record; the admin dashboard source adds its booking and space. */
+type InvoiceRow = CeoInvoiceRecord & { bookingId?: number | null; space?: string | null };
+/** Space record; the admin dashboard source adds the booking that holds it. */
+type SpaceRow = CeoSpaceRecord & { bookingId?: number | null };
+/** A link to another list about the same selection (DrillRecords.related). */
+type RelatedList = NonNullable<DrillRecords['related']>[number];
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
 const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
@@ -112,7 +119,7 @@ const RECORD_TITLES: Record<string, string> = {
 @Component({
   selector: 'app-ceo-drawer',
   standalone: true,
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './ceo-drawer.html',
   styleUrl: './ceo-drawer.css'
 })
@@ -271,6 +278,11 @@ export class CeoDrawer {
     if (spec) this.push(spec.next(e.level.params, row));
   }
 
+  /** A related list offered above a records list (DrillRecords.related) -> that list. */
+  openRelated(x: RelatedList) {
+    if (this.current()?.level.kind === 'records') this.push(x.level);
+  }
+
   /** The second list a level 2 row offers (its link under the row) -> level 3. */
   openSecondary(row: CeoBreakdownRow) {
     const e = this.current();
@@ -396,8 +408,8 @@ export class CeoDrawer {
 
   // ---------- level 3 helpers ----------
 
-  invoiceRows = computed(() => this.recordsOf<CeoInvoiceRecord>('invoices'));
-  spaceRows = computed(() => this.recordsOf<CeoSpaceRecord>('spaces'));
+  invoiceRows = computed(() => this.recordsOf<InvoiceRow>('invoices'));
+  spaceRows = computed(() => this.recordsOf<SpaceRow>('spaces'));
   bookingRows = computed(() => this.recordsOf<BookingRow>('bookings'));
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
   quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
@@ -452,6 +464,19 @@ export class CeoDrawer {
     return e?.level.kind === 'records' ? e.level.records : null;
   });
   recordTotal = computed(() => this.current()?.records?.total ?? 0);
+  /** Other lists about the same selection (links above the table), from the source; none on the CEO pages. */
+  related = computed<RelatedList[]>(() => {
+    const e = this.current();
+    return e?.level.kind === 'records' && e.status === 'ok' ? e.records?.related ?? [] : [];
+  });
+  /** Where a booking number links to (the source decides); null = plain text. */
+  bookingLink(bookingId: number | null | undefined) {
+    return bookingId ? this.src().bookingLink?.(bookingId) ?? null : null;
+  }
+  /** The line under an invoice's customer: its space and location (the CEO records have only the location). */
+  placeOf(r: InvoiceRow): string {
+    return [r.space, r.location].filter(Boolean).join(' · ');
+  }
   recordShown = computed(() => this.current()?.records?.rows.length ?? 0);
 
   typeStyle(type: string) { return INQUIRY_TYPES[inquiryTypeKey(type)]; }

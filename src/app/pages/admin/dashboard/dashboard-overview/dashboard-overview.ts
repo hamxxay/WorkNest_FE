@@ -2,11 +2,18 @@ import { Component, DestroyRef, ElementRef, computed, effect, inject, input, sig
 import { RouterLink } from '@angular/router';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { AdminService } from '../../../../services/admin.service';
+import { DashboardDetailsService, OverviewDetailKind } from '../../../../services/dashboard-details.service';
+import { CeoParams } from '../../../../services/ceo.service';
 import { Chart } from '../../access/access-shared';
+import { CeoDrawer } from '../../ceo/ceo-drawer/ceo-drawer';
+import { ChartKeyNav, DrillRequest, monthLong, pointerOnHover } from '../../ceo/ceo-shared';
 import { OccupiedRoomsDrawer } from '../occupied-rooms-drawer/occupied-rooms-drawer';
+import { AGING_KEYS, overviewDrillSource, overviewLevel, spacesInUseLabel } from './overview-drill';
 
 type AttentionTab = 'overdue' | 'ending' | 'pending';
 export type DashPeriod = 'month' | 'quarter' | 'year';
+/** The six overview charts. */
+type ChartKey = 'revenue' | 'aging' | 'occupancy' | 'types' | 'customers' | 'expiries';
 
 interface Kpi {
   key: string;
@@ -27,16 +34,20 @@ interface Kpi {
  * panel and a 6-month invoiced / paid / occupancy chart. One request (GET api/dashboard/overview);
  * shows placeholder blocks while loading, independent of the rest of the dashboard.
  * The Occupancy card opens the rooms in use right now (OccupiedRoomsDrawer) instead of a page.
+ * Every chart drills down: a click on a bar / slice / point (or Enter / Space on the focused chart) opens the
+ * records behind it in the CEO drawer (CeoDrawer with overviewDrillSource: GET api/dashboard/overview-details/{kind},
+ * database update DASH_02); arrow keys move between the chart's points, Escape closes the drawer.
  */
 @Component({
   selector: 'app-dashboard-overview',
   standalone: true,
-  imports: [RouterLink, DatePipe, NgTemplateOutlet, OccupiedRoomsDrawer],
+  imports: [RouterLink, DatePipe, NgTemplateOutlet, OccupiedRoomsDrawer, CeoDrawer],
   templateUrl: './dashboard-overview.html',
   styleUrl: './dashboard-overview.css'
 })
 export class DashboardOverview {
   private admin = inject(AdminService);
+  private details = inject(DashboardDetailsService);
 
   /** 'ALL' or a location id (as the dashboard's location filter holds it). */
   locationId = input<string>('ALL');
@@ -46,6 +57,8 @@ export class DashboardOverview {
   refreshTick = input<number>(0);
   /** This month / quarter / year — every number and chart follows it. */
   period = input<DashPeriod>('month');
+  customFrom = input<string | null>(null);
+  customTo = input<string | null>(null);
 
   periodWord = computed(() => this.period());
   seriesLabel = computed(() => `Last ${this.period() === 'year' ? 24 : this.period() === 'quarter' ? 12 : 6} months`);
@@ -71,7 +84,182 @@ export class DashboardOverview {
   private typeCanvas = viewChild<ElementRef<HTMLCanvasElement>>('typeCanvas');
   private custCanvas = viewChild<ElementRef<HTMLCanvasElement>>('custCanvas');
   private expCanvas = viewChild<ElementRef<HTMLCanvasElement>>('expCanvas');
-  private charts: Chart[] = [];
+  private charts = new Map<ChartKey, Chart>();
+
+  // ---------- chart drill-down (CeoDrawer) ----------
+
+  /** What the drawer shows; null = closed. */
+  drill = signal<DrillRequest<string, string> | null>(null);
+  private drillId = 0;
+  /** The drawer's lists follow the dashboard's locations and custom range (read when a list loads). */
+  readonly drillSource = overviewDrillSource(this.details, () => ({
+    locationIds: this.locationIds(),
+    locationId: this.locationIdNumber(),
+    customFrom: this.customFrom(),
+    customTo: this.customTo()
+  }));
+  /** Screen reader text for the chart point that has keyboard focus. */
+  chartAnnounce = signal('');
+
+  private locationIdNumber(): number | null {
+    const loc = this.locationId();
+    return loc && loc !== 'ALL' && !isNaN(Number(loc)) ? Number(loc) : null;
+  }
+
+  private openDetail(root: string, kind: OverviewDetailKind, params: CeoParams, crumb: string) {
+    this.drill.set({ id: ++this.drillId, root, level: overviewLevel(kind, params, crumb) });
+  }
+
+  closeDrill() { this.drill.set(null); }
+
+  /** Revenue & collections: the invoices issued that month. */
+  openRevenueMonth(i: number) {
+    const m = this.data()?.months?.[i];
+    if (m) this.openDetail('Revenue & collections', 'revenue-month', { month: m.month }, monthLong(m.month));
+  }
+
+  /** Receivables aging: the open invoices of that bucket. */
+  openAging(i: number) {
+    const a = this.data()?.aging?.[i];
+    const bucket = AGING_KEYS[i];
+    if (a && bucket) this.openDetail('Receivables aging', 'aging-bucket', { bucket }, a.label);
+  }
+
+  /** Occupancy & new bookings, a bar: the bookings made that month (with a link to the spaces in use). */
+  openNewBookings(i: number) {
+    const m = this.data()?.months?.[i];
+    if (m) this.openDetail('Occupancy & new bookings', 'new-bookings', { month: m.month }, `New bookings, ${monthLong(m.month)}`);
+  }
+
+  /** Occupancy & new bookings, a point of the line: the spaces in use that month (with a link to its new bookings). */
+  openOccupiedMonth(i: number) {
+    const m = this.data()?.months?.[i];
+    if (m) this.openDetail('Occupancy & new bookings', 'occupied-month', { month: m.month }, spacesInUseLabel(m.month));
+  }
+
+  /** Occupancy by space type: the type's spaces, booked and vacant. */
+  openSpaceType(i: number) {
+    const t = this.data()?.spaceTypes?.[i];
+    if (t) this.openDetail('Occupancy by space type', 'space-type', { spaceType: t.spaceType }, t.spaceType);
+  }
+
+  /** Top customers: the customer's invoices in the period. */
+  openCustomer(i: number) {
+    const c = this.data()?.topCustomers?.[i];
+    if (c) this.openDetail('Top customers', 'top-customer', { customer: c.label }, c.label);
+  }
+
+  /** Leases expiring: the leases ending that month. */
+  openExpiry(i: number) {
+    const e = this.data()?.leaseExpiries?.[i];
+    if (e) this.openDetail('Leases expiring', 'leases-ending', { month: e.label }, monthLong(e.label));
+  }
+
+  /** What Enter / Space opens on each chart, and how many points it has. */
+  private readonly picks: Record<ChartKey, { open: (i: number) => void; count: () => number }> = {
+    revenue: { open: i => this.openRevenueMonth(i), count: () => this.data()?.months?.length ?? 0 },
+    aging: { open: i => this.openAging(i), count: () => this.data()?.aging?.length ?? 0 },
+    occupancy: { open: i => this.openNewBookings(i), count: () => this.data()?.months?.length ?? 0 },
+    types: { open: i => this.openSpaceType(i), count: () => this.data()?.spaceTypes?.length ?? 0 },
+    customers: { open: i => this.openCustomer(i), count: () => this.data()?.topCustomers?.length ?? 0 },
+    expiries: { open: i => this.openExpiry(i), count: () => this.data()?.leaseExpiries?.length ?? 0 }
+  };
+
+  private nav(key: ChartKey, describe: (i: number) => string, start: 'first' | 'last'): ChartKeyNav {
+    return new ChartKeyNav({
+      charts: () => [this.charts.get(key)],
+      count: () => this.picks[key].count(),
+      describe,
+      pick: i => this.picks[key].open(i),
+      announce: t => this.chartAnnounce.set(t),
+      start
+    });
+  }
+
+  /** Arrow keys move between a chart's points (months start on the latest, rankings on the first). */
+  readonly navs: Record<ChartKey, ChartKeyNav> = {
+    revenue: this.nav('revenue', i => {
+      const m = this.data()?.months?.[i];
+      return m ? `${monthLong(m.month)}: invoiced ${this.fullMoney(m.invoiced)}, paid ${this.fullMoney(m.paid)}. Press Enter for the invoices.` : '';
+    }, 'last'),
+    aging: this.nav('aging', i => {
+      const a = this.data()?.aging?.[i];
+      return a ? `${a.label}: ${this.fullMoney(a.amount)} owed, ${a.count} invoice${a.count === 1 ? '' : 's'}. Press Enter for the invoices.` : '';
+    }, 'first'),
+    occupancy: this.nav('occupancy', i => {
+      const m = this.data()?.months?.[i];
+      return m ? `${monthLong(m.month)}: occupancy ${m.occupancyPct}%, ${m.newBookings} new booking${m.newBookings === 1 ? '' : 's'}. Press Enter for the new bookings.` : '';
+    }, 'last'),
+    types: this.nav('types', i => {
+      const t = this.data()?.spaceTypes?.[i];
+      return t ? `${t.spaceType}: ${t.occupied} of ${t.total} spaces booked. Press Enter for the spaces.` : '';
+    }, 'first'),
+    customers: this.nav('customers', i => {
+      const c = this.data()?.topCustomers?.[i];
+      return c ? `${c.label}: ${this.fullMoney(c.amount)} invoiced, ${c.count} invoice${c.count === 1 ? '' : 's'}. Press Enter for the invoices.` : '';
+    }, 'first'),
+    expiries: this.nav('expiries', i => {
+      const e = this.data()?.leaseExpiries?.[i];
+      return e ? `${monthLong(e.label)}: ${e.count} lease${e.count === 1 ? '' : 's'} ending, ${this.fullMoney(e.amount)}. Press Enter for the leases.` : '';
+    }, 'first')
+  };
+
+  /** A chart takes keyboard focus once it shows data. */
+  canNav(key: ChartKey): boolean {
+    return !this.loading() && !this.empty()[key];
+  }
+
+  /** Keyboard focus (not a mouse click) highlights the chart's first point to visit. */
+  chartFocus(key: ChartKey, e: FocusEvent) {
+    if ((e.target as HTMLElement | null)?.matches(':focus-visible')) this.navs[key].focus();
+  }
+
+  /** Enter / Space opens the highlighted point, or the first one when none is; the rest is ChartKeyNav. */
+  chartKey(key: ChartKey, e: KeyboardEvent) {
+    const nav = this.navs[key];
+    if ((e.key === 'Enter' || e.key === ' ') && nav.index < 0) {
+      if (!this.picks[key].count()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.picks[key].open(0);
+      return;
+    }
+    nav.keydown(e);
+  }
+
+  /** What each canvas shows, for screen readers (the chart's figures in words). */
+  chartLabels = computed<Record<ChartKey, string>>(() => {
+    const d = this.data();
+    const e = this.empty();
+    const months: any[] = d?.months ?? [];
+    const latest = months.at(-1);
+    const y = this.yearTotals();
+    const list = (xs: string[]) => xs.filter(Boolean).join('; ');
+    if (!d) {
+      const wait = 'Loading the chart.';
+      return { revenue: wait, aging: wait, occupancy: wait, types: wait, customers: wait, expiries: wait };
+    }
+    return {
+      revenue: e.revenue ? 'Revenue and collections: no invoices in this range yet.'
+        : `Revenue and collections, ${this.seriesLabel().toLowerCase()}: bars of the amount invoiced and paid each month and a line of the collection rate. `
+          + `In total ${this.fullMoney(y.invoiced)} invoiced and ${this.fullMoney(y.paid)} paid, ${y.rate}% collected.`,
+      aging: e.aging ? 'Receivables aging: nothing outstanding.'
+        : `Receivables aging, as of today: ${this.fullMoney(this.agingTotal())} outstanding. `
+          + list((d.aging ?? []).map((a: any) => `${a.label} ${this.fullMoney(a.amount)}, ${a.count} invoice${a.count === 1 ? '' : 's'}`)) + '.',
+      occupancy: e.occupancy ? 'Occupancy and new bookings: no occupancy or bookings in this range yet.'
+        : `Occupancy and new bookings, ${this.seriesLabel().toLowerCase()}: a line of the share of spaces in use and bars of the bookings made each month.`
+          + (latest ? ` ${monthLong(latest.month)}: ${latest.occupancyPct}% occupancy, ${latest.newBookings} new booking${latest.newBookings === 1 ? '' : 's'}.` : ''),
+      types: e.types ? 'Occupancy by space type: no spaces set up yet.'
+        : 'Occupancy by space type, as of today: '
+          + list((d.spaceTypes ?? []).map((t: any) => `${t.spaceType} ${t.occupied} of ${t.total} booked`)) + '.',
+      customers: e.customers ? 'Top customers: no invoices this period yet.'
+        : `Top customers by amount invoiced this ${this.periodWord()}: `
+          + list((d.topCustomers ?? []).map((c: any) => `${c.label} ${this.fullMoney(c.amount)}`)) + '.',
+      expiries: e.expiries ? 'Leases expiring: no leases end in this window.'
+        : `Leases expiring, ${this.aheadLabel().toLowerCase()}: `
+          + list((d.leaseExpiries ?? []).map((x: any) => `${monthLong(x.label)} ${x.count} lease${x.count === 1 ? '' : 's'}`)) + '.'
+    };
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.destroyCharts());
@@ -302,7 +490,7 @@ export class DashboardOverview {
   // ---------- Chart.js ----------
   private destroyCharts() {
     this.charts.forEach(c => c.destroy());
-    this.charts = [];
+    this.charts.clear();
   }
 
   private monthLabel(ym: string): string {
@@ -317,7 +505,7 @@ export class DashboardOverview {
     Chart.defaults.color = '#64748b';
 
     const tooltip = {
-      backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', padding: 10, cornerRadius: 8,
+      backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', footerColor: '#94a3b8', padding: 10, cornerRadius: 8,
       titleFont: { weight: 600 as const }, boxPadding: 4, usePointStyle: true
     };
     const grid = { color: '#eef2f6', drawTicks: false };
@@ -325,10 +513,12 @@ export class DashboardOverview {
     const legend = { position: 'bottom' as const, labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 16 } };
     const months: any[] = d.months ?? [];
     const labels = months.map(m => this.monthLabel(m.month));
-    const add = (el: ElementRef<HTMLCanvasElement> | undefined, cfg: any) => { if (el) this.charts.push(new Chart(el.nativeElement, cfg)); };
+    const add = (key: ChartKey, el: ElementRef<HTMLCanvasElement> | undefined, cfg: any) => { if (el) this.charts.set(key, new Chart(el.nativeElement, cfg)); };
+    // A click on a bar / slice / point opens its records (the first element under the pointer, or its column).
+    const clickOpens = (open: (i: number) => void) => (_e: any, els: any[]) => { if (els.length) open(els[0].index); };
 
-    // 1. Revenue & collections — invoiced vs paid bars, collection-rate line
-    add(this.revenueCanvas(), {
+    // 1. Revenue & collections — invoiced vs paid bars, collection-rate line; a month opens its invoices
+    add('revenue', this.revenueCanvas(), {
       data: {
         labels,
         datasets: [
@@ -340,9 +530,13 @@ export class DashboardOverview {
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        onHover: pointerOnHover, onClick: clickOpens(i => this.openRevenueMonth(i)),
         plugins: {
           legend,
-          tooltip: { ...tooltip, callbacks: { label: (c: any) => c.dataset.yAxisID === 'pct' ? ` ${c.dataset.label}: ${c.parsed.y ?? 0}%` : ` ${c.dataset.label}: ${this.fullMoney(c.parsed.y)}` } }
+          tooltip: { ...tooltip, callbacks: {
+            label: (c: any) => c.dataset.yAxisID === 'pct' ? ` ${c.dataset.label}: ${c.parsed.y ?? 0}%` : ` ${c.dataset.label}: ${this.fullMoney(c.parsed.y)}`,
+            footer: () => 'Click for the invoices'
+          } }
         },
         scales: {
           x: { grid: { display: false }, border: { display: false } },
@@ -354,7 +548,7 @@ export class DashboardOverview {
 
     // 2. Receivables aging — doughnut
     const aging: any[] = d.aging ?? [];
-    add(this.agingCanvas(), {
+    add('aging', this.agingCanvas(), {
       type: 'doughnut',
       data: {
         labels: aging.map(a => a.label),
@@ -362,15 +556,19 @@ export class DashboardOverview {
       },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '72%',
+        onHover: pointerOnHover, onClick: clickOpens(i => this.openAging(i)),
         plugins: {
           legend: { display: false },
-          tooltip: { ...tooltip, callbacks: { label: (c: any) => ` ${c.label}: ${this.fullMoney(c.parsed)} (${aging[c.dataIndex]?.count ?? 0} invoices)` } }
+          tooltip: { ...tooltip, callbacks: {
+            label: (c: any) => ` ${c.label}: ${this.fullMoney(c.parsed)} (${aging[c.dataIndex]?.count ?? 0} invoices)`,
+            footer: () => 'Click for the invoices'
+          } }
         }
       }
     });
 
-    // 3. Occupancy & new bookings — bars + line
-    add(this.occCanvas(), {
+    // 3. Occupancy & new bookings — bars + line; a point of the line opens the spaces in use, the rest of a month its new bookings
+    add('occupancy', this.occCanvas(), {
       data: {
         labels,
         datasets: [
@@ -381,15 +579,26 @@ export class DashboardOverview {
               const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
               g.addColorStop(0, 'rgba(13,148,136,0.28)'); g.addColorStop(1, 'rgba(13,148,136,0.02)');
               return g;
-            }, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderColor: '#0d9488', pointBorderWidth: 2, order: 1 },
+            }, pointRadius: 3, pointHitRadius: 10, pointBackgroundColor: '#fff', pointBorderColor: '#0d9488', pointBorderWidth: 2, order: 1 },
           { type: 'bar', label: 'New bookings', data: months.map(m => m.newBookings), yAxisID: 'n', backgroundColor: '#c7d2fe', borderRadius: 6, maxBarThickness: 22, order: 2 }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        onHover: pointerOnHover,
+        onClick: (e: any, els: any[], chart: any) => {
+          const i = els[0]?.index;
+          if (i === undefined) return;
+          // Right on a point of the occupancy line (dataset 0): the spaces in use; anywhere else in the month: its new bookings.
+          const hit: any[] = chart.getElementsAtEventForMode(e.native ?? e, 'nearest', { intersect: true }, false);
+          if (hit.some(h => h.datasetIndex === 0)) this.openOccupiedMonth(i); else this.openNewBookings(i);
+        },
         plugins: {
           legend,
-          tooltip: { ...tooltip, callbacks: { label: (c: any) => c.dataset.yAxisID === 'pct' ? ` Occupancy: ${c.parsed.y}%` : ` New bookings: ${c.parsed.y}` } }
+          tooltip: { ...tooltip, callbacks: {
+            label: (c: any) => c.dataset.yAxisID === 'pct' ? ` Occupancy: ${c.parsed.y}%` : ` New bookings: ${c.parsed.y}`,
+            footer: () => 'Click a point for the spaces in use, a bar for the new bookings'
+          } }
         },
         scales: {
           x: { grid: { display: false }, border: { display: false } },
@@ -401,7 +610,7 @@ export class DashboardOverview {
 
     // 4. Occupancy by space type — stacked horizontal bars
     const types: any[] = d.spaceTypes ?? [];
-    add(this.typeCanvas(), {
+    add('types', this.typeCanvas(), {
       type: 'bar',
       data: {
         labels: types.map(t => t.spaceType),
@@ -411,10 +620,11 @@ export class DashboardOverview {
         ]
       },
       options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', axis: 'y', intersect: false },
+        onHover: pointerOnHover, onClick: clickOpens(i => this.openSpaceType(i)),
         plugins: {
           legend,
-          tooltip: { ...tooltip, callbacks: { footer: (items: any[]) => { const t = types[items[0]?.dataIndex]; return t ? `${t.total ? Math.round(t.occupied * 100 / t.total) : 0}% occupied` : ''; } } }
+          tooltip: { ...tooltip, callbacks: { footer: (items: any[]) => { const t = types[items[0]?.dataIndex]; return t ? `${t.total ? Math.round(t.occupied * 100 / t.total) : 0}% occupied · click for the spaces` : ''; } } }
         },
         scales: {
           x: { stacked: true, beginAtZero: true, grid, border: { display: false }, ticks: { precision: 0 } },
@@ -425,17 +635,22 @@ export class DashboardOverview {
 
     // 5. Top customers — horizontal bars
     const cust: any[] = d.topCustomers ?? [];
-    add(this.custCanvas(), {
+    add('customers', this.custCanvas(), {
       type: 'bar',
       data: {
         labels: cust.map(c => c.label.length > 22 ? c.label.slice(0, 21) + '…' : c.label),
         datasets: [{ label: 'Invoiced (12 months)', data: cust.map(c => c.amount), backgroundColor: ['#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4'], borderRadius: 6, maxBarThickness: 20 }]
       },
       options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', axis: 'y', intersect: false },
+        onHover: pointerOnHover, onClick: clickOpens(i => this.openCustomer(i)),
         plugins: {
           legend: { display: false },
-          tooltip: { ...tooltip, callbacks: { title: (i: any[]) => cust[i[0]?.dataIndex]?.label ?? '', label: (c: any) => ` ${this.fullMoney(c.parsed.x)} · ${cust[c.dataIndex]?.count ?? 0} invoices` } }
+          tooltip: { ...tooltip, callbacks: {
+            title: (i: any[]) => cust[i[0]?.dataIndex]?.label ?? '',
+            label: (c: any) => ` ${this.fullMoney(c.parsed.x)} · ${cust[c.dataIndex]?.count ?? 0} invoices`,
+            footer: () => 'Click for the invoices'
+          } }
         },
         scales: {
           x: { beginAtZero: true, grid, border: { display: false }, ticks: axisMoney },
@@ -446,7 +661,7 @@ export class DashboardOverview {
 
     // 6. Lease expiries — next 6 months
     const exp: any[] = d.leaseExpiries ?? [];
-    add(this.expCanvas(), {
+    add('expiries', this.expCanvas(), {
       type: 'bar',
       data: {
         labels: exp.map(e => this.monthLabel(e.label)),
@@ -454,10 +669,14 @@ export class DashboardOverview {
           backgroundColor: exp.map((_, i) => i === 0 ? '#f59e0b' : i === 1 ? '#fbbf24' : '#fde68a'), borderRadius: 6, maxBarThickness: 30 }]
       },
       options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        onHover: pointerOnHover, onClick: clickOpens(i => this.openExpiry(i)),
         plugins: {
           legend: { display: false },
-          tooltip: { ...tooltip, callbacks: { label: (c: any) => ` ${c.parsed.y} lease${c.parsed.y === 1 ? '' : 's'} · ${this.fullMoney(exp[c.dataIndex]?.amount)}` } }
+          tooltip: { ...tooltip, callbacks: {
+            label: (c: any) => ` ${c.parsed.y} lease${c.parsed.y === 1 ? '' : 's'} · ${this.fullMoney(exp[c.dataIndex]?.amount)}`,
+            footer: () => 'Click for the leases'
+          } }
         },
         scales: {
           x: { grid: { display: false }, border: { display: false } },
