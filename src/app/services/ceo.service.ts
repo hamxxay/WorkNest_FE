@@ -3,8 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, DashParams, arr, conversionOf, describeDashboardError, getDashboardData, num, numOrNull, obj, percent,
-  str, strOrNull
+  DashError, DashErrorWording, DashParams, DashRange, arr, conversionOf, describeDashboardError, getDashboardData, num, numOrNull, obj,
+  percent, periodOf, periodQuery, rangeOf, str, strOrNull
 } from './dashboard-api';
 
 // ============================================================
@@ -14,7 +14,8 @@ import {
 // missing field shows as an empty state on the page instead of breaking it.
 // ============================================================
 
-export type CeoPeriod = 'month' | 'quarter' | 'year';
+/** custom: a day range (from / to, API CS_01), compared with the same number of days just before it. */
+export type CeoPeriod = 'month' | 'quarter' | 'year' | 'custom';
 
 export interface CeoLocation { locationId: number; name: string; }
 
@@ -96,6 +97,9 @@ export interface CeoDashboard {
   period: CeoPeriod;
   periodLabel: string;
   generatedAt: string | null;
+  /** A custom period: the range the figures cover, and the one the "previous" figures cover; else null. */
+  range: DashRange | null;
+  previousRange: DashRange | null;
   locations: CeoLocation[];
   /** null when the API sent no such section (the page shows an empty state). */
   money: CeoMoney | null;
@@ -254,6 +258,8 @@ export interface CeoRooms {
   period: CeoPeriod;
   periodLabel: string;
   generatedAt: string | null;
+  /** A custom period: the range the report covers; else null. */
+  range: DashRange | null;
   summary: CeoRoomsSummary;
   /** By location, then room code / name. */
   rooms: CeoRoom[];
@@ -393,11 +399,11 @@ function ratioPct(part: number, whole: number): number {
  */
 export function toCeoRooms(raw: unknown, period: CeoPeriod): CeoRooms {
   const d = obj(raw);
-  const p = str(d?.period);
   const head = {
-    period: (p === 'quarter' || p === 'year' || p === 'month' ? p : period) as CeoPeriod,
+    period: periodOf<CeoPeriod>(d?.period, period),
     periodLabel: str(d?.periodLabel),
-    generatedAt: strOrNull(d?.generatedAt)
+    generatedAt: strOrNull(d?.generatedAt),
+    range: rangeOf(d)
   };
   const off = !d || d.available === false || d.available === 0 || str(d.available).toLowerCase() === 'false';
   if (off) {
@@ -458,7 +464,8 @@ const CEO_BASE_UPDATE = 'CEO_01';
 function laterUpdateOf(err: unknown): string | null {
   const e = err as any;
   const message = [e?.error?.message, e?.message].filter(m => typeof m === 'string').join(' ');
-  const update = /\b([A-Z]{2,4}_\d{2})\b/i.exec(message)?.[1].toUpperCase() ?? null;
+  // "CS_01_ceo_sales_dates_TEST.sql" names CS_01 too (no word boundary before its underscore).
+  const update = /\b([A-Z]{2,4}_\d{2})(?![A-Za-z0-9])/i.exec(message)?.[1].toUpperCase() ?? null;
   return update && update !== CEO_BASE_UPDATE ? update : null;
 }
 
@@ -476,9 +483,12 @@ export class CeoService {
   private http = inject(HttpClient);
   private api = environment.apiUrl;
 
-  /** GET api/ceo/dashboard: every section of the CEO dashboard for one period (and optionally one location). */
-  getDashboard(period: CeoPeriod, locationId: number | null): Observable<CeoDashboard> {
-    return this.get(`${this.api}/ceo/dashboard`, { period, locationId }).pipe(map(d => this.toDashboard(d, period)));
+  /**
+   * GET api/ceo/dashboard: every section of the CEO dashboard for one period (and optionally one location); a custom
+   * period sends its range as from / to.
+   */
+  getDashboard(period: CeoPeriod, locationId: number | null, range: DashRange | null = null): Observable<CeoDashboard> {
+    return this.get(`${this.api}/ceo/dashboard`, { ...periodQuery(period, range), locationId }).pipe(map(d => this.toDashboard(d, period)));
   }
 
   /** GET api/ceo/breakdown: drill-down level 2 (one row per location / space type / month). */
@@ -499,8 +509,8 @@ export class CeoService {
    * confirmed booking in the period priced against the list (Morning / Evening against the shift price).
    * available: false until the database update CEO_02 is run.
    */
-  getRooms(period: CeoPeriod, locationId: number | null): Observable<CeoRooms> {
-    return this.get(`${this.api}/ceo/rooms`, { period, locationId }).pipe(map(d => toCeoRooms(d, period)));
+  getRooms(period: CeoPeriod, locationId: number | null, range: DashRange | null = null): Observable<CeoRooms> {
+    return this.get(`${this.api}/ceo/rooms`, { ...periodQuery(period, range), locationId }).pipe(map(d => toCeoRooms(d, period)));
   }
 
   /** GET api/dashboard/forecast: expected rent and occupancy for the next months (all locations combined). */
@@ -600,11 +610,12 @@ export class CeoService {
       }))
     };
 
-    const p = str(d.period);
     return {
-      period: p === 'quarter' || p === 'year' || p === 'month' ? p : period,
+      period: periodOf<CeoPeriod>(d.period, period),
       periodLabel: str(d.periodLabel),
       generatedAt: strOrNull(d.generatedAt),
+      range: rangeOf(d),
+      previousRange: rangeOf({ from: d.previousFrom, to: d.previousTo }),
       locations: arr(d.locations, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location' }))
         .filter(l => l.locationId > 0),
       money, occupancy, sales, team

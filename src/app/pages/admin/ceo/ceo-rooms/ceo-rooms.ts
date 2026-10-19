@@ -7,8 +7,10 @@ import { Subscription } from 'rxjs';
 import { CEO_SHIFTS, CeoError, CeoPeriod, CeoPricing, CeoRooms, CeoService } from '../../../../services/ceo.service';
 import {
   AXIS_MONEY, Chart, ChartKeyNav, DashKpi, GRID, LEGEND, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP,
-  applyChartDefaults, count, fullMoney, money, pct, periodWord, pointerOnHover
+  applyChartDefaults, count, fullMoney, money, pct, pointerOnHover
 } from '../ceo-shared';
+import { periodTitleOf, periodWords } from '../period-range';
+import type { DashRange } from '../../../../services/dashboard-api';
 import {
   MAP_FILTERS, MapFilter, NOT_LET_COLOR, PRICING_COLORS, PRICING_HOVER, PRICING_LABELS, RoomSale, RoomTile, SHIFT_FILTERS,
   ShiftFilter, amount, clip, mapCounts, rentByGroup, roomGroups, roomLabel, roomsMostOccupied, saleLabel, salesWorstFirst,
@@ -50,9 +52,13 @@ export class CeoRoomsSection {
   private injector = inject(Injector);
 
   period = input.required<CeoPeriod>();
+  /** The dashboard's custom range (period custom). */
+  range = input<DashRange | null>(null);
   locationId = input<number | null>(null);
   /** Bumped by the dashboard's refresh button. */
   reload = input(0);
+  /** Bumped by the dashboard's auto refresh: reload without dimming the section (selection and filters stay). */
+  quietReload = input(0);
 
   readonly money = money;
   readonly fullMoney = fullMoney;
@@ -96,9 +102,13 @@ export class CeoRoomsSection {
     inject(DestroyRef).onDestroy(() => { this.sub?.unsubscribe(); this.destroyCharts(); });
     effect(() => {
       this.period();
+      this.range();
       this.locationId();
       this.reload();
       untracked(() => this.load());
+    });
+    effect(() => {
+      if (this.quietReload()) untracked(() => this.load(true));
     });
     // Draws (or updates) the charts once their canvases are on the page and whenever their data changes.
     afterRenderEffect(() => this.renderCharts());
@@ -106,11 +116,13 @@ export class CeoRoomsSection {
 
   // ---------- loading ----------
 
-  load() {
+  /** quiet: the auto refresh (the figures on screen stay as they are until the new ones arrive). */
+  load(quiet = false) {
     this.sub?.unsubscribe();
-    if (this.data()) this.refreshing.set(true); else this.loading.set(true);
-    const key = `${this.period()}|${this.locationId() ?? ''}`;
-    this.sub = this.ceo.getRooms(this.period(), this.locationId()).subscribe({
+    if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
+    const range = this.period() === 'custom' ? this.range() : null;
+    const key = `${this.period()}|${range?.from ?? ''}|${range?.to ?? ''}|${this.locationId() ?? ''}`;
+    this.sub = this.ceo.getRooms(this.period(), this.locationId(), range).subscribe({
       next: d => {
         this.data.set(d);
         this.dataKey = key;
@@ -139,14 +151,15 @@ export class CeoRoomsSection {
   available = computed(() => this.data()?.available !== false);
 
   private shownPeriod = computed<CeoPeriod>(() => this.data()?.period ?? this.period());
-  periodTitle = computed(() => this.data()?.periodLabel
-    || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.shownPeriod()]);
-  word = computed(() => periodWord(this.shownPeriod()));
+  private shownRange = computed(() => this.data()?.range ?? this.range());
+  periodTitle = computed(() => this.data()?.periodLabel || periodTitleOf(this.shownPeriod(), this.shownRange()));
+  /** "this month" / "in this range" (the figures on screen). */
+  thisWord = computed(() => periodWords(this.shownPeriod(), this.shownRange()).thisP);
 
   kpis = computed<DashKpi[]>(() => {
     const s = this.s();
     if (!s) return [];
-    const w = this.word();
+    const custom = this.shownPeriod() === 'custom';
     const sales = (n: number) => `${count(n)} sale${n === 1 ? '' : 's'}`;
     const occTone = (p: number): DashKpi['tone'] => (!s.rooms ? 'neutral' : p >= 70 ? 'ok' : p >= 40 ? 'neutral' : 'warn');
     return [
@@ -162,7 +175,8 @@ export class CeoRoomsSection {
       },
       {
         key: 'period', label: 'Days occupied', value: pct(s.periodOccupancyPct),
-        sub: `This ${w} so far`, tone: occTone(s.periodOccupancyPct),
+        sub: custom ? 'Days of the range' : `${this.thisWord().charAt(0).toUpperCase()}${this.thisWord().slice(1)} so far`,
+        tone: occTone(s.periodOccupancyPct),
         action: () => this.focusEl('panel-rooms-occ'), actionLabel: 'Show occupancy by room'
       },
       {
@@ -222,7 +236,7 @@ export class CeoRoomsSection {
     const r = t.room;
     const sold = t.sales.length
       ? t.sales.map(x => `${x.customer}, ${x.shift}, ${x.pricing === 'unpriced' ? 'no list price' : PRICING_LABELS[x.pricing].toLowerCase() + ' the price'}`).join('; ')
-      : `not let this ${this.word()}`;
+      : `not let ${this.thisWord()}`;
     return `${r.name}, ${r.spaceType}, ${r.location}, ${r.seats} seats, ${r.occupiedNow ? 'in use' : 'vacant'} now: ${sold}`;
   }
 

@@ -9,10 +9,16 @@ import {
 import { CeoDrawer } from '../ceo/ceo-drawer/ceo-drawer';
 import {
   COMPLAINT_STATUSES, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
-  Trend, applyChartDefaults, complaintStatusStyle, count, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort, pct,
-  periodWord, pointerOnHover, ratio, trend
+  Trend, applyChartDefaults, complaintStatusStyle, count, displayNameOf, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort,
+  pct, pointerOnHover, ratio, trend
 } from '../ceo/ceo-shared';
 import { SM_METRICS, SmDrillLevel, desks } from './sales-manager-drill';
+import { RangeEditor, periodTitleOf, periodWords, previousRange } from '../ceo/period-range';
+import { salesWorkbook } from './sales-manager-export';
+import type { DashRange } from '../../../services/dashboard-api';
+import { AutoRefresh } from '../../../utils/auto-refresh';
+import { exportPagePdf, fileDate, fileSlug } from '../../../utils/page-pdf';
+import { downloadXlsx } from '../../../utils/xlsx';
 
 type ChartKey = 'funnel' | 'inquiries' | 'desks' | 'complaints';
 /** Charts drawn from GET api/sales-manager/dashboard (the complaints chart has its own endpoint). */
@@ -79,7 +85,9 @@ function dayCount(n: number): string {
 
 /**
  * Sales dashboard (/admin/sales-manager): the Sales Manager's funnel, team, tour inquiries and renewals for this
- * month / quarter / year, all their locations or one (super admins: every location). Tour inquiries follow the
+ * month / quarter / year or a custom date range (compared with the same number of days before it), all their locations
+ * or one (super admins: every location). Reloads quietly every 5 minutes while the tab is visible (not while a drawer
+ * is open); Export PDF (the page as shown) and Export Excel (the figures behind it). Tour inquiries follow the
  * same scope; those without a branch count under "All my locations" (as complaints do). Every chart and list
  * drills down in the shared side drawer (breakdown, then records). Read-only, and no money anywhere: sales are
  * counted in desks.
@@ -114,7 +122,15 @@ export class SalesManagerDashboard {
     { key: 'month', label: 'This month' }, { key: 'quarter', label: 'Quarter' }, { key: 'year', label: 'Year' }
   ];
   period = signal<SmPeriod>('month');
+  /** The custom range (period custom); kept when another period is chosen, so Custom opens with it again. */
+  range = signal<DashRange | null>(null);
+  /** The range the requests use: only with period custom. */
+  activeRange = computed(() => (this.period() === 'custom' ? this.range() : null));
+  readonly rangeEditor = new RangeEditor();
   locationId = signal<number | null>(null);
+  /** Export running ('pdf' | 'xlsx'); null = none. */
+  exporting = signal<'pdf' | 'xlsx' | null>(null);
+  exportError = signal('');
 
   data = signal<SmDashboard | null>(null);
   /** First load (skeletons); later loads keep the current figures dimmed instead. */
@@ -159,18 +175,28 @@ export class SalesManagerDashboard {
   private inquiriesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('inquiriesCanvas');
   private desksCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desksCanvas');
   private complaintsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('complaintsCanvas');
+  /** What Export PDF prints: the sections under the header (complaints included). */
+  private exportRoot = viewChild<ElementRef<HTMLElement>>('exportRoot');
+
+  /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
+  private auto = new AutoRefresh({
+    run: () => { this.load(true); this.loadComplaints(true); },
+    paused: () => !!this.drill() || this.rangeEditor.open() || !!this.exporting() || this.loading() || this.refreshing()
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.sub?.unsubscribe();
       this.cmpSub?.unsubscribe();
       this.destroyCharts();
+      this.auto.stop();
       if (this.clock) clearInterval(this.clock);
     });
     this.clock = setInterval(() => this.nowTick.set(Date.now()), 30_000);
 
     effect(() => {
       this.period();
+      this.activeRange();
       this.locationId();
       untracked(() => { this.load(); this.loadComplaints(); });
     });
@@ -178,11 +204,12 @@ export class SalesManagerDashboard {
 
   // ---------- loading ----------
 
-  load() {
+  /** quiet: the auto refresh (no dimming; the figures on screen stay until the new ones arrive). */
+  load(quiet = false) {
     this.sub?.unsubscribe();
-    if (this.data()) this.refreshing.set(true); else this.loading.set(true);
+    if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const key = this.selectionKey();
-    this.sub = this.sm.getDashboard(this.period(), this.locationId()).subscribe({
+    this.sub = this.sm.getDashboard(this.period(), this.locationId(), this.activeRange()).subscribe({
       next: d => {
         this.data.set(d);
         this.dataKey = key;
@@ -190,6 +217,7 @@ export class SalesManagerDashboard {
         this.loading.set(false);
         this.refreshing.set(false);
         this.lastUpdated.set(new Date());
+        this.auto.markFresh();
         if (d.locations.length) {
           const byId = new Map(this.knownLocations().map(l => [l.locationId, l]));
           d.locations.forEach(l => byId.set(l.locationId, l));
@@ -209,14 +237,17 @@ export class SalesManagerDashboard {
 
   /** Period + location the figures on screen belong to. */
   private dataKey = '';
-  private selectionKey(): string { return `${this.period()}|${this.locationId() ?? ''}`; }
+  private selectionKey(): string {
+    const r = this.activeRange();
+    return `${this.period()}|${r?.from ?? ''}|${r?.to ?? ''}|${this.locationId() ?? ''}`;
+  }
 
   /** Complaints section: same period and location as the rest; a failure stays inside the section. */
-  loadComplaints() {
+  loadComplaints(quiet = false) {
     this.cmpSub?.unsubscribe();
-    if (this.cmp()) this.cmpRefreshing.set(true); else this.cmpLoading.set(true);
+    if (!quiet) { if (this.cmp()) this.cmpRefreshing.set(true); else this.cmpLoading.set(true); }
     const key = this.selectionKey();
-    this.cmpSub = this.sm.getComplaints(this.period(), this.locationId()).subscribe({
+    this.cmpSub = this.sm.getComplaints(this.period(), this.locationId(), this.activeRange()).subscribe({
       next: c => {
         this.cmp.set(c);
         this.cmpKey = key;
@@ -237,7 +268,92 @@ export class SalesManagerDashboard {
 
   refresh() { this.load(); this.loadComplaints(); }
 
-  setPeriod(p: SmPeriod) { if (p !== this.period()) this.period.set(p); }
+  setPeriod(p: SmPeriod) {
+    this.rangeEditor.close();
+    if (p !== this.period()) this.period.set(p);
+  }
+
+  /** "Custom": the From / To editor (with the range on screen, or the current period to today). */
+  openRange() {
+    if (this.rangeEditor.open()) { this.rangeEditor.close(); return; }
+    this.rangeEditor.show(this.period(), this.range());
+    setTimeout(() => (this.host.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#sm-range-from')?.focus());
+  }
+
+  applyRange(e: Event) {
+    e.preventDefault();
+    const r = this.rangeEditor.apply();
+    if (!r) return;
+    this.range.set(r);
+    this.period.set('custom');
+  }
+
+  closeRange() {
+    this.rangeEditor.close();
+    setTimeout(() => (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>('#sm-range-btn')?.focus());
+  }
+
+  // ---------- export ----------
+
+  canExport = computed(() => !!this.data() && !this.loading() && !this.exporting());
+
+  /** File name stem: "WorkNest-Sales-dashboard-1-Oct-15-Oct-2026-2026-10-19". */
+  private exportName(): string {
+    const loc = this.locationId() ? this.locationName() : '';
+    return `${fileSlug('WorkNest Sales dashboard', this.periodTitle(), loc)}-${fileDate()}`;
+  }
+
+  private exportMeta() {
+    const range = this.shownPeriod() === 'custom' ? this.shownRange() : null;
+    return {
+      periodTitle: this.periodTitle(),
+      range,
+      previousRange: range ? this.data()?.previousRange ?? previousRange(range) : null,
+      location: this.locationName(),
+      preparedBy: displayNameOf(this.auth.user()),
+      previousWords: this.words().last
+    };
+  }
+
+  /** Export PDF: the dashboard as it is on screen (charts included), A4 pages. */
+  async exportPdf() {
+    const el = this.exportRoot()?.nativeElement;
+    if (!el || !this.canExport()) return;
+    this.exporting.set('pdf');
+    this.exportError.set('');
+    try {
+      const meta = this.exportMeta();
+      await exportPagePdf(el, {
+        fileName: `${this.exportName()}.pdf`,
+        title: 'WorkNest Sales dashboard',
+        lines: [
+          meta.previousRange ? `${meta.periodTitle} (compared with ${meta.previousRange.from} to ${meta.previousRange.to})` : meta.periodTitle,
+          meta.location,
+          meta.preparedBy ? `Prepared by ${meta.preparedBy}` : ''
+        ],
+        hide: '.view-toggle, .kpi-go, .row-go'
+      });
+    } catch {
+      this.exportError.set('The PDF could not be made. Please try again.');
+    } finally {
+      this.exporting.set(null);
+    }
+  }
+
+  /** Export Excel: the KPIs, chart and table figures, one sheet per section (.xlsx). */
+  exportExcel() {
+    const d = this.data();
+    if (!d || !this.canExport()) return;
+    this.exporting.set('xlsx');
+    this.exportError.set('');
+    try {
+      downloadXlsx(`${this.exportName()}.xlsx`, salesWorkbook(d, this.cmp(), this.exportMeta()));
+    } catch {
+      this.exportError.set('The Excel file could not be made. Please try again.');
+    } finally {
+      this.exporting.set(null);
+    }
+  }
 
   setLocation(value: string) {
     const id = Number(value);
@@ -259,9 +375,11 @@ export class SalesManagerDashboard {
 
   /** Labels follow the figures on screen (while a new period loads, the old figures keep their own words). */
   private shownPeriod = computed<SmPeriod>(() => this.data()?.period ?? this.period());
-  periodTitle = computed(() => this.data()?.periodLabel
-    || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.shownPeriod()]);
-  word = computed(() => periodWord(this.shownPeriod()));
+  private shownRange = computed(() => this.data()?.range ?? this.activeRange());
+  periodTitle = computed(() => this.data()?.periodLabel || periodTitleOf(this.shownPeriod(), this.shownRange()));
+  /** "this month" / "last month"; a custom range: "in this range" / "previous 15 days". */
+  words = computed(() => periodWords(this.shownPeriod(), this.shownRange()));
+  thisWord = computed(() => this.words().thisP);
 
   updatedAgo = computed(() => this.ago(this.lastUpdated()));
 
@@ -283,7 +401,7 @@ export class SalesManagerDashboard {
   funnelKpis = computed<SmKpi[]>(() => {
     const f = this.f();
     if (!f) return [];
-    const w = this.word();
+    const w = this.words();
     const quotations = this.stageCount('quotations');
     const bookings = this.stageCount('bookings');
     // Of this period's quotations, the ones booked (never above 100%).
@@ -293,19 +411,19 @@ export class SalesManagerDashboard {
         key: 'conversion', label: 'Conversion', value: pct(rate),
         sub: quotations ? `${count(f.quotationsBooked)} of ${count(quotations)} quotations booked` : 'No quotations yet',
         tone: quotations === 0 ? 'neutral' : rate >= 30 ? 'ok' : rate >= 15 ? 'neutral' : 'warn',
-        trend: trend(rate, f.conversionRatePrev, 'pts'), vs: `vs ${pct(f.conversionRatePrev)} last ${w}`,
+        trend: trend(rate, f.conversionRatePrev, 'pts'), vs: `vs ${pct(f.conversionRatePrev)} ${w.last}`,
         action: () => this.focusPanel('panel-funnel'), actionLabel: 'Show the sales funnel'
       },
       {
-        key: 'quoted', label: `Desks quoted this ${w}`, value: count(f.quotedDesks), full: desks(f.quotedDesks),
+        key: 'quoted', label: `Desks quoted ${w.thisP}`, value: count(f.quotedDesks), full: desks(f.quotedDesks),
         sub: `${count(quotations)} quotation${quotations === 1 ? '' : 's'}`, tone: 'neutral',
         action: () => this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' }),
         actionLabel: 'Open the quotations'
       },
       {
-        key: 'booked', label: `Desks booked this ${w}`, value: count(f.bookedDesks), full: desks(f.bookedDesks),
+        key: 'booked', label: `Desks booked ${w.thisP}`, value: count(f.bookedDesks), full: desks(f.bookedDesks),
         sub: `${count(bookings)} booking${bookings === 1 ? '' : 's'}`, tone: 'neutral',
-        trend: trend(f.bookedDesks, f.bookedDesksPrev, '%'), vs: `vs ${desks(f.bookedDesksPrev)} last ${w}`,
+        trend: trend(f.bookedDesks, f.bookedDesksPrev, '%'), vs: `vs ${desks(f.bookedDesksPrev)} ${w.last}`,
         action: () => this.openRecords('Sales funnel', 'Bookings', 'bookings', {}), actionLabel: 'Open the bookings'
       }
     ];
@@ -357,13 +475,13 @@ export class SalesManagerDashboard {
   inquiryKpis = computed<SmKpi[]>(() => {
     const q = this.q();
     if (!q) return [];
-    const w = this.word();
+    const w = this.words();
     const share = (n: number) => (q.total ? `${pct(ratio(n, q.total))} of inquiries` : 'No inquiries yet');
     return [
       {
-        key: 'total', label: `Tour inquiries this ${w}`, value: count(q.total),
-        sub: `${count(q.totalPrev)} last ${w}`, tone: 'neutral',
-        trend: trend(q.total, q.totalPrev, '%'), vs: `vs last ${w}`,
+        key: 'total', label: `Tour inquiries ${w.thisP}`, value: count(q.total),
+        sub: `${count(q.totalPrev)} ${w.last}`, tone: 'neutral',
+        trend: trend(q.total, q.totalPrev, '%'), vs: `vs ${w.last}`,
         action: () => this.openRecords('Tour inquiries', this.periodTitle(), 'inquiries', {}), actionLabel: 'Open the tour inquiries'
       },
       { key: 'followed', label: 'Followed up', value: count(q.followedUp), sub: share(q.followedUp), tone: 'neutral' },
@@ -405,7 +523,7 @@ export class SalesManagerDashboard {
   renewalKpis = computed<SmKpi[]>(() => {
     const r = this.r();
     if (!r) return [];
-    const w = this.word();
+    const w = this.words();
     const leases = (n: number) => `${count(n)} lease${n === 1 ? '' : 's'}`;
     return [
       {
@@ -422,10 +540,10 @@ export class SalesManagerDashboard {
         action: () => this.focusPanel('panel-expiring'), actionLabel: 'Show the expiring leases'
       },
       {
-        key: 'net', label: `Net desks this ${w}`, value: signed(r.netDesks), full: `${signed(r.netDesks)} desks`,
+        key: 'net', label: `Net desks ${w.thisP}`, value: signed(r.netDesks), full: `${signed(r.netDesks)} desks`,
         sub: `${count(r.bookedDesks)} booked, ${count(r.endedDesks)} ended`,
         tone: r.netDesks < 0 ? 'warn' : 'neutral',
-        trend: deskTrend(r.netDesks, r.netDesksPrev), vs: `vs ${signed(r.netDesksPrev)} last ${w}`,
+        trend: deskTrend(r.netDesks, r.netDesksPrev), vs: `vs ${signed(r.netDesksPrev)} ${w.last}`,
         action: () => this.focusPanel('panel-desks'), actionLabel: 'Show desks booked and ending by month'
       }
     ];
@@ -441,7 +559,11 @@ export class SalesManagerDashboard {
   // ---------- Complaints ----------
 
   /** Period words of the complaint figures on screen. */
-  cmpWord = computed(() => periodWord(this.cmp()?.period ?? this.period()));
+  cmpWords = computed(() => {
+    const c = this.cmp();
+    return c ? periodWords(c.period, c.range ?? this.activeRange()) : this.words();
+  });
+  cmpThisWord = computed(() => this.cmpWords().thisP);
   cmpPeriodTitle = computed(() => this.cmp()?.periodLabel || this.periodTitle());
   cmpUpdatedAgo = computed(() => this.ago(this.cmpUpdated()));
 
@@ -461,14 +583,14 @@ export class SalesManagerDashboard {
   cmpKpis = computed<SmKpi[]>(() => {
     const c = this.cmp();
     if (!c) return [];
-    const w = this.cmpWord();
+    const w = this.cmpWords();
     const st = COMPLAINT_STATUSES;
     return [
       {
-        key: 'new', label: `New this ${w}`, value: count(c.newInPeriod),
+        key: 'new', label: `New ${w.thisP}`, value: count(c.newInPeriod),
         sub: c.reopenedInPeriod ? `${count(c.reopenedInPeriod)} reopened` : 'None reopened',
-        tone: 'neutral', trend: trend(c.newInPeriod, c.newInPeriodPrev, 'n', false), vs: `vs ${count(c.newInPeriodPrev)} last ${w}`,
-        action: () => this.openComplaints(`New this ${w}`, { status: 'new_period' }), actionLabel: `Open the complaints raised this ${w}`
+        tone: 'neutral', trend: trend(c.newInPeriod, c.newInPeriodPrev, 'n', false), vs: `vs ${count(c.newInPeriodPrev)} ${w.last}`,
+        action: () => this.openComplaints(`New ${w.thisP}`, { status: 'new_period' }), actionLabel: `Open the complaints raised ${w.thisP}`
       },
       {
         key: 'open', label: 'Open', value: count(c.status.open), sub: st['open'].hint,
@@ -481,11 +603,11 @@ export class SalesManagerDashboard {
         action: () => this.openComplaints('In progress', { status: 'in_progress' }), actionLabel: 'Open the complaints in progress'
       },
       {
-        key: 'resolved', label: `Resolved this ${w}`, value: count(c.resolvedInPeriod),
+        key: 'resolved', label: `Resolved ${w.thisP}`, value: count(c.resolvedInPeriod),
         sub: c.avgResolutionDays !== null ? `avg ${dayCount(c.avgResolutionDays)} to resolve`
-          : c.resolvedInPeriod ? 'Resolved or closed' : `None resolved this ${w}`,
+          : c.resolvedInPeriod ? 'Resolved or closed' : `None resolved ${w.thisP}`,
         tone: c.resolvedInPeriod ? 'ok' : 'neutral', accent: st['resolved'].bar,
-        action: () => this.openComplaints(`Resolved this ${w}`, { status: 'resolved_period' }), actionLabel: `Open the complaints resolved this ${w}`
+        action: () => this.openComplaints(`Resolved ${w.thisP}`, { status: 'resolved_period' }), actionLabel: `Open the complaints resolved ${w.thisP}`
       }
     ];
   });
@@ -503,7 +625,7 @@ export class SalesManagerDashboard {
   /** Bars of the category list: open + in progress, against the busiest category. */
   cmpCategoryMax = computed(() => Math.max(1, ...(this.cmp()?.byCategory ?? []).map(c => c.open + c.inProgress)));
   cmpCategoryLabel(c: SmComplaintCategory): string {
-    return `${c.category}: ${c.open} open, ${c.inProgress} in progress, ${c.total} new this ${this.cmpWord()}. Open its complaints`;
+    return `${c.category}: ${c.open} open, ${c.inProgress} in progress, ${c.total} new ${this.cmpThisWord()}. Open its complaints`;
   }
 
   /**
@@ -517,7 +639,7 @@ export class SalesManagerDashboard {
   /** Bars of the branch list: open + in progress, against the busiest branch. */
   cmpBranchMax = computed(() => Math.max(1, ...(this.cmp()?.byBranch ?? []).map(b => b.open + b.inProgress)));
   cmpBranchLabel(b: SmComplaintBranch): string {
-    return `${b.label}: ${b.open} open, ${b.inProgress} in progress, ${b.total} new this ${this.cmpWord()}. Open its complaints`;
+    return `${b.label}: ${b.open} open, ${b.inProgress} in progress, ${b.total} new ${this.cmpThisWord()}. Open its complaints`;
   }
 
   cmpChartEmpty = computed(() => !(this.cmp()?.months ?? []).some(m => m.created > 0 || m.resolved > 0));
@@ -540,7 +662,11 @@ export class SalesManagerDashboard {
     this.openDrill(root, { kind: 'records', records: kind, params, crumb });
   }
 
-  closeDrill() { this.drill.set(null); }
+  closeDrill() {
+    this.drill.set(null);
+    // A refresh that waited for the drawer runs now.
+    this.auto.resume();
+  }
 
   /** A funnel stage: its records for the period. */
   openStage(stage: SmFunnelStage) {

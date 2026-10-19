@@ -25,6 +25,10 @@
           }
         </ol>
       </nav>
+      <button type="button" class="nav-btn drawer-export" (click)="exportExcel()" [disabled]="!canExport()" title="This list as an Excel workbook" aria-label="Export this list to Excel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+        <span class="drawer-export-label">Export Excel</span>
+      </button>
       <button type="button" class="close-btn" (click)="close()" aria-label="Close (Escape)" title="Close (Esc)">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>

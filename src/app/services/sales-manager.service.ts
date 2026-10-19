@@ -3,8 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, DashParams, arr, capPct, conversionOf, describeDashboardError, getDashboardData, isMonth, num, numOrNull,
-  obj, percent, quotationsBookedOf, str, strOrNull
+  DashError, DashErrorWording, DashParams, DashRange, arr, capPct, conversionOf, describeDashboardError, getDashboardData, isMonth, num,
+  numOrNull, obj, percent, periodOf, periodQuery, quotationsBookedOf, rangeOf, str, strOrNull
 } from './dashboard-api';
 import { CeoBreakdown, CeoInquiryRecord, CeoPeriod } from './ceo.service';
 
@@ -139,6 +139,8 @@ export interface SmOldComplaint {
 export interface SmComplaints {
   period: SmPeriod;
   periodLabel: string;
+  /** A custom period: the range the figures cover; else null. */
+  range: DashRange | null;
   status: SmComplaintStatusCounts;
   /** open + inProgress. */
   activeTotal: number;
@@ -164,6 +166,9 @@ export interface SmDashboard {
   period: SmPeriod;
   periodLabel: string;
   generatedAt: string | null;
+  /** A custom period: the range the figures cover, and the one the "previous" figures cover; else null. */
+  range: DashRange | null;
+  previousRange: DashRange | null;
   /** The manager's locations (every location for a super admin). */
   locations: SmLocation[];
   /**
@@ -264,11 +269,11 @@ export function complaintStatusKey(v: unknown): SmComplaintStatus | string {
   return s;
 }
 
-/** The script a 503 names ("...needs the database update SM_02."), from the API's message. */
+/** The script a 503 names ("...needs the database update SM_02.", "run CS_01_ceo_sales_dates..."), from the API's message. */
 function dbScriptOf(err: unknown): string | null {
   const e = err as any;
   const message = [e?.error?.message, e?.message].filter(m => typeof m === 'string').join(' ');
-  return /\bSM_\d+\b/i.exec(message)?.[0].toUpperCase() ?? null;
+  return /\b(?:SM|CS)_\d+(?![A-Za-z0-9])/i.exec(message)?.[0].toUpperCase() ?? null;
 }
 
 /** Days until an ISO date (0 = today, never negative); used when the API sends no daysLeft. */
@@ -304,16 +309,17 @@ export class SalesManagerService {
   private api = environment.apiUrl;
 
   /** GET api/sales-manager/dashboard: every section for one period (and optionally one of the manager's locations). */
-  getDashboard(period: SmPeriod, locationId: number | null): Observable<SmDashboard> {
-    return this.get(`${this.api}/sales-manager/dashboard`, { period, locationId }).pipe(map(d => this.toDashboard(d, period)));
+  getDashboard(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<SmDashboard> {
+    return this.get(`${this.api}/sales-manager/dashboard`, { ...periodQuery(period, range), locationId }).pipe(map(d => this.toDashboard(d, period)));
   }
 
   /**
    * GET api/sales-manager/complaints: the Complaints section (same period and location filter as the dashboard).
    * null when the API sent nothing. A 503 means the complaints update (SM_03) is missing.
    */
-  getComplaints(period: SmPeriod, locationId: number | null): Observable<SmComplaints | null> {
-    return this.get(`${this.api}/sales-manager/complaints`, { period, locationId }, err => SalesManagerService.describeComplaintsError(err))
+  getComplaints(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<SmComplaints | null> {
+    return this.get(`${this.api}/sales-manager/complaints`, { ...periodQuery(period, range), locationId },
+      err => SalesManagerService.describeComplaintsError(err))
       .pipe(map(d => this.toComplaints(d, period)));
   }
 
@@ -352,12 +358,13 @@ export class SalesManagerService {
 
   private toDashboard(raw: any, period: SmPeriod): SmDashboard {
     const d = obj(raw) ?? {};
-    const p = str(d.period);
     const funnel = this.toFunnel(obj(d.funnel));
     return {
-      period: p === 'quarter' || p === 'year' || p === 'month' ? p : period,
+      period: periodOf<SmPeriod>(d.period, period),
       periodLabel: str(d.periodLabel),
       generatedAt: strOrNull(d.generatedAt),
+      range: rangeOf(d),
+      previousRange: rangeOf({ from: d.previousFrom, to: d.previousTo }),
       locations: arr(d.locations, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location' }))
         .filter(l => l.locationId > 0),
       inquiriesAllBranches: flag(d.inquiriesAllBranches),
@@ -474,15 +481,15 @@ export class SalesManagerService {
   private toComplaints(raw: any, period: SmPeriod): SmComplaints | null {
     const d = obj(raw);
     if (!d) return null;
-    const p = str(d.period);
     const s = obj(d.status) ?? {};
     const status: SmComplaintStatusCounts = {
       open: num(s.open), inProgress: num(pick(s, 'inProgress', 'in_progress')), resolved: num(s.resolved), closed: num(s.closed)
     };
     const active = (x: { open: number; inProgress: number }) => x.open + x.inProgress;
     return {
-      period: p === 'quarter' || p === 'year' || p === 'month' ? p : period,
+      period: periodOf<SmPeriod>(d.period, period),
       periodLabel: str(d.periodLabel),
+      range: rangeOf(d),
       status,
       activeTotal: numOrNull(d.activeTotal) ?? active(status),
       newInPeriod: num(d.newInPeriod), newInPeriodPrev: num(d.newInPeriodPrev),

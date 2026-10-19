@@ -279,6 +279,40 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+/* ---------- custom date range and export (header) ---------- */
+.period-wrap { position: relative; display: inline-flex; }
+.range-pop {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: 320px; max-width: calc(100vw - 32px); box-sizing: border-box;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+.range-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.range-fields label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.range-fields span { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+.range-fields input {
+  height: 38px; min-width: 0; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 8px;
+  font-family: inherit; font-size: 0.84rem; color: #0f172a; background: #fff;
+}
+.range-fields input:focus-visible { outline: 2px solid #0d9488; outline-offset: 1px; border-color: #0d9488; }
+.range-hint { margin: 10px 0 0; font-size: 0.76rem; color: #64748b; line-height: 1.4; }
+.range-error { margin: 8px 0 0; font-size: 0.78rem; font-weight: 600; color: #b91c1c; }
+.range-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.range-btn {
+  height: 36px; padding: 0 16px; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; font-family: inherit;
+  font-size: 0.82rem; font-weight: 600; color: #334155; cursor: pointer;
+}
+.range-btn:hover { border-color: #94a3b8; }
+.range-btn.primary { background: #0d9488; border-color: #0d9488; color: #fff; }
+.range-btn.primary:hover { background: #0f766e; border-color: #0f766e; }
+.export-group { display: inline-flex; gap: 6px; }
+.export-btn {
+  height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 10px; border: 1px solid #e2e8f0;
+  background: #fff; color: #334155; font-family: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: border-color .15s, background .15s;
+}
+.export-btn:hover:not(:disabled) { border-color: #94a3b8; background: #f8fafc; }
+.export-btn:disabled { opacity: .55; cursor: default; }
+.export-error { margin: -14px 0 18px; font-size: 0.82rem; font-weight: 600; color: #b91c1c; text-align: right; }
+
 /* ---------- motion ---------- */
 .kpi-card, .dash-panel, .team-card { animation: dash-rise 0.45s ease both; }
 @keyframes dash-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -306,6 +340,7 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 @media (max-width: 900px) {
   .dash-header-actions { width: 100%; }
   .period-seg { order: -1; width: 100%; }
+  .period-wrap { order: -1; width: 100%; }
   .period-seg button { flex: 1; }
   .loc-select { flex: 1; }
   .ceo-page .loc-select select:not([multiple]):not([size]) { max-width: none; width: 100%; }
@@ -328,8 +363,12 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 
 /* ---------- phones ---------- */
 @media (max-width: 640px) {
-  .period-seg button { height: 40px; }
+  .period-seg button { height: 40px; padding: 0 8px; }
   .icon-btn { width: 44px; height: 44px; }
+  .export-btn { height: 44px; }
+  .export-group { flex: 1; }
+  .export-group .export-btn { flex: 1; justify-content: center; }
+  .range-pop { width: 100%; max-width: none; }
   .kpi-card { padding: 14px 14px 14px 16px; }
   /* the value shrinks with the screen and never runs past the card */
   .kpi-value { font-size: clamp(1.05rem, 5.6vw, 1.3rem); overflow: hidden; text-overflow: ellipsis; }

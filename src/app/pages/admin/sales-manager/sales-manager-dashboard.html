@@ -17,9 +17,37 @@
       </p>
     </div>
     <div class="dash-header-actions">
-      <div class="period-seg" role="group" aria-label="Period">
-        @for (p of periods; track p.key) {
-          <button type="button" [class.active]="period() === p.key" [attr.aria-pressed]="period() === p.key" (click)="setPeriod(p.key)">{{ p.label }}</button>
+      <div class="period-wrap">
+        <div class="period-seg" role="group" aria-label="Period">
+          @for (p of periods; track p.key) {
+            <button type="button" [class.active]="period() === p.key" [attr.aria-pressed]="period() === p.key" (click)="setPeriod(p.key)">{{ p.label }}</button>
+          }
+          <button type="button" id="sm-range-btn" [class.active]="period() === 'custom'" [attr.aria-pressed]="period() === 'custom'"
+            [attr.aria-expanded]="rangeEditor.open()" aria-controls="sm-range" (click)="openRange()"
+            [title]="period() === 'custom' ? periodTitle() : 'Choose a date range'">Custom</button>
+        </div>
+        @if (rangeEditor.open()) {
+          <form class="range-pop" id="sm-range" role="dialog" aria-label="Custom date range" (submit)="applyRange($event)" (keydown.escape)="closeRange()">
+            <div class="range-fields">
+              <label for="sm-range-from"><span>From</span>
+                <input id="sm-range-from" type="date" [value]="rangeEditor.from()" [min]="'2000-01-01'" [max]="rangeEditor.today"
+                  (input)="rangeEditor.setFrom($any($event.target).value)" required />
+              </label>
+              <label for="sm-range-to"><span>To</span>
+                <input id="sm-range-to" type="date" [value]="rangeEditor.to()" [min]="rangeEditor.from() || '2000-01-01'" [max]="rangeEditor.today"
+                  (input)="rangeEditor.setTo($any($event.target).value)" required />
+              </label>
+            </div>
+            <p class="range-hint">
+              @if (rangeEditor.days()) { {{ rangeEditor.days() }} day{{ rangeEditor.days() === 1 ? '' : 's' }}, compared with the {{ rangeEditor.days() === 1 ? 'day' : rangeEditor.days() + ' days' }} before. }
+              @else { Up to 366 days, compared with the same number of days before. }
+            </p>
+            @if (rangeEditor.error()) { <p class="range-error" role="alert">{{ rangeEditor.error() }}</p> }
+            <div class="range-actions">
+              <button type="button" class="range-btn" (click)="closeRange()">Cancel</button>
+              <button type="submit" class="range-btn primary">Apply</button>
+            </div>
+          </form>
         }
       </div>
       <label class="loc-select" [class.disabled]="!locations().length">
@@ -38,8 +66,23 @@
       <button type="button" class="icon-btn" (click)="refresh()" [disabled]="loading() || refreshing()" title="Refresh" aria-label="Refresh the dashboard">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading() || refreshing()" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
       </button>
+      <div class="export-group" role="group" aria-label="Export">
+        <button type="button" class="export-btn" (click)="exportPdf()" [disabled]="!canExport()" title="The dashboard as shown, as a PDF">
+          @if (exporting() === 'pdf') {
+            <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+          }
+          Export PDF
+        </button>
+        <button type="button" class="export-btn" (click)="exportExcel()" [disabled]="!canExport()" title="The figures behind the dashboard, as an Excel workbook">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+          Export Excel
+        </button>
+      </div>
     </div>
   </header>
+  @if (exportError()) { <p class="export-error" role="alert">{{ exportError() }}</p> }
 
   <!-- KPI card (clickable when it leads somewhere) -->
   <ng-template #kpiBody let-k>
@@ -88,6 +131,8 @@
     <svg class="row-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
   </ng-template>
 
+  <!-- Export PDF prints this part: the sections and the complaints -->
+  <div class="export-root" #exportRoot>
   @if (loading()) {
     <!-- First load -->
     <div class="sk-section"><span class="sk sk-h2"></span></div>
@@ -143,11 +188,11 @@
               <div class="panel-head">
                 <div>
                   <h3>Stages</h3>
-                  <p class="panel-sub">Created this {{ word() }} · select a stage for its records</p>
+                  <p class="panel-sub">Created {{ thisWord() }} · select a stage for its records</p>
                 </div>
               </div>
               @if (!f()!.stages.length || funnelEmpty()) {
-                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>Nothing in the funnel this {{ word() }}</strong><span>Inquiries, quotations and bookings show up here as they come in.</span></div>
+                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>Nothing in the funnel {{ thisWord() }}</strong><span>Inquiries, quotations and bookings show up here as they come in.</span></div>
               } @else {
                 <ol class="funnel-compact">
                   @for (s of f()!.stages; track s.stage; let i = $index) {
@@ -164,7 +209,7 @@
                     </li>
                   }
                 </ol>
-                <p class="note">Conversion = quotations created this {{ word() }} that were booked / all quotations created this {{ word() }}.</p>
+                <p class="note">Conversion = quotations created {{ thisWord() }} that were booked / all quotations created {{ thisWord() }}.</p>
               }
             </div>
 
@@ -382,11 +427,11 @@
               <div class="panel-head">
                 <div>
                   <h3>By type</h3>
-                  <p class="panel-sub">{{ count(inquiryTypeTotal()) }} this {{ word() }} · select a type for the last 6 months</p>
+                  <p class="panel-sub">{{ count(inquiryTypeTotal()) }} {{ thisWord() }} · select a type for the last 6 months</p>
                 </div>
               </div>
               @if (!inquiryTypeTotal()) {
-                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No tour inquiries this {{ word() }}</strong><span>Website, WhatsApp, walk-in and reference inquiries show up here.</span></div>
+                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No tour inquiries {{ thisWord() }}</strong><span>Website, WhatsApp, walk-in and reference inquiries show up here.</span></div>
               } @else {
                 <ul class="bar-list">
                   @for (t of q()!.byType; track t.type) {
@@ -410,14 +455,14 @@
               <div class="panel-head">
                 <div>
                   <h3>Why they were not interested</h3>
-                  <p class="panel-sub">Top reasons this {{ word() }} · select one for the not-interested inquiries</p>
+                  <p class="panel-sub">Top reasons {{ thisWord() }} · select one for the not-interested inquiries</p>
                 </div>
                 @if (q()!.notInterested) {
                   <div class="head-stats"><div><span>Not interested</span><strong>{{ count(q()!.notInterested) }}</strong></div></div>
                 }
               </div>
               @if (!q()!.notInterestedReasons.length) {
-                <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No not-interested inquiries this {{ word() }}</strong><span>Reasons given in the inquiry feedback show up here.</span></div>
+                <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No not-interested inquiries {{ thisWord() }}</strong><span>Reasons given in the inquiry feedback show up here.</span></div>
               } @else {
                 <ol class="bar-list">
                   @for (r of q()!.notInterestedReasons; track r.reason; let i = $index) {
@@ -667,7 +712,7 @@
               <div class="panel-head">
                 <div>
                   <h3>By branch</h3>
-                  <p class="panel-sub">Open and in progress now, new this {{ cmpWord() }} · select a branch for its complaints</p>
+                  <p class="panel-sub">Open and in progress now, new {{ cmpThisWord() }} · select a branch for its complaints</p>
                 </div>
               </div>
               <ul class="bar-list">
@@ -742,11 +787,11 @@
             <div class="panel-head">
               <div>
                 <h3>By category</h3>
-                <p class="panel-sub">Open and in progress now, new this {{ cmpWord() }} · select a category for its complaints</p>
+                <p class="panel-sub">Open and in progress now, new {{ cmpThisWord() }} · select a category for its complaints</p>
               </div>
             </div>
             @if (!cmp()!.byCategory.length) {
-              <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No complaints this {{ cmpWord() }}</strong><span>Categories show up here as complaints come in.</span></div>
+              <div class="empty"><ng-container *ngTemplateOutlet="okIcon" /><strong>No complaints {{ cmpThisWord() }}</strong><span>Categories show up here as complaints come in.</span></div>
             } @else {
               <div class="cmp-key" aria-hidden="true">
                 <span><i class="type-dot" [style.background]="complaintStyle('open').bar"></i>Open</span>
@@ -826,8 +871,9 @@
       }
     }
   </section>
+  </div>
 
   <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
 
-  <app-ceo-drawer [request]="drill()" [period]="period()" [locationId]="locationId()" [source]="drillSource" (closed)="closeDrill()" />
+  <app-ceo-drawer [request]="drill()" [period]="period()" [range]="activeRange()" [locationId]="locationId()" [source]="drillSource" (closed)="closeDrill()" />
 </div>
