@@ -5,6 +5,23 @@
       <p>Manage all {{ config().title.toLowerCase() }}</p>
     </div>
     <div class="header-actions">
+      @if (hasListFilters) {
+      <!-- Every row matching the search and the filters (all pages), as an .xlsx file. -->
+      <button type="button" class="btn-admin btn-outline-admin" (click)="exportExcel()" [disabled]="exporting()"
+        [attr.aria-busy]="exporting()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" x2="12" y1="15" y2="3" />
+        </svg>
+        @if (exporting()) {
+        Exporting{{ exportProgress() ? ' ' + exportProgress() : '' }}...
+        } @else {
+        Export Excel
+        }
+      </button>
+      }
       @if (entity === 'quotations') {
       <button class="btn-admin btn-primary-admin" (click)="openAdminQuotationForm()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -127,6 +144,50 @@
       }
       </div>
       }
+      @if (hasListFilters) {
+      <!-- Location / Status / date range: applied on the server with the search (back to page 1 on a change). -->
+      <div class="toolbar-filters list-filters">
+        @if (showBranchFilter) {
+        <!-- Only when the user sees more than one location (the API scopes the list to theirs). -->
+        <label class="page-size-wrap type-filter">
+          <span>Location</span>
+          <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)" aria-label="Filter by location"
+            [disabled]="exporting()">
+            <option value="">All locations</option>
+            @for (b of itemBranches(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+            }
+          </select>
+        </label>
+        }
+        @if (listStatusOptions().length) {
+        <label class="page-size-wrap type-filter">
+          <span>Status</span>
+          <select [ngModel]="listStatusFilter" (ngModelChange)="onListStatusFilter($event)" aria-label="Filter by status"
+            [disabled]="exporting()">
+            <option value="">All statuses</option>
+            @for (o of listStatusOptions(); track o.value) {
+            <option [value]="o.value">{{ statusDisplay(o.label) }}</option>
+            }
+          </select>
+        </label>
+        }
+        <label class="page-size-wrap type-filter date-filter">
+          <span>{{ listDateLabel }} from</span>
+          <input type="date" [ngModel]="listDateFrom" (ngModelChange)="onListDateFrom($event)"
+            [attr.max]="listDateTo || null" [attr.aria-label]="listDateLabel + ' from'" [disabled]="exporting()" />
+        </label>
+        <label class="page-size-wrap type-filter date-filter">
+          <span>to</span>
+          <input type="date" [ngModel]="listDateTo" (ngModelChange)="onListDateTo($event)"
+            [attr.min]="listDateFrom || null" [attr.aria-label]="listDateLabel + ' to'" [disabled]="exporting()" />
+        </label>
+        @if (listFiltersActive) {
+        <button type="button" class="btn-admin btn-outline-admin btn-clear-filters" (click)="clearListFilters()"
+          [disabled]="exporting()">Clear filters</button>
+        }
+      </div>
+      }
       <div class="toolbar-right">
         <label class="page-size-wrap">
           <span>Show</span>
@@ -147,9 +208,18 @@
       <div class="spinner"></div>
       <p>Loading...</p>
     </div>
+    } @else if (loadError()) {
+    <!-- The list could not be loaded: say so (not "No records found.") and offer Retry. -->
+    <div class="empty-state list-error" role="alert">
+      <p>{{ loadError() }}</p>
+      <button type="button" class="btn-admin btn-outline-admin" (click)="retryLoad()">Retry</button>
+    </div>
     } @else if (filtered.length === 0) {
     <div class="empty-state">
-      <p>No records found.</p>
+      <p>{{ listFiltersActive ? 'No records match the search and the filters.' : 'No records found.' }}</p>
+      @if (listFiltersActive) {
+      <button type="button" class="btn-admin btn-outline-admin" (click)="clearListFilters()">Clear filters</button>
+      }
     </div>
     } @else {
     @if (entity === 'bookings' && bookingEmailFeedback()) {
