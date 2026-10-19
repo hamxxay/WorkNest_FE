@@ -50,7 +50,7 @@
   @if (error()) {
     <div class="alert alert-error fr-error-banner" role="alert">
       <span>{{ error() }}</span>
-      <button type="button" class="fr-error-dismiss" (click)="dismissError()" aria-label="Dismiss error">
+      <button type="button" class="fr-error-dismiss" (click)="dismissError()" title="Dismiss error" aria-label="Dismiss error">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
@@ -570,7 +570,7 @@
                           class="fr-btn-icon print-btn"
                           (click)="openPrintReceipt(r)"
                           [disabled]="loadingPrintable()"
-                          [title]="printableLoadingId() === r.id ? 'Loading...' : 'Print Official Receipt'"
+                          [title]="printableLoadingId() === r.id ? 'Loading the receipt' : 'Print official receipt'"
                           [attr.aria-label]="printableLoadingId() === r.id ? 'Loading receipt ' + r.code : 'Print receipt ' + r.code">
                           @if (printableLoadingId() === r.id) {
                             <span class="fr-spinner-sm"></span>
@@ -589,7 +589,7 @@
                             type="button"
                             class="fr-btn-icon danger"
                             (click)="openVoidModal(r)"
-                            title="Void Receipt"
+                            title="Void receipt"
                             [attr.aria-label]="'Void receipt ' + r.code">
                             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                               <circle cx="12" cy="12" r="10"></circle>
@@ -637,7 +637,7 @@
   @if (showVoidModal() && receiptToVoid(); as v) {
     <div class="modal-overlay" (click)="closeVoidModal()">
       <div class="modal-content" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="fr-void-title">
-        <button type="button" class="modal-close" (click)="closeVoidModal()" aria-label="Close">
+        <button type="button" class="modal-close" (click)="closeVoidModal()" title="Close" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />
@@ -699,7 +699,7 @@
         (click)="$event.stopPropagation()" 
         id="admin-receipt-printable"
         role="dialog" aria-modal="true" aria-labelledby="fr-receipt-title">
-        <button type="button" class="modal-close" (click)="closePrintModal()" aria-label="Close">
+        <button type="button" class="modal-close" (click)="closePrintModal()" title="Close" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />

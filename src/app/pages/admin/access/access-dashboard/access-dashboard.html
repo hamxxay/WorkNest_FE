@@ -240,7 +240,7 @@
         <h3>{{ hourRangeLabel(hourModalHour()) }}</h3>
         <span class="card-sub">Today's scans in this hour</span>
       </div>
-      <button class="close-btn" (click)="closeHour()" aria-label="Close">×</button>
+      <button class="close-btn" (click)="closeHour()" title="Close" aria-label="Close">×</button>
     </div>
 
     @if (hourLoading()) {

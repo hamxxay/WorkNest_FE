@@ -4709,6 +4709,16 @@ export class Manage implements OnInit {
     });
   }
 
+  /** One row of the current list, for the row buttons' labels: "Edit booking", "Delete user". */
+  rowNoun(): string {
+    const nouns: Record<string, string> = {
+      customers: 'customer', users: 'user', locations: 'location', spacetypes: 'space type', spaces: 'space',
+      bookings: 'booking', payments: 'payment', complaints: 'complaint', contacts: 'inquiry', gallery: 'image',
+      quotations: 'quotation', 'quotation-responses': 'quotation', invoices: 'invoice', agreements: 'agreement',
+    };
+    return nouns[this.entity] ?? 'item';
+  }
+
   /** The status column of a list whose status can be changed (the dropdown lives in that column). */
   canEditStatus(col: { type?: string }): boolean {
     return !!(this.config().statusFn && this.config().statusOptions?.length) &&

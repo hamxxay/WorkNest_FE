@@ -65,7 +65,7 @@
             spellcheck="false" [attr.maxlength]="passportMaxLength" aria-describedby="ao-cnic-help"
             [attr.aria-invalid]="fieldError() ? 'true' : null" />
           @if (query()) {
-            <button type="button" class="ao-clear" (click)="clear(cnicInput)" aria-label="Clear the CNIC" title="Clear">
+            <button type="button" class="ao-clear" (click)="clear(cnicInput)" aria-label="Clear the CNIC" title="Clear the CNIC">
               <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x' }" />
             </button>
           }
@@ -149,7 +149,7 @@
             <h2 id="ao-results-title">
               {{ matches().length }} {{ matches().length === 1 ? 'room' : 'rooms' }} for <span class="mono">{{ searchedFor() }}</span>
             </h2>
-            <button type="button" class="ao-icon-btn" (click)="refresh()" [disabled]="refreshing() || !!busy()" title="Refresh" aria-label="Refresh the results">
+            <button type="button" class="ao-icon-btn" (click)="refresh()" [disabled]="refreshing() || !!busy()" title="Refresh the results" aria-label="Refresh the results">
               <span [class.spin]="refreshing()"><ng-container *ngTemplateOutlet="ic; context: { $implicit: 'refresh' }" /></span>
             </button>
           </div>
@@ -312,7 +312,7 @@
           <h2 id="aoEnrolTitle">{{ t.type === 'face' ? 'Enrol face' : 'Enrol fingerprint' }}</h2>
           <p id="aoEnrolSub">{{ t.name }} · {{ roomName(t.match) }}{{ t.match.location ? ', ' + t.match.location : '' }}</p>
         </div>
-        <button type="button" class="inq-close" (click)="closeEnrol()" [disabled]="enrolPhase() === 'waiting'" aria-label="Close">
+        <button type="button" class="inq-close" (click)="closeEnrol()" [disabled]="enrolPhase() === 'waiting'" title="Close" aria-label="Close">
           <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x' }" />
         </button>
       </header>
@@ -455,7 +455,7 @@
           <h2 id="aoRemoveTitle">Remove door access?</h2>
           <p>{{ roomName(m) }}{{ m.location ? ', ' + m.location : '' }}</p>
         </div>
-        <button type="button" class="inq-close" (click)="cancelRemove()" [disabled]="!!busy()" aria-label="Close">
+        <button type="button" class="inq-close" (click)="cancelRemove()" [disabled]="!!busy()" title="Close" aria-label="Close">
           <ng-container *ngTemplateOutlet="ic; context: { $implicit: 'x' }" />
         </button>
       </header>

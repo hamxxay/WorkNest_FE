@@ -93,7 +93,7 @@
   <div class="admin-card">
     <div class="card-toolbar">
       <div class="search-box">
-        <svg (click)="onSearchImmediate()" style="cursor:pointer" xmlns="http://www.w3.org/2000/svg" width="16"
+        <svg (click)="onSearchImmediate()" data-tooltip="Search now" style="cursor:pointer" xmlns="http://www.w3.org/2000/svg" width="16"
           height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
           stroke-linejoin="round">
           <circle cx="11" cy="11" r="8" />
@@ -102,7 +102,7 @@
         <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearch()"
           (keyup.enter)="onSearchImmediate()" />
         @if (searchQuery) {
-        <button (click)="clearSearch()" title="Clear search"
+        <button (click)="clearSearch()" title="Clear search" aria-label="Clear search"
           style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px">&times;</button>
         }
       </div>
@@ -370,14 +370,14 @@
             }
             <td class="actions-cell">
               @if (entity === 'bookings') {
-              <button class="action-btn info" (click)="openBookingUser(item)" title="User Details">
+              <button class="action-btn info" (click)="openBookingUser(item)" title="View customer details" aria-label="View customer details">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21a8 8 0 1 0-16 0" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="Billing & Deposit Summary"
+              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="Billing & deposit summary" aria-label="Billing & deposit summary"
                 style="background:#6366f1;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -387,7 +387,7 @@
               </button>
               <button class="action-btn" (click)="resendBookingEmail(item)"
                 [disabled]="resendingBookingEmailId() === (item.id ?? item.bookingId)"
-                title="Resend Booking & Challan Email" style="background:#0d9488;color:#fff;border:none;opacity:1"
+                [title]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? 'Sending the email' : 'Email the booking and challan'" [attr.aria-label]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? 'Sending the email' : 'Email the booking and challan'" style="background:#0d9488;color:#fff;border:none;opacity:1"
                 [style.opacity]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? '0.6' : '1'">
                 @if (resendingBookingEmailId() === (item.id ?? item.bookingId)) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -405,7 +405,7 @@
               @if (!item.initialInvoiceSent && !sentInitialInvoices.has(item.id ?? item.bookingId)) {
               <button class="action-btn" (click)="sendInitialInvoice(item)"
                 [disabled]="sendingInitialInvoiceId() !== null"
-                title="Send Initial Payment Invoice (Advance Rent + Security Deposit)"
+                title="Send the first invoice (advance rent + security deposit)" aria-label="Send the first invoice (advance rent + security deposit)"
                 style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -415,7 +415,7 @@
               </button>
               } @else {
               <button class="action-btn" (click)="openCreateCustomInvoiceModal(item, true)"
-                title="Create Next Invoice (Room Rent Only + Custom Line Option)"
+                title="Create the next invoice (room rent, extra lines optional)" aria-label="Create the next invoice (room rent, extra lines optional)"
                 style="background:#059669;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -428,7 +428,7 @@
               }
 
               @if (item.bookingStatus === 'Confirmed') {
-              <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign Space">
+              <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign space" aria-label="Reassign space">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2-2z" />
@@ -448,7 +448,7 @@
               </button> -->
               }
               @if (entity === 'invoices') {
-              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View Invoice Details"
+              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View invoice details" aria-label="View invoice details"
                 style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -459,14 +459,14 @@
                 </svg>
               </button>
               <button class="action-btn" (click)="openCreateCustomInvoiceModal(item)"
-                title="Review &amp; Send Invoice Modal" style="background:#0284c7;color:#fff;border:none">
+                title="Review and send the invoice" aria-label="Review and send the invoice" style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="downloadStatementPdf(item)" title="Download&amp; Invoice PDF"
+              <button class="action-btn" (click)="downloadStatementPdf(item)" title="Download invoice PDF" aria-label="Download invoice PDF"
                 style="background:#0f766e;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -476,14 +476,14 @@
                 </svg>
               </button>
               <button class="action-btn" (click)="openBookingDetailsModal(item)"
-                title="View Related Booking & Contract Periods" style="background:#6366f1;color:#fff;border:none">
+                title="View booking and contract periods" aria-label="View booking and contract periods" style="background:#6366f1;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="2" y="5" width="20" height="14" rx="2" />
                   <line x1="2" y1="10" x2="22" y2="10" />
                 </svg>
               </button>
-              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record Payment"
+              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record a payment" aria-label="Record a payment"
                 style="background:#16a34a;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -494,7 +494,7 @@
               }
 
               @if (entity === 'quotations') {
-              <button class="action-btn info" (click)="previewQuotation(item)" title="View Quotation & Version History">
+              <button class="action-btn info" (click)="previewQuotation(item)" title="View quotation and version history" aria-label="View quotation and version history">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -504,7 +504,7 @@
               @if ((item.status || item.Status || '').toLowerCase() === 'draft') {
               <button class="action-btn" (click)="sendQuotationVersionToCustomer(item)"
                 [disabled]="sendingQuotationId() !== null"
-                title="Send Quotation Version to Customer" style="background:#2563eb;color:#fff;border:none">
+                title="Send this version to the customer" aria-label="Send this version to the customer" style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />
@@ -514,7 +514,7 @@
               }
               @if ((item.status || item.Status || '').toLowerCase() === 'declined') {
               <button class="action-btn" (click)="createNextVersion(item)"
-                title="Create New Version from this Quotation" style="background:#7c3aed;color:#fff;border:none">
+                title="Create a new version" aria-label="Create a new version" style="background:#7c3aed;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 5v14M5 12h14" />
@@ -522,7 +522,7 @@
               </button>
               }
               @if (isQuotationAccepted(item)) {
-              <button class="action-btn" (click)="openSendAgreement(item)" title="Send Legal Agreement"
+              <button class="action-btn" (click)="openSendAgreement(item)" title="Send the agreement to the customer" aria-label="Send the agreement to the customer"
                 style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -537,7 +537,7 @@
               @if (entity === 'agreements') {
               @if (!(item.bookingId || item.BookingId)) {
               <button class="action-btn" (click)="openSignAgreement(item)"
-                title="Signed agreement received — upload it, date it, create the booking" style="background:#16a34a;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
+                title="Signed agreement received — upload it, date it, create the booking" aria-label="Signed agreement received — upload it, date it, create the booking" style="background:#16a34a;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -548,7 +548,7 @@
               }
 
               <button class="action-btn info" (click)="openAgreementDetailsModal(item)"
-                title="View Agreement & Uploaded Copy">
+                title="View agreement and uploaded copy" aria-label="View agreement and uploaded copy">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -557,7 +557,7 @@
               </button>
 
               <button class="action-btn" (click)="downloadAgreementPdf(item.id || item.agreementId)"
-                title="Download Generated Draft PDF" style="background:#0f766e;color:#fff;border:none">
+                title="Download draft agreement PDF" aria-label="Download draft agreement PDF" style="background:#0f766e;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -568,7 +568,7 @@
 
               @if (item.signedPdfUploadedAt || item.SignedPdfUploadedAt) {
               <button class="action-btn" (click)="downloadSignedAgreementPdf(item.id || item.agreementId)"
-                title="Download Signed Copy (PDF)" style="background:#2563eb;color:#fff;border:none">
+                title="Download signed agreement PDF" aria-label="Download signed agreement PDF" style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -581,7 +581,7 @@
 
               }
               @if (entity === 'spaces') {
-              <button class="action-btn info" (click)="openSpaceDetails(item)" title="Space Details">
+              <button class="action-btn info" (click)="openSpaceDetails(item)" title="View space details" aria-label="View space details">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -592,7 +592,7 @@
               }
               @if (entity === 'payments') {
               @if (item.bookingId || item.BookingId) {
-              <button class="action-btn" (click)="viewBillingChallan(item)" title="View Booking Challan & Details"
+              <button class="action-btn" (click)="viewBillingChallan(item)" title="View booking challan" aria-label="View booking challan"
                 style="background:#6366f1;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -601,7 +601,7 @@
                 </svg>
               </button>
               }
-              <button class="action-btn info" (click)="openPaymentSummary(item)" title="Payment Summary">
+              <button class="action-btn info" (click)="openPaymentSummary(item)" title="View payment summary" aria-label="View payment summary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 9h20" />
@@ -612,7 +612,7 @@
               </button>
               @if (item.paymentStatus === 'Pending') {
               <button class="action-btn approve" (click)="approvePayment(item)"
-                [disabled]="approvingPaymentId() === item.id" title="Approve Cash Payment">
+                [disabled]="approvingPaymentId() === item.id" title="Approve cash payment" aria-label="Approve cash payment">
                 @if (approvingPaymentId() === item.id) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -630,7 +630,7 @@
               @if (entity === 'quotation-responses' || item.isQuotationResponse || item.isQuotationDecline) {
 
               <button class="action-btn info" (click)="previewQuotation(item.rawQuotationItem || item)"
-                title="View Quotation & Version History">
+                title="View quotation and version history" aria-label="View quotation and version history">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -638,7 +638,7 @@
                 </svg>
               </button>
               <button class="action-btn" (click)="createNextVersion(item.rawQuotationItem || item)"
-                title="Create New Version from this Quotation" style="background:#7c3aed;color:#fff;border:none">
+                title="Create a new version" aria-label="Create a new version" style="background:#7c3aed;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 5v14M5 12h14" />
@@ -646,7 +646,7 @@
               </button>
               }
               @if (config().updateFn && config().fields && (entity !== 'users' || canEditUser(item))) {
-              <button class="action-btn edit" (click)="openEdit(item)" title="Edit">
+              <button class="action-btn edit" (click)="openEdit(item)" [title]="'Edit ' + rowNoun()" [attr.aria-label]="'Edit ' + rowNoun()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -655,7 +655,7 @@
               }
               @if (entity === 'users' && canLockOrDeleteUser(item)) {
               <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive"
-                (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate' : 'Activate'">
+                (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate user' : 'Activate user'" [attr.aria-label]="item.isActive ? 'Deactivate user' : 'Activate user'">
                 @if (item.isActive) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -694,7 +694,7 @@
                 (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Feedback</button>
               }
               @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
-              <button class="action-btn delete" (click)="deleteItem(item)" title="Delete">
+              <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()" [attr.aria-label]="'Delete ' + rowNoun()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 6h18" />
@@ -721,7 +721,7 @@
 @if (showModal() && config().fields) {
 <div class="modal-overlay" (click)="closeModal()">
   <div class="modal-content" [class.booking-modal]="entity === 'bookings'" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeModal()">
+    <button class="modal-close" (click)="closeModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -989,7 +989,7 @@
 @if (showSpaceModal()) {
 <div class="modal-overlay" (click)="closeSpaceModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeSpaceModal()">
+    <button class="modal-close" (click)="closeSpaceModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -1046,7 +1046,7 @@
 @if (showPaymentModal()) {
 <div class="modal-overlay" (click)="closePaymentModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closePaymentModal()">
+    <button class="modal-close" (click)="closePaymentModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -1110,7 +1110,7 @@
 @if (showUserModal()) {
 <div class="modal-overlay" (click)="closeUserModal()">
   <div class="modal-content user-modal" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeUserModal()">
+    <button class="modal-close" (click)="closeUserModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -1255,7 +1255,7 @@
             <td>{{ cfg.openingTime }}</td>
             <td>{{ cfg.closingTime }}</td>
             <td class="actions-cell">
-              <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit">
+              <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit category settings" aria-label="Edit category settings">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -1324,7 +1324,7 @@
           <td>{{ s.locationName }}</td>
           <td><span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(s).display }}</span></td>
           <td>
-            <button class="action-btn delete" (click)="removeSpace(s)" title="Remove Space">
+            <button class="action-btn delete" (click)="removeSpace(s)" [title]="'Remove space ' + s.code" [attr.aria-label]="'Remove space ' + s.code">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 6h18" />
@@ -1348,7 +1348,7 @@
 @if (showConfigModal() && editingConfig) {
 <div class="modal-overlay" (click)="cancelEditConfig()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px">
-    <button class="modal-close" (click)="cancelEditConfig()">
+    <button class="modal-close" (click)="cancelEditConfig()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -1412,7 +1412,7 @@
 @if (showAddSpaceModal()) {
 <div class="modal-overlay" (click)="closeAddSpaceModal()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:420px">
-    <button class="modal-close" (click)="closeAddSpaceModal()">
+    <button class="modal-close" (click)="closeAddSpaceModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -1468,7 +1468,7 @@
 @if (showReassignModal() && reassignBooking) {
 <div class="modal-overlay" (click)="closeReassignModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeReassignModal()">
+    <button class="modal-close" (click)="closeReassignModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -1819,7 +1819,7 @@
 <div class="modal-overlay sheet-overlay" (click)="closeAdminQuotationForm()">
   <div class="modal-content booking-modal sheet-modal"
     (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeAdminQuotationForm()">
+    <button class="modal-close" (click)="closeAdminQuotationForm()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -2222,7 +2222,7 @@
 <div class="modal-overlay sheet-overlay" (click)="closeAdminBookingForm()">
   <div class="modal-content booking-modal sheet-modal"
     (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeAdminBookingForm()">
+    <button class="modal-close" (click)="closeAdminBookingForm()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -2678,7 +2678,7 @@
 @if (showQuickCreateCustomer()) {
 <div class="modal-overlay" (click)="requestCloseQuickCreateCustomer()">
   <div class="modal-content" style="max-width:480px" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="requestCloseQuickCreateCustomer()">
+    <button class="modal-close" (click)="requestCloseQuickCreateCustomer()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -2823,7 +2823,7 @@
         <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{
           booking.spaceName || 'Workspace' }}</span>
       </div>
-      <button (click)="showBookingDetailsModal.set(false)"
+      <button (click)="showBookingDetailsModal.set(false)" title="Close" aria-label="Close"
         style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -3171,7 +3171,7 @@
 @if (showRecordPaymentModal()) {
 <div class="modal-overlay" (click)="showRecordPaymentModal.set(false)">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:480px;width:100%;">
-    <button class="modal-close" (click)="showRecordPaymentModal.set(false)">
+    <button class="modal-close" (click)="showRecordPaymentModal.set(false)" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -3237,7 +3237,7 @@
           Customer: {{ q.customerName || q.customerEmail || 'N/A' }} • Space: {{ q.spaceName || 'N/A' }}
         </div>
       </div>
-      <button (click)="closeQuotationPreviewModal()"
+      <button (click)="closeQuotationPreviewModal()" title="Close" aria-label="Close"
         style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -3601,7 +3601,7 @@
           Review details before converting into a confirmed booking and generating the first challan.
         </div>
       </div>
-      <button (click)="closeConversionPreviewModal()"
+      <button (click)="closeConversionPreviewModal()" title="Close" aria-label="Close"
         style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -3769,7 +3769,7 @@
           Review initial invoice details and payment procedure before sending to customer email.
         </div>
       </div>
-      <button (click)="showInitialInvoicePreviewModal.set(false)"
+      <button (click)="showInitialInvoicePreviewModal.set(false)" title="Close" aria-label="Close"
         style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -3994,7 +3994,7 @@
 @if (showCreateCustomInvoiceModal()) {
 <div class="modal-overlay" (click)="closeCreateCustomInvoiceModal()">
   <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:760px">
-    <button class="modal-close" (click)="closeCreateCustomInvoiceModal()">
+    <button class="modal-close" (click)="closeCreateCustomInvoiceModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -4090,7 +4090,7 @@
               <td style="text-align:center">
                 @if (customInvoiceLines.length > 1) {
                 <button type="button" class="action-btn delete" (click)="removeCustomInvoiceLine($index)"
-                  title="Remove Line">
+                  title="Remove line" aria-label="Remove line">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 6h18" />
@@ -4154,7 +4154,7 @@
 @if (showSendAgreementModal()) {
 <div class="modal-overlay" (click)="closeSendAgreementModal()">
   <div class="modal-content" style="max-width:650px;width:100%" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeSendAgreementModal()">
+    <button class="modal-close" (click)="closeSendAgreementModal()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 6 6 18" />
@@ -4370,7 +4370,7 @@
         <h3 style="margin:0;font-size:1.05rem;font-weight:700">Signed agreement received</h3>
         <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ ag.customerName || ag.CustomerName || 'Customer' }} &middot; Agreement #{{ ag.id || ag.agreementId }}</div>
       </div>
-      <button (click)="closeSignAgreement()" aria-label="Close" style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+      <button (click)="closeSignAgreement()" title="Close" aria-label="Close" style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
       <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">
@@ -4428,7 +4428,7 @@
         <span style="font-size:0.78rem;color:#94a3b8">{{ agreement.customerName || 'Signatory' }} — Quotation #{{
           agreement.quotationNumber || agreement.quotationId }}</span>
       </div>
-      <button (click)="showAgreementDetailsModal.set(false)"
+      <button (click)="showAgreementDetailsModal.set(false)" title="Close" aria-label="Close"
         style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -4631,7 +4631,7 @@
         </svg>
         <h3 style="margin:0;font-size:1.1rem;font-weight:700">Upload Signed Agreement Copy</h3>
       </div>
-      <button type="button" (click)="closeQuickUploadModal()"
+      <button type="button" (click)="closeQuickUploadModal()" title="Close" aria-label="Close"
         style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
 
@@ -4705,7 +4705,7 @@
         <h2 id="inqAddTitle">Add tour inquiry</h2>
         <p>For a customer who walked in or was referred. WhatsApp and website inquiries come in on their own.</p>
       </div>
-      <button type="button" class="inq-close" (click)="showAddInquiry.set(false)" aria-label="Close">
+      <button type="button" class="inq-close" (click)="showAddInquiry.set(false)" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -4806,7 +4806,7 @@
         <h2 id="inqTypeTitle">Inquiry type</h2>
         <p>{{ inquiryContactLine(ti) }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="showContactType.set(false)" aria-label="Close">
+      <button type="button" class="inq-close" (click)="showContactType.set(false)" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -4856,7 +4856,7 @@
         <h2 id="itemBranchTitle">{{ entity === 'contacts' ? 'Inquiry location' : 'Complaint branch' }}</h2>
         <p>{{ itemBranchLine(bi) }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="closeItemBranch()" [disabled]="itemBranchSaving()" aria-label="Close">
+      <button type="button" class="inq-close" (click)="closeItemBranch()" [disabled]="itemBranchSaving()" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -4905,7 +4905,7 @@
         <h2 id="inqFbTitle">Inquiry feedback</h2>
         <p>{{ inquiryContactLine(fi) }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="showContactFeedback.set(false)" aria-label="Close">
+      <button type="button" class="inq-close" (click)="showContactFeedback.set(false)" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -4974,7 +4974,7 @@
         <h2 id="cmpAddTitle">New complaint</h2>
         <p>For a customer who called, walked in or emailed. With their WhatsApp number, they get status updates there.</p>
       </div>
-      <button type="button" class="inq-close" (click)="closeAddComplaint()" aria-label="Close">
+      <button type="button" class="inq-close" (click)="closeAddComplaint()" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
