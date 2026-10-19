@@ -2653,6 +2653,12 @@ export class Manage implements OnInit {
 
     const isPrivate = this.isAdminPrivateRoom;
     const isShared = this.isAdminSharedSpace;
+    // The Offering Type field is hidden for meeting rooms: go back to the location's default so an earlier choice
+    // (and its discount cap) doesn't carry over unseen.
+    if (this.isAdminMeetingRoom) {
+      const def = this.filteredBookingOfferingTypes()[0];
+      if (def) { this.bookingOfferingTypeId = def.id; this.bookingOfferingType = def.description; }
+    }
     this.bookingBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
     this.bookingSecurityDepositMonths = (isPrivate || isShared) ? 2 : 0;
 
@@ -6192,6 +6198,11 @@ export class Manage implements OnInit {
     }
     const isPrivate = this.isQuotationPrivateRoom;
     const isShared = this.isQuotationSharedSpace;
+    // The Offering Type field is hidden for meeting rooms: go back to the location's default (see onSpaceTypeChange).
+    if (this.isQuotationMeetingRoom) {
+      const def = this.filteredQuotationOfferingTypes()[0];
+      if (def) { this.quotationOfferingTypeId = def.id; this.quotationOfferingType = def.description; }
+    }
     this.quotationBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
     this.quotationSecurityDepositMonths = (isPrivate || isShared) ? 2 : 0;
     this.validateQuotationBasePrice();
