@@ -1,0 +1,11 @@
+/* The seats drawer uses the CEO drawer's stylesheet (ceo-drawer.css, loaded first). Only its few own pieces are here. */
+
+.dr-table.records.seats tbody th, .dr-table.records.seats tbody td { vertical-align: middle; }
+.dr-table.records.seats tbody tr:hover { background: #f8fafc; }
+.dr-table.records.seats tr.is-empty th strong { color: #475569; font-weight: 600; }
+/* empty seats in a room already let (the half-filled offices) */
+.dr-table td.part { color: #b45309; font-weight: 700; }
+.dr-table td.part small { color: #b45309; font-weight: 600; }
+.dr-table .strong-cell { color: #0f172a; font-weight: 700; }
+.shift-part { display: block; white-space: nowrap; }
+.dr-table small.free { color: #b45309; font-weight: 600; }
