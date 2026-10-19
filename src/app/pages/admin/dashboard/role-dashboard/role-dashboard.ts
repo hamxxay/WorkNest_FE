@@ -6,7 +6,7 @@ import { DashboardOverview, DashPeriod, dashDay } from '../dashboard-overview/da
 
 export type DashRole = 'sales_executive' | 'admin' | 'super_admin';
 
-interface Tile { key: string; label: string; value: string; sub: string; link: string; tone: 'ok' | 'warn' | 'danger' | 'neutral'; }
+interface Tile { key: string; label: string; value: string; sub: string; link: string; query?: Record<string, string>; tone: 'ok' | 'warn' | 'danger' | 'neutral'; }
 
 /**
  * Dashboard sections that differ by role (GET api/dashboard/role).
@@ -80,7 +80,7 @@ export class RoleDashboard {
       { key: 'inq', label: 'New inquiries', value: `${s.newInquiries}`, sub: `${s.inquiriesInPeriod} received ${this.periodWord()}`, link: '/admin/contacts', tone: s.newInquiries ? 'warn' : 'ok' },
       { key: 'fu', label: 'Follow-ups due', value: `${s.followUpsDue}`, sub: 'future prospects to call', link: '/admin/contacts', tone: s.followUpsDue ? 'danger' : 'ok' },
       { key: 'ren', label: 'Renewals due', value: `${s.renewalsDue}`, sub: `leases ending in ${s.renewalDays} days`, link: '/admin/bookings', tone: s.renewalsDue ? 'warn' : 'ok' },
-      { key: 'od', label: 'Overdue', value: this.money(s.overdue), sub: `${s.overdueCount} invoices · ${this.money(s.outstanding)} outstanding`, link: '/admin/invoices', tone: s.overdueCount ? 'danger' : 'ok' }
+      { key: 'od', label: 'Overdue', value: this.money(s.overdue), sub: `${s.overdueCount} invoices · ${this.money(s.outstanding)} outstanding`, link: '/admin/invoices', query: { period: 'all' }, tone: s.overdueCount ? 'danger' : 'ok' }
     ];
   });
 

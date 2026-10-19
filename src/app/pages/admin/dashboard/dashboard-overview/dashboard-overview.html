@@ -27,7 +27,7 @@
           </span>
         </button>
       } @else {
-        <a class="kpi-card" [routerLink]="k.link" [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+        <a class="kpi-card" [routerLink]="k.link" [queryParams]="k.query ?? null" [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
           <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
         </a>
       }
@@ -245,7 +245,7 @@
           </li>
         }
       </ul>
-      <a class="panel-link" [routerLink]="tab() === 'overdue' ? '/admin/invoices' : '/admin/bookings'">View all →</a>
+      <a class="panel-link" [routerLink]="tab() === 'overdue' ? '/admin/invoices' : '/admin/bookings'" [queryParams]="tab() === 'overdue' ? { period: 'all' } : null">View all →</a>
     }
   </div>
 </div>
