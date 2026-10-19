@@ -839,3 +839,63 @@ input.input-invalid {
   .btn-sm { min-height: 40px; }
   .container { padding: 0 16px; }
 }
+
+/* ========== Global tooltip ========== */
+/* One bubble for the whole app (services/global-tooltip.service.ts): the label of an icon
+   button, shown on hover or keyboard focus. Fixed to the viewport, above modals and toasts. */
+.wn-tooltip {
+  --wn-tooltip-bg: var(--text-primary);
+  --wn-tooltip-arrow: 50%;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10000000;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--wn-tooltip-bg);
+  color: var(--white);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.005em;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.22), 0 1px 3px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(2px);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s linear 0.12s;
+}
+.wn-tooltip[hidden] { display: none; }
+.wn-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s;
+}
+.wn-tooltip[data-placement="bottom"] { transform: translateY(-2px); }
+.wn-tooltip[data-placement="left"] { transform: translateX(2px); }
+.wn-tooltip[data-placement="right"] { transform: translateX(-2px); }
+.wn-tooltip.is-visible[data-placement] { transform: none; }
+
+.wn-tooltip__arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--wn-tooltip-bg);
+  transform: rotate(45deg);
+}
+.wn-tooltip[data-placement="top"] .wn-tooltip__arrow { top: 100%; left: var(--wn-tooltip-arrow); margin: -4px 0 0 -4px; }
+.wn-tooltip[data-placement="bottom"] .wn-tooltip__arrow { bottom: 100%; left: var(--wn-tooltip-arrow); margin: 0 0 -4px -4px; }
+.wn-tooltip[data-placement="left"] .wn-tooltip__arrow { left: 100%; top: var(--wn-tooltip-arrow); margin: -4px 0 0 -4px; }
+.wn-tooltip[data-placement="right"] .wn-tooltip__arrow { right: 100%; top: var(--wn-tooltip-arrow); margin: -4px -4px 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wn-tooltip,
+  .wn-tooltip.is-visible { transition: none; transform: none; }
+}

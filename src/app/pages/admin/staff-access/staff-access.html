@@ -108,7 +108,7 @@
   <div class="modal-card" style="max-width: 560px;">
     <div class="modal-head">
       <h3>{{ mode === 'add' ? 'Add Staff' : 'Machines — ' + formStaff()?.name }}</h3>
-      <button class="close-btn" (click)="closeForm()" [disabled]="saving()" aria-label="Close">×</button>
+      <button class="close-btn" (click)="closeForm()" [disabled]="saving()" title="Close" aria-label="Close">×</button>
     </div>
 
     @if (!formResult()?.ok) {

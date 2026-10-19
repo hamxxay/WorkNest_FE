@@ -38,7 +38,7 @@
 
     <div class="hero-progress" aria-hidden="true">
       @for (img of heroSlides; track img.title; let i = $index) {
-        <span [class.active]="i === activeHeroSlide()" (click)="setSlide(i)"></span>
+        <span [class.active]="i === activeHeroSlide()" (click)="setSlide(i)" [attr.data-tooltip]="'Show slide ' + (i + 1)"></span>
       }
     </div>
   </div>
@@ -123,7 +123,7 @@
           <img [src]="img.url" [alt]="img.title" loading="lazy" />
           <div class="gallery-overlay">
             <span class="gallery-label">{{ img.title }}</span>
-            <a routerLink="/gallery" class="gallery-link">
+            <a routerLink="/gallery" class="gallery-link" title="View the gallery" aria-label="View the gallery">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
           </div>
