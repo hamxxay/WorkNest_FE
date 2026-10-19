@@ -430,7 +430,7 @@ export class NetIcon {
   standalone: true,
   imports: [NetIcon, KeepInView],
   template: `
-    <button type="button" class="nx-btn" title="Export" [attr.aria-label]="'Export ' + label()" aria-haspopup="menu" [attr.aria-expanded]="open()" (click)="open.set(!open())">
+    <button type="button" class="nx-btn" [title]="table() && chart() ? 'Export (Excel, CSV or image)' : table() ? 'Export (Excel or CSV)' : 'Export as an image'" [attr.aria-label]="'Export ' + label()" aria-haspopup="menu" [attr.aria-expanded]="open()" (click)="open.set(!open())">
       <net-icon name="download" [size]="15" />
     </button>
     @if (open()) {

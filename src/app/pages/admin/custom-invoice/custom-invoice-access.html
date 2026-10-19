@@ -65,7 +65,7 @@
             <span class="ca-switch-text" aria-hidden="true">{{ isPending(item.userId) ? 'Saving' : item.hasAccess ? 'On' : 'Off' }}</span>
             <button type="button" role="switch" class="ca-switch" [id]="switchId(item.userId)" [class.on]="item.hasAccess"
               [attr.aria-checked]="item.hasAccess" [attr.aria-busy]="isPending(item.userId) || null"
-              [attr.aria-labelledby]="switchId(item.userId) + '-name'" [disabled]="isPending(item.userId)" (click)="toggle(item)">
+              [attr.aria-labelledby]="switchId(item.userId) + '-name'" [disabled]="isPending(item.userId)" (click)="toggle(item)" [title]="item.hasAccess ? 'Remove custom invoice access' : 'Give custom invoice access'">
               <span class="ca-knob">@if (isPending(item.userId)) { <span class="ca-knob-spin" aria-hidden="true"></span> }</span>
             </button>
           </div>
