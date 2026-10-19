@@ -59,7 +59,13 @@ export interface DrillMetricSpec {
 }
 
 /** A records list (level 3): rows hold at most 200 (newest first), total is the full count. */
-export interface DrillRecords { title: string; total: number; rows: unknown[]; }
+export interface DrillRecords {
+  title: string; total: number; rows: unknown[];
+  /** A line on the totals of every record (e.g. "PKR 1,250,000 invoiced"), shown under the title; none = no line. */
+  summary?: string;
+  /** Other lists about the same selection, offered as links above the table (e.g. the spaces in use that month). */
+  related?: { label: string; level: DrillLevel<string, string> }[];
+}
 
 /** Where the drawer gets its data: the CEO API by default, the Sales Manager API on that dashboard. */
 export interface DrillSource {
@@ -69,6 +75,8 @@ export interface DrillSource {
   describeError(err: unknown): CeoError;
   /** Records show desks instead of amounts (the Sales Manager dashboard shows no money). */
   desks?: boolean;
+  /** Where a record's booking opens (e.g. /admin/bookings?booking=12); none = booking numbers stay plain text. */
+  bookingLink?: (bookingId: number) => { path: string; queryParams: Record<string, string | number> } | null;
 }
 
 /** KPI card on a dashboard. */
@@ -296,6 +304,8 @@ export class ChartKeyNav {
     describe: (i: number) => string;
     pick: (i: number) => void;
     announce: (text: string) => void;
+    /** Where keyboard focus starts: the latest column (default, for months) or the first one (e.g. a ranking). */
+    start?: 'first' | 'last';
   }) {}
 
   keydown(e: KeyboardEvent) {
@@ -318,10 +328,10 @@ export class ChartKeyNav {
     e.stopPropagation();
   }
 
-  /** Focus entered: start on the latest column so the first arrow press feels natural. */
+  /** Focus entered: start on the latest column (or the first, with start: 'first') so the first arrow press feels natural. */
   focus() {
     const n = this.opts.count();
-    if (n && this.index < 0) this.set(n - 1);
+    if (n && this.index < 0) this.set(this.opts.start === 'first' ? 0 : n - 1);
   }
 
   clear() {

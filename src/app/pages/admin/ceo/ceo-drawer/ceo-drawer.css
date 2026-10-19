@@ -109,6 +109,12 @@
 }
 .alt-link:hover { text-decoration: underline; color: #0f766e; }
 .alt-link:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
+/* records: other lists about the same selection (DrillRecords.related), and a record's booking as a link */
+.related { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 2px 12px; }
+.related .alt-link { margin-top: 0; font-size: 0.8rem; }
+.rec-link { display: block; margin-top: 2px; font-size: 0.72rem; font-weight: 600; color: #0d9488; text-decoration: none; border-radius: 4px; }
+.rec-link:hover { color: #0f766e; text-decoration: underline; }
+.rec-link:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
 
 .pill { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; background: #f1f5f9; color: #475569; text-transform: capitalize; }
 .pill.tone-ok { background: #d1fae5; color: #047857; }

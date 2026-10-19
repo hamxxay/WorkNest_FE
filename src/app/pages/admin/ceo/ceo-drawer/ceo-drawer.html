@@ -45,6 +45,7 @@
       <p class="drawer-sub">
         @if (recordTotal() > recordShown()) { Showing the {{ recordKind() === 'leases' ? 'soonest' : 'newest' }} {{ count(recordShown()) }} of {{ count(recordTotal()) }} }
         @else { {{ count(recordTotal()) }} record{{ recordTotal() === 1 ? '' : 's' }} }
+        @if (current()?.records?.summary; as sum) { · {{ sum }} }
         · view only
       </p>
     }
@@ -143,6 +144,13 @@
             @if (canOpenRows()) { <p class="hint">{{ hintText() }}</p> }
           }
         } @else {
+          @if (related().length) {
+            <nav class="related" aria-label="Related lists">
+              @for (x of related(); track x.label) {
+                <button type="button" class="alt-link" (click)="openRelated(x)">{{ x.label }}</button>
+              }
+            </nav>
+          }
           @if (!recordShown()) {
             <div class="state-box">
               <span class="state-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
@@ -176,8 +184,11 @@
                     <tbody>
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
-                          <th scope="row"><strong>{{ r.invoiceNumber || '-' }}</strong><small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small></th>
-                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
+                          <th scope="row">
+                            <strong>{{ r.invoiceNumber || '-' }}</strong><small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small>
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                          </th>
+                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ placeOf(r) }}</small></td>
                           <td>
                             @if (r.dueOn) { {{ r.dueOn | date:'d MMM y' }} } @else { - }
                             @if (r.balance > 0 && (daysFrom(r.dueOn) ?? 0) < 0) { <small class="late">{{ -(daysFrom(r.dueOn) ?? 0) }}d overdue</small> }
@@ -205,7 +216,12 @@
                           @if (spaceMixed()) {
                             <td><span class="pill" [class]="'pill tone-' + (r.occupied ? 'ok' : 'neutral')">{{ r.occupied ? 'Occupied' : 'Vacant' }}</span></td>
                           }
-                          <td>@if (r.occupied) { <span class="clip wide" [title]="r.customer">{{ r.customer || 'Booked' }}</span> } @else { <span class="none">-</span> }</td>
+                          <td>
+                            @if (r.occupied) {
+                              <span class="clip wide" [title]="r.customer">{{ r.customer || 'Booked' }}</span>
+                              @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                            } @else { <span class="none">-</span> }
+                          </td>
                           <td>
                             @if (r.bookingEndOn) {
                               {{ r.bookingEndOn | date:'d MMM y' }}
@@ -224,7 +240,11 @@
                     <tbody>
                       @for (r of bookingRows(); track r.bookingId || $index) {
                         <tr>
-                          <th scope="row"><strong class="clip">{{ r.customer || '-' }}</strong><small>Booking #{{ r.bookingId }}</small></th>
+                          <th scope="row">
+                            <strong class="clip">{{ r.customer || '-' }}</strong>
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                            @else { <small>Booking #{{ r.bookingId }}</small> }
+                          </th>
                           <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
                           <td>@if (r.startOn) { {{ r.startOn | date:'d MMM y' }} } @else { - }</td>
                           <td>@if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }</td>
@@ -269,7 +289,11 @@
                     <tbody>
                       @for (r of leaseRows(); track r.bookingId || $index) {
                         <tr>
-                          <th scope="row"><strong class="clip">{{ r.customer || '-' }}</strong>@if (r.bookingId) { <small>Booking #{{ r.bookingId }}</small> }</th>
+                          <th scope="row">
+                            <strong class="clip">{{ r.customer || '-' }}</strong>
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                            @else if (r.bookingId) { <small>Booking #{{ r.bookingId }}</small> }
+                          </th>
                           <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
                           <td>
                             @if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }
