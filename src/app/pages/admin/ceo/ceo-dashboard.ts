@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
@@ -141,6 +141,8 @@ export class CeoDashboard {
       this.locationId();
       untracked(() => { this.load(); this.loadForecast(); });
     });
+
+    this.setupSectionNav();
   }
 
   // ---------- loading ----------
@@ -720,8 +722,9 @@ export class CeoDashboard {
       data: {
         labels: months.map((x, i) => monthShort(x.month, i === 0)),
         datasets: [
-          { label: 'Invoiced', data: months.map(x => x.invoiced), backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 22, borderSkipped: 'start' },
-          { label: 'Collected', data: months.map(x => x.collected), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 22, borderSkipped: 'start' }
+          // Rounded data ends, square on the baseline; a small gap between the pair.
+          { label: 'Invoiced', data: months.map(x => x.invoiced), backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
+          { label: 'Collected', data: months.map(x => x.collected), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 }
         ]
       },
       options: {
@@ -743,7 +746,7 @@ export class CeoDashboard {
           }
         },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
           y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: AXIS_MONEY }
         }
       }
@@ -757,11 +760,11 @@ export class CeoDashboard {
         labels: aging.map(a => a.label),
         datasets: [{
           data: aging.map(a => a.amount), backgroundColor: aging.map((a, i) => this.agingColor(a.bucket, i)),
-          borderColor: '#fff', borderWidth: 2, hoverOffset: 8, hoverBorderColor: '#fff'
+          borderColor: '#fff', borderWidth: 2, hoverOffset: 6, hoverBorderColor: '#fff'
         }]
       },
       options: {
-        responsive: true, maintainAspectRatio: false, cutout: '70%', layout: { padding: 8 },
+        responsive: true, maintainAspectRatio: false, cutout: '72%', layout: { padding: 8 },
         onHover: pointerOnHover,
         onClick: (_e: any, els: any[]) => { if (els.length) this.openAging(els[0].index); },
         plugins: {
@@ -791,14 +794,14 @@ export class CeoDashboard {
         datasets: [
           {
             type: 'bar', label: 'New bookings', yAxisID: 'y', order: 2, data: occ.map(x => x.newBookings),
-            backgroundColor: '#5eead4', hoverBackgroundColor: TEAL, borderRadius: 4, maxBarThickness: 22, borderSkipped: 'start'
+            backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start'
           },
           {
             // order 1: drawn over the bars
             type: 'line', label: 'Occupancy', yAxisID: 'pct', order: 1, data: occ.map(x => x.occupancyPct),
             borderColor: TEAL, borderWidth: 2, tension: 0.3, fill: false,
-            pointRadius: 3.5, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: TEAL_DARK, pointBorderColor: '#fff',
-            pointBorderWidth: 1.5, pointHoverBackgroundColor: TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
+            pointRadius: 4, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: TEAL_DARK, pointBorderColor: '#fff',
+            pointBorderWidth: 2, pointHoverBackgroundColor: TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
           }
         ]
       },
@@ -820,7 +823,7 @@ export class CeoDashboard {
           }
         },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
           y: {
             position: 'left', min: 0, max: step * 4, grid: GRID, border: { display: false },
             ticks: { stepSize: step, precision: 0, padding: 8 }
@@ -832,5 +835,134 @@ export class CeoDashboard {
         }
       }
     });
+  }
+
+  // ---------- section nav ----------
+
+  /**
+   * The sticky nav under the header: one entry per dashboard section on the page (section.dash-section and the heading
+   * it is labelled by), read from the page itself, so a section another component adds shows up on its own. The
+   * section in view is highlighted; a click scrolls to it (below the sticky nav) and moves focus to it.
+   */
+  navItems = signal<{ id: string; label: string }[]>([]);
+  /** The heading id of the section in view. */
+  activeNav = signal('');
+  private secNav = viewChild<ElementRef<HTMLElement>>('secNav');
+  private navKey = '';
+  private navFrame = 0;
+  private navRescan = false;
+  /** Until then (ms) the highlight stays on the clicked entry while the page scrolls to it. */
+  private navLock = 0;
+  private scroller: HTMLElement | null = null;
+
+  /** Called once from the constructor (needs the injection context). */
+  private setupSectionNav() {
+    const destroyRef = inject(DestroyRef);
+    const onScroll = () => {
+      if (Date.now() < this.navLock) { this.navLock = Date.now() + 200; return; }
+      this.queueNav();
+    };
+    // Sections come and go with the data (and with the sections other components render): rescan on change.
+    effect(onCleanup => {
+      const root = this.exportRoot()?.nativeElement;
+      if (!root) { this.navKey = ''; this.navItems.set([]); return; }
+      const watch = new MutationObserver(() => this.queueNav(true));
+      watch.observe(root, { childList: true, subtree: true });
+      this.queueNav(true);
+      onCleanup(() => watch.disconnect());
+    });
+    // Keep the highlighted entry visible in the nav when it scrolls sideways (phones).
+    effect(() => {
+      const id = this.activeNav();
+      const track = this.secNav()?.nativeElement.querySelector<HTMLElement>('.sec-nav-track');
+      const btn = id ? track?.querySelector<HTMLElement>(`[data-nav="${CSS.escape(id)}"]`) : null;
+      if (!track || !btn) return;
+      const left = btn.offsetLeft, right = left + btn.offsetWidth;
+      if (left < track.scrollLeft) track.scrollLeft = left - 16;
+      else if (right > track.scrollLeft + track.clientWidth) track.scrollLeft = right - track.clientWidth + 16;
+    });
+    afterNextRender(() => {
+      this.scroller = this.findScroller();
+      const target: HTMLElement | Window = this.scroller ?? window;
+      target.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll, { passive: true });
+      destroyRef.onDestroy(() => {
+        target.removeEventListener('scroll', onScroll);
+        window.removeEventListener('resize', onScroll);
+        cancelAnimationFrame(this.navFrame);
+      });
+    });
+  }
+
+  goToSection(id: string) {
+    const section = this.sectionOf(id);
+    if (!section) return;
+    this.activeNav.set(id);
+    this.navLock = Date.now() + 1000;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    section.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    // Focus follows (screen readers read the section's name); the section loses its tabindex again when focus leaves.
+    if (!section.hasAttribute('tabindex')) {
+      section.setAttribute('tabindex', '-1');
+      section.addEventListener('blur', () => section.removeAttribute('tabindex'), { once: true });
+    }
+    section.focus({ preventScroll: true });
+  }
+
+  /** The admin layout scrolls its main area, not the window: the nearest scrolling ancestor (null = the window). */
+  private findScroller(): HTMLElement | null {
+    let el = (this.host.nativeElement as HTMLElement).parentElement;
+    while (el && el !== document.body) {
+      if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  private sectionOf(id: string): HTMLElement | null {
+    const root = this.exportRoot()?.nativeElement;
+    return root?.querySelector<HTMLElement>(`#${CSS.escape(id)}`)?.closest<HTMLElement>('section.dash-section') ?? null;
+  }
+
+  /** One update per frame: rescan the sections (when they changed), then the highlight. */
+  private queueNav(rescan = false) {
+    if (rescan) this.navRescan = true;
+    if (this.navFrame) return;
+    this.navFrame = requestAnimationFrame(() => {
+      this.navFrame = 0;
+      if (this.navRescan) { this.navRescan = false; this.scanSections(); }
+      this.spySection();
+    });
+  }
+
+  private scanSections() {
+    const root = this.exportRoot()?.nativeElement;
+    const items = !root ? [] : Array.from(root.querySelectorAll<HTMLElement>('section.dash-section[aria-labelledby]'))
+      .map(s => {
+        const id = s.getAttribute('aria-labelledby') ?? '';
+        const label = (id && root.querySelector(`#${CSS.escape(id)}`)?.textContent?.trim()) || '';
+        return { id, label };
+      })
+      .filter(x => x.id && x.label);
+    const key = items.map(x => `${x.id}:${x.label}`).join('|');
+    if (key !== this.navKey) { this.navKey = key; this.navItems.set(items); }
+  }
+
+  /** The section in view: the last one whose top has passed just below the nav; the last one at the end of the page. */
+  private spySection() {
+    const items = this.navItems();
+    if (!items.length || Date.now() < this.navLock) return;
+    const sc = this.scroller;
+    const atEnd = sc
+      ? sc.scrollTop > 0 && sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2
+      : window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+    const line = (this.secNav()?.nativeElement.getBoundingClientRect().bottom ?? 0) + 24;
+    let current = items[0].id;
+    if (atEnd) current = items[items.length - 1].id;
+    else for (const it of items) {
+      const top = this.sectionOf(it.id)?.getBoundingClientRect().top;
+      if (top != null && top <= line) current = it.id;
+    }
+    if (current !== this.activeNav()) this.activeNav.set(current);
   }
 }
