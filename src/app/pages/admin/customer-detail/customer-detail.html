@@ -35,7 +35,7 @@
     </span>
     @if (err.notFound) {
     <h2>Customer not found</h2>
-    <p>This customer does not exist or has been removed.</p>
+    <p>This customer does not exist, or belongs to a location you are not assigned to.</p>
     <a routerLink="/admin/customers" class="btn-ghost">Back to customers</a>
     } @else {
     <h2>Could not load this customer</h2>
@@ -249,12 +249,8 @@
       @let qs = quotations();
       @if (qs.loading && !qs.data) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
       @else if (qs.error; as err) {
-      @if (err.notFound) {
-      <div class="empty"><strong>Quotations are not available to you</strong><span>{{ scopeNote('quotations') }}</span></div>
-      } @else {
       <div class="empty error" role="alert"><strong>Quotations could not be loaded</strong><span>{{ err.message }}</span>
         <button type="button" class="btn-ghost" (click)="loadQuotations(qs.data?.page ?? 1)">Try again</button></div>
-      }
       } @else if (!qs.data?.rows?.length) {
       <div class="empty"><strong>No quotations yet</strong><span>Quotations sent to this customer will show here.</span></div>
       } @else {
@@ -298,12 +294,8 @@
       @let inv = invoices();
       @if (inv.loading && !inv.data) { <ng-container *ngTemplateOutlet="tableSkeleton" /> }
       @else if (inv.error; as err) {
-      @if (err.notFound) {
-      <div class="empty"><strong>Invoices are not available to you</strong><span>{{ scopeNote('invoices') }}</span></div>
-      } @else {
       <div class="empty error" role="alert"><strong>Invoices could not be loaded</strong><span>{{ err.message }}</span>
         <button type="button" class="btn-ghost" (click)="loadInvoices(inv.data?.page ?? 1)">Try again</button></div>
-      }
       } @else if (!inv.data?.rows?.length) {
       <div class="empty"><strong>No invoices yet</strong><span>Invoices issued to this customer will show here.</span></div>
       } @else {

@@ -255,14 +255,6 @@ export class CustomerDetail {
     return 'info';
   }
 
-  /**
-   * Invoices and quotations keep their endpoints' location check: a 404 there (the customer exists, the profile
-   * loaded) means the customer's records are at locations this user is not assigned to.
-   */
-  scopeNote(what: 'invoices' | 'quotations'): string {
-    return `This customer's ${what} belong to a location you are not assigned to.`;
-  }
-
   kindLabel(kind: TimelineKind): string {
     return kind === 'other' ? 'Update' : kind === 'deposit' ? 'Security deposit' : humanize(kind);
   }
