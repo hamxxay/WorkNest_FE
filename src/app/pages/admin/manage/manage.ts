@@ -19,11 +19,15 @@ import { AgreementService, AgreementESignature } from '../../../services/agreeme
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
 import { firstValueFrom, of, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { localDateIso, localDateTimeIso } from '../../../utils/dates';
+import { localDateIso, localDateTimeIso, pakistanDateIso } from '../../../utils/dates';
+import { rangeLabel } from '../ceo/period-range';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
 import { InquiryRef, inquiryKey, inquiryRef, inquiryRefParam, inquirySource, parseInquiryRefParam } from '../../../utils/inquiry-ref';
-import { LIST_DATE_LABEL, ListFilterParams, ListStatusOption, isFilteredList, listRows, listTotal } from '../../../utils/list-filters';
+import {
+  DEFAULT_LIST_PERIOD, LIST_DATE_LABEL, LIST_PERIOD_OPTIONS, ListFilterParams, ListPeriod, ListStatusOption, isFilteredList,
+  listPeriodRange, listRows, listTotal
+} from '../../../utils/list-filters';
 import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx-table';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
 
@@ -5834,16 +5838,20 @@ export class Manage implements OnInit {
   }
 
   get listFiltersActive(): boolean {
-    return this.hasListFilters && !!(this.branchFilter || this.listStatusFilter || this.listDateFrom || this.listDateTo);
+    if (!this.hasListFilters) return false;
+    if (this.branchFilter || this.listStatusFilter) return true;
+    // Invoices: the page's own period (This month) is its normal view, not a filter to clear.
+    return this.hasListPeriod ? this.listPeriod !== DEFAULT_LIST_PERIOD : !!(this.listDateFrom || this.listDateTo);
   }
 
   /** The filters sent with the list request; the API only gets the ones that are set. */
   private listFilterParams(): ListFilterParams {
+    const dates = this.listDates();
     return {
       locationId: this.listLocationId,
       status: this.listStatusFilter || undefined,
-      from: this.listDateFrom || undefined,
-      to: this.listDateTo || undefined,
+      from: dates.from || undefined,
+      to: dates.to || undefined,
     };
   }
 
@@ -5852,8 +5860,64 @@ export class Manage implements OnInit {
     this.listStatusFilter = '';
     this.listDateFrom = '';
     this.listDateTo = '';
+    this.listPeriod = DEFAULT_LIST_PERIOD;
     this.listStatusOptions.set([]);
     this.loadError.set('');
+  }
+
+  // ---------- Period of the Invoices list (issue date, Pakistan dates) ----------
+  // The page opens on the invoices issued this month; a wider period (or Custom range, the From / To boxes) fetches
+  // that range. The dates go to the API (GET api/invoice?from=&to=), which filters on the server, so the item count
+  // and Export Excel follow the chosen period. Other lists keep their plain From / To boxes.
+
+  readonly listPeriodOptions = LIST_PERIOD_OPTIONS;
+  /** The chosen period ('custom' = listDateFrom / listDateTo). Only used where hasListPeriod. */
+  listPeriod: ListPeriod = DEFAULT_LIST_PERIOD;
+
+  /** This list has the Period choice (Invoices & Billing). */
+  get hasListPeriod(): boolean {
+    return this.entity === 'invoices';
+  }
+
+  /**
+   * From / To sent to the API: a calendar period is worked out from today's Pakistan date on every request (so a page
+   * left open over a month end moves on); Custom range uses the From / To boxes; All dates sends none.
+   */
+  private listDates(): { from: string; to: string } {
+    if (this.hasListPeriod && this.listPeriod !== 'custom') {
+      return listPeriodRange(this.listPeriod, pakistanDateIso()) ?? { from: '', to: '' };
+    }
+    return { from: this.listDateFrom, to: this.listDateTo };
+  }
+
+  /** The dates of a calendar period, shown next to the choice ("October 2026", "1 Aug - 31 Oct 2026"). */
+  get listPeriodText(): string {
+    if (!this.hasListPeriod || this.listPeriod === 'custom' || this.listPeriod === 'all') return '';
+    const range = listPeriodRange(this.listPeriod, pakistanDateIso());
+    return range ? rangeLabel(range) : '';
+  }
+
+  onListPeriod(value: string) {
+    const period = (LIST_PERIOD_OPTIONS.find(o => o.value === value)?.value ?? DEFAULT_LIST_PERIOD) as ListPeriod;
+    if (period === this.listPeriod) return;
+    clearTimeout(this.listDateTimer);
+    if (period === 'custom') {
+      // Start from the dates on screen, so the boxes can be widened or narrowed from there.
+      const current = this.listDates();
+      this.listDateFrom = current.from;
+      this.listDateTo = current.to;
+    }
+    this.listPeriod = period;
+    this.applyListFilters();
+  }
+
+  /** Text of an empty list. */
+  get listEmptyText(): string {
+    if (this.hasListPeriod && !this.branchFilter && !this.listStatusFilter && !this.searchQuery) {
+      const text = this.listPeriodText;
+      if (text) return `No invoices were issued in this period (${text}). Choose a wider period under Issued to see older ones.`;
+    }
+    return this.listFiltersActive ? 'No records match the search and the filters.' : 'No records found.';
   }
 
   private loadListStatusOptions() {
@@ -5901,6 +5965,7 @@ export class Manage implements OnInit {
     this.listStatusFilter = '';
     this.listDateFrom = '';
     this.listDateTo = '';
+    this.listPeriod = DEFAULT_LIST_PERIOD; // Invoices: back to this month
     this.applyListFilters();
   }
 

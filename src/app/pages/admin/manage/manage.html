@@ -162,8 +162,24 @@
           </select>
         </label>
         }
+        @if (hasListPeriod) {
+        <!-- Invoices: opens on this month (issue date, Pakistan dates); a wider period fetches that range. -->
+        <label class="page-size-wrap type-filter">
+          <span>{{ listDateLabel }}</span>
+          <select [ngModel]="listPeriod" (ngModelChange)="onListPeriod($event)" [attr.aria-label]="listDateLabel + ' period'"
+            [disabled]="exporting()">
+            @for (o of listPeriodOptions; track o.value) {
+            <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        @if (listPeriodText) {
+        <span class="list-period-range">{{ listPeriodText }}</span>
+        }
+        }
+        @if (!hasListPeriod || listPeriod === 'custom') {
         <label class="page-size-wrap type-filter date-filter">
-          <span>{{ listDateLabel }} from</span>
+          <span>{{ hasListPeriod ? 'From' : listDateLabel + ' from' }}</span>
           <input type="date" [ngModel]="listDateFrom" (ngModelChange)="onListDateFrom($event)"
             [attr.max]="listDateTo || null" [attr.aria-label]="listDateLabel + ' from'" [disabled]="exporting()" />
         </label>
@@ -172,6 +188,7 @@
           <input type="date" [ngModel]="listDateTo" (ngModelChange)="onListDateTo($event)"
             [attr.min]="listDateFrom || null" [attr.aria-label]="listDateLabel + ' to'" [disabled]="exporting()" />
         </label>
+        }
         @if (listFiltersActive) {
         <button type="button" class="btn-admin btn-outline-admin btn-clear-filters" (click)="clearListFilters()"
           [disabled]="exporting()">Clear filters</button>
@@ -206,7 +223,7 @@
     </div>
     } @else if (filtered.length === 0) {
     <div class="empty-state">
-      <p>{{ listFiltersActive ? 'No records match the search and the filters.' : 'No records found.' }}</p>
+      <p>{{ listEmptyText }}</p>
       @if (listFiltersActive) {
       <button type="button" class="btn-admin btn-outline-admin" (click)="clearListFilters()">Clear filters</button>
       }

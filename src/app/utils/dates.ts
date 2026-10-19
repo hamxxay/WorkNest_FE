@@ -13,3 +13,11 @@ export function localDateIso(d: Date = new Date()): string {
 export function localDateTimeIso(d: Date = new Date()): string {
   return `${localDateIso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/**
+ * Today's date in Pakistan (YYYY-MM-DD), whatever time zone the browser is set to. Pakistan time is UTC+5 all year
+ * (no daylight saving), the business dates the API uses (e.g. an invoice's issue date).
+ */
+export function pakistanDateIso(d: Date = new Date()): string {
+  return new Date(d.getTime() + 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}

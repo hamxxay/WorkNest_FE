@@ -1,6 +1,7 @@
 // Filters of the admin lists Customers, Bookings, Quotations, Invoices and Payments (API script LST_01_list_filters).
 // They are applied on the server, so they stay correct with paging; the API only uses its new procedures when one
 // of them is set, so an unfiltered list is requested exactly as before.
+// The Invoices page opens on this month's invoices (Period below), so it sends from / to unless All dates is chosen.
 
 /** The lists that have the Location / Status / date filters and the Excel export. */
 export const FILTERED_LISTS = ['customers', 'bookings', 'quotations', 'invoices', 'payments'] as const;
@@ -28,6 +29,44 @@ export interface ListFilterParams {
   /** YYYY-MM-DD, both ends included. */
   from?: string;
   to?: string;
+}
+
+/**
+ * Period of a list's date filter (the Invoices page): a calendar period in Pakistan dates, every date, or a custom
+ * From / To. The page opens on DEFAULT_LIST_PERIOD; the API gets the period's From / To like the custom dates.
+ */
+export type ListPeriod = 'month' | 'lastMonth' | 'last3Months' | 'year' | 'all' | 'custom';
+export const DEFAULT_LIST_PERIOD: ListPeriod = 'month';
+export const LIST_PERIOD_OPTIONS: readonly { value: ListPeriod; label: string }[] = [
+  { value: 'month', label: 'This month' },
+  { value: 'lastMonth', label: 'Last month' },
+  { value: 'last3Months', label: 'Last 3 months' },
+  { value: 'year', label: 'This year' },
+  { value: 'all', label: 'All dates' },
+  { value: 'custom', label: 'Custom range' },
+];
+
+/**
+ * From / To (YYYY-MM-DD, both included) of a calendar period around `today` (YYYY-MM-DD, Pakistan date): this month,
+ * last month, the last 3 months (this month and the two before it) or this year, each to its last day (an invoice
+ * issued later in the period is included). Null for 'all' and 'custom' (their dates are not a calendar period).
+ */
+export function listPeriodRange(period: ListPeriod, today: string): { from: string; to: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(today);
+  if (!m) return null;
+  const y = Number(m[1]), mon = Number(m[2]) - 1; // 0-based month
+  const day = (year: number, month: number, d: number) => {
+    const dt = new Date(Date.UTC(year, month, d)); // normalises month overflow (e.g. month -1 = December before)
+    return dt.toISOString().slice(0, 10);
+  };
+  const monthEnd = (year: number, month: number) => day(year, month + 1, 0);
+  switch (period) {
+    case 'month': return { from: day(y, mon, 1), to: monthEnd(y, mon) };
+    case 'lastMonth': return { from: day(y, mon - 1, 1), to: monthEnd(y, mon - 1) };
+    case 'last3Months': return { from: day(y, mon - 2, 1), to: monthEnd(y, mon) };
+    case 'year': return { from: day(y, 0, 1), to: day(y, 11, 31) };
+    default: return null;
+  }
 }
 
 /** One choice of a list's Status filter. */
