@@ -56,6 +56,10 @@ export interface SmFunnel {
 }
 
 // ---------- Team performance ----------
+/**
+ * A sales executive under the manager: the API sends only the sales executives working at the manager's assigned
+ * locations (or the chosen one), never admins or other roles. role = WN_Roles.DisplayName.
+ */
 export interface SmPerson {
   userId: number; name: string; role: string; locations: string;
   inquiriesHandled: number; quotations: number; accepted: number; converted: number;

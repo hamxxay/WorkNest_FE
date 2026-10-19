@@ -45,7 +45,8 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   const sheets: XlsxSheet[] = [summarySheet('WorkNest CEO dashboard', meta, [
     'Money in PKR. Shares and rates in %.',
     'Previous period: the same number of days just before a custom range, else the same days one period earlier.',
-    'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.'
+    'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.',
+    'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.'
   ])];
 
   // ---------- KPIs ----------
@@ -79,6 +80,12 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
       ['Sales', 'Conversion (%)', pct1(s.conversionRate), null, `${s.quotationsBooked} of ${s.quotations} quotations booked`],
       ['Sales', 'Quoted (PKR)', money2(s.quotationValue), null, ''],
       ['Sales', 'Booked (PKR)', money2(s.bookingValue), null, '']
+    );
+  }
+  if (d.team) {
+    kpis.push(
+      ['Team', 'Sales executives', d.team.salesExecutives, null, ''],
+      ['Team', 'Sales executives revenue (PKR)', money2(d.team.revenue), null, 'Their quotations created in the period that were converted']
     );
   }
   if (rooms?.available) {
@@ -181,21 +188,23 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     });
   }
 
-  // ---------- Team ----------
+  // ---------- Team: the sales executives only (the API sends no other role) ----------
   if (d.team) {
     sheets.push({
       name: 'Team by location',
-      rows: [['Location', 'Admins', 'Sales executives', 'Quotations', 'Converted', 'Conversion (%)'],
-        ...d.team.perLocation.map(l => [l.name, l.admins, l.salesExecutives, l.quotations, l.converted,
+      rows: [['Location', 'Sales executives', 'Quotations at the location', 'Converted', 'Conversion (%)'],
+        ...d.team.perLocation.map(l => [l.name, l.salesExecutives, l.quotations, l.converted,
           l.quotations ? pct1(ratio(l.converted, l.quotations)) : null])]
     });
     sheets.push({
-      name: 'People',
-      rows: [['Name', 'Role', 'Locations', 'Quotations', 'Converted', 'Conversion (%)', 'Converted value (PKR)'],
+      name: 'Sales executives',
+      rows: [['Name', 'Locations', 'Quotations', 'Converted', 'Conversion (%)', 'Revenue (PKR)'],
         ...[...d.team.people]
-          .sort((a, b) => b.convertedValue - a.convertedValue || b.converted - a.converted || b.quotations - a.quotations)
-          .map(p => [p.name, p.role, p.locations, p.quotations, p.converted, p.quotations ? pct1(ratio(p.converted, p.quotations)) : null,
-            money2(p.convertedValue)])]
+          .sort((a, b) => b.revenue - a.revenue || b.converted - a.converted || b.quotations - a.quotations)
+          .map(p => [p.name, p.locations, p.quotations, p.converted, p.quotations ? pct1(ratio(p.converted, p.quotations)) : null,
+            money2(p.revenue)]),
+        [],
+        ['Total', null, null, null, null, money2(d.team.revenue)]]
     });
   }
   return sheets;

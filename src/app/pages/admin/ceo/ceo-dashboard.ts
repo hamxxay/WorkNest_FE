@@ -493,8 +493,11 @@ export class CeoDashboard {
   // ---------- Team ----------
 
   t = computed(() => this.data()?.team ?? null);
-  people = computed(() => [...(this.t()?.people ?? [])].sort((a, b) => b.convertedValue - a.convertedValue || b.converted - a.converted || b.quotations - a.quotations));
+  /** The sales executives (the API sends no other role), highest revenue first. */
+  people = computed(() => [...(this.t()?.people ?? [])].sort((a, b) => b.revenue - a.revenue || b.converted - a.converted || b.quotations - a.quotations));
   teamEmpty = computed(() => !(this.t()?.perLocation ?? []).length && !(this.t()?.people ?? []).length);
+  /** The highest revenue of a sales executive (the revenue bars' 100%). */
+  revenueMax = computed(() => Math.max(0, ...this.people().map(p => p.revenue)));
 
   // ---------- drill-down ----------
 
@@ -633,7 +636,12 @@ export class CeoDashboard {
   }
 
   openPerson(userId: number, name: string) {
-    this.openDrill('Team', { kind: 'breakdown', metric: 'staff', params: { userId }, crumb: name });
+    this.openDrill('Sales executives', { kind: 'breakdown', metric: 'staff', params: { userId }, crumb: name });
+  }
+
+  /** A sales executive's revenue: the quotations they created in the period that were converted (records/quotations). */
+  openPersonRevenue(userId: number, name: string) {
+    if (userId) this.openRecords('Sales executives', `${name}: revenue`, 'quotations', { userId, stage: 'converted' });
   }
 
   // ---------- charts ----------
