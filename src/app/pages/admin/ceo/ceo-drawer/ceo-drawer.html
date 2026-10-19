@@ -51,7 +51,7 @@
     }
   </header>
 
-  <div class="drawer-body">
+  <div class="drawer-body" [class.is-records]="current()?.level?.kind === 'records' && current()?.status === 'ok'">
     @switch (current()?.status) {
       @case ('loading') {
         <div class="state-loading" aria-busy="true">
