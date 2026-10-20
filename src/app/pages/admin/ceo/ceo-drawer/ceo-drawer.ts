@@ -46,13 +46,33 @@ type SpaceRow = CeoSpaceRecord & { bookingId?: number | null };
 /** A link to another list about the same selection (DrillRecords.related). */
 type RelatedList = NonNullable<DrillRecords['related']>[number];
 
+/** "01 Nov 2026" from "yyyy-MM-dd" (no year: "01 Nov"); null when it is not a date. */
+function dayText(iso: string | null | undefined, withYear = true): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  if (isNaN(d.getTime())) return null;
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `${m[3]} ${month}${withYear ? ' ' + m[1] : ''}`;
+}
+
+/** An invoice's billing period: "01 Nov - 30 Nov 2026", "21 Oct 2026 - 31 Jan 2027", "From 01 Nov 2026"; null = none. */
+function billingPeriodText(start: string | null | undefined, end: string | null | undefined): string | null {
+  const from = dayText(start);
+  if (!from) return null;
+  const to = dayText(end);
+  if (!to) return `From ${from}`;
+  const sameYear = start!.slice(0, 4) === end!.slice(0, 4);
+  return `${sameYear ? dayText(start, false) : from} - ${to}`;
+}
+
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
 const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
     // status: 'paid' when opened from Collected (the API's breakdown leaves it out; the invoices use it). A custom period
-    // opens it with from / to instead of a month (the invoices issued in that range).
+    // opens it with from / to instead of a month (the invoices whose billing period starts in that range, CP_01).
     next: (p, r) => ({
       kind: 'records', records: 'invoices',
       params: { month: p['month'], from: p['from'], to: p['to'], locationId: r.key, status: p['status'] }, crumb: r.label
@@ -483,6 +503,11 @@ export class CeoDrawer {
   bookingLink(bookingId: number | null | undefined) {
     return bookingId ? this.src().bookingLink?.(bookingId) ?? null : null;
   }
+  /** The billing period under an invoice number (CP_01); null = not sent: the list shows the issue date only. */
+  periodOf(r: InvoiceRow): string | null {
+    return billingPeriodText(r.periodStart, r.periodEnd);
+  }
+
   /** The line under an invoice's customer: its space and location (the CEO records have only the location). */
   placeOf(r: InvoiceRow): string {
     return [r.space, r.location].filter(Boolean).join(' · ');

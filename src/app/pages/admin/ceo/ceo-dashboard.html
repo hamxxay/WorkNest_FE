@@ -128,16 +128,17 @@
       }
     </span>
     @if (k.trend) { <span class="kpi-sub kpi-sub-2">{{ k.sub }}</span> }
+    @else if (k.sub2) { <span class="kpi-sub kpi-sub-2">{{ k.sub2 }}</span> }
   </ng-template>
   <ng-template #kpiCard let-k>
     @if (k.action) {
-      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()" [title]="k.full || ''">
+      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()" [title]="kpiTitle(k)">
         <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
         <span class="sr-only">{{ k.actionLabel }}</span>
         <svg class="kpi-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
       </button>
     } @else {
-      <div [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+      <div [class]="'kpi-card tone-' + k.tone" [title]="kpiTitle(k)">
         <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
       </div>
     }
@@ -191,12 +192,12 @@
       <section class="dash-section" aria-labelledby="ceo-h-money">
         <div class="section-title">
           <h2 id="ceo-h-money">Money</h2>
-          <span>Invoices and collections · {{ periodTitle() }}</span>
+          <span>Invoices and collections{{ byPeriod() ? ' by billing period' : '' }} · {{ periodTitle() }}</span>
         </div>
         @if (!m()) {
           <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No money figures yet</strong><span>Invoices and payments show up here once they are in the system.</span></div>
         } @else {
-          <div class="kpi-grid kpi-5">
+          <div class="kpi-grid" [class.kpi-5]="moneyKpis().length !== 6" [class.kpi-6]="moneyKpis().length === 6">
             @for (k of moneyKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
           </div>
 
@@ -206,7 +207,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Revenue &amp; collections</h3>
-                  <p class="panel-sub">Last 12 months · select a month for the locations behind it</p>
+                  <p class="panel-sub">Last 12 months{{ byPeriod() ? ', by billing period' : '' }} · select a month for the locations behind it</p>
                 </div>
                 <div class="head-side">
                   <div class="head-stats">
@@ -290,7 +291,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Top customers</h3>
-                  <p class="panel-sub">By amount invoiced, last 12 months · select one for their invoices</p>
+                  <p class="panel-sub">By amount invoiced, last 12 months{{ byPeriod() ? ' by billing period' : '' }} · select one for their invoices</p>
                 </div>
               </div>
               @if (!m()!.topCustomers.length) {

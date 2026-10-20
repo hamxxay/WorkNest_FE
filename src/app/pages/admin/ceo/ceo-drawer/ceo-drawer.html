@@ -185,7 +185,13 @@
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
                           <th scope="row">
-                            <strong>{{ r.invoiceNumber || '-' }}</strong><small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small>
+                            <strong>{{ r.invoiceNumber || '-' }}</strong>
+                            @if (periodOf(r); as period) {
+                              <span class="rec-period">{{ period }}</span>
+                              @if (r.issuedOn) { <small>Issued {{ r.issuedOn | date:'d MMM y' }}</small> }
+                            } @else {
+                              <small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small>
+                            }
                             @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
                           </th>
                           <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ placeOf(r) }}</small></td>
