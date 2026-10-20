@@ -98,8 +98,8 @@ export function tileText(room: CeoRoom): string {
 /**
  * A month's rent per block: what was sold, what the under-priced bookings miss against their price, and the list
  * rent of the rooms not let in the period. premium: what over-priced bookings add (inside sold). A room let to one
- * tenant after another in the period (or over a quarter / year) counts only its latest booking of each shift, so a
- * month's rent is never two tenants' rent added up.
+ * tenant after another in the period (or over a quarter / year) leaves out a booking that a later booking of the same
+ * shift follows, so a month's rent is never two tenants' rent added up; bookings at the same time all count.
  */
 export interface RentRow { key: string; label: string; sold: number; below: number; notLet: number; premium: number; }
 
@@ -118,14 +118,14 @@ export function rentByGroup(groups: RoomGroup[]): RentRow[] {
   });
 }
 
-/** The latest booking (by start) of each shift: what the room is let for a month now / at the end of the period. */
+/**
+ * What the room is let for a month now / at the end of the period: every sale except one followed by a later sale of
+ * the same shift that starts on or after its end (one tenant after another). Sales that overlap (a shared space or an
+ * office sold by the seat, several bookings at once) all count, as the Rooms "Sold" figure.
+ */
 export function currentSales(sales: CeoRoomSale[]): CeoRoomSale[] {
-  const byShift = new Map<string, CeoRoomSale>();
-  for (const x of sales) {
-    const cur = byShift.get(x.shift);
-    if (!cur || (x.startOn ?? '') >= (cur.startOn ?? '')) byShift.set(x.shift, x);
-  }
-  return [...byShift.values()];
+  const day = (d: string | null) => (d ?? '').slice(0, 10);
+  return sales.filter(x => !x.endOn || !sales.some(y => y !== x && y.shift === x.shift && !!y.startOn && day(y.startOn) >= day(x.endOn)));
 }
 
 /**

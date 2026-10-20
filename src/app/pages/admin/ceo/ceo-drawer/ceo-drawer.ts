@@ -68,11 +68,14 @@ function billingPeriodText(start: string | null | undefined, end: string | null 
 
 /**
  * The line under an invoice list's title (CP_02): the totals of every invoice in it, as the dashboard counts them
- * (billed and collected without security deposits, owed = what is left to pay); undefined = none sent.
+ * (billed and collected without security deposits, deposits = the security deposits billed in them, owed = what is
+ * left to pay, unpaid deposits included as Outstanding); undefined = none sent.
  */
 function invoiceSummary(t: CeoInvoiceTotals | null | undefined): string | undefined {
   if (!t) return undefined;
-  return `Billed ${fullMoney(t.billed)} · collected ${fullMoney(t.collected)} · owed ${fullMoney(t.balance)} (without security deposits)`;
+  // Billed and collected leave security deposits out; owed includes unpaid deposits (as Outstanding), shown beside it.
+  const deposits = t.deposits != null ? ` · deposits ${fullMoney(t.deposits)}` : '';
+  return `Billed ${fullMoney(t.billed)} · collected ${fullMoney(t.collected)} (without security deposits)${deposits} · owed ${fullMoney(t.balance)}`;
 }
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */

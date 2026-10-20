@@ -228,7 +228,11 @@ export interface CeoInvoiceRecord {
   wht?: number | null; deposit?: number | null; billed?: number | null; collected?: number | null;
 }
 /** records/invoices (CP_02): the totals of every matching invoice (the list holds at most 200). */
-export interface CeoInvoiceTotals { billed: number; collected: number; balance: number; }
+export interface CeoInvoiceTotals {
+  billed: number; collected: number; balance: number;
+  /** CP_02: the security deposits of the matching invoices (null when the API / procedure does not send them). */
+  deposits?: number | null;
+}
 export interface CeoSpaceRecord {
   spaceId: number; name: string; spaceType: string; location: string; capacity: number | null;
   occupied: boolean; customer: string; bookingEndOn: string | null;
@@ -893,7 +897,7 @@ export class CeoService {
     const rows = arr(d.rows, (r: any) => this.toRecord(kind, r)) as CeoRecordRowMap[K][];
     const amount = kind === 'receipts' ? numOrNull(d.amount) : null;   // CP_02: the sum of every matching receipt / payment
     const t = obj(d.invoiceTotals);
-    const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance) } : null;
+    const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance), deposits: numOrNull(t.deposits) } : null;
     return {
       title: str(d.title), total: Math.max(num(d.total), rows.length), rows, invoiceTotals,
       ...(amount !== null ? { summary: `PKR ${Math.round(amount).toLocaleString('en-US')} received` } : {})
