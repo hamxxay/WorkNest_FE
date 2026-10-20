@@ -256,7 +256,10 @@
                           <td>@if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }</td>
                           @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
                           @else { <td class="num" [title]="fullMoney(r.totalAmount)">{{ money(r.totalAmount) }}</td> }
-                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
+                          <td>
+                            <span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span>
+                            @if (r.seller) { <small>Sold by {{ r.seller }}</small> }
+                          </td>
                         </tr>
                       }
                     </tbody>

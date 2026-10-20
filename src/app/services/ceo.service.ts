@@ -74,7 +74,10 @@ export interface CeoFunnelStage { stage: string; label: string; count: number; }
 export interface CeoInquiryType { type: string; label: string; count: number; }
 export interface CeoSales {
   funnel: CeoFunnelStage[];
-  /** Quotations created in the period that were booked / quotations created in the period, % (0-100, never above). */
+  /**
+   * Quotations created in the period that were booked / quotations created in the period, % (0-100, never above).
+   * CP_02: booked = converted and the booking is still live (not rejected, cancelled or deleted).
+   */
   conversionRate: number;
   /** Quotations created in the period (the funnel's quotations stage). */
   quotations: number;
@@ -85,7 +88,13 @@ export interface CeoSales {
   quotationsBooked: number;
   inquiriesByType: CeoInquiryType[];
   quotationValue: number;
+  /** Value of the period's bookings: their contract value (basis contract, CP_02) or their first invoices (older). */
   bookingValue: number;
+  bookingValueBasis: 'contract' | 'firstInvoice';
+  /** CP_02: of the period's bookings, those made from a quotation (the rest were booked directly); null = not known. */
+  bookingsFromQuotations: number | null;
+  /** CP_02: one location chosen: the period's tour inquiries without a branch (not in the figures); null = none / not known. */
+  inquiriesNoBranch: number | null;
   /**
    * Tour inquiries follow the location filter by their branch. True when a location is chosen but the inquiry
    * figures (funnel stage, by type) still count every location: the database update QA_07 has not run, or an older
@@ -94,19 +103,27 @@ export interface CeoSales {
   inquiriesAllLocations: boolean;
 }
 
-/** A location: its sales executives and the quotations made on its spaces in the period (by anyone, as the funnel). */
+/**
+ * A location: its sales executives and the quotations made on its spaces in the period, how many were booked.
+ * salesExecutivesOnly (CP_02): only the sales executives' quotations; false = anyone's (older API).
+ */
 export interface CeoTeamLocation {
-  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number;
+  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number; salesExecutivesOnly: boolean;
 }
 /**
- * A sales executive (the API sends no other role). revenue = the dashboard's converted value: the total of the
- * quotations they created in the period that were converted to a booking (PKR).
+ * A sales executive (the API sends no other role). revenue (team revenueBasis bookings, CP_02) = the contract value of
+ * the new bookings they sold in the period (their quotation, else the booking they made); bookings = how many. Older
+ * API (basis quotations): the total of the quotations they created in the period that were converted (PKR).
  */
 export interface CeoPerson {
   userId: number; name: string; role: string; locations: string; quotations: number; converted: number; revenue: number;
+  bookings: number | null;
 }
 /** Team section: only the sales executives (filtered by the API), highest revenue first, and their totals. */
-export interface CeoTeam { perLocation: CeoTeamLocation[]; people: CeoPerson[]; salesExecutives: number; revenue: number; }
+export interface CeoTeam {
+  perLocation: CeoTeamLocation[]; people: CeoPerson[]; salesExecutives: number; revenue: number;
+  revenueBasis: 'bookings' | 'quotations';
+}
 
 export interface CeoDashboard {
   period: CeoPeriod;
@@ -159,6 +176,8 @@ export interface CeoSpaceRecord {
 export interface CeoBookingRecord {
   bookingId: number; customer: string; space: string; location: string;
   startOn: string | null; endOn: string | null; status: string; totalAmount: number;
+  /** The sales list (CP_02, records/bookings?sales=true): who sold the booking; left out on the other lists. */
+  seller?: string;
 }
 export interface CeoInquiryRecord {
   inquiryId: number; name: string; phone: string; type: string; referenceName: string;
@@ -705,6 +724,9 @@ export class CeoService {
       conversionRate: conv.rate, quotations, quotationsBooked: conv.quotationsBooked,
       inquiriesByType: arr(s.inquiriesByType, (x: any) => ({ type: str(x.type) || 'NotSet', label: str(x.label) || str(x.type) || 'Not set', count: num(x.count) })),
       quotationValue: num(s.quotationValue), bookingValue: num(s.bookingValue),
+      bookingValueBasis: str(s.bookingValueBasis) === 'contract' ? 'contract' : 'firstInvoice',
+      bookingsFromQuotations: numOrNull(s.bookingsFromQuotations),
+      inquiriesNoBranch: numOrNull(s.inquiriesNoBranch),
       // Not sent (an older API): its inquiry figures never followed the location.
       inquiriesAllLocations: s.inquiriesAllLocations === undefined || s.inquiriesAllLocations === null
         ? true
@@ -714,14 +736,17 @@ export class CeoService {
     // The API lists only the sales executives (19 Oct 2026); revenue is their converted value (an older API: convertedValue).
     const people: CeoPerson[] = t ? arr(t.people, (x: any) => ({
       userId: num(x.userId), name: str(x.name) || 'Team member', role: str(x.role), locations: str(x.locations),
-      quotations: num(x.quotations), converted: num(x.converted), revenue: num(x.revenue ?? x.convertedValue)
+      quotations: num(x.quotations), converted: num(x.converted), revenue: num(x.revenue ?? x.convertedValue),
+      bookings: numOrNull(x.bookings)
     })) : [];
     const team: CeoTeam | null = t && {
       perLocation: arr(t.perLocation, (x: any) => ({
         locationId: num(x.locationId), name: str(x.name) || 'Location', salesExecutives: num(x.salesExecutives),
-        quotations: num(x.quotations), converted: num(x.converted)
+        quotations: num(x.quotations), converted: num(x.converted),
+        salesExecutivesOnly: x.salesExecutivesOnly === true || x.salesExecutivesOnly === 1 || String(x.salesExecutivesOnly).toLowerCase() === 'true'
       })),
       people,
+      revenueBasis: str(t.revenueBasis) === 'bookings' ? 'bookings' : 'quotations',
       salesExecutives: t.salesExecutives != null ? num(t.salesExecutives) : people.length,
       revenue: t.revenue != null ? num(t.revenue) : people.reduce((a, p) => a + p.revenue, 0)
     };
@@ -770,7 +795,8 @@ export class CeoService {
       };
       case 'bookings': return {
         bookingId: num(r.bookingId), customer: str(r.customer), space: str(r.space), location: str(r.location),
-        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), totalAmount: num(r.totalAmount)
+        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), totalAmount: num(r.totalAmount),
+        ...(r.seller !== undefined && r.seller !== null ? { seller: str(r.seller) } : {})
       };
       case 'inquiries': return {
         inquiryId: num(r.inquiryId), name: str(r.name), phone: str(r.phone), type: str(r.type), referenceName: str(r.referenceName),

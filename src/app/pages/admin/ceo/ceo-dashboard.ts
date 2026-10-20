@@ -3,7 +3,8 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  CeoBreakdown, CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
+  CeoBreakdown, CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService,
+  CeoTeamLocation
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
@@ -522,10 +523,31 @@ export class CeoDashboard {
   private readonly funnelColors = ['#99f6e4', '#5eead4', '#14b8a6', '#0f766e'];
   funnelColor(i: number): string { return this.funnelColors[Math.min(i, this.funnelColors.length - 1)]; }
 
-  /** Share of the previous stage that reached this one ("62% of quotations"). */
+  /** Booked = the contract value of the period's bookings (CP_02), else their first invoices (older database). */
+  bookedContract = computed(() => this.s()?.bookingValueBasis === 'contract');
+  bookedTitle = computed(() => {
+    const s = this.s();
+    if (!s) return '';
+    const what = this.bookedContract() ? 'Contract value' : 'First invoices';
+    return `${what} of the bookings made ${this.thisWord()}: ${fullMoney(s.bookingValue)}`;
+  });
+  /** One location chosen: "+3 without a branch (not included)" for the period's tour inquiries with no branch. */
+  noBranchNote = computed(() => {
+    const n = this.s()?.inquiriesNoBranch ?? 0;
+    return n > 0 ? `+${count(n)} without a branch (not included)` : '';
+  });
+
+  /**
+   * Share of the previous stage that reached this one ("62% of quotations"). Bookings include direct bookings (no
+   * quotation), so that stage shows how many came from quotations instead of a share of accepted (CP_02).
+   */
   stepText(i: number): string {
     const f = this.s()?.funnel ?? [];
     if (i === 0) return '';
+    if (f[i]?.stage.toLowerCase() === 'bookings') {
+      const fromQuotations = this.s()?.bookingsFromQuotations;
+      return fromQuotations == null ? '' : `${count(fromQuotations)} from quotations`;
+    }
     if (!f[i - 1]?.count) return '-';
     // A later stage can be bigger than the one before it (most quotations don't start as tour inquiries):
     // a share over 100% would only confuse, so none is shown then.
@@ -633,11 +655,14 @@ export class CeoDashboard {
     });
   }
 
-  /** Sales figures in the funnel header: conversion (converted quotations), quoted (quotations), booked (bookings). */
+  /**
+   * Sales figures in the funnel header: conversion (converted quotations with a live booking), quoted (quotations),
+   * booked (the period's bookings at their contract value, with who sold each: records/bookings?sales=true).
+   */
   openSalesFigure(which: 'conversion' | 'quoted' | 'booked') {
     if (which === 'conversion') this.openRecords('Sales funnel', 'Converted quotations', 'quotations', { stage: 'converted' });
     else if (which === 'quoted') this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' });
-    else this.openRecords('Sales funnel', 'Bookings', 'bookings', {});
+    else this.openRecords('Sales funnel', 'Bookings', 'bookings', { sales: 'true' });
   }
 
   openRevenueMonth(i: number) {
@@ -676,7 +701,7 @@ export class CeoDashboard {
     const key = stage.stage.toLowerCase();
     if (key === 'inquiries') this.openRecords('Sales funnel', stage.label, 'inquiries', {});
     else if (key === 'quotations' || key === 'accepted') this.openRecords('Sales funnel', stage.label, 'quotations', { stage: key });
-    else if (key === 'bookings') this.openRecords('Sales funnel', stage.label, 'bookings', {});
+    else if (key === 'bookings') this.openRecords('Sales funnel', stage.label, 'bookings', { sales: 'true' });
   }
 
   openInquiryType(type: string, label: string) {
@@ -687,9 +712,21 @@ export class CeoDashboard {
     this.openDrill('Sales executives', { kind: 'breakdown', metric: 'staff', params: { userId }, crumb: name });
   }
 
-  /** A sales executive's revenue: the quotations they created in the period that were converted (records/quotations). */
+  /**
+   * A sales executive's revenue: the bookings they sold in the period (records/bookings?sellerId, CP_02), or with an
+   * older database the quotations they created in the period that were converted (records/quotations).
+   */
   openPersonRevenue(userId: number, name: string) {
-    if (userId) this.openRecords('Sales executives', `${name}: revenue`, 'quotations', { userId, stage: 'converted' });
+    if (!userId) return;
+    if (this.t()?.revenueBasis === 'bookings') this.openRecords('Sales executives', `${name}: revenue`, 'bookings', { sellerId: userId });
+    else this.openRecords('Sales executives', `${name}: revenue`, 'quotations', { userId, stage: 'converted' });
+  }
+  /** What a revenue opens: the bookings sold (CP_02) or the converted quotations (older database). */
+  revenueRecords = computed(() => (this.t()?.revenueBasis === 'bookings' ? 'the bookings sold' : 'the converted quotations'));
+  /** Per-location card line: whose quotations the card counts. */
+  teamCardSub(l: CeoTeamLocation): string {
+    const execs = `${l.salesExecutives} sales executive${l.salesExecutives === 1 ? '' : 's'}`;
+    return `${execs} · ${l.salesExecutivesOnly ? 'their quotations at this location' : 'all quotations at this location'}`;
   }
 
   // ---------- charts ----------

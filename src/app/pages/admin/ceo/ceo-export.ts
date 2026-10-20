@@ -52,7 +52,10 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     ] : []),
     'Previous period: the same number of days just before a custom range, else the same days one period earlier.',
     'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.',
-    'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.'
+    d.team?.revenueBasis === 'bookings'
+      ? 'Team: sales executives only. Revenue = the contract value of the new bookings they sold in the period (their quotation, else the booking they made).'
+      : 'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.',
+    'Converted / conversion: quotations whose booking is still live (not rejected, cancelled or deleted).'
   ])];
 
   // ---------- KPIs ----------
@@ -81,19 +84,25 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   if (s) {
     const stage = (k: string) => s.funnel.find(f => f.stage.toLowerCase() === k)?.count ?? 0;
     kpis.push(
-      ['Sales', 'Tour inquiries', stage('inquiries'), null, s.inquiriesAllLocations ? 'All locations' : ''],
+      ['Sales', 'Tour inquiries', stage('inquiries'), null,
+        s.inquiriesAllLocations ? 'All locations' : s.inquiriesNoBranch ? `+${s.inquiriesNoBranch} without a branch (not included)` : ''],
       ['Sales', 'Quotations', stage('quotations'), null, ''],
       ['Sales', 'Accepted', stage('accepted'), null, ''],
-      ['Sales', 'Bookings', stage('bookings'), null, ''],
-      ['Sales', 'Conversion (%)', pct1(s.conversionRate), null, `${s.quotationsBooked} of ${s.quotations} quotations booked`],
+      ['Sales', 'Bookings', stage('bookings'), null,
+        s.bookingsFromQuotations != null ? `${s.bookingsFromQuotations} from quotations, the rest booked directly` : ''],
+      ['Sales', 'Conversion (%)', pct1(s.conversionRate), null, `${s.quotationsBooked} of ${s.quotations} quotations booked (booking still live)`],
       ['Sales', 'Quoted (PKR)', money2(s.quotationValue), null, ''],
-      ['Sales', 'Booked (PKR)', money2(s.bookingValue), null, '']
+      ['Sales', 'Booked (PKR)', money2(s.bookingValue), null,
+        s.bookingValueBasis === 'contract' ? 'Contract value of the bookings made in the period' : 'First invoices of the bookings made in the period']
     );
   }
   if (d.team) {
     kpis.push(
       ['Team', 'Sales executives', d.team.salesExecutives, null, ''],
-      ['Team', 'Sales executives revenue (PKR)', money2(d.team.revenue), null, 'Their quotations created in the period that were converted']
+      ['Team', 'Sales executives revenue (PKR)', money2(d.team.revenue), null,
+        d.team.revenueBasis === 'bookings'
+          ? 'Contract value of the new bookings they sold in the period'
+          : 'Their quotations created in the period that were converted']
     );
   }
   if (rooms?.available) {
@@ -213,7 +222,9 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   if (d.team) {
     sheets.push({
       name: 'Team by location',
-      rows: [['Location', 'Sales executives', 'Quotations at the location', 'Converted', 'Conversion (%)'],
+      rows: [['Location', 'Sales executives',
+        d.team.perLocation.some(l => l.salesExecutivesOnly) ? 'Sales executives\' quotations at the location' : 'Quotations at the location',
+        'Converted', 'Conversion (%)'],
         ...d.team.perLocation.map(l => [l.name, l.salesExecutives, l.quotations, l.converted,
           l.quotations ? pct1(ratio(l.converted, l.quotations)) : null])]
     });
