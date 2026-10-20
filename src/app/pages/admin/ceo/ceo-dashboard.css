@@ -409,6 +409,8 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
   .span-4:not(.full-md), .span-6:not(.full-md) { grid-column: span 12; }
 }
 @media (max-width: 767.98px) { :host { --ceo-sticky-top: 56px; } }
+/* CEO / Sales Manager sign-ins: the 56px top bar is there at every width, so the section nav sticks below it. */
+:host-context(.focus-shell) { --ceo-sticky-top: 56px; }
 @media (max-width: 760px) {
   .panel-head { flex-direction: column; }
   .head-stats div, .head-stats .stat-btn { align-items: flex-start; }
