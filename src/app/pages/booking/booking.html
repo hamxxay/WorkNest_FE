@@ -164,7 +164,7 @@
 
         <div class="form-group">
           <label class="form-label">Start Date *</label>
-          <input type="date" class="form-input" formControlName="startDate" [min]="today" />
+          <input type="date" class="form-input" formControlName="startDate" />
           @if (bookingForm.get('startDate')?.invalid && bookingForm.get('startDate')?.touched) {
             <small class="form-error">Start date is required.</small>
           }

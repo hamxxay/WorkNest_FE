@@ -2007,7 +2007,7 @@
       @if (quotationMeetingRoomMode === 'slot') {
       <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
         <label>Date *</label>
-        <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" [min]="today"
+        <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate"
           required (change)="generateQuotationMeetingSlots()" />
       </div>
       <div class="form-group-admin" data-field="slots" [class.has-error]="quotationFormErrorField === 'slots'">
@@ -2033,13 +2033,12 @@
         <div class="form-group-admin" data-field="startDate"
           [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart"
-            [min]="today" required (change)="recalcQuotationAmount()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart" required (change)="recalcQuotationAmount()" />
         </div>
         <div class="form-group-admin">
           <label>End Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="quotationMeetingDayEnd" name="qMeetingDayEnd"
-            [min]="quotationStartDate || today" required (change)="recalcQuotationAmount()" />
+            [min]="quotationStartDate" required (change)="recalcQuotationAmount()" />
         </div>
       </div>
       }
@@ -2048,7 +2047,7 @@
         <div class="form-group-admin" data-field="startDate"
           [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" [min]="today"
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate"
             required (change)="onQuotationMonthPeriodChange()" />
         </div>
         <div class="form-group-admin">
@@ -2150,7 +2149,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Valid Until *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" [min]="today"
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil"
             required />
         </div>
         <div class="form-group-admin">
@@ -2451,7 +2450,7 @@
       @if (meetingRoomBookingMode === 'slot') {
       <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
         <label>Date *</label>
-        <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDate" name="adminMeetingDate" [min]="today"
+        <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDate" name="adminMeetingDate"
           required (change)="generateAdminMeetingSlots()" />
       </div>
       <div class="form-group-admin" data-field="slots" [class.has-error]="bookingFormErrorField === 'slots'">
@@ -2476,13 +2475,12 @@
       <div class="form-row-admin">
         <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
           <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart"
-            [min]="today" required (change)="onAdminMeetingDayChange()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart" required (change)="onAdminMeetingDayChange()" />
         </div>
         <div class="form-group-admin">
           <label>End Date *</label>
           <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDayEnd" name="adminMeetingDayEnd"
-            [min]="adminStartDate || today" required (change)="onAdminMeetingDayChange()" />
+            [min]="adminStartDate" required (change)="onAdminMeetingDayChange()" />
         </div>
       </div>
       }
@@ -2490,7 +2488,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
           <label>Booking Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminStartDate" [min]="today"
+          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminStartDate"
             required (change)="onAdminMonthPeriodChange()" />
         </div>
         <div class="form-group-admin">
