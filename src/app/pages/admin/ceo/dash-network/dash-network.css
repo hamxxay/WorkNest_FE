@@ -133,6 +133,20 @@
 .nl-spark-cap .nl-peak { margin-left: auto; color: var(--nw-faint); font-variant-numeric: tabular-nums; }
 .nl-note { margin: 10px 0 0; }
 
+/* speed test (CEO dashboard only): a small button under the line's figures, a plain note beside it when a test fails */
+.nl-test { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; margin-top: 12px; }
+.nl-test-note { flex: 1 1 220px; margin: 0; font-size: 0.75rem; line-height: 1.45; color: var(--nw-bad); }
+.nl-test-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--nw-line);
+  border-radius: 8px; background: var(--nw-surface); font: inherit; font-size: 0.75rem; font-weight: 600; color: var(--nw-text);
+  white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s;
+}
+.nl-test-btn svg { flex-shrink: 0; color: var(--nw-accent); }
+.nl-test-btn:hover:not(:disabled) { border-color: var(--nw-accent); background: var(--ceo-accent-soft, #f0fdfa); color: var(--nw-accent-strong); }
+.nl-test-btn:focus-visible { outline: 2px solid var(--nw-focus); outline-offset: 2px; }
+.nl-test-btn:disabled { cursor: default; opacity: .55; }
+.nl-test-btn.is-running:disabled { opacity: 1; border-color: var(--nw-accent); background: var(--ceo-accent-soft, #f0fdfa); color: var(--nw-accent-strong); }
+
 .net-sites { margin-top: 0; }
 
 @media (max-width: 640px) {
@@ -144,7 +158,7 @@
   .chart-box.h-net { height: 170px; }
   .nl-spark-cap .nl-peak { margin-left: 0; flex-basis: 100%; }
 }
-@media (prefers-reduced-motion: reduce) { .net-body, .net-seg button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .net-body, .net-seg button, .nl-test-btn { transition: none; } .nl-test-btn .spin { animation: none; } }
 
 /* Left column beside Internet: Network devices, then Top data users under it, each as tall as its rows (no stretching,
    no gap). Full width from 1280px down (two side by side while there is room), stacked on phones. */

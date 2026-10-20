@@ -299,6 +299,23 @@
                       <div><dt>Last test (down / up)</dt><dd [title]="r.testTitle">{{ r.test }}@if (r.testWhen) { <small>{{ r.testWhen }}</small> }</dd></div>
                       <div><dt>Data 24 h (down / up)</dt><dd [title]="r.dataTitle">{{ r.data24 }}</dd></div>
                     </dl>
+                    @if (r.testable) {
+                      <!-- CEO only: run a speed test on this line now (one at a time across the network, as UniFi allows) -->
+                      <div class="nl-test">
+                        @if (testNotes()[r.w.label]; as note) { <p class="nl-test-note">{{ note }}</p> }
+                        @let busyHere = testRun()?.wan === r.w.label || testStarting() === r.w.label;
+                        <button type="button" class="nl-test-btn" [class.is-running]="busyHere" [disabled]="testBusy() || !r.w.up"
+                          [attr.aria-busy]="busyHere ? 'true' : null" [attr.data-tooltip]="testTip(r.w)" (click)="runSpeedtest(r.w)">
+                          @if (busyHere) {
+                            <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                            {{ testLabel() }}
+                          } @else {
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                            Test speed
+                          }
+                        </button>
+                      </div>
+                    }
                     @if (r.spark; as sp) {
                       <div class="nl-spark">
                         <svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
@@ -340,6 +357,7 @@
   }
 
   <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
+  <span class="sr-only" aria-live="polite">{{ testAnnounce() }}</span>
 </section>
 
 <!-- Details of one top data user: the dashboard drawer's look, view only. -->
