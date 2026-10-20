@@ -5,7 +5,8 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import type { DashError } from '../../../../services/dashboard-api';
 import {
-  NetDashboard, NetHistoryPoint, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService, NetworkSource
+  NetDashboard, NetHistoryPoint, NetSpeedtest, NetSpeedtestError, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService,
+  NetworkSource
 } from '../../../../services/network-dashboard.service';
 import { bytesText, linkText, mbpsText, pairText, stampText, whenText } from './net-format';
 import {
@@ -88,11 +89,24 @@ function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; area: s
   return { down: path('down'), up: path('up'), area: area.trim(), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
 }
 
+/** How long a UniFi speed test takes (seconds), for the "about N s" countdown. */
+const TEST_SECONDS = 30;
+/** How often a running speed test is polled (ms), as on the Network pages. */
+const TEST_POLL_MS = 3000;
+
+/** "14:05" in the viewer's time; "" when unknown. */
+function timeOf(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 /**
  * Network section of the CEO and Sales Manager dashboards: the Wi-Fi / network (UniFi) picture of the dashboard's
  * location. Clients online now (Wi-Fi / wired / guest) and over time (24 hours or 7 days, from the stored history),
  * devices online against offline by type, clients by type, the top 5 data users (each opens its details), internet
- * lines and latency, and the issues that need attention. Read-only; loads on its own (GET api/ceo/network or api/sales-manager/network), so a network that is
+ * lines and latency, and the issues that need attention. Read-only, except that the CEO can run a speed test on a line
+ * ("Test speed", api/ceo/network/speedtest: one at a time, as UniFi allows). Loads on its own (GET api/ceo/network or api/sales-manager/network), so a network that is
  * not set up or not reachable shows one plain message here and the rest of the dashboard keeps working. Follows the
  * dashboard's location picker; the API limits a Sales Manager to the sites of their locations.
  */
@@ -149,6 +163,8 @@ export class DashNetworkSection {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+      this.stopTestPolling();
       this.sub?.unsubscribe();
       this.destroyCharts();
       if (this.clock) clearInterval(this.clock);
@@ -162,6 +178,10 @@ export class DashNetworkSection {
     });
     effect(() => {
       if (this.quietReload()) untracked(() => this.load(true));
+    });
+    // A test started elsewhere (the Network pages, another tab) keeps the buttons disabled until it ends.
+    effect(() => {
+      if (this.canTest()) untracked(() => this.followRunningTest());
     });
     afterRenderEffect(() => this.renderCharts());
   }
@@ -327,23 +347,30 @@ export class DashNetworkSection {
 
   lines = computed(() => this.data()?.internet?.lines ?? []);
   /** Each line with its figures written out: speed now, link, last speed test, data in 24 h, sparkline. */
-  lineRows = computed(() => this.lines().map((w, i) => {
-    const st = w.speedtest;
-    return {
-      w,
-      key: `${w.site}|${w.label}|${i}`,
-      meta: this.lineMeta(w),
-      downNow: mbpsText(w.downMbps),
-      upNow: mbpsText(w.upMbps),
-      link: linkText(w.linkMbps),
-      test: st ? pairText(st.downMbps, st.upMbps) : '-',
-      testWhen: whenText(st?.at),
-      testTitle: st ? ['Download / upload', st.pingMs !== null ? `ping ${ms(st.pingMs)}` : '', stampText(st.at)].filter(Boolean).join(' · ') : '',
-      data24: w.down24hBytes === null && w.up24hBytes === null ? '-' : `${bytesText(w.down24hBytes)} / ${bytesText(w.up24hBytes)}`,
-      dataTitle: 'Downloaded / uploaded in the last 24 hours',
-      spark: sparkOf(w.traffic)
-    };
-  }));
+  lineRows = computed(() => {
+    this.nowTick();
+    const tested = this.testResults();
+    return this.lines().map((w, i) => {
+      const st = this.latestTest(w.speedtest, w.live ? tested[w.label] : undefined);
+      const fresh = !!st && st === tested[w.label];
+      return {
+        w,
+        key: `${w.site}|${w.label}|${i}`,
+        /** The CEO can test this line: the main gateway reports it (its figures are live). */
+        testable: this.canTest() && w.live,
+        meta: this.lineMeta(w),
+        downNow: mbpsText(w.downMbps),
+        upNow: mbpsText(w.upMbps),
+        link: linkText(w.linkMbps),
+        test: st ? pairText(st.downMbps, st.upMbps) : '-',
+        testWhen: fresh ? [whenText(st?.at), timeOf(st?.at)].filter(Boolean).join(', ') : whenText(st?.at),
+        testTitle: st ? ['Download / upload', st.pingMs !== null ? `ping ${ms(st.pingMs)}` : '', stampText(st.at)].filter(Boolean).join(' · ') : '',
+        data24: w.down24hBytes === null && w.up24hBytes === null ? '-' : `${bytesText(w.down24hBytes)} / ${bytesText(w.up24hBytes)}`,
+        dataTitle: 'Downloaded / uploaded in the last 24 hours',
+        spark: sparkOf(w.traffic)
+      };
+    });
+  });
   /** "Primary · uptime 100% · 1 issue" (and the site when there are several). */
   lineMeta(w: NetWan): string {
     return [
@@ -354,6 +381,151 @@ export class DashNetworkSection {
     ].filter(Boolean).join(' · ');
   }
   multiSite = computed(() => (this.data()?.sites.length ?? 0) > 1);
+
+  // ---------- speed test (CEO only) ----------
+
+  /** Only the CEO dashboard (the CEO and super admins) runs speed tests; the Sales Manager's stays read-only. */
+  canTest = computed(() => this.source() === 'ceo');
+  /** The test running now (here or elsewhere): its line and seconds since it started. */
+  testRun = signal<{ wan: string; elapsed: number } | null>(null);
+  /** The line whose test is being started (the request is on its way). */
+  testStarting = signal<string | null>(null);
+  /** Per line (WAN1...): why its test failed or what UniFi did instead, in plain words. */
+  testNotes = signal<Record<string, string>>({});
+  /** Per line: results of tests run while the page is open (newer than the figures the dashboard last read). */
+  testResults = signal<Record<string, NetSpeedtest>>({});
+  testAnnounce = signal('');
+  /** A test is starting or running: every "Test speed" button waits (UniFi runs one at a time). */
+  testBusy = computed(() => !!this.testRun() || !!this.testStarting());
+
+  private testTimer?: ReturnType<typeof setTimeout>;
+  private testSub: Subscription | null = null;
+  private testIfname = '';
+  private destroyed = false;
+
+  /** The newer of the dashboard's last test and one run here. */
+  private latestTest(server: NetSpeedtest | null, local: NetSpeedtest | undefined): NetSpeedtest | null {
+    if (!local) return server;
+    const t = (x: NetSpeedtest | null) => (x?.at ? new Date(x.at).getTime() : NaN);
+    return !server || !(t(server) > t(local)) ? local : server;
+  }
+
+  /** "Testing… about 24 s" from the seconds since the test started. */
+  testLabel(): string {
+    if (this.testStarting()) return 'Starting…';
+    const left = TEST_SECONDS - (this.testRun()?.elapsed ?? 0);
+    return left > 3 ? `Testing… about ${Math.round(left)} s` : 'Testing… almost done';
+  }
+
+  /** The button's tooltip: what the test does, or why it cannot run now. */
+  testTip(w: NetWan): string {
+    const run = this.testRun();
+    const starting = this.testStarting();
+    if (run?.wan === w.label || starting === w.label) return `Testing ${w.label}. It takes about ${TEST_SECONDS} seconds.`;
+    if (run || starting) return `A speed test is running on ${run?.wan || starting}. UniFi runs one test at a time.`;
+    if (!w.up) return `${w.label} is down, so it cannot be tested.`;
+    return `Run a speed test on ${w.label} now. It uses the line's full bandwidth for about ${TEST_SECONDS} seconds.`;
+  }
+
+  runSpeedtest(w: NetWan) {
+    if (!this.canTest() || !w.live || !w.up || this.testBusy()) return;
+    const key = w.label;
+    const ok = confirm(`Run a speed test on ${key}?\n\nIt uses the full bandwidth of this line for about 20-30 seconds, so people using it may notice a short slowdown.`);
+    if (!ok) return;
+    this.setTestNote(key, null);
+    this.testStarting.set(key);
+    this.testSub?.unsubscribe();
+    this.testSub = this.net.startSpeedtest(key).subscribe({
+      next: run => {
+        this.testStarting.set(null);
+        this.testIfname = run.ifname;
+        this.testRun.set({ wan: run.wan || key, elapsed: 0 });
+        this.testAnnounce.set(`Speed test started on ${run.wan || key}. It takes about ${TEST_SECONDS} seconds.`);
+        this.scheduleTestPoll();
+      },
+      error: (err: NetSpeedtestError) => {
+        this.testStarting.set(null);
+        this.setTestNote(key, `Could not start the test: ${err.message}`);
+        this.testAnnounce.set(`Could not start the speed test on ${key}.`);
+        // Another test is running (the Network pages, another tab): follow it so the buttons wait for it.
+        if (err.status === 409) this.followRunningTest();
+      }
+    });
+  }
+
+  /** Asks once whether a test is running; if so, polls it until it ends. */
+  private followRunningTest() {
+    if (this.testRun() || this.testStarting()) return;
+    this.testSub?.unsubscribe();
+    this.testSub = this.net.speedtestStatus().subscribe({
+      next: st => {
+        if (!st.running || !st.wan || this.testRun() || this.testStarting()) return;
+        this.testIfname = '';
+        this.testRun.set({ wan: st.wan, elapsed: st.elapsed });
+        this.scheduleTestPoll();
+      },
+      error: () => { /* nothing to follow: the buttons stay available */ }
+    });
+  }
+
+  private scheduleTestPoll() {
+    if (this.testTimer) clearTimeout(this.testTimer);
+    if (this.destroyed) return;
+    this.testTimer = setTimeout(() => this.pollTest(), TEST_POLL_MS);
+  }
+
+  private pollTest() {
+    const run = this.testRun();
+    if (!run || this.destroyed) return;
+    this.testSub?.unsubscribe();
+    this.testSub = this.net.speedtestStatus().subscribe({
+      next: st => {
+        if (st.running) {
+          this.testRun.set({ wan: st.wan || run.wan, elapsed: st.elapsed });
+          this.scheduleTestPoll();
+          return;
+        }
+        this.testRun.set(null);
+        const wan = st.wan || run.wan;
+        if (st.timedOut) {
+          this.setTestNote(wan, 'The test took too long and was stopped. Try again in a minute.');
+          this.testAnnounce.set(`The speed test on ${wan} took too long and was stopped.`);
+        } else if (st.result && (st.result.down !== null || st.result.up !== null)) {
+          const r = st.result;
+          if (this.testIfname && r.interface && r.interface !== this.testIfname) {
+            // Some UniFi versions only test the primary line: the result is not this line's.
+            this.setTestNote(wan, `UniFi ran the test on the primary line instead (${r.interface}). This UniFi version may only test the primary line.`);
+          } else {
+            this.testResults.set({ ...this.testResults(), [wan]: { downMbps: r.down, upMbps: r.up, pingMs: r.ping, at: new Date().toISOString() } });
+            this.setTestNote(wan, null);
+            this.testAnnounce.set(`Speed test on ${wan} finished: ${pairText(r.down, r.up)} down / up.`);
+          }
+        }
+        this.testIfname = '';
+        // The rest of the line's figures (and the stored last test) from the server, without dimming the section.
+        this.load(true);
+      },
+      error: (err: NetSpeedtestError) => {
+        this.testRun.set(null);
+        this.testIfname = '';
+        this.setTestNote(run.wan, `Lost track of the test: ${err.message}`);
+        this.testAnnounce.set(`Lost track of the speed test on ${run.wan}.`);
+      }
+    });
+  }
+
+  private setTestNote(wan: string, text: string | null) {
+    const n = { ...this.testNotes() };
+    if (text) n[wan] = text; else delete n[wan];
+    this.testNotes.set(n);
+  }
+
+  private stopTestPolling() {
+    if (this.testTimer) clearTimeout(this.testTimer);
+    this.testTimer = undefined;
+    this.testSub?.unsubscribe();
+    this.testSub = null;
+  }
   latencyEmpty = computed(() => !(this.data()?.internet?.latency ?? []).some(s => s.points.some(p => p.avg !== null)));
 
   // ---------- top data users ----------

@@ -1,14 +1,15 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, arr, describeDashboardError, getDashboardData, num, numOrNull, obj, str, strOrNull
+  DashError, DashErrorWording, arr, describeDashboardError, getDashboardData, num, numOrNull, obj, serverMessageOf, str, strOrNull
 } from './dashboard-api';
 
 // ============================================================
 // Network (UniFi) section of the CEO and Sales Manager dashboards: GET api/ceo/network and
-// GET api/sales-manager/network (same shape). Read-only. The API decides which UniFi sites the caller sees (a Sales
+// GET api/sales-manager/network (same shape). Read-only, except that the CEO can run a speed test on a line
+// (api/ceo/network/speedtest). The API decides which UniFi sites the caller sees (a Sales
 // Manager only those of their locations). UniFi not set up or not reachable: available = false and a plain message.
 // ============================================================
 
@@ -102,6 +103,24 @@ export interface NetDashboard {
   /** Why topClients is null (another console's site, still loading, could not be read). */
   topClientsMessage: string | null;
 }
+
+/** A speed test started from the CEO dashboard (POST api/ceo/network/speedtest): the line and its port. */
+export interface NetSpeedtestRun { wan: string; ifname: string; }
+
+/**
+ * The running speed test (GET api/ceo/network/speedtest), as the Network pages poll it: running, the line, seconds
+ * since it started, and once it is done the result (Mbps, ms; interface = the port UniFi actually tested) or timedOut.
+ */
+export interface NetSpeedtestStatus {
+  running: boolean;
+  wan: string;
+  elapsed: number;
+  result: { down: number | null; up: number | null; ping: number | null; interface: string } | null;
+  timedOut: boolean;
+}
+
+/** A failed speed-test request: its status (409 = a test is already running) and a plain message for the card. */
+export interface NetSpeedtestError { status: number; message: string; }
 
 const NETWORK_WORDING: DashErrorWording = {
   name: 'network figures',
@@ -199,6 +218,63 @@ export class NetworkDashboardService {
   get(source: NetworkSource, locationId: number | null): Observable<NetDashboard> {
     const url = `${this.api}/${source === 'ceo' ? 'ceo' : 'sales-manager'}/network`;
     return getDashboardData(this.http, url, { locationId }, err => NetworkDashboardService.describeError(err)).pipe(map(toNetDashboard));
+  }
+
+  /**
+   * CEO only: runs a speed test on one line of the main gateway now (wan = WAN1, WAN2...). The same test as the
+   * Network Overview's "Run test"; UniFi runs one at a time. Fails with a NetSpeedtestError.
+   */
+  startSpeedtest(wan: string): Observable<NetSpeedtestRun> {
+    return this.http.post<any>(`${this.api}/ceo/network/speedtest`, {}, { params: { wan } }).pipe(
+      map(res => {
+        const d = obj(NetworkDashboardService.unwrap(res)) ?? {};
+        return { wan: str(d.wan) || wan, ifname: str(d.ifname) };
+      }),
+      catchError(err => throwError(() => NetworkDashboardService.speedtestError(err)))
+    );
+  }
+
+  /** CEO only: the running speed test (running = false when there is none). Fails with a NetSpeedtestError. */
+  speedtestStatus(): Observable<NetSpeedtestStatus> {
+    return this.http.get<any>(`${this.api}/ceo/network/speedtest`).pipe(
+      map(res => {
+        const d = obj(NetworkDashboardService.unwrap(res)) ?? {};
+        const r = obj(d.result);
+        const positive = (v: unknown) => { const n = numOrNull(v); return n !== null && n > 0 ? n : null; };
+        return {
+          running: d.running === true, wan: str(d.wan), elapsed: num(d.elapsed),
+          result: r ? { down: positive(r.down), up: positive(r.up), ping: positive(r.ping), interface: str(r.interface) } : null,
+          timedOut: d.timedOut === true
+        };
+      }),
+      catchError(err => throwError(() => NetworkDashboardService.speedtestError(err)))
+    );
+  }
+
+  /** { isSuccessful, data } -> data (a bare body is accepted too); isSuccessful = false throws its message. */
+  private static unwrap(res: any): unknown {
+    if (res && typeof res === 'object' && 'isSuccessful' in res) {
+      if (res.isSuccessful === false) throw { status: 200, message: str(res.message) || 'The speed test could not be run. Please try again.' };
+      return res.data ?? null;
+    }
+    return res ?? null;
+  }
+
+  /** A failed speed-test request in plain words: the server's own reason when it gave one. */
+  static speedtestError(err: unknown): NetSpeedtestError {
+    if (!(err instanceof HttpErrorResponse)) {
+      const e = err as Partial<NetSpeedtestError> | null;
+      return { status: e?.status ?? -1, message: e?.message || 'Something went wrong. Please try again.' };
+    }
+    const status = err.status;
+    const own = serverMessageOf(err);
+    if (own) return { status, message: own };
+    const message = status === 0 ? 'Cannot reach the server. Check your internet connection and try again.'
+      : status === 403 ? 'Your account cannot run a speed test. Ask a super admin to check your role.'
+      : status === 404 ? 'The server cannot run speed tests from here yet. It will work once the API update is live.'
+      : status === 409 ? 'A speed test is already running. UniFi runs one at a time: wait about 30 seconds.'
+      : 'The speed test could not be run. Please try again in a minute.';
+    return { status, message };
   }
 
   static describeError(err: unknown): DashError {
