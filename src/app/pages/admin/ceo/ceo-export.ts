@@ -44,13 +44,18 @@ export function summarySheet(title: string, meta: ExportMeta, notes: string[]): 
 export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null, rooms: CeoRooms | null, meta: ExportMeta): XlsxSheet[] {
   // The database update CP_01 places an invoice in the month its billing period starts (and sends billed in advance).
   const byPeriod = d.money?.billedInAdvance != null;
+  // CP_02 (sends the security deposits): invoiced without deposits, collected = paid so far, whole billing months.
+  const cp02 = d.money?.securityDeposits != null;
   const sheets: XlsxSheet[] = [summarySheet('WorkNest CEO dashboard', meta, [
     'Money in PKR. Shares and rates in %.',
     ...(byPeriod ? [
       'Invoiced, collected, the 12-month series and top customers place an invoice in the month its billing period starts, not the month it was issued.',
       'Billed in advance: unpaid invoices for a billing period that has not started yet (and not past due). Outstanding and the aging leave them out.'
     ] : []),
-    'Previous period: the same number of days just before a custom range, else the same days one period earlier.',
+    ...(cp02 ? [
+      'Invoiced, collected, the 12-month series and top customers leave out refundable security deposits (Security deposits, apart). Collected = paid so far on those invoices: part payments count, a paid invoice in full, an invoice with only its WHT left as settled.',
+      'Previous period: the same number of days just before a custom range; else invoices: the same billing months one period earlier, other figures: the same days one period earlier.'
+    ] : ['Previous period: the same number of days just before a custom range, else the same days one period earlier.']),
     'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.',
     'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.'
   ])];
@@ -60,12 +65,15 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   const m = d.money, o = d.occupancy, s = d.sales;
   if (m) {
     kpis.push(
-      ['Money', 'Invoiced (PKR)', money2(m.invoiced), money2(m.invoicedPrev), byPeriod ? 'Billing period starts in the period' : 'Issued in the period'],
-      ['Money', 'Collected (PKR)', money2(m.collected), money2(m.collectedPrev), 'Of those, now paid'],
-      ['Money', 'Collection rate (%)', pct1(m.collectionRate), m.invoicedPrev > 0 ? pct1(ratio(m.collectedPrev, m.invoicedPrev)) : null, ''],
+      ['Money', 'Invoiced (PKR)', money2(m.invoiced), money2(m.invoicedPrev),
+        cp02 ? 'Billing period starts in the period, without security deposits' : byPeriod ? 'Billing period starts in the period' : 'Issued in the period'],
+      ['Money', 'Collected (PKR)', money2(m.collected), money2(m.collectedPrev), cp02 ? 'Paid so far on those invoices, without security deposits' : 'Of those, now paid'],
+      ['Money', 'Collection rate (%)', pct1(m.collectionRate), m.invoicedPrev > 0 ? pct1(ratio(m.collectedPrev, m.invoicedPrev)) : null, cp02 ? 'Share of the billing paid so far' : ''],
+      ...(m.securityDeposits != null ? [['Money', 'Security deposits (PKR)', money2(m.securityDeposits), money2(m.securityDepositsPrev ?? 0),
+        `${m.securityDepositsCount ?? 0} invoice${m.securityDepositsCount === 1 ? '' : 's'}, billed in the period, not in Invoiced`] as XlsxCell[]] : []),
       ['Money', 'Outstanding (PKR)', money2(m.outstanding), null, `${m.outstandingCount} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}, as of today${byPeriod ? ', not counting billed in advance' : ''}`],
       ...(m.billedInAdvance != null ? [['Money', 'Billed in advance (PKR)', money2(m.billedInAdvance), null,
-        `${m.billedInAdvanceCount ?? 0} unpaid invoice${m.billedInAdvanceCount === 1 ? '' : 's'}, for months not started yet`] as XlsxCell[]] : []),
+        `${m.billedInAdvanceCount ?? 0} unpaid invoice${m.billedInAdvanceCount === 1 ? '' : 's'}, for billing periods not started yet`] as XlsxCell[]] : []),
       ['Money', 'Overdue (PKR)', money2(m.overdue), null, `${m.overdueCount} past due date, as of today`]
     );
   }
@@ -120,7 +128,7 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   if (m) {
     sheets.push({
       name: 'Revenue 12 months',
-      rows: [[byPeriod ? 'Month (billing period)' : 'Month', 'Invoiced (PKR)', 'Collected (PKR)', 'Collection rate (%)'],
+      rows: [[byPeriod ? 'Month (billing period)' : 'Month', cp02 ? 'Invoiced without deposits (PKR)' : 'Invoiced (PKR)', cp02 ? 'Collected, paid so far (PKR)' : 'Collected (PKR)', 'Collection rate (%)'],
         ...m.months.map(x => [x.month, money2(x.invoiced), money2(x.collected), x.invoiced > 0 ? pct1(ratio(x.collected, x.invoiced)) : null])]
     });
     sheets.push({
@@ -129,7 +137,7 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     });
     sheets.push({
       name: 'Top customers',
-      rows: [['Rank', 'Customer', 'Invoiced, last 12 months (PKR)', 'Invoices'],
+      rows: [['Rank', 'Customer', cp02 ? 'Invoiced without security deposits, last 12 months (PKR)' : 'Invoiced, last 12 months (PKR)', 'Invoices'],
         ...m.topCustomers.map((c, i) => [i + 1, c.name, money2(c.amount), c.invoices])]
     });
   }

@@ -199,8 +199,12 @@
                             @if (r.dueOn) { {{ r.dueOn | date:'d MMM y' }} } @else { - }
                             @if (r.balance > 0 && (daysFrom(r.dueOn) ?? 0) < 0) { <small class="late">{{ -(daysFrom(r.dueOn) ?? 0) }}d overdue</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small></td>
-                          <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}</td>
+                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small>
+                            @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Invoiced'">incl. {{ money(r.deposit) }} deposit</small> }
+                          </td>
+                          <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}
+                            @if (r.wht) { <small [title]="fullMoney(r.wht) + ' withheld by the customer, not owed'">WHT {{ money(r.wht) }}</small> }
+                          </td>
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }

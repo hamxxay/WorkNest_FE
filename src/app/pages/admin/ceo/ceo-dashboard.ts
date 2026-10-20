@@ -358,6 +358,11 @@ export class CeoDashboard {
    * sends billed in advance); an older API places it in the month it was issued, so the labels say nothing then.
    */
   byPeriod = computed(() => this.m()?.billedInAdvance != null);
+  /**
+   * Database update CP_02 (it sends the security deposits): invoiced leaves the deposits out and collected is what was
+   * paid so far on the period's invoices (part payments count); an older API: GrandTotal and the paid invoices.
+   */
+  noDeposits = computed(() => this.m()?.securityDeposits != null);
 
   moneyKpis = computed<Kpi[]>(() => {
     const m = this.m();
@@ -365,23 +370,28 @@ export class CeoDashboard {
     const w = this.words();
     const rate = m.collectionRate;
     const hint = this.byPeriod() ? 'By billing period' : undefined;
+    // CP_02: what each figure counts, in the card's tooltip.
+    const cp02 = this.noDeposits();
+    const invoicedHint = cp02 ? 'By billing period, without security deposits' : hint;
+    const collectedHint = cp02 ? 'Paid so far on the invoices for these billing periods (part payments count), without security deposits' : hint;
     const kpis: Kpi[] = [
       {
         key: 'invoiced', label: `Invoiced ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
         sub: `${money(m.invoicedPrev)} ${w.last}`, tone: 'neutral',
-        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`, hint,
+        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`, hint: invoicedHint,
         action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'collected', label: `Collected ${w.thisP}`, value: money(m.collected), full: fullMoney(m.collected),
-        sub: `${money(m.collectedPrev)} ${w.last}`, tone: 'neutral',
-        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`, hint,
-        action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
+        sub: `${money(m.collectedPrev)} ${w.last}`, sub2: cp02 ? 'Paid so far on this billing' : undefined, tone: 'neutral',
+        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`, hint: collectedHint,
+        action: () => this.openRevenue('Collected', 'collected'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
-        tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger', hint,
+        tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
+        hint: cp02 ? 'Share of the period\'s billing paid so far' : hint,
         action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate ${w.thisP} by ${this.revenueBy()}`
       },
       {
@@ -398,14 +408,27 @@ export class CeoDashboard {
         action: () => this.openRecords('Invoices', 'Overdue', 'invoices', { status: 'overdue' }), actionLabel: 'Open the overdue invoices'
       }
     ];
-    // Billed in advance (CP_01): unpaid invoices for months not started yet, next to outstanding (which leaves them out).
+    // Billed in advance (CP_01): unpaid invoices for billing periods not started yet, next to outstanding (which leaves
+    // them out), before overdue.
     if (m.billedInAdvance != null) {
       const n = m.billedInAdvanceCount ?? 0;
-      kpis.splice(4, 0, {
+      kpis.splice(kpis.findIndex(k => k.key === 'overdue'), 0, {
         key: 'advance', label: 'Billed in advance', value: money(m.billedInAdvance), full: fullMoney(m.billedInAdvance),
-        sub: n ? `${count(n)} unpaid invoice${n === 1 ? '' : 's'}` : 'No invoices', sub2: 'Unpaid, for months not started yet',
+        sub: n ? `${count(n)} unpaid invoice${n === 1 ? '' : 's'}` : 'No invoices', sub2: 'Unpaid, for billing periods not started yet',
         tone: 'neutral',
         action: () => this.openBilledInAdvance(), actionLabel: 'Open the invoices billed in advance'
+      });
+    }
+    // Security deposits (CP_02): billed on the period's invoices, kept out of invoiced; after the collection rate.
+    if (m.securityDeposits != null) {
+      const n = m.securityDepositsCount ?? 0;
+      kpis.splice(kpis.findIndex(k => k.key === 'rate') + 1, 0, {
+        key: 'deposits', label: `Security deposits ${w.thisP}`, value: money(m.securityDeposits), full: fullMoney(m.securityDeposits),
+        sub: `${money(m.securityDepositsPrev ?? 0)} ${w.last}`,
+        sub2: n ? `${count(n)} invoice${n === 1 ? '' : 's'}, not in Invoiced` : 'No deposits billed',
+        tone: 'neutral', trend: trend(m.securityDeposits, m.securityDepositsPrev ?? 0, '%'), vs: `vs ${w.last}`,
+        hint: 'Refundable security deposits billed, by billing period',
+        action: () => this.openDeposits(), actionLabel: `Open the invoices with a security deposit ${w.thisP}`
       });
     }
     return kpis;
@@ -597,8 +620,11 @@ export class CeoDashboard {
     }))
   }));
 
-  /** Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices. */
-  openRevenue(root: string, status: 'paid' | null) {
+  /**
+   * Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices.
+   * status collected (Collected, CP_02): the invoices with something paid (an older API answers with the paid ones).
+   */
+  openRevenue(root: string, status: 'collected' | null) {
     const extra = status ? { status } : {};
     const range = this.shownRange();
     if (this.shownPeriod() === 'custom' && range) {
@@ -619,7 +645,26 @@ export class CeoDashboard {
     this.openDrill('Outstanding', { kind: 'breakdown', metric: 'aging-buckets', params: {}, crumb: 'By days past due', local: () => this.agingBuckets() });
   }
 
-  /** Billed in advance: the unpaid invoices for months not started yet. */
+  /**
+   * Security deposits (CP_02): the invoices with a deposit whose billing period starts in the period's invoice window
+   * (this month; a quarter / year: from its first day to the end of this month; a custom range: the range).
+   */
+  openDeposits() {
+    const range = this.shownRange();
+    let from: string, to: string;
+    if (this.shownPeriod() === 'custom' && range) {
+      from = range.from; to = range.to;
+    } else {
+      const [y, mo] = this.currentMonth().split('-').map(Number);
+      const first = this.shownPeriod() === 'year' ? 1 : this.shownPeriod() === 'quarter' ? Math.floor((mo - 1) / 3) * 3 + 1 : mo;
+      const last = new Date(y, mo, 0).getDate();
+      from = `${y}-${String(first).padStart(2, '0')}-01`;
+      to = `${y}-${String(mo).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+    }
+    this.openRecords('Security deposits', this.periodTitle(), 'invoices', { status: 'deposit', from, to });
+  }
+
+  /** Billed in advance: the unpaid invoices for billing periods not started yet. */
   openBilledInAdvance() {
     this.openRecords('Invoices', 'Billed in advance', 'invoices', { status: 'advance' });
   }
