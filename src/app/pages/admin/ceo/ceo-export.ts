@@ -2,6 +2,7 @@ import { roomCategoryLabel, roomCategoryOf, type CeoDashboard, type CeoForecastM
 import type { DashRange } from '../../../services/dashboard-api';
 import type { XlsxCell, XlsxSheet } from '../../../utils/xlsx';
 import { ratio } from './ceo-shared';
+import { rentByGroup, roomGroups } from './ceo-rooms/rooms-view';
 
 // ============================================================
 // The CEO dashboard as an Excel workbook (Export Excel): a summary, every KPI with its previous period, and one sheet
@@ -173,8 +174,10 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     sheets.push({
       name: 'Rooms',
       rows: [['Room', 'Code', 'Location', 'Category', 'Space type', 'Seats', 'List per seat (PKR)', 'List per room (PKR)', 'In use now', 'Days occupied (%)', 'Sales'],
-        ...rooms.rooms.map(r => [r.name, r.code, r.location, categoryOf(roomCategoryOf(r)), r.spaceType, r.seats, money2(r.listSeatPrice),
-          money2(r.listRoomPrice), r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length]),
+        // no list price: an empty cell, not 0
+        ...rooms.rooms.map(r => [r.name, r.code, r.location, categoryOf(roomCategoryOf(r)), r.spaceType, r.seats,
+          r.listSeatPrice ? money2(r.listSeatPrice) : null, r.listRoomPrice ? money2(r.listRoomPrice) : null,
+          r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length]),
         // the figures per category under the rooms (the same rooms; they add up to All rooms)
         [],
         ['By category', 'Rooms', 'Occupied now', 'Vacant now', 'Occupied now (%)', 'Days occupied (%)'],
@@ -190,6 +193,17 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
           x.endOn?.slice(0, 10) ?? '', x.pricing === 'unpriced' ? null : money2(x.expectedMonthly), money2(x.soldMonthly),
           x.pricing === 'unpriced' ? null : money2(x.varianceMonthly), x.pricing === 'unpriced' ? null : pct1(x.variancePct),
           pricing[x.pricing] ?? x.pricing]))]
+    });
+    // The "Rent a month" chart: per location and space type (a room's latest booking of each shift).
+    const rent = rentByGroup(roomGroups(rooms.rooms, 'all'));
+    sheets.push({
+      name: 'Rooms rent',
+      rows: [['Space type and location', 'Sold a month (PKR)', 'Missed below the price (PKR)', 'Rooms not let, at list (PKR)',
+        'Over the price, inside sold (PKR)'],
+        ...rent.map(r => [r.label, money2(r.sold), money2(r.below), money2(r.notLet), money2(r.premium)]),
+        [],
+        ['Total', money2(rent.reduce((a, r) => a + r.sold, 0)), money2(rent.reduce((a, r) => a + r.below, 0)),
+          money2(rent.reduce((a, r) => a + r.notLet, 0)), money2(rent.reduce((a, r) => a + r.premium, 0))]]
     });
     sheets.push({
       name: 'Rooms by shift',

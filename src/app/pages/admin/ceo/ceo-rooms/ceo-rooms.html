@@ -246,7 +246,7 @@
           <div class="map-layout">
             <div class="map">
               @for (g of groups(); track g.key) {
-                <div class="map-group">
+                <div class="map-group" [attr.data-group]="g.key" tabindex="-1">
                   <div class="map-group-head">
                     <strong>{{ g.spaceType }} · {{ g.location }}</strong>
                     <span>{{ count(g.let) }} of {{ count(g.tiles.length) }} let · {{ count(g.inUse) }} in use now</span>
@@ -269,7 +269,7 @@
               }
               <p class="note map-key">
                 <span><i class="sw solid" aria-hidden="true"></i>Filled: in use today</span>
-                <span><i class="sw outline" aria-hidden="true"></i>Outlined: booked {{ thisWord() }}, not in use today</span>
+                <span><i class="sw outline" aria-hidden="true"></i>Outlined: let {{ thisWord() }}, not in use today</span>
                 <span><i class="sw blank" aria-hidden="true"></i>Grey: not let {{ thisWord() }}</span>
               </p>
             </div>
@@ -303,6 +303,7 @@
                     <p class="rc-meta">
                       {{ x.sale.shift }} · {{ x.sale.seatsSold }} seat{{ x.sale.seatsSold === 1 ? '' : 's' }}
                       @if (x.sale.startOn) { · {{ x.sale.startOn | date:'d MMM y' }}@if (x.sale.endOn) { to {{ x.sale.endOn | date:'d MMM y' }} } }
+                      @if (x.sale.fixedMonthly) { · fixed discount {{ amount(x.sale.fixedMonthly) }} a month }
                     </p>
                     @if (x.sale.pricing !== 'unpriced') {
                       <div class="rc-bar" [title]="expectedNote(x.sale)" aria-hidden="true">
@@ -321,6 +322,7 @@
                 } @empty {
                   <div class="rc-none">
                     <strong>Not let {{ thisWord() }}{{ shift() !== 'all' ? ' (' + shift() + ')' : '' }}</strong>
+                    @if (t.room.upcomingStartOn) { <span>Starts {{ t.room.upcomingStartOn | date:'d MMM y' }}</span> }
                     @if (t.room.listRoomPrice) { <span>At list it would bring {{ fullMoney(t.room.listRoomPrice) }} a month.</span> }
                   </div>
                 }

@@ -152,7 +152,10 @@ export class CeoSeatsSection {
         key: 'rooms', label: 'Rooms occupied now', value: pct(s.roomOccupancyPct),
         sub: `Seats ${pct(s.seatOccupancyPct)} · gap ${pts(s.gapPts)} pts`,
         tone: s.gapPts >= 10 ? 'warn' : 'neutral',
-        full: `${count(s.roomsOccupied)} of ${count(s.rooms)} rooms have a booking now; the rooms look ${pts(s.gapPts)} points fuller than the seats are`,
+        // A negative gap: the seats are fuller than the rooms (more seats sold than whole rooms let).
+        full: `${count(s.roomsOccupied)} of ${count(s.rooms)} rooms have a booking now; `
+          + (s.gapPts < 0 ? `the seats are ${pts(-s.gapPts)} points fuller than the rooms`
+            : `the rooms look ${pts(s.gapPts)} points fuller than the seats are`),
         action: () => this.focusEl('panel-seats-trend'), actionLabel: 'Show seats against rooms over 12 months'
       },
       {
@@ -164,8 +167,9 @@ export class CeoSeatsSection {
           ? `${count(s.partlyFilledEmptySeats)} empty seats are in ${count(s.partlyFilledRooms)} rooms that have a booking now`
           : '',
         tone: !s.emptySeats ? 'ok' : s.partlyFilledEmptySeats ? 'warn' : 'neutral',
-        action: () => this.openAll(s.partlyFilledRooms ? 'partly' : 'all'),
-        actionLabel: s.partlyFilledRooms ? 'Open the rooms already let that have empty seats' : 'Open every room'
+        // Every room, so the list adds up to the card (Partly filled is one of the drawer's filters).
+        action: () => this.openAll('all'),
+        actionLabel: 'Open every room with its empty seats'
       },
       {
         key: 'rps', label: 'Revenue per seat a month', value: money(s.revenuePerSeat),
@@ -225,7 +229,9 @@ export class CeoSeatsSection {
 
   groupAria(scope: Exclude<SeatsScope, 'all'>, g: SeatGroup): string {
     return `${this.groupName(scope, g)}: ${pct(g.seatOccupancyPct)} of seats sold, ${count(g.seatsSold)} of ${count(g.seats)}; `
-      + `rooms ${pct(g.roomOccupancyPct)} occupied; ${fullMoney(g.rentNotEarned)} a month not earned. Open its rooms`;
+      + `rooms ${pct(g.roomOccupancyPct)} occupied; `
+      + (g.seatsSold ? `${fullMoney(g.revenuePerSeat)} a month per seat sold; ` : '')
+      + `${fullMoney(g.rentNotEarned)} a month not earned. Open its rooms`;
   }
 
   // ---------- leading to a panel ----------
