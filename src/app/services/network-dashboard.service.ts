@@ -68,6 +68,19 @@ export interface NetInternet {
 
 export interface NetAlert { level: 'critical' | 'serious' | string; text: string; where: string; }
 
+/**
+ * One of the top data users (the Clients page's "Top data users", same names and kinds). Bytes; lastSeen UTC ISO
+ * (null = unknown). Empty strings / null port = not reported.
+ */
+export interface NetTopClient {
+  rank: number; name: string; kind: string; kindLabel: string; mac: string; ip: string; hostname: string; vendor: string;
+  downloadBytes: number; uploadBytes: number; totalBytes: number;
+  online: boolean; lastSeen: string | null; wired: boolean; guest: boolean;
+  network: string; ssid: string; uplink: string; port: string | null;
+  /** One line: "WorkNest via AP Lobby", "Wired · USW 24 port 5". */
+  connection: string;
+}
+
 export interface NetDashboard {
   available: boolean;
   message: string | null;
@@ -81,6 +94,13 @@ export interface NetDashboard {
   history: NetHistory;
   internet: NetInternet | null;
   alerts: NetAlert[];
+  /** The 5 clients that used the most data, most first; [] = none recorded yet; null = not available (see topClientsMessage). */
+  topClients: NetTopClient[] | null;
+  /** The range behind them, e.g. "Today"; null from an API without the list. */
+  topClientsRangeLabel: string | null;
+  topClientsRangeDays: number | null;
+  /** Why topClients is null (another console's site, still loading, could not be read). */
+  topClientsMessage: string | null;
 }
 
 const NETWORK_WORDING: DashErrorWording = {
@@ -151,7 +171,22 @@ function toNetDashboard(raw: unknown): NetDashboard {
         points: arr(s.points, (p: any): NetLatencyPoint => ({ t: str(p.t), avg: numOrNull(p.avg), peak: numOrNull(p.peak), loss: numOrNull(p.loss) }))
       }))
     },
-    alerts: arr(d.alerts, (a: any): NetAlert => ({ level: str(a.level), text: str(a.text), where: str(a.where) }))
+    alerts: arr(d.alerts, (a: any): NetAlert => ({ level: str(a.level), text: str(a.text), where: str(a.where) })),
+    topClients: Array.isArray(d.topClients)
+      ? arr(d.topClients, (c: any, i = 0): NetTopClient => {
+        const down = Math.max(0, num(c.downloadBytes)), up = Math.max(0, num(c.uploadBytes));
+        return {
+          rank: num(c.rank) || i + 1, name: str(c.name) || str(c.mac) || 'Unknown device', kind: str(c.kind) || 'other',
+          kindLabel: str(c.kindLabel) || 'Unknown', mac: str(c.mac), ip: str(c.ip), hostname: str(c.hostname), vendor: str(c.vendor),
+          downloadBytes: down, uploadBytes: up, totalBytes: num(c.totalBytes) || down + up,
+          online: c.online === true, lastSeen: strOrNull(c.lastSeen), wired: c.wired === true, guest: c.guest === true,
+          network: str(c.network), ssid: str(c.ssid), uplink: str(c.uplink), port: strOrNull(c.port), connection: str(c.connection)
+        };
+      })
+      : null,
+    topClientsRangeLabel: strOrNull(d.topClientsRangeLabel),
+    topClientsRangeDays: numOrNull(d.topClientsRangeDays),
+    topClientsMessage: strOrNull(d.topClientsMessage)
   };
 }
 

@@ -1,11 +1,11 @@
 import {
-  Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, signal, untracked, viewChild
+  Component, DestroyRef, ElementRef, HostListener, afterRenderEffect, computed, effect, inject, input, signal, untracked, viewChild
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import type { DashError } from '../../../../services/dashboard-api';
 import {
-  NetDashboard, NetHistoryPoint, NetTrafficPoint, NetWan, NetworkDashboardService, NetworkSource
+  NetDashboard, NetHistoryPoint, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService, NetworkSource
 } from '../../../../services/network-dashboard.service';
 import { bytesText, linkText, mbpsText, pairText, stampText, whenText } from './net-format';
 import {
@@ -91,8 +91,8 @@ function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; area: s
 /**
  * Network section of the CEO and Sales Manager dashboards: the Wi-Fi / network (UniFi) picture of the dashboard's
  * location. Clients online now (Wi-Fi / wired / guest) and over time (24 hours or 7 days, from the stored history),
- * devices online against offline by type, clients by type, internet lines and latency, and the issues that need
- * attention. Read-only; loads on its own (GET api/ceo/network or api/sales-manager/network), so a network that is
+ * devices online against offline by type, clients by type, the top 5 data users (each opens its details), internet
+ * lines and latency, and the issues that need attention. Read-only; loads on its own (GET api/ceo/network or api/sales-manager/network), so a network that is
  * not set up or not reachable shows one plain message here and the rest of the dashboard keeps working. Follows the
  * dashboard's location picker; the API limits a Sales Manager to the sites of their locations.
  */
@@ -122,6 +122,7 @@ export class DashNetworkSection {
   readonly count = count;
   readonly pct = pct;
   readonly ms = ms;
+  readonly bytes = bytesText;
   readonly wifiColor = WIFI;
   readonly wiredColor = WIRED;
   readonly guestColor = GUEST;
@@ -143,6 +144,8 @@ export class DashNetworkSection {
   private clientsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('clientsCanvas');
   private typesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('typesCanvas');
   private latencyCanvas = viewChild<ElementRef<HTMLCanvasElement>>('latencyCanvas');
+  private topPanel = viewChild<ElementRef<HTMLElement>>('topPanel');
+  private topHeading = viewChild<ElementRef<HTMLElement>>('topHeading');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -155,7 +158,7 @@ export class DashNetworkSection {
       this.source();
       this.locationId();
       this.reload();
-      untracked(() => this.load());
+      untracked(() => { this.closeTop(false); this.load(); });
     });
     effect(() => {
       if (this.quietReload()) untracked(() => this.load(true));
@@ -352,6 +355,90 @@ export class DashNetworkSection {
   }
   multiSite = computed(() => (this.data()?.sites.length ?? 0) > 1);
   latencyEmpty = computed(() => !(this.data()?.internet?.latency ?? []).some(s => s.points.some(p => p.avg !== null)));
+
+  // ---------- top data users ----------
+
+  /** The range under the title: "Today" -> "today", "Last 7 days" -> "last 7 days". */
+  topRange = computed(() => {
+    const d = this.data();
+    const label = d?.topClientsRangeLabel;
+    if (label) return label.charAt(0).toLowerCase() + label.slice(1);
+    const days = d?.topClientsRangeDays;
+    return days && days > 1 ? `last ${days} days` : 'today';
+  });
+  /** Each row with its bar (share of the biggest) and figures written out. */
+  topRows = computed(() => {
+    const list = this.data()?.topClients ?? [];
+    const max = Math.max(0, ...list.map(c => c.totalBytes)) || 1;
+    return list.map((c, i) => ({
+      c,
+      key: `${c.mac}|${i}`,
+      share: Math.max(2, (c.totalBytes / max) * 100),
+      color: KIND_COLORS[c.kind] ?? KIND_FALLBACK[i % KIND_FALLBACK.length],
+      total: bytesText(c.totalBytes),
+      down: bytesText(c.downloadBytes),
+      up: bytesText(c.uploadBytes)
+    }));
+  });
+  readonly kindColor = (kind: string) => KIND_COLORS[kind] ?? KIND_COLORS['other'];
+
+  /** The client whose details are open (a snapshot: a refresh behind it does not change it). */
+  topOpen = signal<NetTopClient | null>(null);
+  private topReturn: HTMLElement | null = null;
+
+  openTop(c: NetTopClient, ev?: Event) {
+    this.topReturn = (ev?.currentTarget as HTMLElement | null) ?? (document.activeElement as HTMLElement | null);
+    this.topOpen.set(c);
+    setTimeout(() => (this.topHeading()?.nativeElement ?? this.topPanel()?.nativeElement)?.focus({ preventScroll: true }));
+  }
+
+  closeTop(restoreFocus = true) {
+    if (!this.topOpen()) return;
+    this.topOpen.set(null);
+    const target = this.topReturn;
+    this.topReturn = null;
+    if (restoreFocus && target && document.contains(target)) setTimeout(() => target.focus({ preventScroll: true }));
+  }
+
+  /** The details, one row each ("-" when not reported). */
+  topDetails = computed(() => {
+    const c = this.topOpen();
+    if (!c) return [];
+    this.nowTick();
+    const seen = c.online ? 'Now' : c.lastSeen ? `${stampText(c.lastSeen)} (${whenText(c.lastSeen)})` : '-';
+    return [
+      { label: 'Name', value: c.name },
+      { label: 'Type', value: c.kindLabel },
+      { label: 'Status', value: c.online ? 'Online now' : 'Offline' },
+      { label: 'Last seen', value: seen },
+      { label: 'MAC address', value: c.mac || '-' },
+      { label: 'IP address', value: c.ip || '-' },
+      { label: 'Connection', value: c.connection || (c.wired ? 'Wired' : 'Wi-Fi') },
+      { label: c.wired ? 'Switch' : 'Access point', value: c.uplink || '-' },
+      ...(c.wired ? [{ label: 'Switch port', value: c.port || '-' }] : [{ label: 'Wi-Fi name', value: c.ssid || '-' }]),
+      { label: 'Network', value: c.network || '-' },
+      { label: 'Guest', value: c.guest ? 'Yes' : 'No' },
+      { label: 'Hostname', value: c.hostname || '-' },
+      { label: 'Maker', value: c.vendor || '-' }
+    ];
+  });
+
+  /** Escape closes the details; Tab stays inside them. */
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    if (!this.topOpen()) return;
+    if (e.key === 'Escape') { e.preventDefault(); this.closeTop(); return; }
+    if (e.key !== 'Tab') return;
+    const panel = this.topPanel()?.nativeElement;
+    if (!panel) return;
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'))
+      .filter(el => el.offsetParent !== null);
+    if (!focusable.length) { e.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    if (e.shiftKey && (active === first || !panel.contains(active))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (active === last || !panel.contains(active))) { e.preventDefault(); first.focus(); }
+  }
 
   alerts = computed(() => this.data()?.alerts ?? []);
   /** A critical issue among them (the panel's icon turns red). */
