@@ -246,6 +246,8 @@ export interface CeoRoomSale {
   /** Sold per seat vs expected, % (-12.5 = 12.5% under). */
   variancePct: number;
   pricing: CeoPricing;
+  /** CP_02: the booking's fixed PKR discount a month, already off soldMonthly (0 when none / before CP_02). */
+  fixedMonthly: number;
 }
 
 /** A private office or shared space (sold monthly). */
@@ -268,6 +270,8 @@ export interface CeoRoom {
   occupiedDays: number | null;
   periodDays: number | null;
   sales: CeoRoomSale[];
+  /** CP_02: start (yyyy-MM-dd) of the next confirmed booking that starts after the period; null when none. */
+  upcomingStartOn: string | null;
 }
 
 /** Occupancy of one room category (private offices, shared spaces): the API's summary.byCategory. */
@@ -375,7 +379,7 @@ function toRoomSale(s: any, room: { seats: number; listSeatPrice: number }): Ceo
   const base = {
     bookingId: num(s.bookingId), customer: str(s.customer) || 'Customer', shift, seatsSold,
     startOn: strOrNull(s.startOn), endOn: strOrNull(s.endOn), listSeatPriceAtSale, shiftDiscountCapPct: cap,
-    soldMonthly, soldSeatPrice
+    soldMonthly, soldSeatPrice, fixedMonthly: Math.max(0, num(s.fixedMonthly))
   };
   // No list price: the API sends pricing and the expected / variance figures as null; nothing to compare with.
   const sentUnpriced = str(s.pricing).toLowerCase() === 'unpriced'
@@ -413,7 +417,8 @@ function toRoom(r: any): CeoRoom {
     occupiedNow: flag(r.occupiedNow),
     periodOccupancyPct: clampPct(sentPct ?? (occupiedDays !== null && periodDays ? (occupiedDays / periodDays) * 100 : 0)),
     occupiedDays, periodDays,
-    sales: arr(r.sales, (s: any) => toRoomSale(s, { seats, listSeatPrice }))
+    sales: arr(r.sales, (s: any) => toRoomSale(s, { seats, listSeatPrice })),
+    upcomingStartOn: strOrNull(r.upcomingStartOn)
   };
 }
 

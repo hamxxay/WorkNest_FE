@@ -47,6 +47,7 @@
           </span>
           <span class="seat-meta">
             Rooms {{ pct(g.roomOccupancyPct) }}
+            @if (g.seatsSold) { · <span [title]="fullMoney(g.revenuePerSeat) + ' a month per seat sold (' + fullMoney(g.soldMonthly) + ' a month)'">{{ money(g.revenuePerSeat) }} a seat</span> }
             · <span [title]="fullMoney(g.rentNotEarned) + ' a month at list price'" [class.warn]="g.rentNotEarned > 0">{{ money(g.rentNotEarned) }} not earned</span>
           </span>
         </span>
@@ -105,7 +106,7 @@
             <div class="panel-head">
               <div>
                 <h3>Seats vs rooms, 12 months</h3>
-                <p class="panel-sub">Seats sold and rooms occupied at each month end (this month: now)</p>
+                <p class="panel-sub">Seats sold and rooms occupied at each month end (this month: now), of the rooms that existed then</p>
               </div>
               <div class="head-side">
                 <div class="head-stats">
