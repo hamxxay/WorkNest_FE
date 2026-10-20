@@ -1,4 +1,4 @@
-import type { CeoDashboard, CeoForecastMonth, CeoRooms } from '../../../services/ceo.service';
+import { roomCategoryLabel, roomCategoryOf, type CeoDashboard, type CeoForecastMonth, type CeoRooms } from '../../../services/ceo.service';
 import type { DashRange } from '../../../services/dashboard-api';
 import type { XlsxCell, XlsxSheet } from '../../../utils/xlsx';
 import { ratio } from './ceo-shared';
@@ -45,7 +45,8 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   const sheets: XlsxSheet[] = [summarySheet('WorkNest CEO dashboard', meta, [
     'Money in PKR. Shares and rates in %.',
     'Previous period: the same number of days just before a custom range, else the same days one period earlier.',
-    'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.'
+    'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.',
+    'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.'
   ])];
 
   // ---------- KPIs ----------
@@ -81,6 +82,12 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
       ['Sales', 'Booked (PKR)', money2(s.bookingValue), null, '']
     );
   }
+  if (d.team) {
+    kpis.push(
+      ['Team', 'Sales executives', d.team.salesExecutives, null, ''],
+      ['Team', 'Sales executives revenue (PKR)', money2(d.team.revenue), null, 'Their quotations created in the period that were converted']
+    );
+  }
   if (rooms?.available) {
     const r = rooms.summary;
     kpis.push(
@@ -88,6 +95,11 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
       ['Rooms', 'Occupied now', r.occupiedNow, null, ''],
       ['Rooms', 'Vacant now', r.vacantNow, null, ''],
       ['Rooms', 'Days occupied (%)', pct1(r.periodOccupancyPct), null, 'Days of the period with a confirmed booking'],
+      // each room category on its own (private offices, shared spaces)
+      ...r.byCategory.flatMap((c): XlsxCell[][] => [
+        ['Rooms', `${c.label}: occupied now`, c.occupiedNow, null, `of ${c.rooms} (${pct1(c.occupancyNowPct)}%), ${c.vacantNow} vacant`],
+        ['Rooms', `${c.label}: days occupied (%)`, pct1(c.periodOccupancyPct), null, 'Days of the period with a confirmed booking']
+      ]),
       ['Rooms', 'Sales under the price', r.under, null, `PKR ${Math.round(r.underGapMonthly).toLocaleString('en-US')} a month short`],
       ['Rooms', 'Sales at the price', r.at, null, ''],
       ['Rooms', 'Sales over the price', r.over, null, `PKR ${Math.round(r.overPremiumMonthly).toLocaleString('en-US')} a month extra`],
@@ -147,11 +159,19 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
 
   // ---------- Rooms ----------
   if (rooms?.available && rooms.rooms.length) {
+    const cats = rooms.summary.byCategory;
+    const categoryOf = (code: string) => cats.find(c => c.categoryCode === code)?.label ?? roomCategoryLabel(code);
+    const all = rooms.summary;
     sheets.push({
       name: 'Rooms',
-      rows: [['Room', 'Code', 'Location', 'Space type', 'Seats', 'List per seat (PKR)', 'List per room (PKR)', 'In use now', 'Days occupied (%)', 'Sales'],
-        ...rooms.rooms.map(r => [r.name, r.code, r.location, r.spaceType, r.seats, money2(r.listSeatPrice), money2(r.listRoomPrice),
-          r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length])]
+      rows: [['Room', 'Code', 'Location', 'Category', 'Space type', 'Seats', 'List per seat (PKR)', 'List per room (PKR)', 'In use now', 'Days occupied (%)', 'Sales'],
+        ...rooms.rooms.map(r => [r.name, r.code, r.location, categoryOf(roomCategoryOf(r)), r.spaceType, r.seats, money2(r.listSeatPrice),
+          money2(r.listRoomPrice), r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length]),
+        // the figures per category under the rooms (the same rooms; they add up to All rooms)
+        [],
+        ['By category', 'Rooms', 'Occupied now', 'Vacant now', 'Occupied now (%)', 'Days occupied (%)'],
+        ...cats.map(c => [c.label, c.rooms, c.occupiedNow, c.vacantNow, pct1(c.occupancyNowPct), pct1(c.periodOccupancyPct)]),
+        ['All rooms', all.rooms, all.occupiedNow, all.vacantNow, pct1(all.occupancyNowPct), pct1(all.periodOccupancyPct)]]
     });
     const pricing: Record<string, string> = { under: 'Under', at: 'At', over: 'Over', unpriced: 'No list price' };
     sheets.push({
@@ -181,21 +201,23 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     });
   }
 
-  // ---------- Team ----------
+  // ---------- Team: the sales executives only (the API sends no other role) ----------
   if (d.team) {
     sheets.push({
       name: 'Team by location',
-      rows: [['Location', 'Admins', 'Sales executives', 'Quotations', 'Converted', 'Conversion (%)'],
-        ...d.team.perLocation.map(l => [l.name, l.admins, l.salesExecutives, l.quotations, l.converted,
+      rows: [['Location', 'Sales executives', 'Quotations at the location', 'Converted', 'Conversion (%)'],
+        ...d.team.perLocation.map(l => [l.name, l.salesExecutives, l.quotations, l.converted,
           l.quotations ? pct1(ratio(l.converted, l.quotations)) : null])]
     });
     sheets.push({
-      name: 'People',
-      rows: [['Name', 'Role', 'Locations', 'Quotations', 'Converted', 'Conversion (%)', 'Converted value (PKR)'],
+      name: 'Sales executives',
+      rows: [['Name', 'Locations', 'Quotations', 'Converted', 'Conversion (%)', 'Revenue (PKR)'],
         ...[...d.team.people]
-          .sort((a, b) => b.convertedValue - a.convertedValue || b.converted - a.converted || b.quotations - a.quotations)
-          .map(p => [p.name, p.role, p.locations, p.quotations, p.converted, p.quotations ? pct1(ratio(p.converted, p.quotations)) : null,
-            money2(p.convertedValue)])]
+          .sort((a, b) => b.revenue - a.revenue || b.converted - a.converted || b.quotations - a.quotations)
+          .map(p => [p.name, p.locations, p.quotations, p.converted, p.quotations ? pct1(ratio(p.converted, p.quotations)) : null,
+            money2(p.revenue)]),
+        [],
+        ['Total', null, null, null, null, money2(d.team.revenue)]]
     });
   }
   return sheets;

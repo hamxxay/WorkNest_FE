@@ -231,7 +231,7 @@
                   <input [type]="showCvv() ? 'text' : 'password'" class="form-input mono-input" placeholder="•••"
                     [value]="cvv()" (input)="onCvvInput($event)" name="ccCvv" inputmode="numeric" maxlength="4"
                     autocomplete="off" [disabled]="submitting()" />
-                  <button type="button" class="cvv-toggle" (click)="showCvv.set(!showCvv())" tabindex="-1">
+                  <button type="button" class="cvv-toggle" (click)="showCvv.set(!showCvv())" [title]="showCvv() ? 'Hide CVV' : 'Show CVV'" [attr.aria-label]="showCvv() ? 'Hide CVV' : 'Show CVV'" tabindex="-1">
                     @if (showCvv()) {
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -548,6 +548,8 @@
 .date-filter input { border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 8px; font-size: .82rem; color: #0f172a; background: #fff; }
 .date-filter input:disabled, .list-filters select:disabled { opacity: .6; }
 .btn-clear-filters { padding: 5px 12px; font-size: .8rem; }
+/* Invoices: the dates of the chosen period ("October 2026") next to the Issued choice. */
+.list-period-range { font-size: .8rem; color: #64748b; white-space: nowrap; margin-left: -4px; }
 /* A list that could not be loaded: the message and Retry instead of "No records found.". */
 .empty-state.list-error p { color: #b91c1c; margin-bottom: 12px; }
 .empty-state .btn-admin { margin: 0 auto; }
@@ -649,6 +651,7 @@
   .toolbar-filters .page-size-wrap { flex: 1 1 140px; }
   .toolbar-filters .page-size-wrap select { flex: 1; min-width: 0; }
   .toolbar-filters .date-filter input { flex: 1; min-width: 0; min-height: 40px; font-size: 16px; }
+  .list-period-range { margin-left: 0; }
   .toolbar-right { width: 100%; justify-content: space-between; }
   .page-size-wrap select { min-height: 40px; font-size: 16px; }
   .admin-pagination { justify-content: space-between; gap: 8px; }

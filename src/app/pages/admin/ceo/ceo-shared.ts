@@ -262,18 +262,26 @@ export function statusTone(status: string | null | undefined): 'ok' | 'bad' | 'w
   return 'neutral';
 }
 
-// ---------- Chart.js theme (as the admin dashboard) ----------
+// ---------- Chart.js theme (every chart on the CEO and Sales dashboards and in the drawer) ----------
 
 export const CHART_FONT = "'Inter', system-ui, -apple-system, sans-serif";
 
+/** Dark, roomy tooltip: bold title, the series as dots, the hint ("click for locations") as a muted footer. */
 export const TOOLTIP = {
-  backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', footerColor: '#94a3b8', padding: 10, cornerRadius: 8,
-  titleFont: { weight: 600 as const }, bodyFont: { weight: 500 as const }, boxPadding: 4, usePointStyle: true
+  backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', footerColor: '#94a3b8', padding: 12, cornerRadius: 10,
+  caretSize: 5, titleMarginBottom: 6, bodySpacing: 4, footerMarginTop: 8, boxPadding: 6, boxWidth: 8, boxHeight: 8, usePointStyle: true,
+  titleFont: { size: 12, weight: 600 as const }, bodyFont: { size: 12, weight: 500 as const }, footerFont: { size: 11, weight: 500 as const }
 };
-export const GRID = { color: '#eef2f6', drawTicks: false };
+/** Hairline gridlines, one step off white (axes and ticks stay muted: applyChartDefaults). */
+export const GRID = { color: '#eef2f6', lineWidth: 1, drawTicks: false };
+/** Above the plot, aligned with the panel's left edge: the same dot, size and colour as the HTML legends (.rooms-legend). */
 export const LEGEND = {
-  position: 'bottom' as const,
-  labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 16 }
+  position: 'top' as const,
+  align: 'start' as const,
+  labels: {
+    usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 18, color: '#64748b',
+    font: { size: 12, weight: 500 as const }
+  }
 };
 export const AXIS_MONEY = { callback: (v: any) => money(Number(v)).replace('PKR ', ''), padding: 8 };
 

@@ -37,6 +37,8 @@ interface Kpi {
   value: string;
   sub: string;
   link: string;
+  /** Query of the link (unpaid / overdue invoices: ?period=all, as they go back before this month). */
+  query?: Record<string, string>;
   tone: 'ok' | 'warn' | 'danger' | 'neutral';
   trend?: { text: string; dir: 'up' | 'down' | 'flat'; good: boolean } | null;
   vs?: string;
@@ -374,12 +376,12 @@ export class DashboardOverview {
       },
       {
         key: 'outstanding', label: 'Outstanding', value: this.money(d.outstanding), full: this.fullMoney(d.outstanding),
-        sub: `${d.outstandingCount} unpaid invoice${d.outstandingCount === 1 ? '' : 's'}`, link: '/admin/invoices',
+        sub: `${d.outstandingCount} unpaid invoice${d.outstandingCount === 1 ? '' : 's'}`, link: '/admin/invoices', query: { period: 'all' },
         tone: d.outstanding > 0 ? 'neutral' : 'ok'
       },
       {
         key: 'overdue', label: 'Overdue', value: this.money(d.overdueAmount), full: this.fullMoney(d.overdueAmount),
-        sub: d.overdueCount ? `${d.overdueCount} past due date` : 'Nothing overdue', link: '/admin/invoices',
+        sub: d.overdueCount ? `${d.overdueCount} past due date` : 'Nothing overdue', link: '/admin/invoices', query: { period: 'all' },
         tone: d.overdueCount ? 'danger' : 'ok'
       },
       {

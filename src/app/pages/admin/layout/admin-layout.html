@@ -1,13 +1,13 @@
 ﻿<div class="admin-shell" [class.collapsed]="sidebarCollapsed" [class.phone]="isPhone()" [class.nav-open]="mobileNavOpen()">
   <!-- Phones: the sidebar is a drawer that slides in over the page (menu button in the top bar); tablets: icons only;
        desktop: full sidebar. -->
-  <aside class="sidebar" id="admin-sidebar" [attr.role]="isPhone() ? 'dialog' : null" [attr.aria-modal]="isPhone() && mobileNavOpen() ? 'true' : null"
+  <aside class="sidebar" id="admin-sidebar" data-tooltip-placement="right" [attr.role]="isPhone() ? 'dialog' : null" [attr.aria-modal]="isPhone() && mobileNavOpen() ? 'true' : null"
     [attr.aria-label]="isPhone() ? 'Menu' : null">
     <div class="sidebar-header">
       <a [routerLink]="dashboardHome ?? '/'" class="sidebar-logo" (click)="closeMobileNav()">
         <img src="images/Logo.png" alt="W" width="36" height="32" class="sidebar-logo-img" /><span class="logo-text">orkNest</span>
       </a>
-      <button #sidebarToggle class="sidebar-toggle" (click)="toggleSidebar()"
+      <button #sidebarToggle class="sidebar-toggle" (click)="toggleSidebar()" [title]="isPhone() ? 'Close menu' : sidebarCollapsed ? 'Expand menu' : 'Collapse menu'"
         [attr.aria-label]="isPhone() ? 'Close menu' : sidebarCollapsed ? 'Expand menu' : 'Collapse menu'">
         @if (isPhone()) {
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -125,6 +125,9 @@
                   @case ('receipt') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-8"/><path d="M16 12h-8"/><path d="M13 16h-5"/></svg>
                   }
+                  @case ('custom-invoice') {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h5"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h5"/><path d="M8 17h2"/><path d="M20.4 14.6a1.4 1.4 0 0 0-2-2L14 17v2h2z"/></svg>
+                  }
                   @case ('login-history') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                   }
@@ -180,7 +183,7 @@
   <main class="admin-main" #adminMain>
     @if (isPhone()) {
       <header class="mobile-topbar">
-        <button #menuButton type="button" class="mobile-menu-btn" (click)="openMobileNav()" aria-label="Open menu"
+        <button #menuButton type="button" class="mobile-menu-btn" (click)="openMobileNav()" title="Open menu" aria-label="Open menu"
           aria-controls="admin-sidebar" [attr.aria-expanded]="mobileNavOpen()">
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/></svg>
           @if (badgeTotal() > 0) {

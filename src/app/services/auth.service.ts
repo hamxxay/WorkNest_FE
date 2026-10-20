@@ -1074,15 +1074,29 @@ export class AuthService {
 
   /**
    * Why an email + password sign-in failed (Firebase and the WorkNest password both refused), in plain words instead of
-   * "Authentication failed": too many attempts (Firebase's temporary lock or the API's 429), a turned-off Firebase sign-in,
-   * WorkNest unreachable (status 0) or down (5xx), else the API's own message or "Invalid email or password."
+   * "Authentication failed". The API's answer to the WorkNest password decides first (a user added on the Users page has
+   * no Firebase account, so Firebase's "invalid credential" says nothing): WorkNest unreachable (status 0), too many
+   * attempts (429), down (5xx), else the API's own message. Only when the API refused the password too (401) or gave no
+   * HTTP answer: too many attempts (Firebase's temporary lock), a turned-off Firebase sign-in, else "Invalid email or password."
    */
   private signInFailure(firebaseError: any, backendError: any) {
     const statusOf = (e: any): number | null =>
       typeof e?.status === 'number' ? e.status : (typeof e?.error?.status === 'number' ? e.error.status : null);
     const fbCode = typeof firebaseError?.code === 'string' ? firebaseError.code : '';
     const fail = (message: string) => ({ error: { message } });
-    if (fbCode === 'auth/too-many-requests' || statusOf(firebaseError) === 429 || statusOf(backendError) === 429) {
+    const unreachable = 'Could not reach WorkNest right now. Check your internet connection and try again.';
+    const unavailable = 'WorkNest is having a problem right now. Please try again in a few minutes.';
+    const apiStatus = statusOf(backendError);
+    if (apiStatus !== null && apiStatus !== 401) {
+      if (apiStatus === 0) return fail(unreachable);
+      if (apiStatus === 429) return fail('Too many sign-in attempts. Please wait a minute and try again.');
+      if (apiStatus >= 500) return fail(unavailable);
+      // E.g. a 403 refusal. Never SQL text, nor the error interceptor's generic 403 wording.
+      const apiMessage = String(backendError?.error?.message ?? '').trim();
+      const readable = apiMessage && !/sql/i.test(apiMessage) && apiMessage !== "You don't have permission to do this.";
+      return fail(readable ? apiMessage : 'WorkNest could not sign you in. Please try again.');
+    }
+    if (fbCode === 'auth/too-many-requests' || statusOf(firebaseError) === 429) {
       return fail('Too many sign-in attempts. Please wait a few minutes and try again.');
     }
     if (fbCode === 'auth/user-disabled') return fail('This sign-in has been turned off. Please contact WorkNest.');
@@ -1090,9 +1104,10 @@ export class AuthService {
       return fail('Invalid email or password.');
     }
     if (fbCode) return this.normalizeAuthError(firebaseError);
-    const status = statusOf(firebaseError) ?? statusOf(backendError);
-    if (status === 0) return fail('Could not reach WorkNest. Check your internet connection and try again.');
-    if (status !== null && status >= 500) return fail('WorkNest could not sign you in right now. Please try again in a few minutes.');
+    const status = statusOf(firebaseError) ?? apiStatus;
+    if (status === 0) return fail(unreachable);
+    if (status !== null && status >= 500) return fail(unavailable);
+    if (apiStatus === 401) return fail('Invalid email or password.');
     const apiMessage = String(backendError?.error?.message ?? firebaseError?.error?.message ?? '').trim();
     return fail(apiMessage || 'Invalid email or password.');
   }

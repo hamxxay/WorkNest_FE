@@ -1,0 +1,290 @@
+<!-- ===================== NETWORK (own endpoint: a failure here leaves the rest of the dashboard alone) ===================== -->
+<section class="dash-section" [attr.aria-labelledby]="'net-h-' + source()" [attr.aria-busy]="loading() || refreshing()">
+  <div class="section-title">
+    <h2 [id]="'net-h-' + source()">Network</h2>
+    <span>{{ titleLine() }}</span>
+  </div>
+
+  <!-- KPI card (clickable when it leads somewhere) -->
+  <ng-template #kpiCard let-k>
+    @if (k.action) {
+      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()">
+        <span class="kpi-label">{{ k.label }}</span>
+        <span class="kpi-value">{{ k.value }}</span>
+        <span class="kpi-foot"><span class="kpi-sub">{{ k.sub }}</span></span>
+        <span class="sr-only">{{ k.actionLabel }}</span>
+        <svg class="kpi-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+      </button>
+    } @else {
+      <div [class]="'kpi-card tone-' + k.tone">
+        <span class="kpi-label">{{ k.label }}</span>
+        <span class="kpi-value">{{ k.value }}</span>
+        <span class="kpi-foot"><span class="kpi-sub">{{ k.sub }}</span></span>
+      </div>
+    }
+  </ng-template>
+  <ng-template #chartIcon>
+    <span class="chart-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span>
+  </ng-template>
+  <ng-template #wifiIcon>
+    <span class="chart-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></svg></span>
+  </ng-template>
+
+  @if (loading()) {
+    <div class="kpi-grid kpi-4" aria-hidden="true">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+      }
+    </div>
+    <div class="ins-grid" aria-hidden="true">
+      <div class="dash-panel span-8"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+      <div class="dash-panel span-4"><span class="sk sk-line w60"></span><span class="sk sk-block"></span></div>
+    </div>
+  } @else if (error() && !data()) {
+    <div class="dash-panel section-empty" role="alert">
+      <span class="chart-empty-icon" [class.db]="error()!.needsDbUpdate">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      </span>
+      <strong>{{ error()!.title }}</strong>
+      <span>{{ error()!.message }}</span>
+      <button type="button" class="link-btn" (click)="load()">Try again</button>
+    </div>
+  } @else if (data(); as d) {
+    @if (!d.available) {
+      <!-- UniFi not set up, turned off, paused or not reachable: one plain line, nothing else. -->
+      <div class="dash-panel section-empty" role="status">
+        <ng-container *ngTemplateOutlet="wifiIcon" />
+        <strong>Network figures are not available</strong>
+        <span>{{ d.message || 'The network could not be read right now.' }}</span>
+        <button type="button" class="link-btn" (click)="load()">Try again</button>
+      </div>
+    } @else if (!shown()) {
+      <div class="dash-panel section-empty" role="status">
+        <ng-container *ngTemplateOutlet="wifiIcon" />
+        <strong>No network for {{ locationId() ? 'this location' : allLabel().toLowerCase() }}</strong>
+        <span>{{ d.message || 'No network is linked to this location yet.' }} A super admin links each UniFi site to its location on Network Overview.</span>
+      </div>
+    } @else {
+      @if (error(); as err) {
+        <div class="refresh-error" role="status">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          <span><strong>{{ err.title }}.</strong> {{ err.message }} Showing the network as it was.</span>
+          <button type="button" class="link-btn" (click)="load()">Try again</button>
+        </div>
+      } @else if (d.stale) {
+        <div class="refresh-error" role="status">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span><strong>Not current.</strong> {{ d.message || 'The network has not answered for a while.' }} These are the last figures ({{ updatedText() }}).</span>
+        </div>
+      }
+
+      <div class="net-body" [class.is-refreshing]="refreshing()">
+        @if (alerts().length) {
+          <div class="dash-panel net-alerts" [class.critical]="hasCritical()" role="status">
+            <div class="panel-head">
+              <div class="net-alert-title">
+                <span class="net-alert-icon" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                </span>
+                <div>
+                  <h3>Needs attention</h3>
+                  <p class="panel-sub">{{ alerts().length }} network issue{{ alerts().length === 1 ? '' : 's' }} right now</p>
+                </div>
+              </div>
+            </div>
+            <ul class="net-alert-list">
+              @for (a of alerts(); track $index) {
+                <li>
+                  <span class="pill" [class.danger]="a.level === 'critical'" [class.warn]="a.level !== 'critical'">{{ a.level === 'critical' ? 'Critical' : 'Serious' }}</span>
+                  <span class="net-alert-text">{{ a.text }}</span>
+                  @if (a.where) { <span class="net-alert-where">{{ a.where }}</span> }
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="kpi-grid kpi-4">
+          @for (k of kpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+        </div>
+
+        <div class="ins-grid">
+          <!-- 1. Clients over time (stored history) -->
+          <div class="dash-panel span-8 focus-target" id="net-panel-clients" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Clients online over time</h3>
+                <p class="panel-sub">{{ range() === 'week' ? 'Last 7 days, hourly average' : 'Last 24 hours, 15-minute average' }} · Wi-Fi, wired and guest</p>
+              </div>
+              <div class="head-side">
+                @if (historyStats(); as s) {
+                  <div class="head-stats">
+                    <div><span>Average</span><strong>{{ count(s.avg) }}</strong></div>
+                    <div><span>Most at once</span><strong [title]="s.peakAt">{{ count(s.peak) }}</strong></div>
+                  </div>
+                }
+                <div class="net-seg" role="group" aria-label="Time range">
+                  <button type="button" [class.active]="range() === 'day'" [attr.aria-pressed]="range() === 'day'" (click)="setRange('day')">24 hours</button>
+                  <button type="button" [class.active]="range() === 'week'" [attr.aria-pressed]="range() === 'week'" (click)="setRange('week')">7 days</button>
+                </div>
+              </div>
+            </div>
+            <div class="chart-box h-lg chart-nav"
+              [attr.tabindex]="historyEmpty() ? null : 0" role="group" aria-roledescription="interactive chart" [attr.aria-label]="historyAria()"
+              (keydown)="clientsNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && clientsNav.focus()" (blur)="clientsNav.clear()">
+              <canvas #clientsCanvas aria-hidden="true"></canvas>
+              @if (historyEmpty()) {
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No history yet</strong><span>The chart fills in as the network is read, once a minute.</span></div>
+              }
+            </div>
+          </div>
+
+          <!-- 2. Clients by type -->
+          <div class="dash-panel span-4">
+            <div class="panel-head">
+              <div>
+                <h3>Clients by type</h3>
+                <p class="panel-sub">Connected right now, as the Clients page names them</p>
+              </div>
+            </div>
+            @if (types().length) {
+              <div class="chart-box h-donut">
+                <canvas #typesCanvas role="img" [attr.aria-label]="'Clients by type: ' + typesAria()"></canvas>
+                <div class="donut-center"><span>Clients</span><strong>{{ count(typesTotal()) }}</strong></div>
+              </div>
+              <ul class="net-legend">
+                @for (t of types(); track t.kind) {
+                  <li>
+                    <i [style.background]="t.color"></i>
+                    <span class="lg-label">{{ t.label }}</span>
+                    <small>{{ typeShare(t.count) }}</small>
+                    <strong>{{ count(t.count) }}</strong>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <div class="empty">
+                <ng-container *ngTemplateOutlet="chartIcon" />
+                <strong>No client types</strong>
+                <span>{{ d.clientTypes?.message || 'No clients are connected right now.' }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- 3. Devices by type -->
+          <div class="dash-panel span-4 full-md nw-hug focus-target" id="net-panel-devices" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Network devices</h3>
+                <p class="panel-sub">Access points, switches and gateways, online and offline</p>
+              </div>
+              @if (d.devices; as dv) {
+                <div class="head-stats">
+                  <div><span>Online</span><strong class="good">{{ count(dv.online) }}</strong></div>
+                  <div><span>Offline</span><strong [class.bad]="dv.offline > 0">{{ count(dv.offline) }}</strong></div>
+                </div>
+              }
+            </div>
+            @if (deviceRows().length) {
+              <ul class="net-devices">
+                @for (t of deviceRows(); track t.type) {
+                  <li>
+                    <div class="nd-head">
+                      <span class="nd-name">{{ t.label }}</span>
+                      <span class="nd-count"><strong>{{ count(t.online) }}</strong> of {{ count(t.total) }} online</span>
+                    </div>
+                    <span class="nd-track" aria-hidden="true">
+                      @if (t.online) { <span [style.width.%]="t.onW" [style.background]="teal"></span> }
+                      @if (t.offline) { <span [style.width.%]="t.offW" [style.background]="offlineColor"></span> }
+                    </span>
+                    @if (t.offlineNames.length) {
+                      <span class="nd-off">Offline: {{ t.offlineNames.join(', ') }}{{ t.offline > t.offlineNames.length ? ' and more' : '' }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+              <div class="net-key">
+                <span><i class="sw" [style.background]="teal"></i>Online</span>
+                <span><i class="sw" [style.background]="offlineColor"></i>Offline</span>
+                @if (d.devices && d.devices.notInstalled) { <span class="muted">{{ count(d.devices.notInstalled) }} not installed, not counted</span> }
+              </div>
+            } @else {
+              <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No devices reported</strong><span>UniFi devices of this network show up here.</span></div>
+            }
+          </div>
+
+          <!-- 4. Internet: lines and latency -->
+          <div class="dash-panel span-8 full-md focus-target" id="net-panel-internet" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Internet</h3>
+                <p class="panel-sub">Each line's speed now, link and last speed test, and latency over the last 24 hours</p>
+              </div>
+              @if (d.internet; as i) {
+                <div class="head-stats">
+                  <div><span>Latency now</span><strong [class.warn]="(i.latencyMs ?? 0) >= 100">{{ ms(i.latencyMs) }}</strong></div>
+                  <div><span>Packet loss</span><strong [class.bad]="(i.lossMaxPct ?? 0) >= 1">{{ i.lossMaxPct === null ? '-' : pct(i.lossMaxPct) }}</strong></div>
+                </div>
+              }
+            </div>
+            @if (lines().length) {
+              <ul class="net-lines">
+                @for (r of lineRows(); track r.key) {
+                  <li [class.is-down]="!r.w.up">
+                    <div class="nl-top">
+                      <span class="nl-dot" [class.down]="!r.w.up" aria-hidden="true"></span>
+                      <span class="nl-main">
+                        <strong>{{ r.w.label }}@if (r.w.isp) { <span class="nl-isp">· {{ r.w.isp }}</span> }</strong>
+                        <small>{{ r.meta }}</small>
+                      </span>
+                      <span class="pill" [class.danger]="!r.w.up">{{ r.w.up ? 'Up' : 'Down' }}</span>
+                    </div>
+                    <dl class="nl-figs">
+                      <div><dt>Download now</dt><dd>{{ r.downNow }}</dd></div>
+                      <div><dt>Upload now</dt><dd>{{ r.upNow }}</dd></div>
+                      <div><dt>Link speed</dt><dd>{{ r.link }}</dd></div>
+                      <div><dt>Last test (down / up)</dt><dd [title]="r.testTitle">{{ r.test }}@if (r.testWhen) { <small>{{ r.testWhen }}</small> }</dd></div>
+                      <div><dt>Data 24 h (down / up)</dt><dd [title]="r.dataTitle">{{ r.data24 }}</dd></div>
+                    </dl>
+                    @if (r.spark; as sp) {
+                      <div class="nl-spark">
+                        <svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                          <path [attr.d]="sp.area" [attr.fill]="wifiColor" fill-opacity="0.12" stroke="none" />
+                          <path [attr.d]="sp.up" fill="none" [attr.stroke]="wiredColor" stroke-width="1.25" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+                          <path [attr.d]="sp.down" fill="none" [attr.stroke]="wifiColor" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+                        </svg>
+                        <span class="nl-spark-cap">
+                          <span><i [style.background]="wifiColor"></i>Download</span>
+                          <span><i [style.background]="wiredColor"></i>Upload</span>
+                          <span class="nl-peak">24 h, peak {{ sp.peak }}</span>
+                        </span>
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+              @if (d.internet?.speedsMessage) { <p class="note nl-note">{{ d.internet?.speedsMessage }}</p> }
+            }
+            <p class="net-subhead">Latency, last 24 hours</p>
+            <div class="chart-box h-net">
+              <canvas #latencyCanvas role="img" aria-label="Internet latency over the last 24 hours"></canvas>
+              @if (latencyEmpty()) {
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No latency figures yet</strong><span>UniFi reports them every 5 minutes.</span></div>
+              }
+            </div>
+          </div>
+        </div>
+
+        @if (siteLines().length) {
+          <p class="note net-sites">
+            @for (s of siteLines(); track s.id; let last = $last) {
+              UniFi site {{ s.name }} serves {{ s.serves }}{{ last ? '.' : '; ' }}
+            }
+          </p>
+        }
+      </div>
+    }
+  }
+
+  <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
+</section>

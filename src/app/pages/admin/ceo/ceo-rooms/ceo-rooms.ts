@@ -4,7 +4,9 @@ import {
 } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
-import { CEO_SHIFTS, CeoError, CeoPeriod, CeoPricing, CeoRooms, CeoService } from '../../../../services/ceo.service';
+import {
+  CEO_SHIFTS, CeoError, CeoPeriod, CeoPricing, CeoRoomCategory, CeoRooms, CeoService, roomCategoryOf
+} from '../../../../services/ceo.service';
 import {
   AXIS_MONEY, Chart, ChartKeyNav, DashKpi, GRID, LEGEND, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP,
   applyChartDefaults, count, fullMoney, money, pct, pointerOnHover
@@ -19,6 +21,9 @@ import {
 import type { CeoRoom, CeoRoomSale } from '../../../../services/ceo.service';
 
 type ChartKey = 'mix' | 'off' | 'occ' | 'rent';
+
+/** A KPI card of this section: a category card has a second line (days occupied) and its own grid placement. */
+type RoomKpi = DashKpi & { sub2?: string; cat?: boolean };
 
 /** The next round number at or above v (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8 x 10^n): axis ends people can read. */
 function niceCeil(v: number): number {
@@ -35,8 +40,9 @@ const AXIS_PX = 44;
 /**
  * Rooms section of the CEO dashboard: private offices and shared spaces, their occupancy (now and in the period) and
  * the price each confirmed booking was sold at against the list (Morning / Evening against the shift price). KPI
- * cards, four charts and a room map (every room as a tile coloured by its price, a card with the selected room's
- * tenant and price); a chart mark selects its room on the map. Follows the dashboard's
+ * cards (occupancy per room category, then under / at / over), four charts and a room map (every room as a tile
+ * coloured by its price, a card with the selected room's tenant and price); a category card shows its rooms in use
+ * on the map, a chart mark selects its room on the map. Follows the dashboard's
  * period and location. Data: GET api/ceo/rooms (database update CEO_02; before it, only the API's message shows).
  */
 @Component({
@@ -81,7 +87,8 @@ export class CeoRoomsSection {
   refreshing = signal(false);
   error = signal<CeoError | null>(null);
 
-  /** Room map: the shift whose bookings colour the tiles, the tiles highlighted, the room in the card. */
+  /** Room map: the room category shown (null = all), the shift whose bookings colour the tiles, the tiles highlighted, the room in the card. */
+  category = signal<string | null>(null);
   shift = signal<ShiftFilter>('all');
   mapFilter = signal<MapFilter>('all');
   selectedId = signal<number | null>(null);
@@ -156,29 +163,35 @@ export class CeoRoomsSection {
   /** "this month" / "in this range" (the figures on screen). */
   thisWord = computed(() => periodWords(this.shownPeriod(), this.shownRange()).thisP);
 
-  kpis = computed<DashKpi[]>(() => {
+  /** Occupancy per room category (the API's byCategory, else worked out from the rooms): Private Office, Shared Space. */
+  categories = computed<CeoRoomCategory[]>(() => this.s()?.byCategory ?? []);
+  /** The categories that have rooms: the room map's switch. */
+  mapCategories = computed(() => this.categories().filter(c => c.rooms > 0));
+  /** Two categories and under / at / over fill one row of five (two rows below 1400px); any other count the six grid. */
+  kpiLayout = computed(() => (this.categories().length === 2 ? 'kpi-rooms' : 'kpi-6'));
+
+  kpis = computed<RoomKpi[]>(() => {
     const s = this.s();
     if (!s) return [];
     const custom = this.shownPeriod() === 'custom';
     const sales = (n: number) => `${count(n)} sale${n === 1 ? '' : 's'}`;
-    const occTone = (p: number): DashKpi['tone'] => (!s.rooms ? 'neutral' : p >= 70 ? 'ok' : p >= 40 ? 'neutral' : 'warn');
+    const occTone = (rooms: number, p: number): DashKpi['tone'] => (!rooms ? 'neutral' : p >= 70 ? 'ok' : p >= 40 ? 'neutral' : 'warn');
+    const sofar = custom ? 'in the range' : `${this.thisWord()} so far`;
+    // One card per category, never the two mixed: in use now of its rooms, vacant, and its days occupied in the period.
+    const cats: RoomKpi[] = this.categories().map(c => ({
+      key: `cat-${c.categoryCode || 'other'}`, cat: true, label: c.label,
+      value: `${count(c.occupiedNow)} of ${count(c.rooms)}`,
+      sub: c.rooms ? `${pct(c.occupancyNowPct)} occupied now · ${count(c.vacantNow)} vacant` : 'No rooms',
+      sub2: c.rooms ? `Days occupied ${pct(c.periodOccupancyPct)}` : '',
+      full: c.rooms
+        ? `${c.label}: ${count(c.occupiedNow)} of ${count(c.rooms)} occupied now (${pct(c.occupancyNowPct)}), ${count(c.vacantNow)} vacant; days occupied ${sofar}: ${pct(c.periodOccupancyPct)}`
+        : '',
+      tone: occTone(c.rooms, c.occupancyNowPct),
+      action: c.rooms ? () => this.showMap({ category: c.categoryCode, filter: 'inuse' }) : undefined,
+      actionLabel: `Show the ${c.label} rooms in use now on the room map`
+    }));
     return [
-      {
-        key: 'occupied', label: 'Occupied now', value: `${count(s.occupiedNow)} of ${count(s.rooms)}`,
-        sub: `${pct(s.occupancyNowPct)} of the rooms`, tone: occTone(s.occupancyNowPct),
-        action: () => this.showMap({ filter: 'inuse' }), actionLabel: 'Show the rooms in use now on the room map'
-      },
-      {
-        key: 'vacant', label: 'Vacant now', value: count(s.vacantNow),
-        sub: s.vacantNow ? 'No tenant today' : 'Every room is let', tone: s.vacantNow ? 'warn' : 'ok',
-        action: () => this.showMap({ filter: 'vacantnow' }), actionLabel: 'Show the rooms vacant now on the room map'
-      },
-      {
-        key: 'period', label: 'Days occupied', value: pct(s.periodOccupancyPct),
-        sub: custom ? 'Days of the range' : `${this.thisWord().charAt(0).toUpperCase()}${this.thisWord().slice(1)} so far`,
-        tone: occTone(s.periodOccupancyPct),
-        action: () => this.focusEl('panel-rooms-occ'), actionLabel: 'Show occupancy by room'
-      },
+      ...cats,
       {
         key: 'under', label: 'Under price', value: sales(s.under), full: `${fullMoney(s.underGapMonthly)} a month short`,
         sub: s.under ? `-${money(s.underGapMonthly)} a month` : 'No gap', tone: s.under ? 'danger' : 'ok',
@@ -207,12 +220,17 @@ export class CeoRoomsSection {
 
   // ---------- room map ----------
 
-  groups = computed(() => roomGroups(this.rooms(), this.shift()));
-  private tiles = computed(() => this.groups().flatMap(g => g.tiles));
+  /** The rooms on the map: the chosen category's, else all. */
+  private mapRooms = computed(() => {
+    const c = this.category();
+    return c === null ? this.rooms() : this.rooms().filter(r => roomCategoryOf(r) === c);
+  });
+  groups = computed(() => roomGroups(this.mapRooms(), this.shift()));
+  tiles = computed(() => this.groups().flatMap(g => g.tiles));
   mapCounts = computed(() => mapCounts(this.tiles()));
   /** "No list price" is offered only while there are such bookings (or it is the chosen filter). */
   mapFilters = computed(() => MAP_FILTERS.filter(f => f.key !== 'unpriced' || this.mapCounts().unpriced > 0 || this.mapFilter() === 'unpriced'));
-  mapFiltered = computed(() => this.shift() !== 'all' || this.mapFilter() !== 'all');
+  mapFiltered = computed(() => this.category() !== null || this.shift() !== 'all' || this.mapFilter() !== 'all');
   letRooms = computed(() => this.tiles().filter(t => t.sales.length).length);
   /** The room in the card (null: none chosen, or it left with a new period / location). */
   selected = computed<RoomTile | null>(() => {
@@ -222,9 +240,10 @@ export class CeoRoomsSection {
   /** The tile that takes Tab (the chosen one, else the first); arrow keys move from there. */
   tabStop = computed(() => this.selected()?.i ?? this.tiles()[0]?.i ?? -1);
 
+  setCategory(c: string | null) { this.category.set(c); }
   setShift(f: ShiftFilter) { this.shift.set(f); }
   setMapFilter(f: MapFilter) { this.mapFilter.set(this.mapFilter() === f && f !== 'all' ? 'all' : f); }
-  clearMap() { this.shift.set('all'); this.mapFilter.set('all'); }
+  clearMap() { this.category.set(null); this.shift.set('all'); this.mapFilter.set('all'); }
   matches(t: RoomTile) { return tileMatches(t, this.mapFilter()); }
   select(t: RoomTile) { this.selectedId.set(this.selectedId() === t.room.spaceId ? null : t.room.spaceId); }
   chipColor(f: MapFilter): string | null {
@@ -314,8 +333,9 @@ export class CeoRoomsSection {
 
   // ---------- leading to the map ----------
 
-  /** Sets the map's shift and highlight (the rest back to All) and brings the map into view. */
-  showMap(f: { shift?: ShiftFilter; filter?: MapFilter }) {
+  /** Sets the map's category, shift and highlight (the rest back to All) and brings the map into view. */
+  showMap(f: { category?: string; shift?: ShiftFilter; filter?: MapFilter }) {
+    this.category.set(f.category ?? null);
     this.shift.set(f.shift ?? 'all');
     this.mapFilter.set(f.filter ?? 'all');
     afterNextRender(() => this.focusEl('panel-rooms-map'), { injector: this.injector });
@@ -323,6 +343,8 @@ export class CeoRoomsSection {
 
   /** Opens a room's card on the map and brings its tile into view. */
   showRoomOnMap(room: CeoRoom) {
+    // A room of another category than the one shown: the map shows every category again.
+    if (this.category() !== null && roomCategoryOf(room) !== this.category()) this.category.set(null);
     this.selectedId.set(room.spaceId);
     afterNextRender(() => {
       const t = this.selected();
@@ -459,7 +481,7 @@ export class CeoRoomsSection {
           label: 'Difference a month', data: off.map(x => x.sale.varianceMonthly),
           backgroundColor: off.map(x => PRICING_COLORS[x.sale.pricing]),
           hoverBackgroundColor: off.map(x => PRICING_HOVER[x.sale.pricing]),
-          borderRadius: 5, borderSkipped: false, maxBarThickness: 22, categoryPercentage: 0.8, barPercentage: 0.9
+          borderRadius: 4, borderSkipped: 'start', maxBarThickness: 20, categoryPercentage: 0.8, barPercentage: 0.9
         }]
       },
       options: {
@@ -562,7 +584,7 @@ export class CeoRoomsSection {
           label: p.label, data: rent.map(r => r[p.key]), stack: 'rent',
           backgroundColor: p.color, hoverBackgroundColor: p.hover,
           borderColor: '#fff', borderWidth: { top: 0, right: 2, bottom: 0, left: 0 }, borderSkipped: false, borderRadius: 4,
-          maxBarThickness: 30, categoryPercentage: 0.8, barPercentage: 0.9
+          maxBarThickness: 24, categoryPercentage: 0.8, barPercentage: 0.9
         }))
       },
       options: {

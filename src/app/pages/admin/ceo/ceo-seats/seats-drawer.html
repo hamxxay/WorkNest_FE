@@ -1,0 +1,129 @@
+@if (request()) {
+<div class="drawer-backdrop" (click)="close()" (wheel)="$event.preventDefault()" aria-hidden="true"></div>
+<aside class="drawer" #panel role="dialog" aria-modal="true" aria-labelledby="ceo-seats-drawer-title" tabindex="-1">
+  <header class="drawer-head">
+    <div class="drawer-nav">
+      <nav class="crumbs" aria-label="Drill-down path">
+        <ol>
+          <li>
+            <span>Seats</span>
+            <svg class="crumb-sep" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </li>
+          <li><span class="crumb-current" aria-current="page">{{ crumb() }}</span></li>
+        </ol>
+      </nav>
+      <button type="button" class="nav-btn drawer-export" (click)="exportExcel()" [disabled]="!canExport()" title="This list as an Excel workbook" aria-label="Export this list to Excel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+        <span class="drawer-export-label">Export Excel</span>
+      </button>
+      <button type="button" class="close-btn" (click)="close()" aria-label="Close (Escape)" title="Close (Esc)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <h2 id="ceo-seats-drawer-title" #heading tabindex="-1">{{ title() }}</h2>
+    <p class="drawer-sub">{{ sub() }}</p>
+  </header>
+
+  <div class="drawer-body">
+    @if (!scoped().length) {
+      <div class="state-box">
+        <span class="state-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+        <strong>No rooms here</strong>
+        <span>Private offices and shared spaces of this selection show up here.</span>
+      </div>
+    } @else {
+      <div class="sp-bar">
+        @if (mixed()) {
+          <div class="seg" role="group" aria-label="Show rooms">
+            @for (f of filters(); track f.key) {
+              <button type="button" [class.on]="filter() === f.key" [attr.aria-pressed]="filter() === f.key" (click)="setFilter(f.key)">{{ f.label }} <span>{{ count(counts()[f.key]) }}</span></button>
+            }
+          </div>
+        }
+        <span class="sp-sum">
+          @if (counts().partly) {
+            {{ count(counts().partly) }} partly filled ({{ count(scopeTotals().partlyFilledEmptySeats) }} empty seats in rooms already let)
+          } @else if (counts().empty) {
+            {{ count(counts().empty) }} with no seat sold
+          } @else { Every seat is sold }
+        </span>
+      </div>
+
+      @if (!shown().length) {
+        <div class="state-box">
+          <strong>No rooms match</strong>
+          <span>Choose All to see every room.</span>
+        </div>
+      } @else {
+        <div class="table-scroll">
+          <table class="dr-table records seats">
+            <caption class="sr-only">{{ title() }}: seats now, most rent not earned first</caption>
+            <thead><tr>
+              <th scope="col">Room</th>
+              <th scope="col" class="num">Seats</th>
+              <th scope="col" class="num">Sold</th>
+              <th scope="col" class="num">Empty</th>
+              @if (hasShifts()) { <th scope="col">Shifts</th> }
+              <th scope="col" class="num">List a seat</th>
+              <th scope="col" class="num">Rent not earned</th>
+            </tr></thead>
+            <tbody>
+              @for (r of shown(); track r.spaceId || $index) {
+                <tr [class.is-empty]="!r.seatsSold && !r.occupiedNow">
+                  <th scope="row"><strong>{{ r.name || '-' }}</strong>@if (roomSub(r); as rs) { <small>{{ rs }}</small> }</th>
+                  <td class="num">{{ count(r.seats) }}</td>
+                  <td class="num">{{ count(r.seatsSold) }}<small>{{ pct(r.seatOccupancyPct) }}</small></td>
+                  <td class="num" [class.part]="r.emptySeats > 0 && (r.occupiedNow || r.seatsSold > 0)">
+                    {{ count(r.emptySeats) }}
+                    @if (r.emptySeats > 0 && (r.occupiedNow || r.seatsSold > 0)) { <small>room let</small> }
+                  </td>
+                  @if (hasShifts()) {
+                    <td>
+                      @for (p of shiftParts(r); track p) { <span class="shift-part">{{ p }}</span> } @empty { <span class="none">-</span> }
+                      @if (r.oneShiftSeats) { <small class="free">{{ count(r.oneShiftSeats) }} with one shift free</small> }
+                    </td>
+                  }
+                  <td class="num">
+                    @if (r.listSeatPrice !== null) { <span [title]="fullMoney(r.listSeatPrice) + ' a month'">{{ money(r.listSeatPrice) }}</span> }
+                    @else { <span class="none">Not set</span> }
+                  </td>
+                  <td class="num">
+                    @if (r.rentNotEarned !== null) {
+                      <span [class.strong-cell]="r.rentNotEarned > 0" [title]="fullMoney(r.rentNotEarned) + ' a month'">{{ money(r.rentNotEarned) }}</span>
+                    } @else if (r.emptySeats) {
+                      <span class="none">-</span><small>No list price</small>
+                    } @else { <span class="none">-</span> }
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total<small>{{ count(totals().rooms) }} room{{ totals().rooms === 1 ? '' : 's' }}</small></th>
+                <td class="num">{{ count(totals().seats) }}</td>
+                <td class="num">{{ count(totals().seatsSold) }}<small>{{ pct(totals().seatOccupancyPct) }}</small></td>
+                <td class="num">{{ count(totals().emptySeats) }}</td>
+                @if (hasShifts()) {
+                  <td>
+                    @for (p of shiftParts(totals()); track p) { <span class="shift-part">{{ p }}</span> } @empty { <span class="none">-</span> }
+                    @if (totals().oneShiftSeats) { <small class="free">{{ count(totals().oneShiftSeats) }} with one shift free</small> }
+                  </td>
+                }
+                <td class="num">
+                  @if (totals().listSeatPriceAll !== null) { <span [title]="'Average ' + fullMoney(totals().listSeatPriceAll) + ' a month over the seats with a list price'">{{ money(totals().listSeatPriceAll) }}</span><small>average</small> }
+                  @else { <span class="none">-</span> }
+                </td>
+                <td class="num">
+                  <span [title]="fullMoney(totals().rentNotEarned) + ' a month'">{{ money(totals().rentNotEarned) }}</span>
+                  @if (totals().emptySeatsUnpriced) { <small>{{ count(totals().emptySeatsUnpriced) }} seats unpriced</small> }
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+      <p class="hint">Seats now (today). {{ rule }} Rent not earned: the empty seats at the room's list price a seat, a month.</p>
+    }
+  </div>
+</aside>
+}

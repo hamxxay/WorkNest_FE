@@ -7,6 +7,8 @@ import {
   SmLocation, SmMetric, SmOldComplaint, SmPeriod, SmRecordKind
 } from '../../../services/sales-manager.service';
 import { CeoDrawer } from '../ceo/ceo-drawer/ceo-drawer';
+import { DashNetworkSection } from '../ceo/dash-network/dash-network';
+import { networkSheets } from '../ceo/dash-network/network-export';
 import {
   COMPLAINT_STATUSES, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
   Trend, applyChartDefaults, complaintStatusStyle, count, displayNameOf, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort,
@@ -93,12 +95,14 @@ function dayCount(n: number): string {
  * counted in desks.
  * The Complaints section (last) loads on its own from GET api/sales-manager/complaints, with the same period and
  * location, so the rest of the page keeps working when only it fails.
- * Data: GET api/sales-manager/dashboard, GET api/sales-manager/complaints.
+ * The Network section (UniFi, after it) loads on its own too, from GET api/sales-manager/network: the Wi-Fi / network
+ * picture of the manager's locations only (the API keeps them to their sites).
+ * Data: GET api/sales-manager/dashboard, GET api/sales-manager/complaints, GET api/sales-manager/network.
  */
 @Component({
   selector: 'app-sales-manager-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, DashNetworkSection],
   templateUrl: './sales-manager-dashboard.html',
   // Same look as the CEO dashboard: its stylesheet, plus the few sales-only pieces.
   styleUrls: ['../ceo/ceo-dashboard.css', './sales-manager-dashboard.css']
@@ -171,6 +175,11 @@ export class SalesManagerDashboard {
   private cmpSub: Subscription | null = null;
   private cmpKey = '';
 
+  /** Network section (UniFi): bumped by the refresh button / the auto refresh; it follows the location picker. */
+  networkReload = signal(0);
+  networkQuietReload = signal(0);
+  private networkSection = viewChild(DashNetworkSection);
+
   private funnelCanvas = viewChild<ElementRef<HTMLCanvasElement>>('funnelCanvas');
   private inquiriesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('inquiriesCanvas');
   private desksCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desksCanvas');
@@ -180,7 +189,7 @@ export class SalesManagerDashboard {
 
   /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
   private auto = new AutoRefresh({
-    run: () => { this.load(true); this.loadComplaints(true); },
+    run: () => { this.load(true); this.loadComplaints(true); this.networkQuietReload.update(n => n + 1); },
     paused: () => !!this.drill() || this.rangeEditor.open() || !!this.exporting() || this.loading() || this.refreshing()
   });
 
@@ -266,7 +275,7 @@ export class SalesManagerDashboard {
     });
   }
 
-  refresh() { this.load(); this.loadComplaints(); }
+  refresh() { this.load(); this.loadComplaints(); this.networkReload.update(n => n + 1); }
 
   setPeriod(p: SmPeriod) {
     this.rangeEditor.close();
@@ -331,7 +340,7 @@ export class SalesManagerDashboard {
           meta.location,
           meta.preparedBy ? `Prepared by ${meta.preparedBy}` : ''
         ],
-        hide: '.view-toggle, .kpi-go, .row-go'
+        hide: '.view-toggle, .kpi-go, .row-go, .net-seg'
       });
     } catch {
       this.exportError.set('The PDF could not be made. Please try again.');
@@ -347,7 +356,8 @@ export class SalesManagerDashboard {
     this.exporting.set('xlsx');
     this.exportError.set('');
     try {
-      downloadXlsx(`${this.exportName()}.xlsx`, salesWorkbook(d, this.cmp(), this.exportMeta()));
+      const network = networkSheets(this.networkSection()?.data() ?? null);
+      downloadXlsx(`${this.exportName()}.xlsx`, [...salesWorkbook(d, this.cmp(), this.exportMeta()), ...network]);
     } catch {
       this.exportError.set('The Excel file could not be made. Please try again.');
     } finally {

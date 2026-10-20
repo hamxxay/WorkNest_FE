@@ -50,7 +50,7 @@
   @if (error()) {
     <div class="alert alert-error fr-error-banner" role="alert">
       <span>{{ error() }}</span>
-      <button type="button" class="fr-error-dismiss" (click)="dismissError()" aria-label="Dismiss error">
+      <button type="button" class="fr-error-dismiss" (click)="dismissError()" title="Dismiss error" aria-label="Dismiss error">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
@@ -130,6 +130,9 @@
                         <span class="fr-badge fr-badge-location">{{ inv.locationName }}</span>
                         @if (inv.invoiceTypeName === 'WHT Invoice') {
                           <span class="fr-badge fr-badge-wht">WHT Invoice</span>
+                        }
+                        @if (inv.isCustom) {
+                          <span class="fr-badge fr-badge-custom">Custom Invoice</span>
                         }
                         @if (inv.amountPaid > 0) {
                           <span class="fr-badge fr-badge-partial">Part paid</span>
@@ -232,10 +235,10 @@
                   (click)="setPaymentMode('Full')">Full</button>
                 <button type="button" role="radio" [attr.aria-checked]="paymentMode() === 'Partial'" [class.active]="paymentMode() === 'Partial'"
                   [disabled]="!partialAllowed()" (click)="setPaymentMode('Partial')"
-                  [title]="partialAllowed() ? 'Record part of the balance' : 'Withholding-tax invoices are paid in full only'">Partial</button>
+                  [title]="partialAllowed() ? 'Record part of the balance' : isCustomInvoice() ? 'Custom invoices are paid in full only' : 'Withholding-tax invoices are paid in full only'">Partial</button>
               </div>
               @if (!partialAllowed()) {
-                <span class="fr-field-hint">{{ inv.invoiceTypeName === 'WHT Invoice' ? 'Withholding-tax invoices are paid in full only.' : 'Part payments are not available for this invoice yet.' }}</span>
+                <span class="fr-field-hint">{{ isCustomInvoice() ? 'Custom invoices are paid in full only.' : inv.invoiceTypeName === 'WHT Invoice' ? 'Withholding-tax invoices are paid in full only.' : 'Part payments are not available for this invoice yet.' }}</span>
               }
             </div>
 
@@ -567,7 +570,7 @@
                           class="fr-btn-icon print-btn"
                           (click)="openPrintReceipt(r)"
                           [disabled]="loadingPrintable()"
-                          [title]="printableLoadingId() === r.id ? 'Loading...' : 'Print Official Receipt'"
+                          [title]="printableLoadingId() === r.id ? 'Loading the receipt' : 'Print official receipt'"
                           [attr.aria-label]="printableLoadingId() === r.id ? 'Loading receipt ' + r.code : 'Print receipt ' + r.code">
                           @if (printableLoadingId() === r.id) {
                             <span class="fr-spinner-sm"></span>
@@ -586,7 +589,7 @@
                             type="button"
                             class="fr-btn-icon danger"
                             (click)="openVoidModal(r)"
-                            title="Void Receipt"
+                            title="Void receipt"
                             [attr.aria-label]="'Void receipt ' + r.code">
                             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                               <circle cx="12" cy="12" r="10"></circle>
@@ -634,7 +637,7 @@
   @if (showVoidModal() && receiptToVoid(); as v) {
     <div class="modal-overlay" (click)="closeVoidModal()">
       <div class="modal-content" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="fr-void-title">
-        <button type="button" class="modal-close" (click)="closeVoidModal()" aria-label="Close">
+        <button type="button" class="modal-close" (click)="closeVoidModal()" title="Close" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />
@@ -696,7 +699,7 @@
         (click)="$event.stopPropagation()" 
         id="admin-receipt-printable"
         role="dialog" aria-modal="true" aria-labelledby="fr-receipt-title">
-        <button type="button" class="modal-close" (click)="closePrintModal()" aria-label="Close">
+        <button type="button" class="modal-close" (click)="closePrintModal()" title="Close" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />

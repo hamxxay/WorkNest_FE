@@ -4,6 +4,7 @@ import { superAdminGuard } from './guards/super-admin.guard';
 import { ceoGuard } from './guards/ceo.guard';
 import { salesManagerGuard } from './guards/sales-manager.guard';
 import { accessOfficerGuard } from './guards/access-officer.guard';
+import { customInvoiceGuard } from './guards/custom-invoice.guard';
 
 export const routes: Routes = [
 
@@ -45,6 +46,9 @@ export const routes: Routes = [
       { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [adminGuard] },
       { path: 'invoices',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'invoices' } },
       { path: 'fee-receipts', loadComponent: () => import('./pages/admin/fee-receipts/fee-receipts').then(m => m.FeeReceiptsComponent), canActivate: [adminGuard] },
+      // Custom invoices (invoice + its voucher, optionally replacing an unpaid invoice): super admins, and admins a super admin
+      // has given access (customInvoiceGuard asks api/custom-invoices/access/me; the API checks it again).
+      { path: 'custom-invoice', loadComponent: () => import('./pages/admin/custom-invoice/custom-invoice').then(m => m.CustomInvoicePage), canActivate: [customInvoiceGuard] },
 
       { path: 'contacts',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'contacts' } },
       { path: 'whatsapp',    loadComponent: () => import('./pages/admin/whatsapp-inbox/whatsapp-inbox').then(m => m.WhatsAppInbox) },
@@ -72,6 +76,8 @@ export const routes: Routes = [
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
         { path: 'audit-log', loadComponent: () => import('./pages/admin/audit-log/audit-log').then(m => m.AuditLogComponent), canActivate: [superAdminGuard] },
         { path: 'login-history', loadComponent: () => import('./pages/admin/login-history/login-history').then(m => m.LoginHistoryComponent), canActivate: [superAdminGuard] },
+      // Background service switches (turn a server job on / off): super admin only.
+      { path: 'services', loadComponent: () => import('./pages/admin/services/services').then(m => m.ServicesPage), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]
   },
