@@ -789,7 +789,7 @@
           <span style="color:#ef4444;font-weight:bold;margin-left:2px">*</span>
           }
         </label>
-        @if (field.key === 'cnicOrPassport') {
+        @if (field.key === 'cnicOrPassport' && formData.customerType !== 'Company') {
         <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
           #cnicFieldCtrl="ngModel" [maxlength]="cnicMaxLength" inputmode="numeric" placeholder="e.g. 35202-1234567-1"
           (input)="onCnicFieldInput($event, formData, field.key)"

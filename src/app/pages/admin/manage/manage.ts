@@ -4384,7 +4384,7 @@ export class Manage implements OnInit {
     this.error.set('');
 
     // Users / Customers: CNIC is optional, but if entered it must be a valid CNIC.
-    if (this.entity === 'users' || this.entity === 'customers') {
+    if (this.entity === 'users' || (this.entity === 'customers' && this.formData.customerType !== 'Company')) {
       const cnicMsg = cnicError(this.formData.cnicOrPassport);
       if (cnicMsg) {
         this.error.set(cnicMsg);
@@ -4515,9 +4515,8 @@ export class Manage implements OnInit {
           this.saving.set(false);
           return;
         }
-        const cleanNtn = ntnVal.replace(/-/g, '');
-        if (cleanNtn.length !== 8 || !/^\d+$/.test(cleanNtn)) {
-          this.error.set('Please enter a valid 8-digit NTN (e.g. 1234567-8).');
+        if (ntnVal.length > 50) {
+          this.error.set('NTN cannot exceed 50 characters.');
           this.showError(this.error());
           this.saving.set(false);
           return;
