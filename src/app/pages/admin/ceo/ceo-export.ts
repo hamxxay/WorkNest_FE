@@ -81,6 +81,12 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
       ['Money', 'Overdue (PKR)', money2(m.overdue), null, `${m.overdueCount} past due date, as of today`]
     );
   }
+  // CP_02: money received (fee receipts and payments by the day they came in), after Collected; none before CP_02.
+  if (m?.received != null) {
+    const at = kpis.findIndex(r => r[1] === 'Collected (PKR)');
+    kpis.splice(at >= 0 ? at + 1 : kpis.length, 0, ['Money', 'Received (PKR)', money2(m.received), money2(m.receivedPrev ?? 0),
+      `${m.receivedCount ?? 0} receipts and payments taken in during the period (to date), whatever invoice`]);
+  }
   if (o) {
     kpis.push(
       // CP_02: one line per room category (rooms with a confirmed booking now; seats sold), never one mixed figure.
@@ -158,11 +164,19 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
         ...m.topCustomers.map((c, i) => [i + 1, c.name, money2(c.amount), c.invoices])]
     });
   }
+  // CP_02: money received by month (by the day it came in), the same 12 months
+  if (m?.receivedSeries?.length) {
+    sheets.push({
+      name: 'Received 12 months',
+      rows: [['Month (received)', 'Received (PKR)', 'Receipts and payments'], ...m.receivedSeries.map(x => [x.month, money2(x.received), x.count])]
+    });
+  }
   if (forecast?.length) {
+    // CP_02: Expected = confirmed leases (after % and fixed discounts); pending confirmation apart.
     sheets.push({
       name: 'Next 3 months',
-      rows: [['Month', 'Expected rent (PKR)', 'Confirmed rent (PKR)', 'Occupancy (%)', 'Occupied spaces', 'Spaces', 'Leases ending', 'Leases starting'],
-        ...forecast.map(f => [f.label || f.month, money2(f.expectedRent), money2(f.confirmedRent), pct1(f.occupancyPct), f.occupiedSpaces,
+      rows: [['Month', 'Expected, confirmed (PKR)', 'Pending confirmation (PKR)', 'All live leases (PKR)', 'Occupancy (%)', 'Occupied spaces', 'Spaces', 'Leases ending', 'Leases starting'],
+        ...forecast.map(f => [f.label || f.month, money2(f.confirmedRent), money2(f.pendingRent), money2(f.expectedRent), pct1(f.occupancyPct), f.occupiedSpaces,
           f.totalSpaces, f.leasesEnding, f.leasesStarting])]
     });
   }

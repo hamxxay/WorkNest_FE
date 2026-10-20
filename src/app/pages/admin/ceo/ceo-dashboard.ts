@@ -45,6 +45,8 @@ interface Kpi {
 
 type ChartKey = 'revenue' | 'aging' | 'occupancy';
 
+/** CP_02: the Received line on the revenue chart (indigo, apart from the teal bars). */
+const RECEIVED_COLOR = '#4f46e5';
 /** CP_02: line colour per room category on the occupancy chart (Private Office, Shared Space; others after). */
 const CATEGORY_LINE: Record<string, string> = { PrivateOffice: TEAL_DARK, SharedSpace: '#7c3aed' };
 const CATEGORY_LINE_FALLBACK = ['#0369a1', '#b45309'];
@@ -424,6 +426,9 @@ export class CeoDashboard {
         action: () => this.openBilledInAdvance(), actionLabel: 'Open the invoices billed in advance'
       });
     }
+    // CP_02: Received (money taken in during the period, whatever invoice), right after Collected.
+    const received = this.receivedKpi();
+    if (received) kpis.splice(kpis.findIndex(k => k.key === 'collected') + 1, 0, received);
     // Security deposits (CP_02): billed on the period's invoices, kept out of invoiced; after the collection rate.
     if (m.securityDeposits != null) {
       const n = m.securityDepositsCount ?? 0;
@@ -438,6 +443,25 @@ export class CeoDashboard {
     }
     return kpis;
   });
+
+  /**
+   * CP_02: the Received card: fee receipts and online payments by the day the money came in (to date), against the same
+   * days one period earlier; null before the database update CP_02 (the API sends no figure).
+   */
+  private receivedKpi(): Kpi | null {
+    const m = this.m();
+    if (m?.received == null) return null;
+    const w = this.words();
+    const prev = m.receivedPrev ?? 0;
+    const n = m.receivedCount ?? 0;
+    return {
+      key: 'received', label: `Received ${w.thisP}`, value: money(m.received), full: fullMoney(m.received),
+      sub: `${money(prev)} ${w.last}`, sub2: n === 1 ? '1 receipt or payment' : `${count(n)} receipts and payments`, tone: 'neutral',
+      trend: trend(m.received, prev, '%'), vs: `vs ${w.last}`,
+      hint: 'Money taken in during the period (fee receipts and online payments), whatever invoice it was for',
+      action: () => this.openReceived(), actionLabel: `Open the money received ${w.thisP}`
+    };
+  }
 
   /** A KPI card's tooltip: the full amount and the hint, when there is one. */
   kpiTitle(k: Kpi): string {
@@ -460,11 +484,13 @@ export class CeoDashboard {
   revenueTable = signal(false);
   occTable = signal(false);
 
-  forecastMaxRent = computed(() => Math.max(1, ...(this.forecast() ?? []).map(f => f.expectedRent)));
+  // CP_02: "Expected" = confirmed leases only; the bookings waiting for confirmation are a separate "pending" figure.
+  forecastMaxRent = computed(() => Math.max(1, ...(this.forecast() ?? []).map(f => f.confirmedRent)));
   forecastTotals = computed(() => {
     const f = this.forecast() ?? [];
     return {
-      rent: f.reduce((a, x) => a + x.expectedRent, 0),
+      rent: f.reduce((a, x) => a + x.confirmedRent, 0),
+      pending: f.reduce((a, x) => a + x.pendingRent, 0),
       ending: f.reduce((a, x) => a + x.leasesEnding, 0),
       starting: f.reduce((a, x) => a + x.leasesStarting, 0)
     };
@@ -697,6 +723,11 @@ export class CeoDashboard {
     this.openDrill('Outstanding', { kind: 'breakdown', metric: 'aging-buckets', params: {}, crumb: 'By days past due', local: () => this.agingBuckets() });
   }
 
+  /** CP_02: Received: the fee receipts and payments of the period (records/receipts, newest first). */
+  openReceived() {
+    this.openRecords('Received', this.periodTitle(), 'receipts', {});
+  }
+
   /**
    * Security deposits (CP_02): the invoices with a deposit whose billing period starts in the period's invoice window
    * (this month; a quarter / year: from its first day to the end of this month; a custom range: the range).
@@ -888,6 +919,8 @@ export class CeoDashboard {
     const occ = d.occupancy?.months ?? [];
 
     // Revenue & collections: invoiced vs collected, one PKR axis (the collection rate is in the panel header).
+    const series = d.money?.receivedSeries;
+    const receivedByMonth = series ? new Map(series.map(x => [x.month.slice(0, 7), x.received])) : null;
     this.upsert('revenue', this.revenueEmpty() ? undefined : this.revenueCanvas(), {
       type: 'bar',
       data: {
@@ -895,7 +928,13 @@ export class CeoDashboard {
         datasets: [
           // Rounded data ends, square on the baseline; a small gap between the pair.
           { label: 'Invoiced', data: months.map(x => x.invoiced), backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
-          { label: 'Collected', data: months.map(x => x.collected), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 }
+          { label: 'Collected', data: months.map(x => x.collected), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
+          // CP_02: money received by the day it came in (fee receipts + payments), as a line over the bars.
+          ...(receivedByMonth ? [{
+            type: 'line' as any, label: 'Received', data: months.map(x => receivedByMonth.get(x.month.slice(0, 7)) ?? 0),
+            borderColor: RECEIVED_COLOR, backgroundColor: RECEIVED_COLOR, pointBackgroundColor: RECEIVED_COLOR, borderWidth: 2,
+            pointRadius: 3, pointHoverRadius: 5, tension: 0.25, fill: false, order: -1
+          } as any] : [])
         ]
       },
       options: {

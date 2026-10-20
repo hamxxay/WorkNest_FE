@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
 import { Subscription, map } from 'rxjs';
 import {
   CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoInvoiceTotals, CeoLeaseRecord, CeoLocalMetric,
-  CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
+  CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoReceiptRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
 import type {
   SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
@@ -162,7 +162,7 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
 
 const RECORD_TITLES: Record<string, string> = {
   invoices: 'Invoices', spaces: 'Spaces', bookings: 'Bookings', inquiries: 'Tour inquiries', quotations: 'Quotations',
-  leases: 'Expiring leases', complaints: 'Complaints'
+  leases: 'Expiring leases', complaints: 'Complaints', receipts: 'Money received'
 };
 
 /**
@@ -472,6 +472,8 @@ export class CeoDrawer {
   quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
   leaseRows = computed(() => this.recordsOf<LeaseRow>('leases'));
   complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
+  /** CP_02: fee receipts and payments (records/receipts). */
+  receiptRows = computed(() => this.recordsOf<CeoReceiptRecord>('receipts'));
   /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
   highlight = computed<number | null>(() => {
     const e = this.current();

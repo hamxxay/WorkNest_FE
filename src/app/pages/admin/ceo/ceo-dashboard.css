@@ -208,6 +208,9 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .head-stats strong.good { color: #047857; }
 .head-stats strong.bad { color: #b91c1c; }
 .head-stats strong.warn { color: #b45309; }
+/* CP_02: Next 3 months, the rent of bookings waiting for confirmation under "Expected" */
+.head-stats .head-note, .cmp-table .pending-note { font-size: 0.75rem; font-weight: 500; color: #64748b; white-space: nowrap; }
+.cmp-table .pending-note { display: block; text-align: right; margin-top: 2px; }
 /* a header figure that opens its records */
 .head-stats .stat-btn { margin: -4px -8px; padding: 4px 8px; border-radius: 8px; transition: background-color .12s; }
 .head-stats .stat-btn:hover { background: #f0fdfa; }
