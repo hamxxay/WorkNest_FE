@@ -218,7 +218,7 @@ export class Manage implements OnInit {
   readonly bookingFloorOptions = signal<{ v: any; l: string }[]>([]);
 
   bookingBillingPeriodMonths = 3;
-  /** Security Deposit (Months) chosen on Create Booking: 0-3, default 2 for private offices & shared spaces (meeting: 0). */
+  /** Security Deposit (Months) chosen on Create Booking: 0-3, default 2 for private offices, 0 for shared spaces (meeting: 0). */
   bookingSecurityDepositMonths = 2;
   /** Booking edit: the months the form loaded (null on Create Booking). Unchanged months are not sent on update. */
   private bookingEditLoadedDepositMonths: number | null = null;
@@ -618,7 +618,7 @@ export class Manage implements OnInit {
   quotationFloorId: number | null = null;
   readonly quotationFloorOptions = signal<{ v: any; l: string }[]>([]);
   quotationBillingPeriodMonths = 3;
-  /** Security Deposit (Months) chosen on Create Quotation: 0-3, default 2 for private offices & shared spaces (meeting: 0). */
+  /** Security Deposit (Months) chosen on Create Quotation: 0-3, default 2 for private offices, 0 for shared spaces (meeting: 0). */
   quotationSecurityDepositMonths = 2;
   readonly offeringTypes = signal<{ id: number; description: string; discountCap: number; locationId?: number | null }[]>([]);
   quotationOfferingTypeId: number = 1;
@@ -2666,7 +2666,7 @@ export class Manage implements OnInit {
       if (def) { this.bookingOfferingTypeId = def.id; this.bookingOfferingType = def.description; }
     }
     this.bookingBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
-    this.bookingSecurityDepositMonths = (isPrivate || isShared) ? 2 : 0;
+    this.bookingSecurityDepositMonths = isPrivate ? 2 : 0;
 
     if (this.isAdminPrivateRoom) {
       this.updateAvailableAdminCapacities();
@@ -6440,7 +6440,7 @@ export class Manage implements OnInit {
       if (def) { this.quotationOfferingTypeId = def.id; this.quotationOfferingType = def.description; }
     }
     this.quotationBillingPeriodMonths = (isPrivate || isShared) ? 3 : 1;
-    this.quotationSecurityDepositMonths = (isPrivate || isShared) ? 2 : 0;
+    this.quotationSecurityDepositMonths = isPrivate ? 2 : 0;
     this.validateQuotationBasePrice();
     this.recalcQuotationAmount();
   }
