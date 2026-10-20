@@ -25,9 +25,18 @@ export interface CeoTopCustomer { customerId: number; name: string; amount: numb
 export interface CeoMoney {
   invoiced: number; invoicedPrev: number;
   collected: number; collectedPrev: number;
+  /** Unpaid now, without the invoices billed in advance (as the aging buckets). */
   outstanding: number; outstandingCount: number;
   overdue: number; overdueCount: number;
-  /** Collected / invoiced in the period, % (0-100). */
+  /**
+   * Unpaid invoices for a billing period that has not started yet (and not past due), kept out of outstanding; null
+   * when the API did not send them (before the database update CP_01: the page then leaves the figure out).
+   */
+  billedInAdvance: number | null; billedInAdvanceCount: number | null;
+  /**
+   * Collected / invoiced in the period, % (0-100). Invoiced, collected, the 12 months and the top customers place an
+   * invoice in the month its billing period starts (CP_01; before it, the month it was issued).
+   */
   collectionRate: number;
   /** Last 12 months, oldest first. */
   months: CeoMoneyMonth[];
@@ -135,7 +144,13 @@ export type CeoRecordKind = 'invoices' | 'spaces' | 'bookings' | 'inquiries' | '
 
 export interface CeoInvoiceRecord {
   invoiceId: number; invoiceNumber: string; customer: string; location: string;
-  issuedOn: string | null; dueOn: string | null; total: number; paid: number; balance: number; status: string;
+  issuedOn: string | null;
+  /**
+   * The billing period the invoice is for (yyyy-MM-dd); left out when the API does not send them (before the
+   * database update CP_01), null when the invoice has none: the list then shows the issue date.
+   */
+  periodStart?: string | null; periodEnd?: string | null;
+  dueOn: string | null; total: number; paid: number; balance: number; status: string;
 }
 export interface CeoSpaceRecord {
   spaceId: number; name: string; spaceType: string; location: string; capacity: number | null;
@@ -653,6 +668,8 @@ export class CeoService {
       collected: num(m.collected), collectedPrev: num(m.collectedPrev),
       outstanding: num(m.outstanding), outstandingCount: num(m.outstandingCount),
       overdue: num(m.overdue), overdueCount: num(m.overdueCount),
+      billedInAdvance: numOrNull(m.billedInAdvance),
+      billedInAdvanceCount: numOrNull(m.billedInAdvance) === null ? null : num(m.billedInAdvanceCount),
       collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
       months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected) }))
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
@@ -742,8 +759,9 @@ export class CeoService {
     switch (kind) {
       case 'invoices': return {
         invoiceId: num(r.invoiceId), invoiceNumber: str(r.invoiceNumber) || (r.invoiceId ? `#${r.invoiceId}` : ''),
-        customer: str(r.customer), location: str(r.location), issuedOn: strOrNull(r.issuedOn), dueOn: strOrNull(r.dueOn),
-        total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status)
+        customer: str(r.customer), location: str(r.location), issuedOn: strOrNull(r.issuedOn),
+        ...(r.periodStart !== undefined || r.periodEnd !== undefined ? { periodStart: strOrNull(r.periodStart), periodEnd: strOrNull(r.periodEnd) } : {}),
+        dueOn: strOrNull(r.dueOn), total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status)
       };
       case 'spaces': return {
         spaceId: num(r.spaceId), name: str(r.name), spaceType: str(r.spaceType), location: str(r.location),

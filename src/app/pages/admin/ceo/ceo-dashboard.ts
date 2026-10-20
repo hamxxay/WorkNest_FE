@@ -30,6 +30,10 @@ interface Kpi {
   value: string;
   full?: string;
   sub: string;
+  /** A second line under sub (a figure without a trend). */
+  sub2?: string;
+  /** Added to the card's tooltip, e.g. how the figure places invoices in a month. */
+  hint?: string;
   tone: 'ok' | 'warn' | 'danger' | 'neutral';
   trend?: Trend | null;
   vs?: string;
@@ -349,35 +353,42 @@ export class CeoDashboard {
   // ---------- Money ----------
 
   m = computed(() => this.data()?.money ?? null);
+  /**
+   * The month figures place an invoice in the month its billing period starts (database update CP_01, which also
+   * sends billed in advance); an older API places it in the month it was issued, so the labels say nothing then.
+   */
+  byPeriod = computed(() => this.m()?.billedInAdvance != null);
 
   moneyKpis = computed<Kpi[]>(() => {
     const m = this.m();
     if (!m) return [];
     const w = this.words();
     const rate = m.collectionRate;
-    return [
+    const hint = this.byPeriod() ? 'By billing period' : undefined;
+    const kpis: Kpi[] = [
       {
         key: 'invoiced', label: `Invoiced ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
         sub: `${money(m.invoicedPrev)} ${w.last}`, tone: 'neutral',
-        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`,
+        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`, hint,
         action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'collected', label: `Collected ${w.thisP}`, value: money(m.collected), full: fullMoney(m.collected),
         sub: `${money(m.collectedPrev)} ${w.last}`, tone: 'neutral',
-        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`,
+        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`, hint,
         action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
-        tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
+        tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger', hint,
         action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'outstanding', label: 'Outstanding', value: money(m.outstanding), full: fullMoney(m.outstanding),
         sub: `${count(m.outstandingCount)} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}`,
         tone: m.outstanding > 0 ? 'neutral' : 'ok',
+        hint: this.byPeriod() ? 'Not counting invoices billed in advance' : undefined,
         action: () => this.openOutstanding(), actionLabel: 'Open outstanding by days past due'
       },
       {
@@ -387,7 +398,23 @@ export class CeoDashboard {
         action: () => this.openRecords('Invoices', 'Overdue', 'invoices', { status: 'overdue' }), actionLabel: 'Open the overdue invoices'
       }
     ];
+    // Billed in advance (CP_01): unpaid invoices for months not started yet, next to outstanding (which leaves them out).
+    if (m.billedInAdvance != null) {
+      const n = m.billedInAdvanceCount ?? 0;
+      kpis.splice(4, 0, {
+        key: 'advance', label: 'Billed in advance', value: money(m.billedInAdvance), full: fullMoney(m.billedInAdvance),
+        sub: n ? `${count(n)} unpaid invoice${n === 1 ? '' : 's'}` : 'No invoices', sub2: 'Unpaid, for months not started yet',
+        tone: 'neutral',
+        action: () => this.openBilledInAdvance(), actionLabel: 'Open the invoices billed in advance'
+      });
+    }
+    return kpis;
   });
+
+  /** A KPI card's tooltip: the full amount and the hint, when there is one. */
+  kpiTitle(k: Kpi): string {
+    return [k.full, k.hint].filter(Boolean).join(' · ');
+  }
 
   revenueTotals = computed(() => {
     const months = this.m()?.months ?? [];
@@ -575,7 +602,7 @@ export class CeoDashboard {
     const extra = status ? { status } : {};
     const range = this.shownRange();
     if (this.shownPeriod() === 'custom' && range) {
-      // A custom range: its invoices by location (issued from / to), then a location's invoices.
+      // A custom range: its invoices by location (billing period from / to), then a location's invoices.
       this.openDrill(root, { kind: 'breakdown', metric: 'revenue', params: { from: range.from, to: range.to, ...extra }, crumb: this.periodTitle() });
     } else if (this.shownPeriod() === 'month') {
       const month = this.currentMonth();
@@ -590,6 +617,11 @@ export class CeoDashboard {
   /** Outstanding: the aging buckets, then a bucket by location, then its invoices. */
   openOutstanding() {
     this.openDrill('Outstanding', { kind: 'breakdown', metric: 'aging-buckets', params: {}, crumb: 'By days past due', local: () => this.agingBuckets() });
+  }
+
+  /** Billed in advance: the unpaid invoices for months not started yet. */
+  openBilledInAdvance() {
+    this.openRecords('Invoices', 'Billed in advance', 'invoices', { status: 'advance' });
   }
 
   /** Occupancy: by location, then a location by space type, then its spaces. */

@@ -121,6 +121,8 @@
 .dr-table small.late { color: var(--dr-bad); font-weight: 600; }
 .dr-table strong { color: var(--dr-ink); font-weight: 700; }
 .dr-table tbody th strong { display: block; }
+/* An invoice's billing period, under its number (the issue date follows as the faint line). */
+.dr-table .rec-period { display: block; margin-top: 2px; font-size: 0.75rem; font-weight: 600; color: var(--dr-text); }
 /* level 3: one line per cell; the table scrolls sideways inside its card when it must */
 .dr-table.records { font-size: 0.8rem; }
 .dr-table.records thead th, .dr-table.records tbody th, .dr-table.records tbody td { padding: 10px 12px; white-space: nowrap; }
