@@ -201,43 +201,6 @@
           </div>
           </div>
 
-          <!-- 3. Occupancy per room in the period -->
-          <div class="dash-panel span-12 focus-target" id="panel-rooms-occ" tabindex="-1">
-            <div class="panel-head">
-              <div>
-                <h3>Occupancy by room</h3>
-                <p class="panel-sub">Rooms with a tenant {{ thisWord() }}: share of the days so far, most occupied first · select a bar for the room</p>
-              </div>
-              <div class="head-side">
-                <div class="head-stats">
-                  <div><span>Average</span><strong>{{ pct(s()!.periodOccupancyPct) }}</strong></div>
-                  <div><span>Now</span><strong>{{ count(s()!.occupiedNow) }} of {{ count(s()!.rooms) }}</strong></div>
-                </div>
-                @if (occCount() > limit) {
-                  <button type="button" class="view-toggle" (click)="showAllOcc.set(!showAllOcc())" [attr.aria-pressed]="showAllOcc()">
-                    {{ showAllOcc() ? 'Show the first ' + limit : 'Show all ' + occCount() }}
-                  </button>
-                }
-              </div>
-            </div>
-            <div class="rooms-legend" aria-hidden="true">
-              <span><i class="sw occ-now"></i>Occupied now</span>
-              <span><i class="sw occ-vacant"></i>Vacant now</span>
-            </div>
-            <div class="chart-box chart-nav" [style.height.px]="occHeight()"
-              [attr.tabindex]="occCount() ? 0 : null" role="group" aria-roledescription="interactive chart"
-              aria-label="Occupancy by room in the period. Arrow keys move between rooms, Enter opens the room."
-              (keydown)="occNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && occNav.focus()" (blur)="occNav.clear()">
-              <canvas #occCanvas aria-hidden="true"></canvas>
-              @if (!occCount()) {
-                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No room had a tenant {{ thisWord() }}</strong><span>Rooms with confirmed bookings show up here.</span></div>
-              }
-            </div>
-            @if (occCount() && rooms().length > occCount()) {
-              <p class="note">{{ count(rooms().length - occCount()) }} of {{ count(rooms().length) }} rooms had no tenant {{ thisWord() }} (grey on the room map).</p>
-            }
-          </div>
-
         </div>
 
         <!-- Room map: every room as a tile, coloured by how it was sold; a card with the chosen room -->
