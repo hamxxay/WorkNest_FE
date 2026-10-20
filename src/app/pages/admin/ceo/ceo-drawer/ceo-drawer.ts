@@ -112,10 +112,27 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
     next: (p, r) => ({ kind: 'records', records: 'spaces', params: { spaceTypeId: p['spaceTypeId'], locationId: r.key }, crumb: r.label })
   },
   'occupancy-location': {
-    rowLabel: 'Space type', money: false, chart: 'stacked-occupancy', vertical: false,
+    rowLabel: 'Room category', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    // CP_02: rows per room category (key PrivateOffice | SharedSpace); before it per space type (numeric key).
+    next: (p, r) => ({
+      kind: 'records', records: 'spaces',
+      params: /^\d+$/.test(r.key)
+        ? { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }
+        : { locationId: p['locationId'], category: r.key, occupied: p['occupied'] },
+      crumb: r.label
+    }),
     nextLabel: (p, r) => p['occupied'] ? `Open the occupied ${r.label} rooms` : `Open ${r.label}`,
+    keep: (p, r) => !p['occupied'] || r.value > 0
+  },
+  // CP_02: one room category (Private Office / Shared Space) by location, rooms with a confirmed booking now; from the
+  // category's KPI card only the occupied rooms (occupied: true).
+  'occupancy-category': {
+    rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
+    derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
+    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { category: p['category'], locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label}` : `Open the rooms of ${r.label}`,
+    hint: () => 'Select a location for its rooms.',
     keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'bookings-month': {
@@ -465,7 +482,8 @@ export class CeoDrawer {
     const occupied = rows.filter(r => r.occupied);
     return {
       all: rows.length, occupied: occupied.length, vacant: rows.length - occupied.length,
-      seatsInUse: occupied.reduce((a, r) => a + (r.capacity ?? 0), 0)
+      // CP_02: the seats sold of the confirmed bookings when the API sends them, else the rooms' seats.
+      seatsInUse: occupied.reduce((a, r) => a + (r.seatsSold ?? r.capacity ?? 0), 0)
     };
   });
   spaceMixed = computed(() => this.spaceStats().occupied > 0 && this.spaceStats().vacant > 0);

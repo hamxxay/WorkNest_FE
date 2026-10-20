@@ -383,12 +383,12 @@
       <section class="dash-section" aria-labelledby="ceo-h-occ">
         <div class="section-title">
           <h2 id="ceo-h-occ">Occupancy</h2>
-          <span>Spaces in use and new bookings · {{ periodTitle() }}</span>
+          <span>@if (occCategories().length) {Rooms in use now (confirmed bookings), per category · new bookings {{ periodTitle() }}} @else {Spaces in use now · new bookings {{ periodTitle() }}}</span>
         </div>
         @if (!o()) {
           <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No occupancy figures yet</strong><span>Spaces and bookings show up here once they are in the system.</span></div>
         } @else {
-          <div class="kpi-grid kpi-3">
+          <div class="kpi-grid" [class.kpi-3]="occupancyKpis().length === 3">
             @for (k of occupancyKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
           </div>
 
@@ -398,7 +398,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Occupancy &amp; new bookings</h3>
-                  <p class="panel-sub">Last 12 months · select a month for the new bookings by location</p>
+                  <p class="panel-sub">@if (occMonthCategories().length) {Last 12 months · occupancy at each month end (this month: now) of the rooms that existed then · select a month for the new bookings by location} @else {Last 12 months · occupancy at each month end (this month: now) · select a month for the new bookings by location}</p>
                 </div>
                 @if (!occEmpty()) {
                   <div class="head-side">
@@ -419,12 +419,16 @@
               @if (occTable()) {
                 <div class="table-scroll">
                   <table class="cmp-table compact">
-                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Occupancy</th><th scope="col" class="num">New bookings</th></tr></thead>
+                    <thead><tr><th scope="col">Month</th>@if (occMonthCategories().length) { @for (c of occMonthCategories(); track c.code) { <th scope="col" class="num">{{ c.label }}</th> } } @else { <th scope="col" class="num">Occupancy</th> }<th scope="col" class="num">New bookings</th></tr></thead>
                     <tbody>
                       @for (x of o()!.months; track x.month; let i = $index) {
                         <tr class="clickable" (click)="openBookingsMonth(i)">
                           <th scope="row"><button type="button" class="row-btn" (click)="openBookingsMonth(i); $event.stopPropagation()">{{ monthLong(x.month) }}</button></th>
-                          <td class="num">{{ pct(x.occupancyPct) }}</td>
+                          @if (occMonthCategories().length) {
+                            @for (c of occMonthCategories(); track c.code) { <td class="num">{{ pct(monthCategoryPct(x, c.code)) }}</td> }
+                          } @else {
+                            <td class="num">{{ pct(x.occupancyPct) }}</td>
+                          }
                           <td class="num">{{ count(x.newBookings) }}</td>
                         </tr>
                       }
@@ -434,7 +438,36 @@
               }
             </div>
 
-            <!-- By space type -->
+            @if (occCategories().length) {
+            <!-- CP_02: by room category (Private Office, Shared Space): rooms and seats now -->
+            <div class="dash-panel span-4">
+              <div class="panel-head">
+                <div>
+                  <h3>By room category</h3>
+                  <p class="panel-sub">Rooms with a confirmed booking now · seats sold</p>
+                </div>
+              </div>
+              @if (byCategoryEmpty()) {
+                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No rooms set up yet</strong><span>Private offices and shared spaces show up here.</span></div>
+              } @else {
+                <ul class="bar-list">
+                  @for (c of occCategories(); track c.categoryCode) {
+                    <li>
+                      <button type="button" class="bar-row" (click)="openOccupancyCategory(c.categoryCode, c.label)">
+                        <span class="bar-main">
+                          <span class="bar-label">{{ c.label }}</span>
+                          <span class="bar-track"><span class="bar-fill" [style.width.%]="c.occupancyPct"></span></span>
+                        </span>
+                        <span class="bar-value"><strong>{{ pct(c.occupancyPct) }}</strong><small>{{ c.occupied }} of {{ c.rooms }} rooms · {{ c.seatsSold }} of {{ c.seats }} seats</small></span>
+                        <ng-container *ngTemplateOutlet="chevron" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+            } @else {
+            <!-- By space type (before the database update CP_02) -->
             <div class="dash-panel span-4">
               <div class="panel-head">
                 <div>
@@ -461,13 +494,14 @@
                 </ul>
               }
             </div>
+            }
 
             <!-- By location -->
             <div class="dash-panel span-6 focus-target" id="panel-by-location" tabindex="-1">
               <div class="panel-head">
                 <div>
                   <h3>By location</h3>
-                  <p class="panel-sub">Occupied of all spaces, as of today · select one for its space types</p>
+                  <p class="panel-sub">@if (occCategories().length) {Rooms with a confirmed booking now, per category · select a row for its rooms} @else {Occupied of all spaces, as of today · select one for its space types}</p>
                 </div>
               </div>
               @if (byLocationEmpty()) {
@@ -475,6 +509,29 @@
               } @else {
                 <ul class="bar-list">
                   @for (l of o()!.byLocation; track l.locationId || $index) {
+                    @if (l.categories.length) {
+                      <!-- CP_02: the location, then one row per room category -->
+                      <li class="bar-group">
+                        <button type="button" class="bar-group-head" (click)="openOccLocation(l.locationId, l.name)" [attr.aria-label]="'Open ' + l.name + ' by room category'">
+                          <span>{{ l.name }}</span>
+                          <ng-container *ngTemplateOutlet="chevron" />
+                        </button>
+                        <ul class="bar-list">
+                          @for (c of l.categories; track c.categoryCode) {
+                            <li>
+                              <button type="button" class="bar-row" (click)="openOccLocationCategory(l.locationId, l.name, c.categoryCode, c.label)">
+                                <span class="bar-main">
+                                  <span class="bar-label">{{ c.label }}</span>
+                                  <span class="bar-track"><span class="bar-fill" [style.width.%]="c.occupancyPct"></span></span>
+                                </span>
+                                <span class="bar-value"><strong>{{ pct(c.occupancyPct) }}</strong><small>{{ c.occupied }} of {{ c.rooms }} rooms · {{ c.seatsSold }} of {{ c.seats }} seats</small></span>
+                                <ng-container *ngTemplateOutlet="chevron" />
+                              </button>
+                            </li>
+                          }
+                        </ul>
+                      </li>
+                    } @else {
                     <li>
                       <button type="button" class="bar-row" (click)="openOccLocation(l.locationId, l.name)">
                         <span class="bar-main">
@@ -485,6 +542,7 @@
                         <ng-container *ngTemplateOutlet="chevron" />
                       </button>
                     </li>
+                    }
                   }
                 </ul>
               }
@@ -501,7 +559,7 @@
                   <div class="head-side">
                     <div class="head-stats">
                       <div><span>Leases</span><strong class="warn">{{ count(leasesCount()) }}</strong></div>
-                      <div><span>Monthly rent</span><strong [title]="fullMoney(expiringTotal())">{{ money(expiringTotal()) }}</strong></div>
+                      <div><span>Monthly rent</span><strong [title]="fullMoney(expiringTotal()) + ' a month, after discounts'">{{ money(expiringTotal()) }}</strong></div>
                     </div>
                     @if (canOpenAllLeases()) {
                       <button type="button" class="view-toggle" (click)="openAllLeases()">{{ allLeasesText() }}</button>
@@ -521,7 +579,7 @@
                         <span>{{ l.space }}@if (l.location) { · {{ l.location }} }</span>
                       </span>
                       <span class="lease-side">
-                        <strong [title]="fullMoney(l.monthlyAmount) + ' a month'">{{ money(l.monthlyAmount) }}</strong>
+                        <strong [title]="fullMoney(l.monthlyAmount) + ' a month, after discounts'">{{ money(l.monthlyAmount) }}</strong>
                         <span class="pill" [class.danger]="daysLeft(l.endOn) <= 14" [class.warn]="daysLeft(l.endOn) > 14 && daysLeft(l.endOn) <= 45">
                           {{ l.endOn | date:'d MMM' }} · {{ daysLeft(l.endOn) === 0 ? 'today' : daysLeft(l.endOn) + 'd' }}
                         </span>
