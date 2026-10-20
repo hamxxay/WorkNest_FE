@@ -65,6 +65,8 @@ export interface NetInternet {
   lines: NetWan[]; latency: NetLatencySeries[];
   /** Why some or all lines have no live speed figures; null = they all have them. */
   speedsMessage: string | null;
+  /** The line speeds were still being read when the API stopped waiting: the section reloads itself shortly. */
+  speedsPending: boolean;
 }
 
 export interface NetAlert { level: 'critical' | 'serious' | string; text: string; where: string; }
@@ -185,6 +187,7 @@ function toNetDashboard(raw: unknown): NetDashboard {
         };
       }),
       speedsMessage: strOrNull(i.speedsMessage),
+      speedsPending: i.speedsPending === true,
       latency: arr(i.latency, (s: any): NetLatencySeries => ({
         siteId: str(s.siteId), name: str(s.name),
         points: arr(s.points, (p: any): NetLatencyPoint => ({ t: str(p.t), avg: numOrNull(p.avg), peak: numOrNull(p.peak), loss: numOrNull(p.loss) }))
