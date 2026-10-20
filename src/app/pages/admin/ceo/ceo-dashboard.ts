@@ -45,6 +45,10 @@ interface Kpi {
 
 type ChartKey = 'revenue' | 'aging' | 'occupancy';
 
+/** CP_02: line colour per room category on the occupancy chart (Private Office, Shared Space; others after). */
+const CATEGORY_LINE: Record<string, string> = { PrivateOffice: TEAL_DARK, SharedSpace: '#7c3aed' };
+const CATEGORY_LINE_FALLBACK = ['#0369a1', '#b45309'];
+
 /**
  * CEO dashboard (/admin/ceo): company-wide money, occupancy, sales and team figures for this month / quarter /
  * year or a custom date range (compared with the same number of days before it), all locations or one. Every chart
@@ -471,20 +475,35 @@ export class CeoDashboard {
 
   o = computed(() => this.data()?.occupancy ?? null);
 
+  /** CP_02: occupancy per room category (Private Office, Shared Space); empty before the database update CP_02. */
+  occCategories = computed(() => this.o()?.categories ?? []);
+
   occupancyKpis = computed<Kpi[]>(() => {
     const o = this.o();
     if (!o) return [];
     const w = this.words();
+    // CP_02: one card per room category (rooms with a confirmed booking now, and their seats), never one mixed figure.
+    const perCategory: Kpi[] = o.categories.map(c => ({
+      key: `occ-${c.categoryCode}`, label: `${c.label} occupancy`, value: pct(c.occupancyPct),
+      // The card shows sub under the trend: rooms now, then the seats sold of those rooms.
+      sub: `${count(c.occupied)} of ${count(c.rooms)} rooms now · seats ${count(c.seatsSold)} of ${count(c.seats)} (${pct(c.seatOccupancyPct)})`,
+      hint: 'Rooms with a confirmed booking right now; the change is against the rooms that existed one period ago.',
+      tone: c.rooms === 0 ? 'neutral' : c.occupancyPct >= 70 ? 'ok' : c.occupancyPct >= 40 ? 'neutral' : 'warn',
+      trend: trend(c.occupancyPct, c.occupancyPctPrev, 'pts'), vs: `vs ${w.ago}`,
+      action: () => this.openOccupancyCategory(c.categoryCode, c.label, true),
+      actionLabel: `Open the occupied ${c.label} rooms by location`
+    }));
     return [
-      {
+      ...(perCategory.length ? perCategory : [{
         key: 'occupancy', label: 'Occupancy', value: pct(o.occupancyPct),
         sub: `${count(o.occupiedSpaces)} of ${count(o.totalSpaces)} spaces in use`,
         tone: o.totalSpaces === 0 ? 'neutral' : o.occupancyPct >= 70 ? 'ok' : o.occupancyPct >= 40 ? 'neutral' : 'warn',
         trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs ${w.ago}`,
         action: () => this.openOccupancy(), actionLabel: 'Open the occupied rooms by location'
-      },
+      } as Kpi]),
       {
-        key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral',
+        key: 'active', label: 'Active bookings', value: count(o.activeBookings),
+        sub: o.categories.length ? 'Confirmed, running today' : 'Running today', tone: 'neutral',
         // records/bookings filters by the day a booking was made: from 2000-01-01 keeps the older ones that still run.
         action: () => this.openRecords('Active bookings', 'Running today', 'bookings', { status: 'active', from: '2000-01-01' }),
         actionLabel: 'Open the bookings running today'
@@ -498,8 +517,19 @@ export class CeoDashboard {
     ];
   });
 
-  occEmpty = computed(() => !(this.o()?.months ?? []).some(x => x.occupancyPct > 0 || x.newBookings > 0));
+  occEmpty = computed(() => !(this.o()?.months ?? []).some(x => x.occupancyPct > 0 || x.newBookings > 0 || x.categories.some(c => c.occupancyPct > 0)));
   byTypeEmpty = computed(() => !(this.o()?.byType ?? []).some(t => t.total > 0));
+  byCategoryEmpty = computed(() => !this.occCategories().some(c => c.rooms > 0));
+  /** CP_02: the room categories the 12 months carry (Private Office, Shared Space), in order. */
+  occMonthCategories = computed(() => {
+    const seen = new Map<string, string>();
+    for (const m of this.o()?.months ?? []) for (const c of m.categories) if (!seen.has(c.categoryCode)) seen.set(c.categoryCode, c.label);
+    return [...seen].map(([code, label]) => ({ code, label }));
+  });
+  /** A month's occupancy of one category (0 when the month does not carry it). */
+  monthCategoryPct(x: { categories: { categoryCode: string; occupancyPct: number }[] }, code: string): number {
+    return x.categories.find(c => c.categoryCode === code)?.occupancyPct ?? 0;
+  }
   byLocationEmpty = computed(() => !(this.o()?.byLocation ?? []).some(t => t.total > 0));
 
   /** Days until a lease ends (0 = today). */
@@ -729,11 +759,29 @@ export class CeoDashboard {
     if (month) this.openDrill('New bookings', { kind: 'breakdown', metric: 'bookings-month', params: { month: month.month }, crumb: monthLong(month.month) });
   }
 
+  /**
+   * CP_02: one room category by location (rooms with a confirmed booking now), then a location's rooms of it. From the
+   * KPI card only the occupied rooms (occupied = true).
+   */
+  openOccupancyCategory(category: string, label: string, occupied = false) {
+    const params: Record<string, string | number | boolean> = occupied ? { category, occupied: true } : { category };
+    this.openDrill(occupied ? `${label} occupancy` : 'Occupancy by room category', {
+      kind: 'breakdown', metric: 'occupancy-category', params, crumb: occupied ? `Occupied ${label} rooms by location` : label
+    });
+  }
+
+  /** CP_02: one location's rooms of one category (location 0 = rooms not tied to a location). */
+  openOccLocationCategory(locationId: number, name: string, category: string, label: string) {
+    this.openRecords('Occupancy by location', `${name} · ${label}`, 'spaces', { locationId: locationId > 0 ? locationId : 'none', category });
+  }
+
   openSpaceType(spaceTypeId: number, name: string) {
     this.openDrill('Occupancy by space type', { kind: 'breakdown', metric: 'occupancy-type', params: { spaceTypeId }, crumb: name });
   }
 
   openOccLocation(locationId: number, name: string) {
+    // CP_02: rooms not tied to a location have no breakdown: their rooms straight away.
+    if (locationId <= 0) { this.openRecords('Occupancy by location', name, 'spaces', { locationId: 'none', rooms: 'true' }); return; }
     this.openDrill('Occupancy by location', { kind: 'breakdown', metric: 'occupancy-location', params: { locationId }, crumb: name });
   }
 
@@ -803,7 +851,11 @@ export class CeoDashboard {
     count: () => this.o()?.months.length ?? 0,
     describe: i => {
       const x = this.o()?.months[i];
-      return x ? `${monthLong(x.month)}: occupancy ${pct(x.occupancyPct)}, ${x.newBookings} new booking${x.newBookings === 1 ? '' : 's'}. Press Enter for the new bookings by location.` : '';
+      if (!x) return '';
+      const occ = x.categories.length
+        ? x.categories.map(c => `${c.label} ${pct(c.occupancyPct)}`).join(', ')
+        : `occupancy ${pct(x.occupancyPct)}`;
+      return `${monthLong(x.month)}: ${occ} at month end, ${x.newBookings} new booking${x.newBookings === 1 ? '' : 's'}. Press Enter for the new bookings by location.`;
     },
     pick: i => this.openBookingsMonth(i),
     announce: t => this.chartAnnounce.set(t)
@@ -902,6 +954,7 @@ export class CeoDashboard {
     // Occupancy & new bookings: one chart per month, new bookings as bars (left axis, count) and occupancy as a
     // line drawn on top of them (right axis, 0-100%). A bar or a point opens the new bookings by location.
     const occEmpty = this.occEmpty();
+    const occCats = this.occMonthCategories();
     // Four steps on the bookings axis, so its grid lines meet the 0 / 25 / 50 / 75 / 100% ticks on the right.
     const maxNew = Math.max(0, ...occ.map(x => x.newBookings));
     const raw = Math.max(1, Math.ceil(maxNew / 4));
@@ -915,13 +968,16 @@ export class CeoDashboard {
             type: 'bar', label: 'New bookings', yAxisID: 'y', order: 2, data: occ.map(x => x.newBookings),
             backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start'
           },
-          {
-            // order 1: drawn over the bars
-            type: 'line', label: 'Occupancy', yAxisID: 'pct', order: 1, data: occ.map(x => x.occupancyPct),
-            borderColor: TEAL, borderWidth: 2, tension: 0.3, fill: false,
-            pointRadius: 4, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: TEAL_DARK, pointBorderColor: '#fff',
-            pointBorderWidth: 2, pointHoverBackgroundColor: TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
-          }
+          // order 1: drawn over the bars. CP_02: one line per room category (Private Office, Shared Space); before it one
+          // occupancy line.
+          ...(occCats.length ? occCats.map((c, i) => ({ code: c.code, label: c.label, color: CATEGORY_LINE[c.code] ?? CATEGORY_LINE_FALLBACK[i % 2] }))
+            : [{ code: '', label: 'Occupancy', color: TEAL }]).map(l => ({
+            type: 'line', label: l.label, yAxisID: 'pct', order: 1,
+            data: occ.map(x => (l.code ? this.monthCategoryPct(x, l.code) : x.occupancyPct)),
+            borderColor: l.color, borderWidth: 2, tension: 0.3, fill: false,
+            pointRadius: 4, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: l.code ? l.color : TEAL_DARK, pointBorderColor: '#fff',
+            pointBorderWidth: 2, pointHoverBackgroundColor: l.code ? l.color : TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
+          }))
         ]
       },
       options: {
@@ -936,7 +992,7 @@ export class CeoDashboard {
             itemSort: (a: any, b: any) => a.datasetIndex - b.datasetIndex,
             callbacks: {
               title: (items: any[]) => monthLong(occ[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => c.dataset.yAxisID === 'pct' ? ` Occupancy: ${pct(c.parsed.y)}` : ` New bookings: ${c.parsed.y}`,
+              label: (c: any) => c.dataset.yAxisID === 'pct' ? ` ${c.dataset.label} at month end: ${pct(c.parsed.y)}` : ` New bookings: ${c.parsed.y}`,
               footer: () => 'Click for locations'
             }
           }

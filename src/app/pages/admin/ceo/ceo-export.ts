@@ -83,11 +83,18 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   }
   if (o) {
     kpis.push(
-      ['Occupancy', 'Occupancy (%)', pct1(o.occupancyPct), pct1(o.occupancyPctPrev), `${o.occupiedSpaces} of ${o.totalSpaces} spaces in use now`],
-      ['Occupancy', 'Active bookings', o.activeBookings, null, 'Running today'],
+      // CP_02: one line per room category (rooms with a confirmed booking now; seats sold), never one mixed figure.
+      ...(o.categories.length
+        ? o.categories.flatMap(c => [
+          ['Occupancy', `${c.label} occupancy (%)`, pct1(c.occupancyPct), pct1(c.occupancyPctPrev),
+            `${c.occupied} of ${c.rooms} rooms in use now (confirmed bookings); previous: ${c.occupiedPrev} of ${c.roomsPrev} rooms then`],
+          ['Occupancy', `${c.label} seat occupancy (%)`, pct1(c.seatOccupancyPct), null, `${c.seatsSold} of ${c.seats} seats sold now`]
+        ] as XlsxCell[][])
+        : [['Occupancy', 'Occupancy (%)', pct1(o.occupancyPct), pct1(o.occupancyPctPrev), `${o.occupiedSpaces} of ${o.totalSpaces} spaces in use now`] as XlsxCell[]]),
+      ['Occupancy', 'Active bookings', o.activeBookings, null, o.categories.length ? 'Confirmed, running today' : 'Running today'],
       ['Occupancy', 'New bookings', o.newBookings, o.newBookingsPrev, 'Made in the period'],
       ['Occupancy', 'Leases expiring in 90 days', o.leasesExpiringCount ?? o.leasesExpiring.length, null,
-        o.leasesExpiringMonthly != null ? `Monthly rent PKR ${Math.round(o.leasesExpiringMonthly).toLocaleString('en-US')}` : '']
+        o.leasesExpiringMonthly != null ? `Monthly rent PKR ${Math.round(o.leasesExpiringMonthly).toLocaleString('en-US')}${o.categories.length ? ', after discounts' : ''}` : '']
     );
   }
   if (s) {
@@ -162,24 +169,44 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
 
   // ---------- Occupancy ----------
   if (o) {
+    // CP_02: per room category (Private Office, Shared Space): the 12 month ends, now, and by location.
+    const cats = o.categories;
+    const monthCats = cats.length ? cats.map(c => ({ code: c.categoryCode, label: c.label })) : [];
     sheets.push({
       name: 'Occupancy 12 months',
-      rows: [['Month', 'Occupancy (%)', 'New bookings'], ...o.months.map(x => [x.month, pct1(x.occupancyPct), x.newBookings])]
+      rows: monthCats.length
+        ? [['Month', ...monthCats.map(c => `${c.label} occupancy at month end (%)`), 'New bookings'],
+          ...o.months.map(x => [x.month, ...monthCats.map(c => pct1(x.categories.find(k => k.categoryCode === c.code)?.occupancyPct ?? 0)), x.newBookings])]
+        : [['Month', 'Occupancy (%)', 'New bookings'], ...o.months.map(x => [x.month, pct1(x.occupancyPct), x.newBookings])]
     });
-    sheets.push({
-      name: 'By space type',
-      rows: [['Space type', 'Occupied', 'Spaces', 'Occupancy (%)'],
-        ...o.byType.map(t => [t.name, t.occupied, t.total, t.total ? pct1(ratio(t.occupied, t.total)) : null])]
-    });
+    if (cats.length) {
+      sheets.push({
+        name: 'By room category',
+        rows: [['Room category', 'Rooms', 'Occupied now', 'Occupancy (%)', 'Occupancy one period ago (%)', 'Seats', 'Seats sold', 'Seat occupancy (%)'],
+          ...cats.map(c => [c.label, c.rooms, c.occupied, pct1(c.occupancyPct), pct1(c.occupancyPctPrev), c.seats, c.seatsSold, pct1(c.seatOccupancyPct)])]
+      });
+    } else {
+      sheets.push({
+        name: 'By space type',
+        rows: [['Space type', 'Occupied', 'Spaces', 'Occupancy (%)'],
+          ...o.byType.map(t => [t.name, t.occupied, t.total, t.total ? pct1(ratio(t.occupied, t.total)) : null])]
+      });
+    }
     sheets.push({
       name: 'By location',
-      rows: [['Location', 'Occupied', 'Spaces', 'Occupancy (%)'],
-        ...o.byLocation.map(l => [l.name, l.occupied, l.total, l.total ? pct1(ratio(l.occupied, l.total)) : null])]
+      rows: cats.length
+        ? [['Location', 'Room category', 'Rooms', 'Occupied now', 'Occupancy (%)', 'Seats', 'Seats sold', 'Seat occupancy (%)'],
+          ...o.byLocation.flatMap(l => l.categories.map(c => [l.name, c.label, c.rooms, c.occupied, pct1(c.occupancyPct), c.seats, c.seatsSold, pct1(c.seatOccupancyPct)]))]
+        : [['Location', 'Occupied', 'Spaces', 'Occupancy (%)'],
+          ...o.byLocation.map(l => [l.name, l.occupied, l.total, l.total ? pct1(ratio(l.occupied, l.total)) : null])]
     });
+    // The dashboard holds the first 50 leases: say so when there are more (the full list is records/leases).
+    const leaseTotal = o.leasesExpiringCount ?? o.leasesExpiring.length;
     sheets.push({
       name: 'Leases expiring',
-      rows: [['Customer', 'Space', 'Location', 'Ends on', 'Monthly rent (PKR)'],
-        ...o.leasesExpiring.map(l => [l.customer, l.space, l.location, l.endOn.slice(0, 10), money2(l.monthlyAmount)])]
+      rows: [['Customer', 'Space', 'Location', 'Ends on', cats.length ? 'Monthly rent after discounts (PKR)' : 'Monthly rent (PKR)'],
+        ...o.leasesExpiring.map(l => [l.customer, l.space, l.location, l.endOn.slice(0, 10), money2(l.monthlyAmount)]),
+        ...(leaseTotal > o.leasesExpiring.length ? [[`The first ${o.leasesExpiring.length} of ${leaseTotal} leases expiring in the next 90 days`]] : [])]
     });
   }
 
