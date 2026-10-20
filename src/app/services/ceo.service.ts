@@ -23,8 +23,18 @@ export interface CeoMoneyMonth { month: string; invoiced: number; collected: num
 export interface CeoAging { bucket: string; label: string; amount: number; count: number; }
 export interface CeoTopCustomer { customerId: number; name: string; amount: number; invoices: number; }
 export interface CeoMoney {
+  /**
+   * Database update CP_02: invoiced = the period's billing without security deposits (securityDeposits apart);
+   * collected = paid so far on those invoices (part payments count, a paid invoice in full), without the deposits'
+   * share. A calendar period counts whole billing months up to this one, against the same months one period earlier.
+   */
   invoiced: number; invoicedPrev: number;
   collected: number; collectedPrev: number;
+  /**
+   * Security deposits billed on the period's invoices (left out of invoiced, the 12 months and the top customers), the
+   * previous period's, and how many invoices carry one; null when the API did not send them (before CP_02).
+   */
+  securityDeposits: number | null; securityDepositsPrev: number | null; securityDepositsCount: number | null;
   /** Unpaid now, without the invoices billed in advance (as the aging buckets). */
   outstanding: number; outstandingCount: number;
   overdue: number; overdueCount: number;
@@ -150,8 +160,16 @@ export interface CeoInvoiceRecord {
    * database update CP_01), null when the invoice has none: the list then shows the issue date.
    */
   periodStart?: string | null; periodEnd?: string | null;
+  /** balance = owed now: total - WHT - paid (CP_02), 0 for a paid invoice. */
   dueOn: string | null; total: number; paid: number; balance: number; status: string;
+  /**
+   * CP_02 (left out before it): WHT withheld; the security deposit inside total; billed = total less the deposit (what
+   * Invoiced counts); collected = paid so far less the deposit's share (what Collected counts).
+   */
+  wht?: number | null; deposit?: number | null; billed?: number | null; collected?: number | null;
 }
+/** records/invoices (CP_02): the totals of every matching invoice (the list holds at most 200). */
+export interface CeoInvoiceTotals { billed: number; collected: number; balance: number; }
 export interface CeoSpaceRecord {
   spaceId: number; name: string; spaceType: string; location: string; capacity: number | null;
   occupied: boolean; customer: string; bookingEndOn: string | null;
@@ -183,6 +201,8 @@ export interface CeoRecords<K extends CeoRecordKind = CeoRecordKind> {
   /** Full count; rows holds at most 200 (newest first). */
   total: number;
   rows: CeoRecordRowMap[K][];
+  /** Invoices (CP_02): the totals of every matching invoice; null otherwise. */
+  invoiceTotals?: CeoInvoiceTotals | null;
 }
 
 // ---------- 3-month outlook (GET api/dashboard/forecast) ----------
@@ -670,6 +690,9 @@ export class CeoService {
       overdue: num(m.overdue), overdueCount: num(m.overdueCount),
       billedInAdvance: numOrNull(m.billedInAdvance),
       billedInAdvanceCount: numOrNull(m.billedInAdvance) === null ? null : num(m.billedInAdvanceCount),
+      securityDeposits: numOrNull(m.securityDeposits),
+      securityDepositsPrev: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsPrev),
+      securityDepositsCount: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsCount),
       collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
       months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected) }))
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
@@ -752,7 +775,9 @@ export class CeoService {
   private toRecords<K extends CeoRecordKind>(kind: K, raw: any): CeoRecords<K> {
     const d = obj(raw) ?? {};
     const rows = arr(d.rows, (r: any) => this.toRecord(kind, r)) as CeoRecordRowMap[K][];
-    return { title: str(d.title), total: Math.max(num(d.total), rows.length), rows };
+    const t = obj(d.invoiceTotals);
+    const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance) } : null;
+    return { title: str(d.title), total: Math.max(num(d.total), rows.length), rows, invoiceTotals };
   }
 
   private toRecord(kind: CeoRecordKind, r: any): CeoRecordRowMap[CeoRecordKind] {
@@ -761,7 +786,8 @@ export class CeoService {
         invoiceId: num(r.invoiceId), invoiceNumber: str(r.invoiceNumber) || (r.invoiceId ? `#${r.invoiceId}` : ''),
         customer: str(r.customer), location: str(r.location), issuedOn: strOrNull(r.issuedOn),
         ...(r.periodStart !== undefined || r.periodEnd !== undefined ? { periodStart: strOrNull(r.periodStart), periodEnd: strOrNull(r.periodEnd) } : {}),
-        dueOn: strOrNull(r.dueOn), total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status)
+        dueOn: strOrNull(r.dueOn), total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status),
+        ...(r.billed !== undefined ? { wht: numOrNull(r.wht), deposit: numOrNull(r.deposit), billed: numOrNull(r.billed), collected: numOrNull(r.collected) } : {})
       };
       case 'spaces': return {
         spaceId: num(r.spaceId), name: str(r.name), spaceType: str(r.spaceType), location: str(r.location),
