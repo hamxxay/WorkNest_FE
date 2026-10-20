@@ -312,6 +312,29 @@
                     </tbody>
                   </table>
                 }
+                @case ('receipts') {
+                  <!-- CP_02: money received, by the day it came in -->
+                  <table class="dr-table records">
+                    <thead><tr><th scope="col">Received</th><th scope="col">Customer</th><th scope="col">Invoice</th><th scope="col">Method</th><th scope="col" class="num">Amount</th></tr></thead>
+                    <tbody>
+                      @for (r of receiptRows(); track r.kind + r.refId) {
+                        <tr>
+                          <th scope="row">
+                            <strong class="clip">{{ r.reference || '-' }}</strong>
+                            <small>@if (r.receivedOn) { {{ r.receivedOn | date:'d MMM y' }} · }{{ r.kind === 'payment' ? 'Payment' : 'Fee receipt' }}</small>
+                          </th>
+                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
+                          <td>
+                            {{ r.invoiceNumber || '-' }}
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                          </td>
+                          <td><span class="clip">{{ r.method || '-' }}</span></td>
+                          <td class="num" [title]="fullMoney(r.amount)">{{ money(r.amount) }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
                 @case ('complaints') {
                   <table class="dr-table records complaints">
                     <thead><tr><th scope="col">Complaint</th><th scope="col">Customer</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Raised</th><th scope="col">Description</th></tr></thead>

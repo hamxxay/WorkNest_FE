@@ -44,7 +44,18 @@ export interface CeoMoney {
   aging: CeoAging[];
   /** Top 5 by amount invoiced, last 12 months. */
   topCustomers: CeoTopCustomer[];
+  /**
+   * CP_02: money actually received in the period, to date (fee receipts + online / recorded payments by the day they
+   * came in, whatever invoice), and the same days one period earlier; null when the API did not send them (before the
+   * database update CP_02: the page then leaves the Received card out).
+   */
+  received: number | null; receivedPrev: number | null;
+  receivedCount: number | null; receivedCountPrev: number | null;
+  /** CP_02: money received by month, the same 12 months as months (oldest first); null before CP_02. */
+  receivedSeries: CeoReceivedMonth[] | null;
 }
+/** CP_02: money received in one month (yyyy-MM), by the day it came in. */
+export interface CeoReceivedMonth { month: string; received: number; count: number; }
 
 export interface CeoOccupancyMonth { month: string; occupancyPct: number; newBookings: number; }
 export interface CeoOccupancyType { spaceTypeId: number; name: string; total: number; occupied: number; }
@@ -140,7 +151,7 @@ export interface CeoBreakdown {
 }
 
 // ---------- Drill-down level 3 ----------
-export type CeoRecordKind = 'invoices' | 'spaces' | 'bookings' | 'inquiries' | 'quotations' | 'leases';
+export type CeoRecordKind = 'invoices' | 'spaces' | 'bookings' | 'inquiries' | 'quotations' | 'leases' | 'receipts';
 
 export interface CeoInvoiceRecord {
   invoiceId: number; invoiceNumber: string; customer: string; location: string;
@@ -174,21 +185,39 @@ export interface CeoLeaseRecord {
   /** Days from today to the end date (negative = already ended); null when not known. */
   daysLeft: number | null;
 }
+/** records/receipts (CP_02): a fee receipt or a paid payment, newest first, by the day the money came in. */
+export interface CeoReceiptRecord {
+  kind: 'receipt' | 'payment'; refId: number;
+  /** Receipt code (FR-...), or the payment's transaction / gateway reference. */
+  reference: string;
+  receivedOn: string | null; customer: string; location: string;
+  invoiceId: number | null; invoiceNumber: string; bookingId: number | null;
+  amount: number;
+  /** Cash / Bank / Cheque ... (receipt), or the payment method label. */
+  method: string;
+}
 export interface CeoRecordRowMap {
   invoices: CeoInvoiceRecord; spaces: CeoSpaceRecord; bookings: CeoBookingRecord;
-  inquiries: CeoInquiryRecord; quotations: CeoQuotationRecord; leases: CeoLeaseRecord;
+  inquiries: CeoInquiryRecord; quotations: CeoQuotationRecord; leases: CeoLeaseRecord; receipts: CeoReceiptRecord;
 }
 export interface CeoRecords<K extends CeoRecordKind = CeoRecordKind> {
   title: string;
   /** Full count; rows holds at most 200 (newest first). */
   total: number;
   rows: CeoRecordRowMap[K][];
+  /** receipts (CP_02): the line on the total of every matching record ("PKR 12,586,744 received"). */
+  summary?: string;
 }
 
 // ---------- 3-month outlook (GET api/dashboard/forecast) ----------
 export interface CeoForecastMonth {
   month: string; label: string;
-  expectedRent: number; confirmedRent: number;
+  /**
+   * expectedRent: every live lease (confirmed + waiting for confirmation); confirmedRent: confirmed leases only (the
+   * CEO's "Expected", CP_02); pendingRent: the part waiting for confirmation (expected - confirmed when not sent).
+   * After percentage and (CP_02) fixed discounts.
+   */
+  expectedRent: number; confirmedRent: number; pendingRent: number;
   totalSpaces: number; occupiedSpaces: number; occupancyPct: number;
   leasesEnding: number; leasesStarting: number;
 }
@@ -629,6 +658,7 @@ export class CeoService {
       map(d => arr(obj(d)?.totals, (m: any): CeoForecastMonth => ({
         month: str(m.month), label: str(m.label) || str(m.month),
         expectedRent: num(m.expectedRent), confirmedRent: num(m.confirmedRent),
+        pendingRent: Math.max(0, numOrNull(m.pendingRent) ?? num(m.expectedRent) - num(m.confirmedRent)),
         totalSpaces: num(m.totalSpaces), occupiedSpaces: num(m.occupiedSpaces), occupancyPct: num(m.occupancyPct),
         leasesEnding: num(m.leasesEnding), leasesStarting: num(m.leasesStarting)
       })))
@@ -674,7 +704,14 @@ export class CeoService {
       months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected) }))
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
       aging: arr(m.aging, (x: any) => ({ bucket: str(x.bucket), label: str(x.label) || str(x.bucket), amount: num(x.amount), count: num(x.count) })),
-      topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) }))
+      topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) })),
+      // CP_02: money received (null before the database update)
+      received: numOrNull(m.received), receivedPrev: numOrNull(m.received) === null ? null : num(m.receivedPrev),
+      receivedCount: numOrNull(m.received) === null ? null : num(m.receivedCount),
+      receivedCountPrev: numOrNull(m.received) === null ? null : num(m.receivedCountPrev),
+      receivedSeries: numOrNull(m.received) === null || !Array.isArray(m.receivedSeries) ? null
+        : arr(m.receivedSeries, (x: any): CeoReceivedMonth => ({ month: str(x.month), received: num(x.received), count: num(x.count) }))
+            .filter(x => /^\d{4}-\d{2}/.test(x.month))
     };
 
     const leasesExpiring = arr(o?.leasesExpiring, (x: any): CeoLeaseExpiring => ({
@@ -752,7 +789,11 @@ export class CeoService {
   private toRecords<K extends CeoRecordKind>(kind: K, raw: any): CeoRecords<K> {
     const d = obj(raw) ?? {};
     const rows = arr(d.rows, (r: any) => this.toRecord(kind, r)) as CeoRecordRowMap[K][];
-    return { title: str(d.title), total: Math.max(num(d.total), rows.length), rows };
+    const amount = kind === 'receipts' ? numOrNull(d.amount) : null;   // CP_02: the sum of every matching receipt / payment
+    return {
+      title: str(d.title), total: Math.max(num(d.total), rows.length), rows,
+      ...(amount !== null ? { summary: `PKR ${Math.round(amount).toLocaleString('en-US')} received` } : {})
+    };
   }
 
   private toRecord(kind: CeoRecordKind, r: any): CeoRecordRowMap[CeoRecordKind] {
@@ -780,6 +821,12 @@ export class CeoService {
         quotationId: num(r.quotationId), quotationNumber: str(r.quotationNumber) || (r.quotationId ? `#${r.quotationId}` : ''),
         customer: str(r.customer), location: str(r.location), createdBy: str(r.createdBy), status: str(r.status),
         total: num(r.total), createdOn: strOrNull(r.createdOn)
+      };
+      case 'receipts': return {
+        kind: str(r.kind) === 'payment' ? 'payment' : 'receipt', refId: num(r.refId),
+        reference: str(r.reference) || (r.refId ? `#${r.refId}` : ''), receivedOn: strOrNull(r.receivedOn),
+        customer: str(r.customer), location: str(r.location), invoiceId: numOrNull(r.invoiceId), invoiceNumber: str(r.invoiceNumber),
+        bookingId: numOrNull(r.bookingId), amount: num(r.amount), method: str(r.method)
       };
       case 'leases': {
         const endOn = strOrNull(r.endOn);
