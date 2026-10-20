@@ -365,6 +365,11 @@ export class AdminLayout implements OnInit, OnDestroy {
     }
   }
 
+  /** CEO and Sales Manager have one page: no sidebar, the dashboard fills the screen under a slim top bar. */
+  get focusMode(): boolean {
+    return this.isCeo || this.isSalesManager;
+  }
+
   /** The role as the database words it (auth/me roleDisplayName); else made from the role name ("super_admin" -> "Super Admin"). */
   get roleLabel(): string {
     return this.auth.getUser()?.roleDisplayName?.trim() || roleLabelFor(this.userRole);
