@@ -19,7 +19,7 @@ const PANEL_ROWS = 6;
  * Discounts section of the CEO dashboard: the discount a month given on the rooms' bookings running in the period
  * (below the expected price as the Rooms section sees it: 24/7 against the room price, Morning / Evening against the
  * shift price; plus fixed PKR discounts), as a share of the expected rent; how many bookings got one; the discount on
- * the invoices issued in the period; by location, by salesperson and by shift; and the biggest discounts. Every figure
+ * the invoices whose billing period starts in the period; by location, by salesperson and by shift; and the biggest discounts. Every figure
  * opens its records in the section's drawer. Follows the dashboard's period, range and location. Read-only.
  * Data: GET api/ceo/discounts (database update DD_01; before it, only the API's message shows).
  */
@@ -112,14 +112,28 @@ export class CeoDiscountsSection {
   /** "this month" / "in this range". */
   thisWord = computed(() => periodWords(this.shownPeriod(), this.shownRange()).thisP);
   noBookings = computed(() => !this.s()?.bookings);
+  /** A period longer than a month: quarter, year, or a custom range of more than 31 days. */
+  multiMonth = computed(() => {
+    const p = this.shownPeriod();
+    if (p === 'quarter' || p === 'year') return true;
+    const r = this.shownRange();
+    if (p !== 'custom' || !r?.from || !r?.to) return false;
+    return (Date.parse(r.to) - Date.parse(r.from)) / 86400000 + 1 > 31;
+  });
 
   kpis = computed<DashKpi[]>(() => {
     const s = this.s();
     if (!s) return [];
     const word = this.thisWord();
+    // Longer than a month (quarter, year, a long range): the monthly discounts of every booking running in the period
+    // added up, also of bookings that did not run at the same time.
+    const combined = this.multiMonth();
     return [
       {
-        key: 'discount', label: 'Discount a month', value: money(s.discountMonthly), full: `${fullMoney(s.discountMonthly)} a month`,
+        key: 'discount', label: combined ? 'Discount a month, combined' : 'Discount a month', value: money(s.discountMonthly),
+        full: combined
+          ? `${fullMoney(s.discountMonthly)}: the discount a month of every booking running in the period, added up`
+          : `${fullMoney(s.discountMonthly)} a month`,
         sub: s.baseMonthly ? `${pct(s.discountPct)} of the expected rent` : 'No bookings to compare',
         tone: s.discountMonthly > 0 ? 'danger' : 'ok',
         action: () => this.openGroups('location'), actionLabel: 'Open the discount by location'
@@ -181,10 +195,13 @@ export class CeoDiscountsSection {
     this.drill.set({ id: ++this.drillId, root: 'Discounts', level: { kind: 'records', records: 'bookings', params, crumb, highlight } });
   }
 
-  /** A breakdown row -> its discounted bookings (key null: no location / no salesperson recorded). */
+  /**
+   * A breakdown row -> its discounted bookings (key null: no location / no salesperson recorded); a row with none
+   * discounted opens all its bookings, as the KPI cards do.
+   */
   openGroupRow(by: DiscountGroupBy, g: CeoDiscountGroup) {
     const params: DashParams = by === 'location' ? { locationId: g.key ?? 'none' } : by === 'seller' ? { sellerId: g.key ?? 'none' } : { shift: g.key ?? g.name };
-    this.openRecords(params, g.name);
+    this.openRecords(g.discounted ? params : { ...params, all: true }, g.name);
   }
   openBooking(b: CeoDiscountBooking) {
     this.openRecords(b.locationId ? { locationId: b.locationId } : {}, b.location || 'Discounted bookings', b.bookingId);

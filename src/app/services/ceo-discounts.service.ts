@@ -11,8 +11,8 @@ import {
 // CEO dashboard, Discounts section (GET api/ceo/discounts and api/ceo/discounts/records/{kind}, read-only, database
 // update DD_01). Discount a month of a booking = how far it was sold below its expected price (24/7: the room's list
 // price x seats; Morning / Evening: that price less the location's shift discount; only what the Rooms section calls
-// "under") + its fixed PKR discount a month. Invoices: the discount on the invoices issued in the period (real money,
-// it lowered the invoice total), the same discounts as billed, shown on its own. Every response is normalised here.
+// "under") + its fixed PKR discount a month. Invoices: the discount on the invoices whose billing period starts in the
+// period (real money, it lowered the invoice total), shown on its own. Every response is normalised here.
 // ============================================================
 
 export type CeoPricingKey = 'under' | 'at' | 'over' | 'unpriced';
@@ -45,6 +45,8 @@ export interface CeoDiscountBooking {
 export interface CeoDiscountInvoice {
   invoiceId: number; invoiceNumber: string; bookingId: number | null; customer: string; locationId: number | null; location: string;
   room: string; issuedOn: string | null; subTotal: number; discount: number; total: number; status: string; paid: boolean;
+  /** CP_02: the billing period (yyyy-MM-dd) that places the invoice in the period; null before CP_02 / when not set. */
+  periodStart: string | null; periodEnd: string | null;
 }
 
 export interface CeoDiscounts {
@@ -119,7 +121,8 @@ export function toDiscountInvoice(x: any): CeoDiscountInvoice {
   return {
     invoiceId: num(x?.invoiceId), invoiceNumber: str(x?.invoiceNumber), bookingId: intOrNull(x?.bookingId), customer: str(x?.customer) || '-',
     locationId: intOrNull(x?.locationId), location: str(x?.location), room: str(x?.room), issuedOn: strOrNull(x?.issuedOn),
-    subTotal: num(x?.subTotal), discount: num(x?.discount), total: num(x?.total), status: str(x?.status), paid: x?.paid === true
+    subTotal: num(x?.subTotal), discount: num(x?.discount), total: num(x?.total), status: str(x?.status), paid: x?.paid === true,
+    periodStart: strOrNull(x?.periodStart), periodEnd: strOrNull(x?.periodEnd)
   };
 }
 
@@ -174,7 +177,7 @@ export class CeoDiscountsService {
 
   /**
    * GET api/ceo/discounts/records/{kind}: bookings (the discounted ones, biggest first; locationId id | none, sellerId
-   * id | none, shift, newOnly) or invoices (with a discount, issued in the period). A custom period goes as periodFrom /
+   * id | none, shift, newOnly) or invoices (with a discount, billing period starting in the period). A custom period goes as periodFrom /
    * periodTo, as the other drill-downs.
    */
   getRecords(kind: CeoDiscountRecordKind, period: CeoPeriod, range: DashRange | null, params: DashParams): Observable<CeoDiscountRecords> {

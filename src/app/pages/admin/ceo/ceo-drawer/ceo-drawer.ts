@@ -3,9 +3,9 @@ import {
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, map } from 'rxjs';
 import {
-  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoLeaseRecord, CeoLocalMetric,
+  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoInvoiceTotals, CeoLeaseRecord, CeoLocalMetric,
   CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoReceiptRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
 import type {
@@ -66,18 +66,28 @@ function billingPeriodText(start: string | null | undefined, end: string | null 
   return `${sameYear ? dayText(start, false) : from} - ${to}`;
 }
 
+/**
+ * The line under an invoice list's title (CP_02): the totals of every invoice in it, as the dashboard counts them
+ * (billed and collected without security deposits, owed = what is left to pay); undefined = none sent.
+ */
+function invoiceSummary(t: CeoInvoiceTotals | null | undefined): string | undefined {
+  if (!t) return undefined;
+  return `Billed ${fullMoney(t.billed)} · collected ${fullMoney(t.collected)} · owed ${fullMoney(t.balance)} (without security deposits)`;
+}
+
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
 const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
-    // status: 'paid' when opened from Collected (the API's breakdown leaves it out; the invoices use it). A custom period
-    // opens it with from / to instead of a month (the invoices whose billing period starts in that range, CP_01).
+    // status: 'collected' when opened from Collected (CP_02: the invoices with something paid; the API's breakdown leaves
+    // it out, the invoices use it). A custom period opens it with from / to instead of a month (the invoices whose
+    // billing period starts in that range, CP_01).
     next: (p, r) => ({
       kind: 'records', records: 'invoices',
       params: { month: p['month'], from: p['from'], to: p['to'], locationId: r.key, status: p['status'] }, crumb: r.label
     }),
-    nextLabel: (p, r) => `Open the ${p['status'] === 'paid' ? 'paid ' : ''}invoices of ${r.label}`
+    nextLabel: (p, r) => p['status'] === 'collected' || p['status'] === 'paid' ? `Open the invoices of ${r.label} with payments` : `Open the invoices of ${r.label}`
   },
   // ----- level 2 lists built from the dashboard's own figures (DrillLevel.local) -----
   'revenue-months': {
@@ -112,10 +122,27 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
     next: (p, r) => ({ kind: 'records', records: 'spaces', params: { spaceTypeId: p['spaceTypeId'], locationId: r.key }, crumb: r.label })
   },
   'occupancy-location': {
-    rowLabel: 'Space type', money: false, chart: 'stacked-occupancy', vertical: false,
+    rowLabel: 'Room category', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    // CP_02: rows per room category (key PrivateOffice | SharedSpace); before it per space type (numeric key).
+    next: (p, r) => ({
+      kind: 'records', records: 'spaces',
+      params: /^\d+$/.test(r.key)
+        ? { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }
+        : { locationId: p['locationId'], category: r.key, occupied: p['occupied'] },
+      crumb: r.label
+    }),
     nextLabel: (p, r) => p['occupied'] ? `Open the occupied ${r.label} rooms` : `Open ${r.label}`,
+    keep: (p, r) => !p['occupied'] || r.value > 0
+  },
+  // CP_02: one room category (Private Office / Shared Space) by location, rooms with a confirmed booking now; from the
+  // category's KPI card only the occupied rooms (occupied: true).
+  'occupancy-category': {
+    rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
+    derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
+    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { category: p['category'], locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label}` : `Open the rooms of ${r.label}`,
+    hint: () => 'Select a location for its rooms.',
     keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'bookings-month': {
@@ -179,7 +206,7 @@ export class CeoDrawer {
   private readonly ceoSource: DrillSource = {
     metrics: METRICS,
     breakdown: (metric, params) => this.ceo.getBreakdown(metric as CeoMetric, params),
-    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params),
+    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params).pipe(map(r => ({ ...r, summary: invoiceSummary(r.invoiceTotals) }))),
     describeError: err => CeoService.describeError(err)
   };
   private src = computed<DrillSource>(() => this.source() ?? this.ceoSource);
@@ -467,7 +494,8 @@ export class CeoDrawer {
     const occupied = rows.filter(r => r.occupied);
     return {
       all: rows.length, occupied: occupied.length, vacant: rows.length - occupied.length,
-      seatsInUse: occupied.reduce((a, r) => a + (r.capacity ?? 0), 0)
+      // CP_02: the seats sold of the confirmed bookings when the API sends them, else the rooms' seats.
+      seatsInUse: occupied.reduce((a, r) => a + (r.seatsSold ?? r.capacity ?? 0), 0)
     };
   });
   spaceMixed = computed(() => this.spaceStats().occupied > 0 && this.spaceStats().vacant > 0);

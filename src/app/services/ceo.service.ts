@@ -23,8 +23,18 @@ export interface CeoMoneyMonth { month: string; invoiced: number; collected: num
 export interface CeoAging { bucket: string; label: string; amount: number; count: number; }
 export interface CeoTopCustomer { customerId: number; name: string; amount: number; invoices: number; }
 export interface CeoMoney {
+  /**
+   * Database update CP_02: invoiced = the period's billing without security deposits (securityDeposits apart);
+   * collected = paid so far on those invoices (part payments count, a paid invoice in full), without the deposits'
+   * share. A calendar period counts whole billing months up to this one, against the same months one period earlier.
+   */
   invoiced: number; invoicedPrev: number;
   collected: number; collectedPrev: number;
+  /**
+   * Security deposits billed on the period's invoices (left out of invoiced, the 12 months and the top customers), the
+   * previous period's, and how many invoices carry one; null when the API did not send them (before CP_02).
+   */
+  securityDeposits: number | null; securityDepositsPrev: number | null; securityDepositsCount: number | null;
   /** Unpaid now, without the invoices billed in advance (as the aging buckets). */
   outstanding: number; outstandingCount: number;
   overdue: number; overdueCount: number;
@@ -57,9 +67,34 @@ export interface CeoMoney {
 /** CP_02: money received in one month (yyyy-MM), by the day it came in. */
 export interface CeoReceivedMonth { month: string; received: number; count: number; }
 
-export interface CeoOccupancyMonth { month: string; occupancyPct: number; newBookings: number; }
+/** CP_02: a room category's occupancy at a month end (rooms that existed then). */
+export interface CeoOccupancyCategoryMonth { categoryCode: string; label: string; rooms: number; occupied: number; occupancyPct: number; }
+export interface CeoOccupancyMonth {
+  month: string; occupancyPct: number; newBookings: number;
+  /** CP_02: Private Office, then Shared Space; empty before the database update CP_02. */
+  categories: CeoOccupancyCategoryMonth[];
+}
 export interface CeoOccupancyType { spaceTypeId: number; name: string; total: number; occupied: number; }
-export interface CeoOccupancyLocation { locationId: number; name: string; total: number; occupied: number; }
+/** CP_02: one room category at one location, now (rooms with a confirmed booking; seats sold of those bookings). */
+export interface CeoLocationCategoryOccupancy {
+  categoryCode: string; label: string; rooms: number; occupied: number; occupancyPct: number;
+  seats: number; seatsSold: number; seatOccupancyPct: number;
+}
+export interface CeoOccupancyLocation {
+  /** 0 = "No location" (rooms not tied to a shown location; records with locationId=none). */
+  locationId: number; name: string; total: number; occupied: number;
+  /** CP_02: Private Office, then Shared Space; empty before the database update CP_02. */
+  categories: CeoLocationCategoryOccupancy[];
+}
+/**
+ * CP_02: one room category's occupancy now: rooms with a confirmed booking of all its rooms, against one period ago
+ * (the rooms that existed then), and the seats sold of those bookings of all its seats.
+ */
+export interface CeoOccupancyCategory {
+  categoryCode: string; label: string; rooms: number; occupied: number; occupancyPct: number;
+  roomsPrev: number; occupiedPrev: number; occupancyPctPrev: number;
+  seats: number; seatsSold: number; seatOccupancyPct: number;
+}
 export interface CeoLeaseExpiring {
   bookingId: number; customer: string; space: string; location: string; endOn: string; monthlyAmount: number;
 }
@@ -67,7 +102,13 @@ export interface CeoOccupancy {
   totalSpaces: number; occupiedSpaces: number;
   occupancyPct: number; occupancyPctPrev: number;
   activeBookings: number; newBookings: number; newBookingsPrev: number;
+  /**
+   * CP_02: occupancy per room category (Private Office, then Shared Space), shown apart, never as one mixed figure.
+   * Empty before the database update CP_02: the page then shows the one occupancy figure and byType, as before.
+   */
+  categories: CeoOccupancyCategory[];
   months: CeoOccupancyMonth[];
+  /** By space type: only before CP_02 (since then empty: categories instead). */
   byType: CeoOccupancyType[];
   byLocation: CeoOccupancyLocation[];
   /** Next 90 days, soonest first (the API sends the first 50). */
@@ -85,7 +126,10 @@ export interface CeoFunnelStage { stage: string; label: string; count: number; }
 export interface CeoInquiryType { type: string; label: string; count: number; }
 export interface CeoSales {
   funnel: CeoFunnelStage[];
-  /** Quotations created in the period that were booked / quotations created in the period, % (0-100, never above). */
+  /**
+   * Quotations created in the period that were booked / quotations created in the period, % (0-100, never above).
+   * CP_02: booked = converted and the booking is still live (not rejected, cancelled or deleted).
+   */
   conversionRate: number;
   /** Quotations created in the period (the funnel's quotations stage). */
   quotations: number;
@@ -96,7 +140,13 @@ export interface CeoSales {
   quotationsBooked: number;
   inquiriesByType: CeoInquiryType[];
   quotationValue: number;
+  /** Value of the period's bookings: their contract value (basis contract, CP_02) or their first invoices (older). */
   bookingValue: number;
+  bookingValueBasis: 'contract' | 'firstInvoice';
+  /** CP_02: of the period's bookings, those made from a quotation (the rest were booked directly); null = not known. */
+  bookingsFromQuotations: number | null;
+  /** CP_02: one location chosen: the period's tour inquiries without a branch (not in the figures); null = none / not known. */
+  inquiriesNoBranch: number | null;
   /**
    * Tour inquiries follow the location filter by their branch. True when a location is chosen but the inquiry
    * figures (funnel stage, by type) still count every location: the database update QA_07 has not run, or an older
@@ -105,19 +155,27 @@ export interface CeoSales {
   inquiriesAllLocations: boolean;
 }
 
-/** A location: its sales executives and the quotations made on its spaces in the period (by anyone, as the funnel). */
+/**
+ * A location: its sales executives and the quotations made on its spaces in the period, how many were booked.
+ * salesExecutivesOnly (CP_02): only the sales executives' quotations; false = anyone's (older API).
+ */
 export interface CeoTeamLocation {
-  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number;
+  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number; salesExecutivesOnly: boolean;
 }
 /**
- * A sales executive (the API sends no other role). revenue = the dashboard's converted value: the total of the
- * quotations they created in the period that were converted to a booking (PKR).
+ * A sales executive (the API sends no other role). revenue (team revenueBasis bookings, CP_02) = the contract value of
+ * the new bookings they sold in the period (their quotation, else the booking they made); bookings = how many. Older
+ * API (basis quotations): the total of the quotations they created in the period that were converted (PKR).
  */
 export interface CeoPerson {
   userId: number; name: string; role: string; locations: string; quotations: number; converted: number; revenue: number;
+  bookings: number | null;
 }
 /** Team section: only the sales executives (filtered by the API), highest revenue first, and their totals. */
-export interface CeoTeam { perLocation: CeoTeamLocation[]; people: CeoPerson[]; salesExecutives: number; revenue: number; }
+export interface CeoTeam {
+  perLocation: CeoTeamLocation[]; people: CeoPerson[]; salesExecutives: number; revenue: number;
+  revenueBasis: 'bookings' | 'quotations';
+}
 
 export interface CeoDashboard {
   period: CeoPeriod;
@@ -136,7 +194,7 @@ export interface CeoDashboard {
 
 // ---------- Drill-down level 2 ----------
 export type CeoMetric =
-  | 'revenue' | 'aging' | 'occupancy-type' | 'occupancy-location' | 'bookings-month' | 'inquiries-type' | 'staff';
+  | 'revenue' | 'aging' | 'occupancy-type' | 'occupancy-location' | 'occupancy-category' | 'bookings-month' | 'inquiries-type' | 'staff';
 /**
  * Level 2 lists the dashboard builds from its own figures (no request): the months of the period (invoiced /
  * collected), the receivables aging buckets, occupancy by location. Their rows lead to the API breakdowns above.
@@ -161,15 +219,27 @@ export interface CeoInvoiceRecord {
    * database update CP_01), null when the invoice has none: the list then shows the issue date.
    */
   periodStart?: string | null; periodEnd?: string | null;
+  /** balance = owed now: total - WHT - paid (CP_02), 0 for a paid invoice. */
   dueOn: string | null; total: number; paid: number; balance: number; status: string;
+  /**
+   * CP_02 (left out before it): WHT withheld; the security deposit inside total; billed = total less the deposit (what
+   * Invoiced counts); collected = paid so far less the deposit's share (what Collected counts).
+   */
+  wht?: number | null; deposit?: number | null; billed?: number | null; collected?: number | null;
 }
+/** records/invoices (CP_02): the totals of every matching invoice (the list holds at most 200). */
+export interface CeoInvoiceTotals { billed: number; collected: number; balance: number; }
 export interface CeoSpaceRecord {
   spaceId: number; name: string; spaceType: string; location: string; capacity: number | null;
   occupied: boolean; customer: string; bookingEndOn: string | null;
+  /** CP_02: the room category's label and the seats sold of the confirmed booking(s) now (null before CP_02). */
+  category?: string | null; seatsSold?: number | null;
 }
 export interface CeoBookingRecord {
   bookingId: number; customer: string; space: string; location: string;
   startOn: string | null; endOn: string | null; status: string; totalAmount: number;
+  /** The sales list (CP_02, records/bookings?sales=true): who sold the booking; left out on the other lists. */
+  seller?: string;
 }
 export interface CeoInquiryRecord {
   inquiryId: number; name: string; phone: string; type: string; referenceName: string;
@@ -207,6 +277,8 @@ export interface CeoRecords<K extends CeoRecordKind = CeoRecordKind> {
   rows: CeoRecordRowMap[K][];
   /** receipts (CP_02): the line on the total of every matching record ("PKR 12,586,744 received"). */
   summary?: string;
+  /** Invoices (CP_02): the totals of every matching invoice; null otherwise. */
+  invoiceTotals?: CeoInvoiceTotals | null;
 }
 
 // ---------- 3-month outlook (GET api/dashboard/forecast) ----------
@@ -255,6 +327,8 @@ export interface CeoRoomSale {
   /** Sold per seat vs expected, % (-12.5 = 12.5% under). */
   variancePct: number;
   pricing: CeoPricing;
+  /** CP_02: the booking's fixed PKR discount a month, already off soldMonthly (0 when none / before CP_02). */
+  fixedMonthly: number;
 }
 
 /** A private office or shared space (sold monthly). */
@@ -277,6 +351,8 @@ export interface CeoRoom {
   occupiedDays: number | null;
   periodDays: number | null;
   sales: CeoRoomSale[];
+  /** CP_02: start (yyyy-MM-dd) of the next confirmed booking that starts after the period; null when none. */
+  upcomingStartOn: string | null;
 }
 
 /** Occupancy of one room category (private offices, shared spaces): the API's summary.byCategory. */
@@ -384,7 +460,7 @@ function toRoomSale(s: any, room: { seats: number; listSeatPrice: number }): Ceo
   const base = {
     bookingId: num(s.bookingId), customer: str(s.customer) || 'Customer', shift, seatsSold,
     startOn: strOrNull(s.startOn), endOn: strOrNull(s.endOn), listSeatPriceAtSale, shiftDiscountCapPct: cap,
-    soldMonthly, soldSeatPrice
+    soldMonthly, soldSeatPrice, fixedMonthly: Math.max(0, num(s.fixedMonthly))
   };
   // No list price: the API sends pricing and the expected / variance figures as null; nothing to compare with.
   const sentUnpriced = str(s.pricing).toLowerCase() === 'unpriced'
@@ -422,7 +498,8 @@ function toRoom(r: any): CeoRoom {
     occupiedNow: flag(r.occupiedNow),
     periodOccupancyPct: clampPct(sentPct ?? (occupiedDays !== null && periodDays ? (occupiedDays / periodDays) * 100 : 0)),
     occupiedDays, periodDays,
-    sales: arr(r.sales, (s: any) => toRoomSale(s, { seats, listSeatPrice }))
+    sales: arr(r.sales, (s: any) => toRoomSale(s, { seats, listSeatPrice })),
+    upcomingStartOn: strOrNull(r.upcomingStartOn)
   };
 }
 
@@ -700,6 +777,9 @@ export class CeoService {
       overdue: num(m.overdue), overdueCount: num(m.overdueCount),
       billedInAdvance: numOrNull(m.billedInAdvance),
       billedInAdvanceCount: numOrNull(m.billedInAdvance) === null ? null : num(m.billedInAdvanceCount),
+      securityDeposits: numOrNull(m.securityDeposits),
+      securityDepositsPrev: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsPrev),
+      securityDepositsCount: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsCount),
       collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
       months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected) }))
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
@@ -723,10 +803,26 @@ export class CeoService {
       totalSpaces: num(o.totalSpaces), occupiedSpaces: num(o.occupiedSpaces),
       occupancyPct: num(o.occupancyPct), occupancyPctPrev: num(o.occupancyPctPrev),
       activeBookings: num(o.activeBookings), newBookings: num(o.newBookings), newBookingsPrev: num(o.newBookingsPrev),
-      months: arr(o.months, (x: any) => ({ month: str(x.month), occupancyPct: num(x.occupancyPct), newBookings: num(x.newBookings) }))
-        .filter(x => /^\d{4}-\d{2}/.test(x.month)),
+      categories: arr(o.categories, (x: any): CeoOccupancyCategory => ({
+        categoryCode: str(x.categoryCode), label: str(x.label) || str(x.categoryCode), rooms: num(x.rooms), occupied: num(x.occupied),
+        occupancyPct: num(x.occupancyPct), roomsPrev: num(x.roomsPrev), occupiedPrev: num(x.occupiedPrev),
+        occupancyPctPrev: num(x.occupancyPctPrev), seats: num(x.seats), seatsSold: num(x.seatsSold), seatOccupancyPct: num(x.seatOccupancyPct)
+      })).filter(x => x.categoryCode),
+      months: arr(o.months, (x: any) => ({
+        month: str(x.month), occupancyPct: num(x.occupancyPct), newBookings: num(x.newBookings),
+        categories: arr(x.categories, (c: any): CeoOccupancyCategoryMonth => ({
+          categoryCode: str(c.categoryCode), label: str(c.label) || str(c.categoryCode), rooms: num(c.rooms), occupied: num(c.occupied),
+          occupancyPct: num(c.occupancyPct)
+        }))
+      })).filter(x => /^\d{4}-\d{2}/.test(x.month)),
       byType: arr(o.byType, (x: any) => ({ spaceTypeId: num(x.spaceTypeId), name: str(x.name) || 'Space type', total: num(x.total), occupied: num(x.occupied) })),
-      byLocation: arr(o.byLocation, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location', total: num(x.total), occupied: num(x.occupied) })),
+      byLocation: arr(o.byLocation, (x: any) => ({
+        locationId: num(x.locationId), name: str(x.name) || 'Location', total: num(x.total), occupied: num(x.occupied),
+        categories: arr(x.categories, (c: any): CeoLocationCategoryOccupancy => ({
+          categoryCode: str(c.categoryCode), label: str(c.label) || str(c.categoryCode), rooms: num(c.rooms), occupied: num(c.occupied),
+          occupancyPct: num(c.occupancyPct), seats: num(c.seats), seatsSold: num(c.seatsSold), seatOccupancyPct: num(c.seatOccupancyPct)
+        }))
+      })),
       leasesExpiring,
       // The full count when sent (never below the list it came with); null = only the list is known.
       leasesExpiringCount: leasesCount === null ? null : Math.max(leasesExpiring.length, Math.floor(leasesCount)),
@@ -742,6 +838,9 @@ export class CeoService {
       conversionRate: conv.rate, quotations, quotationsBooked: conv.quotationsBooked,
       inquiriesByType: arr(s.inquiriesByType, (x: any) => ({ type: str(x.type) || 'NotSet', label: str(x.label) || str(x.type) || 'Not set', count: num(x.count) })),
       quotationValue: num(s.quotationValue), bookingValue: num(s.bookingValue),
+      bookingValueBasis: str(s.bookingValueBasis) === 'contract' ? 'contract' : 'firstInvoice',
+      bookingsFromQuotations: numOrNull(s.bookingsFromQuotations),
+      inquiriesNoBranch: numOrNull(s.inquiriesNoBranch),
       // Not sent (an older API): its inquiry figures never followed the location.
       inquiriesAllLocations: s.inquiriesAllLocations === undefined || s.inquiriesAllLocations === null
         ? true
@@ -751,14 +850,17 @@ export class CeoService {
     // The API lists only the sales executives (19 Oct 2026); revenue is their converted value (an older API: convertedValue).
     const people: CeoPerson[] = t ? arr(t.people, (x: any) => ({
       userId: num(x.userId), name: str(x.name) || 'Team member', role: str(x.role), locations: str(x.locations),
-      quotations: num(x.quotations), converted: num(x.converted), revenue: num(x.revenue ?? x.convertedValue)
+      quotations: num(x.quotations), converted: num(x.converted), revenue: num(x.revenue ?? x.convertedValue),
+      bookings: numOrNull(x.bookings)
     })) : [];
     const team: CeoTeam | null = t && {
       perLocation: arr(t.perLocation, (x: any) => ({
         locationId: num(x.locationId), name: str(x.name) || 'Location', salesExecutives: num(x.salesExecutives),
-        quotations: num(x.quotations), converted: num(x.converted)
+        quotations: num(x.quotations), converted: num(x.converted),
+        salesExecutivesOnly: x.salesExecutivesOnly === true || x.salesExecutivesOnly === 1 || String(x.salesExecutivesOnly).toLowerCase() === 'true'
       })),
       people,
+      revenueBasis: str(t.revenueBasis) === 'bookings' ? 'bookings' : 'quotations',
       salesExecutives: t.salesExecutives != null ? num(t.salesExecutives) : people.length,
       revenue: t.revenue != null ? num(t.revenue) : people.reduce((a, p) => a + p.revenue, 0)
     };
@@ -790,8 +892,10 @@ export class CeoService {
     const d = obj(raw) ?? {};
     const rows = arr(d.rows, (r: any) => this.toRecord(kind, r)) as CeoRecordRowMap[K][];
     const amount = kind === 'receipts' ? numOrNull(d.amount) : null;   // CP_02: the sum of every matching receipt / payment
+    const t = obj(d.invoiceTotals);
+    const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance) } : null;
     return {
-      title: str(d.title), total: Math.max(num(d.total), rows.length), rows,
+      title: str(d.title), total: Math.max(num(d.total), rows.length), rows, invoiceTotals,
       ...(amount !== null ? { summary: `PKR ${Math.round(amount).toLocaleString('en-US')} received` } : {})
     };
   }
@@ -802,16 +906,19 @@ export class CeoService {
         invoiceId: num(r.invoiceId), invoiceNumber: str(r.invoiceNumber) || (r.invoiceId ? `#${r.invoiceId}` : ''),
         customer: str(r.customer), location: str(r.location), issuedOn: strOrNull(r.issuedOn),
         ...(r.periodStart !== undefined || r.periodEnd !== undefined ? { periodStart: strOrNull(r.periodStart), periodEnd: strOrNull(r.periodEnd) } : {}),
-        dueOn: strOrNull(r.dueOn), total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status)
+        dueOn: strOrNull(r.dueOn), total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status),
+        ...(r.billed !== undefined ? { wht: numOrNull(r.wht), deposit: numOrNull(r.deposit), billed: numOrNull(r.billed), collected: numOrNull(r.collected) } : {})
       };
       case 'spaces': return {
         spaceId: num(r.spaceId), name: str(r.name), spaceType: str(r.spaceType), location: str(r.location),
         capacity: numOrNull(r.capacity), occupied: r.occupied === true || r.occupied === 1 || r.occupied === 'true',
-        customer: str(r.customer), bookingEndOn: strOrNull(r.bookingEndOn)
+        customer: str(r.customer), bookingEndOn: strOrNull(r.bookingEndOn),
+        category: strOrNull(r.category), seatsSold: numOrNull(r.seatsSold)
       };
       case 'bookings': return {
         bookingId: num(r.bookingId), customer: str(r.customer), space: str(r.space), location: str(r.location),
-        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), totalAmount: num(r.totalAmount)
+        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), totalAmount: num(r.totalAmount),
+        ...(r.seller !== undefined && r.seller !== null ? { seller: str(r.seller) } : {})
       };
       case 'inquiries': return {
         inquiryId: num(r.inquiryId), name: str(r.name), phone: str(r.phone), type: str(r.type), referenceName: str(r.referenceName),

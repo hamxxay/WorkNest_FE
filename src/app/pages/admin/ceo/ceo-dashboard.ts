@@ -3,7 +3,8 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  CeoBreakdown, CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService
+  CeoBreakdown, CeoDashboard as CeoDashboardData, CeoError, CeoForecastMonth, CeoFunnelStage, CeoLocation, CeoPeriod, CeoService,
+  CeoTeamLocation
 } from '../../../services/ceo.service';
 import { CeoDrawer } from './ceo-drawer/ceo-drawer';
 import { CeoRoomsSection } from './ceo-rooms/ceo-rooms';
@@ -46,6 +47,9 @@ type ChartKey = 'revenue' | 'aging' | 'occupancy';
 
 /** CP_02: the Received line on the revenue chart (indigo, apart from the teal bars). */
 const RECEIVED_COLOR = '#4f46e5';
+/** CP_02: line colour per room category on the occupancy chart (Private Office, Shared Space; others after). */
+const CATEGORY_LINE: Record<string, string> = { PrivateOffice: TEAL_DARK, SharedSpace: '#7c3aed' };
+const CATEGORY_LINE_FALLBACK = ['#0369a1', '#b45309'];
 
 /**
  * CEO dashboard (/admin/ceo): company-wide money, occupancy, sales and team figures for this month / quarter /
@@ -361,6 +365,11 @@ export class CeoDashboard {
    * sends billed in advance); an older API places it in the month it was issued, so the labels say nothing then.
    */
   byPeriod = computed(() => this.m()?.billedInAdvance != null);
+  /**
+   * Database update CP_02 (it sends the security deposits): invoiced leaves the deposits out and collected is what was
+   * paid so far on the period's invoices (part payments count); an older API: GrandTotal and the paid invoices.
+   */
+  noDeposits = computed(() => this.m()?.securityDeposits != null);
 
   moneyKpis = computed<Kpi[]>(() => {
     const m = this.m();
@@ -368,23 +377,28 @@ export class CeoDashboard {
     const w = this.words();
     const rate = m.collectionRate;
     const hint = this.byPeriod() ? 'By billing period' : undefined;
+    // CP_02: what each figure counts, in the card's tooltip.
+    const cp02 = this.noDeposits();
+    const invoicedHint = cp02 ? 'By billing period, without security deposits' : hint;
+    const collectedHint = cp02 ? 'Paid so far on the invoices for these billing periods (part payments count), without security deposits' : hint;
     const kpis: Kpi[] = [
       {
         key: 'invoiced', label: `Invoiced ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
         sub: `${money(m.invoicedPrev)} ${w.last}`, tone: 'neutral',
-        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`, hint,
+        trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`, hint: invoicedHint,
         action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'collected', label: `Collected ${w.thisP}`, value: money(m.collected), full: fullMoney(m.collected),
-        sub: `${money(m.collectedPrev)} ${w.last}`, tone: 'neutral',
-        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`, hint,
-        action: () => this.openRevenue('Collected', 'paid'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
+        sub: `${money(m.collectedPrev)} ${w.last}`, sub2: cp02 ? 'Paid so far on this billing' : undefined, tone: 'neutral',
+        trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`, hint: collectedHint,
+        action: () => this.openRevenue('Collected', 'collected'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
-        tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger', hint,
+        tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
+        hint: cp02 ? 'Share of the period\'s billing paid so far' : hint,
         action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate ${w.thisP} by ${this.revenueBy()}`
       },
       {
@@ -401,12 +415,13 @@ export class CeoDashboard {
         action: () => this.openRecords('Invoices', 'Overdue', 'invoices', { status: 'overdue' }), actionLabel: 'Open the overdue invoices'
       }
     ];
-    // Billed in advance (CP_01): unpaid invoices for months not started yet, next to outstanding (which leaves them out).
+    // Billed in advance (CP_01): unpaid invoices for billing periods not started yet, next to outstanding (which leaves
+    // them out), before overdue.
     if (m.billedInAdvance != null) {
       const n = m.billedInAdvanceCount ?? 0;
-      kpis.splice(4, 0, {
+      kpis.splice(kpis.findIndex(k => k.key === 'overdue'), 0, {
         key: 'advance', label: 'Billed in advance', value: money(m.billedInAdvance), full: fullMoney(m.billedInAdvance),
-        sub: n ? `${count(n)} unpaid invoice${n === 1 ? '' : 's'}` : 'No invoices', sub2: 'Unpaid, for months not started yet',
+        sub: n ? `${count(n)} unpaid invoice${n === 1 ? '' : 's'}` : 'No invoices', sub2: 'Unpaid, for billing periods not started yet',
         tone: 'neutral',
         action: () => this.openBilledInAdvance(), actionLabel: 'Open the invoices billed in advance'
       });
@@ -414,6 +429,18 @@ export class CeoDashboard {
     // CP_02: Received (money taken in during the period, whatever invoice), right after Collected.
     const received = this.receivedKpi();
     if (received) kpis.splice(kpis.findIndex(k => k.key === 'collected') + 1, 0, received);
+    // Security deposits (CP_02): billed on the period's invoices, kept out of invoiced; after the collection rate.
+    if (m.securityDeposits != null) {
+      const n = m.securityDepositsCount ?? 0;
+      kpis.splice(kpis.findIndex(k => k.key === 'rate') + 1, 0, {
+        key: 'deposits', label: `Security deposits ${w.thisP}`, value: money(m.securityDeposits), full: fullMoney(m.securityDeposits),
+        sub: `${money(m.securityDepositsPrev ?? 0)} ${w.last}`,
+        sub2: n ? `${count(n)} invoice${n === 1 ? '' : 's'}, not in Invoiced` : 'No deposits billed',
+        tone: 'neutral', trend: trend(m.securityDeposits, m.securityDepositsPrev ?? 0, '%'), vs: `vs ${w.last}`,
+        hint: 'Refundable security deposits billed, by billing period',
+        action: () => this.openDeposits(), actionLabel: `Open the invoices with a security deposit ${w.thisP}`
+      });
+    }
     return kpis;
   });
 
@@ -474,20 +501,35 @@ export class CeoDashboard {
 
   o = computed(() => this.data()?.occupancy ?? null);
 
+  /** CP_02: occupancy per room category (Private Office, Shared Space); empty before the database update CP_02. */
+  occCategories = computed(() => this.o()?.categories ?? []);
+
   occupancyKpis = computed<Kpi[]>(() => {
     const o = this.o();
     if (!o) return [];
     const w = this.words();
+    // CP_02: one card per room category (rooms with a confirmed booking now, and their seats), never one mixed figure.
+    const perCategory: Kpi[] = o.categories.map(c => ({
+      key: `occ-${c.categoryCode}`, label: `${c.label} occupancy`, value: pct(c.occupancyPct),
+      // The card shows sub under the trend: rooms now, then the seats sold of those rooms.
+      sub: `${count(c.occupied)} of ${count(c.rooms)} rooms now · seats ${count(c.seatsSold)} of ${count(c.seats)} (${pct(c.seatOccupancyPct)})`,
+      hint: 'Rooms with a confirmed booking right now; the change is against the rooms that existed one period ago.',
+      tone: c.rooms === 0 ? 'neutral' : c.occupancyPct >= 70 ? 'ok' : c.occupancyPct >= 40 ? 'neutral' : 'warn',
+      trend: trend(c.occupancyPct, c.occupancyPctPrev, 'pts'), vs: `vs ${w.ago}`,
+      action: () => this.openOccupancyCategory(c.categoryCode, c.label, true),
+      actionLabel: `Open the occupied ${c.label} rooms by location`
+    }));
     return [
-      {
+      ...(perCategory.length ? perCategory : [{
         key: 'occupancy', label: 'Occupancy', value: pct(o.occupancyPct),
         sub: `${count(o.occupiedSpaces)} of ${count(o.totalSpaces)} spaces in use`,
         tone: o.totalSpaces === 0 ? 'neutral' : o.occupancyPct >= 70 ? 'ok' : o.occupancyPct >= 40 ? 'neutral' : 'warn',
         trend: trend(o.occupancyPct, o.occupancyPctPrev, 'pts'), vs: `vs ${w.ago}`,
         action: () => this.openOccupancy(), actionLabel: 'Open the occupied rooms by location'
-      },
+      } as Kpi]),
       {
-        key: 'active', label: 'Active bookings', value: count(o.activeBookings), sub: 'Running today', tone: 'neutral',
+        key: 'active', label: 'Active bookings', value: count(o.activeBookings),
+        sub: o.categories.length ? 'Confirmed, running today' : 'Running today', tone: 'neutral',
         // records/bookings filters by the day a booking was made: from 2000-01-01 keeps the older ones that still run.
         action: () => this.openRecords('Active bookings', 'Running today', 'bookings', { status: 'active', from: '2000-01-01' }),
         actionLabel: 'Open the bookings running today'
@@ -501,8 +543,19 @@ export class CeoDashboard {
     ];
   });
 
-  occEmpty = computed(() => !(this.o()?.months ?? []).some(x => x.occupancyPct > 0 || x.newBookings > 0));
+  occEmpty = computed(() => !(this.o()?.months ?? []).some(x => x.occupancyPct > 0 || x.newBookings > 0 || x.categories.some(c => c.occupancyPct > 0)));
   byTypeEmpty = computed(() => !(this.o()?.byType ?? []).some(t => t.total > 0));
+  byCategoryEmpty = computed(() => !this.occCategories().some(c => c.rooms > 0));
+  /** CP_02: the room categories the 12 months carry (Private Office, Shared Space), in order. */
+  occMonthCategories = computed(() => {
+    const seen = new Map<string, string>();
+    for (const m of this.o()?.months ?? []) for (const c of m.categories) if (!seen.has(c.categoryCode)) seen.set(c.categoryCode, c.label);
+    return [...seen].map(([code, label]) => ({ code, label }));
+  });
+  /** A month's occupancy of one category (0 when the month does not carry it). */
+  monthCategoryPct(x: { categories: { categoryCode: string; occupancyPct: number }[] }, code: string): number {
+    return x.categories.find(c => c.categoryCode === code)?.occupancyPct ?? 0;
+  }
   byLocationEmpty = computed(() => !(this.o()?.byLocation ?? []).some(t => t.total > 0));
 
   /** Days until a lease ends (0 = today). */
@@ -549,10 +602,31 @@ export class CeoDashboard {
   private readonly funnelColors = ['#99f6e4', '#5eead4', '#14b8a6', '#0f766e'];
   funnelColor(i: number): string { return this.funnelColors[Math.min(i, this.funnelColors.length - 1)]; }
 
-  /** Share of the previous stage that reached this one ("62% of quotations"). */
+  /** Booked = the contract value of the period's bookings (CP_02), else their first invoices (older database). */
+  bookedContract = computed(() => this.s()?.bookingValueBasis === 'contract');
+  bookedTitle = computed(() => {
+    const s = this.s();
+    if (!s) return '';
+    const what = this.bookedContract() ? 'Contract value' : 'First invoices';
+    return `${what} of the bookings made ${this.thisWord()}: ${fullMoney(s.bookingValue)}`;
+  });
+  /** One location chosen: "+3 without a branch (not included)" for the period's tour inquiries with no branch. */
+  noBranchNote = computed(() => {
+    const n = this.s()?.inquiriesNoBranch ?? 0;
+    return n > 0 ? `+${count(n)} without a branch (not included)` : '';
+  });
+
+  /**
+   * Share of the previous stage that reached this one ("62% of quotations"). Bookings include direct bookings (no
+   * quotation), so that stage shows how many came from quotations instead of a share of accepted (CP_02).
+   */
   stepText(i: number): string {
     const f = this.s()?.funnel ?? [];
     if (i === 0) return '';
+    if (f[i]?.stage.toLowerCase() === 'bookings') {
+      const fromQuotations = this.s()?.bookingsFromQuotations;
+      return fromQuotations == null ? '' : `${count(fromQuotations)} from quotations`;
+    }
     if (!f[i - 1]?.count) return '-';
     // A later stage can be bigger than the one before it (most quotations don't start as tour inquiries):
     // a share over 100% would only confuse, so none is shown then.
@@ -624,8 +698,11 @@ export class CeoDashboard {
     }))
   }));
 
-  /** Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices. */
-  openRevenue(root: string, status: 'paid' | null) {
+  /**
+   * Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices.
+   * status collected (Collected, CP_02): the invoices with something paid (an older API answers with the paid ones).
+   */
+  openRevenue(root: string, status: 'collected' | null) {
     const extra = status ? { status } : {};
     const range = this.shownRange();
     if (this.shownPeriod() === 'custom' && range) {
@@ -651,7 +728,26 @@ export class CeoDashboard {
     this.openRecords('Received', this.periodTitle(), 'receipts', {});
   }
 
-  /** Billed in advance: the unpaid invoices for months not started yet. */
+  /**
+   * Security deposits (CP_02): the invoices with a deposit whose billing period starts in the period's invoice window
+   * (this month; a quarter / year: from its first day to the end of this month; a custom range: the range).
+   */
+  openDeposits() {
+    const range = this.shownRange();
+    let from: string, to: string;
+    if (this.shownPeriod() === 'custom' && range) {
+      from = range.from; to = range.to;
+    } else {
+      const [y, mo] = this.currentMonth().split('-').map(Number);
+      const first = this.shownPeriod() === 'year' ? 1 : this.shownPeriod() === 'quarter' ? Math.floor((mo - 1) / 3) * 3 + 1 : mo;
+      const last = new Date(y, mo, 0).getDate();
+      from = `${y}-${String(first).padStart(2, '0')}-01`;
+      to = `${y}-${String(mo).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+    }
+    this.openRecords('Security deposits', this.periodTitle(), 'invoices', { status: 'deposit', from, to });
+  }
+
+  /** Billed in advance: the unpaid invoices for billing periods not started yet. */
   openBilledInAdvance() {
     this.openRecords('Invoices', 'Billed in advance', 'invoices', { status: 'advance' });
   }
@@ -665,11 +761,14 @@ export class CeoDashboard {
     });
   }
 
-  /** Sales figures in the funnel header: conversion (converted quotations), quoted (quotations), booked (bookings). */
+  /**
+   * Sales figures in the funnel header: conversion (converted quotations with a live booking), quoted (quotations),
+   * booked (the period's bookings at their contract value, with who sold each: records/bookings?sales=true).
+   */
   openSalesFigure(which: 'conversion' | 'quoted' | 'booked') {
     if (which === 'conversion') this.openRecords('Sales funnel', 'Converted quotations', 'quotations', { stage: 'converted' });
     else if (which === 'quoted') this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' });
-    else this.openRecords('Sales funnel', 'Bookings', 'bookings', {});
+    else this.openRecords('Sales funnel', 'Bookings', 'bookings', { sales: 'true' });
   }
 
   openRevenueMonth(i: number) {
@@ -691,11 +790,29 @@ export class CeoDashboard {
     if (month) this.openDrill('New bookings', { kind: 'breakdown', metric: 'bookings-month', params: { month: month.month }, crumb: monthLong(month.month) });
   }
 
+  /**
+   * CP_02: one room category by location (rooms with a confirmed booking now), then a location's rooms of it. From the
+   * KPI card only the occupied rooms (occupied = true).
+   */
+  openOccupancyCategory(category: string, label: string, occupied = false) {
+    const params: Record<string, string | number | boolean> = occupied ? { category, occupied: true } : { category };
+    this.openDrill(occupied ? `${label} occupancy` : 'Occupancy by room category', {
+      kind: 'breakdown', metric: 'occupancy-category', params, crumb: occupied ? `Occupied ${label} rooms by location` : label
+    });
+  }
+
+  /** CP_02: one location's rooms of one category (location 0 = rooms not tied to a location). */
+  openOccLocationCategory(locationId: number, name: string, category: string, label: string) {
+    this.openRecords('Occupancy by location', `${name} · ${label}`, 'spaces', { locationId: locationId > 0 ? locationId : 'none', category });
+  }
+
   openSpaceType(spaceTypeId: number, name: string) {
     this.openDrill('Occupancy by space type', { kind: 'breakdown', metric: 'occupancy-type', params: { spaceTypeId }, crumb: name });
   }
 
   openOccLocation(locationId: number, name: string) {
+    // CP_02: rooms not tied to a location have no breakdown: their rooms straight away.
+    if (locationId <= 0) { this.openRecords('Occupancy by location', name, 'spaces', { locationId: 'none', rooms: 'true' }); return; }
     this.openDrill('Occupancy by location', { kind: 'breakdown', metric: 'occupancy-location', params: { locationId }, crumb: name });
   }
 
@@ -708,7 +825,7 @@ export class CeoDashboard {
     const key = stage.stage.toLowerCase();
     if (key === 'inquiries') this.openRecords('Sales funnel', stage.label, 'inquiries', {});
     else if (key === 'quotations' || key === 'accepted') this.openRecords('Sales funnel', stage.label, 'quotations', { stage: key });
-    else if (key === 'bookings') this.openRecords('Sales funnel', stage.label, 'bookings', {});
+    else if (key === 'bookings') this.openRecords('Sales funnel', stage.label, 'bookings', { sales: 'true' });
   }
 
   openInquiryType(type: string, label: string) {
@@ -719,9 +836,21 @@ export class CeoDashboard {
     this.openDrill('Sales executives', { kind: 'breakdown', metric: 'staff', params: { userId }, crumb: name });
   }
 
-  /** A sales executive's revenue: the quotations they created in the period that were converted (records/quotations). */
+  /**
+   * A sales executive's revenue: the bookings they sold in the period (records/bookings?sellerId, CP_02), or with an
+   * older database the quotations they created in the period that were converted (records/quotations).
+   */
   openPersonRevenue(userId: number, name: string) {
-    if (userId) this.openRecords('Sales executives', `${name}: revenue`, 'quotations', { userId, stage: 'converted' });
+    if (!userId) return;
+    if (this.t()?.revenueBasis === 'bookings') this.openRecords('Sales executives', `${name}: revenue`, 'bookings', { sellerId: userId });
+    else this.openRecords('Sales executives', `${name}: revenue`, 'quotations', { userId, stage: 'converted' });
+  }
+  /** What a revenue opens: the bookings sold (CP_02) or the converted quotations (older database). */
+  revenueRecords = computed(() => (this.t()?.revenueBasis === 'bookings' ? 'the bookings sold' : 'the converted quotations'));
+  /** Per-location card line: whose quotations the card counts. */
+  teamCardSub(l: CeoTeamLocation): string {
+    const execs = `${l.salesExecutives} sales executive${l.salesExecutives === 1 ? '' : 's'}`;
+    return `${execs} · ${l.salesExecutivesOnly ? 'their quotations at this location' : 'all quotations at this location'}`;
   }
 
   // ---------- charts ----------
@@ -753,7 +882,11 @@ export class CeoDashboard {
     count: () => this.o()?.months.length ?? 0,
     describe: i => {
       const x = this.o()?.months[i];
-      return x ? `${monthLong(x.month)}: occupancy ${pct(x.occupancyPct)}, ${x.newBookings} new booking${x.newBookings === 1 ? '' : 's'}. Press Enter for the new bookings by location.` : '';
+      if (!x) return '';
+      const occ = x.categories.length
+        ? x.categories.map(c => `${c.label} ${pct(c.occupancyPct)}`).join(', ')
+        : `occupancy ${pct(x.occupancyPct)}`;
+      return `${monthLong(x.month)}: ${occ} at month end, ${x.newBookings} new booking${x.newBookings === 1 ? '' : 's'}. Press Enter for the new bookings by location.`;
     },
     pick: i => this.openBookingsMonth(i),
     announce: t => this.chartAnnounce.set(t)
@@ -860,6 +993,7 @@ export class CeoDashboard {
     // Occupancy & new bookings: one chart per month, new bookings as bars (left axis, count) and occupancy as a
     // line drawn on top of them (right axis, 0-100%). A bar or a point opens the new bookings by location.
     const occEmpty = this.occEmpty();
+    const occCats = this.occMonthCategories();
     // Four steps on the bookings axis, so its grid lines meet the 0 / 25 / 50 / 75 / 100% ticks on the right.
     const maxNew = Math.max(0, ...occ.map(x => x.newBookings));
     const raw = Math.max(1, Math.ceil(maxNew / 4));
@@ -873,13 +1007,16 @@ export class CeoDashboard {
             type: 'bar', label: 'New bookings', yAxisID: 'y', order: 2, data: occ.map(x => x.newBookings),
             backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start'
           },
-          {
-            // order 1: drawn over the bars
-            type: 'line', label: 'Occupancy', yAxisID: 'pct', order: 1, data: occ.map(x => x.occupancyPct),
-            borderColor: TEAL, borderWidth: 2, tension: 0.3, fill: false,
-            pointRadius: 4, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: TEAL_DARK, pointBorderColor: '#fff',
-            pointBorderWidth: 2, pointHoverBackgroundColor: TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
-          }
+          // order 1: drawn over the bars. CP_02: one line per room category (Private Office, Shared Space); before it one
+          // occupancy line.
+          ...(occCats.length ? occCats.map((c, i) => ({ code: c.code, label: c.label, color: CATEGORY_LINE[c.code] ?? CATEGORY_LINE_FALLBACK[i % 2] }))
+            : [{ code: '', label: 'Occupancy', color: TEAL }]).map(l => ({
+            type: 'line', label: l.label, yAxisID: 'pct', order: 1,
+            data: occ.map(x => (l.code ? this.monthCategoryPct(x, l.code) : x.occupancyPct)),
+            borderColor: l.color, borderWidth: 2, tension: 0.3, fill: false,
+            pointRadius: 4, pointHoverRadius: 6, pointHitRadius: 14, pointBackgroundColor: l.code ? l.color : TEAL_DARK, pointBorderColor: '#fff',
+            pointBorderWidth: 2, pointHoverBackgroundColor: l.code ? l.color : TEAL_DARK, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
+          }))
         ]
       },
       options: {
@@ -894,7 +1031,7 @@ export class CeoDashboard {
             itemSort: (a: any, b: any) => a.datasetIndex - b.datasetIndex,
             callbacks: {
               title: (items: any[]) => monthLong(occ[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => c.dataset.yAxisID === 'pct' ? ` Occupancy: ${pct(c.parsed.y)}` : ` New bookings: ${c.parsed.y}`,
+              label: (c: any) => c.dataset.yAxisID === 'pct' ? ` ${c.dataset.label} at month end: ${pct(c.parsed.y)}` : ` New bookings: ${c.parsed.y}`,
               footer: () => 'Click for locations'
             }
           }

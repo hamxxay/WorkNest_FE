@@ -325,12 +325,23 @@ export class CeoRoomsSection {
 
   // ---------- leading to the map ----------
 
-  /** Sets the map's category, shift and highlight (the rest back to All) and brings the map into view. */
-  showMap(f: { category?: string; shift?: ShiftFilter; filter?: MapFilter }) {
+  /**
+   * Sets the map's category, shift and highlight (the rest back to All) and brings the map into view; with a group
+   * (location and space type, the rent chart's bar) that block of the map.
+   */
+  showMap(f: { category?: string; shift?: ShiftFilter; filter?: MapFilter; group?: string }) {
     this.category.set(f.category ?? null);
     this.shift.set(f.shift ?? 'all');
     this.mapFilter.set(f.filter ?? 'all');
-    afterNextRender(() => this.focusEl('panel-rooms-map'), { injector: this.injector });
+    afterNextRender(() => {
+      const block = f.group ? [...this.host.nativeElement.querySelectorAll('.map-group[data-group]') as NodeListOf<HTMLElement>]
+        .find(el => el.dataset['group'] === f.group) : null;
+      if (!block) { this.focusEl('panel-rooms-map'); return; }
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      block.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      block.focus({ preventScroll: true });
+      this.flash(block);
+    }, { injector: this.injector });
   }
 
   /** Opens a room's card on the map and brings its tile into view. */
@@ -530,7 +541,8 @@ export class CeoRoomsSection {
           if (!els.length) return;
           const hit = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false)[0];
           const part = hit ? parts[hit.datasetIndex].key : null;
-          this.showMap({ filter: part === 'below' ? 'under' : part === 'notLet' ? 'none' : 'all' });
+          // That block of the map (its location and space type), with the part highlighted.
+          this.showMap({ filter: part === 'below' ? 'under' : part === 'notLet' ? 'none' : 'all', group: rent[els[0].index]?.key });
         },
         plugins: {
           legend: LEGEND,

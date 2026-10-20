@@ -207,7 +207,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Revenue &amp; collections</h3>
-                  <p class="panel-sub">Last 12 months{{ byPeriod() ? ', by billing period' : '' }} · select a month for the locations behind it</p>
+                  <p class="panel-sub">Last 12 months{{ byPeriod() ? ', by billing period' : '' }}{{ noDeposits() ? ', without security deposits' : '' }} · select a month for the locations behind it</p>
                 </div>
                 <div class="head-side">
                   <div class="head-stats">
@@ -291,7 +291,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Top customers</h3>
-                  <p class="panel-sub">By amount invoiced, last 12 months{{ byPeriod() ? ' by billing period' : '' }} · select one for their invoices</p>
+                  <p class="panel-sub">By amount invoiced{{ noDeposits() ? ' without security deposits' : '' }}, last 12 months{{ byPeriod() ? ' by billing period' : '' }} · select one for their invoices</p>
                 </div>
               </div>
               @if (!m()!.topCustomers.length) {
@@ -387,12 +387,12 @@
       <section class="dash-section" aria-labelledby="ceo-h-occ">
         <div class="section-title">
           <h2 id="ceo-h-occ">Occupancy</h2>
-          <span>Spaces in use and new bookings · {{ periodTitle() }}</span>
+          <span>@if (occCategories().length) {Rooms in use now (confirmed bookings), per category · new bookings {{ periodTitle() }}} @else {Spaces in use now · new bookings {{ periodTitle() }}}</span>
         </div>
         @if (!o()) {
           <div class="dash-panel section-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No occupancy figures yet</strong><span>Spaces and bookings show up here once they are in the system.</span></div>
         } @else {
-          <div class="kpi-grid kpi-3">
+          <div class="kpi-grid" [class.kpi-3]="occupancyKpis().length === 3">
             @for (k of occupancyKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
           </div>
 
@@ -402,7 +402,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Occupancy &amp; new bookings</h3>
-                  <p class="panel-sub">Last 12 months · select a month for the new bookings by location</p>
+                  <p class="panel-sub">@if (occMonthCategories().length) {Last 12 months · occupancy at each month end (this month: now) of the rooms that existed then · select a month for the new bookings by location} @else {Last 12 months · occupancy at each month end (this month: now) · select a month for the new bookings by location}</p>
                 </div>
                 @if (!occEmpty()) {
                   <div class="head-side">
@@ -423,12 +423,16 @@
               @if (occTable()) {
                 <div class="table-scroll">
                   <table class="cmp-table compact">
-                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Occupancy</th><th scope="col" class="num">New bookings</th></tr></thead>
+                    <thead><tr><th scope="col">Month</th>@if (occMonthCategories().length) { @for (c of occMonthCategories(); track c.code) { <th scope="col" class="num">{{ c.label }}</th> } } @else { <th scope="col" class="num">Occupancy</th> }<th scope="col" class="num">New bookings</th></tr></thead>
                     <tbody>
                       @for (x of o()!.months; track x.month; let i = $index) {
                         <tr class="clickable" (click)="openBookingsMonth(i)">
                           <th scope="row"><button type="button" class="row-btn" (click)="openBookingsMonth(i); $event.stopPropagation()">{{ monthLong(x.month) }}</button></th>
-                          <td class="num">{{ pct(x.occupancyPct) }}</td>
+                          @if (occMonthCategories().length) {
+                            @for (c of occMonthCategories(); track c.code) { <td class="num">{{ pct(monthCategoryPct(x, c.code)) }}</td> }
+                          } @else {
+                            <td class="num">{{ pct(x.occupancyPct) }}</td>
+                          }
                           <td class="num">{{ count(x.newBookings) }}</td>
                         </tr>
                       }
@@ -438,7 +442,36 @@
               }
             </div>
 
-            <!-- By space type -->
+            @if (occCategories().length) {
+            <!-- CP_02: by room category (Private Office, Shared Space): rooms and seats now -->
+            <div class="dash-panel span-4">
+              <div class="panel-head">
+                <div>
+                  <h3>By room category</h3>
+                  <p class="panel-sub">Rooms with a confirmed booking now · seats sold</p>
+                </div>
+              </div>
+              @if (byCategoryEmpty()) {
+                <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No rooms set up yet</strong><span>Private offices and shared spaces show up here.</span></div>
+              } @else {
+                <ul class="bar-list">
+                  @for (c of occCategories(); track c.categoryCode) {
+                    <li>
+                      <button type="button" class="bar-row" (click)="openOccupancyCategory(c.categoryCode, c.label)">
+                        <span class="bar-main">
+                          <span class="bar-label">{{ c.label }}</span>
+                          <span class="bar-track"><span class="bar-fill" [style.width.%]="c.occupancyPct"></span></span>
+                        </span>
+                        <span class="bar-value"><strong>{{ pct(c.occupancyPct) }}</strong><small>{{ c.occupied }} of {{ c.rooms }} rooms · {{ c.seatsSold }} of {{ c.seats }} seats</small></span>
+                        <ng-container *ngTemplateOutlet="chevron" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+            } @else {
+            <!-- By space type (before the database update CP_02) -->
             <div class="dash-panel span-4">
               <div class="panel-head">
                 <div>
@@ -465,13 +498,14 @@
                 </ul>
               }
             </div>
+            }
 
             <!-- By location -->
             <div class="dash-panel span-6 focus-target" id="panel-by-location" tabindex="-1">
               <div class="panel-head">
                 <div>
                   <h3>By location</h3>
-                  <p class="panel-sub">Occupied of all spaces, as of today · select one for its space types</p>
+                  <p class="panel-sub">@if (occCategories().length) {Rooms with a confirmed booking now, per category · select a row for its rooms} @else {Occupied of all spaces, as of today · select one for its space types}</p>
                 </div>
               </div>
               @if (byLocationEmpty()) {
@@ -479,6 +513,29 @@
               } @else {
                 <ul class="bar-list">
                   @for (l of o()!.byLocation; track l.locationId || $index) {
+                    @if (l.categories.length) {
+                      <!-- CP_02: the location, then one row per room category -->
+                      <li class="bar-group">
+                        <button type="button" class="bar-group-head" (click)="openOccLocation(l.locationId, l.name)" [attr.aria-label]="'Open ' + l.name + ' by room category'">
+                          <span>{{ l.name }}</span>
+                          <ng-container *ngTemplateOutlet="chevron" />
+                        </button>
+                        <ul class="bar-list">
+                          @for (c of l.categories; track c.categoryCode) {
+                            <li>
+                              <button type="button" class="bar-row" (click)="openOccLocationCategory(l.locationId, l.name, c.categoryCode, c.label)">
+                                <span class="bar-main">
+                                  <span class="bar-label">{{ c.label }}</span>
+                                  <span class="bar-track"><span class="bar-fill" [style.width.%]="c.occupancyPct"></span></span>
+                                </span>
+                                <span class="bar-value"><strong>{{ pct(c.occupancyPct) }}</strong><small>{{ c.occupied }} of {{ c.rooms }} rooms · {{ c.seatsSold }} of {{ c.seats }} seats</small></span>
+                                <ng-container *ngTemplateOutlet="chevron" />
+                              </button>
+                            </li>
+                          }
+                        </ul>
+                      </li>
+                    } @else {
                     <li>
                       <button type="button" class="bar-row" (click)="openOccLocation(l.locationId, l.name)">
                         <span class="bar-main">
@@ -489,6 +546,7 @@
                         <ng-container *ngTemplateOutlet="chevron" />
                       </button>
                     </li>
+                    }
                   }
                 </ul>
               }
@@ -505,7 +563,7 @@
                   <div class="head-side">
                     <div class="head-stats">
                       <div><span>Leases</span><strong class="warn">{{ count(leasesCount()) }}</strong></div>
-                      <div><span>Monthly rent</span><strong [title]="fullMoney(expiringTotal())">{{ money(expiringTotal()) }}</strong></div>
+                      <div><span>Monthly rent</span><strong [title]="fullMoney(expiringTotal()) + ' a month, after discounts'">{{ money(expiringTotal()) }}</strong></div>
                     </div>
                     @if (canOpenAllLeases()) {
                       <button type="button" class="view-toggle" (click)="openAllLeases()">{{ allLeasesText() }}</button>
@@ -525,7 +583,7 @@
                         <span>{{ l.space }}@if (l.location) { · {{ l.location }} }</span>
                       </span>
                       <span class="lease-side">
-                        <strong [title]="fullMoney(l.monthlyAmount) + ' a month'">{{ money(l.monthlyAmount) }}</strong>
+                        <strong [title]="fullMoney(l.monthlyAmount) + ' a month, after discounts'">{{ money(l.monthlyAmount) }}</strong>
                         <span class="pill" [class.danger]="daysLeft(l.endOn) <= 14" [class.warn]="daysLeft(l.endOn) > 14 && daysLeft(l.endOn) <= 45">
                           {{ l.endOn | date:'d MMM' }} · {{ daysLeft(l.endOn) === 0 ? 'today' : daysLeft(l.endOn) + 'd' }}
                         </span>
@@ -571,11 +629,11 @@
                   <h3>Sales funnel</h3>
                   <p class="panel-sub">Created {{ thisWord() }} · select a stage for its records</p>
                 </div>
-                <!-- Each figure opens its records (converted quotations, quotations, bookings). -->
+                <!-- Each figure opens its records (converted quotations, quotations, bookings at their contract value). -->
                 <div class="head-stats">
                   <button type="button" class="stat-btn" (click)="openSalesFigure('conversion')" [title]="conversionText()" [attr.aria-label]="'Conversion ' + pct(s()!.conversionRate) + '. Open the converted quotations'"><span>Conversion</span><strong [class.good]="s()!.conversionRate >= 30">{{ pct(s()!.conversionRate) }}</strong></button>
                   <button type="button" class="stat-btn" (click)="openSalesFigure('quoted')" [title]="fullMoney(s()!.quotationValue)" [attr.aria-label]="'Quoted ' + fullMoney(s()!.quotationValue) + '. Open the quotations'"><span>Quoted</span><strong>{{ money(s()!.quotationValue) }}</strong></button>
-                  <button type="button" class="stat-btn" (click)="openSalesFigure('booked')" [title]="fullMoney(s()!.bookingValue)" [attr.aria-label]="'Booked ' + fullMoney(s()!.bookingValue) + '. Open the bookings'"><span>Booked</span><strong>{{ money(s()!.bookingValue) }}</strong></button>
+                  <button type="button" class="stat-btn" (click)="openSalesFigure('booked')" [title]="bookedTitle()" [attr.aria-label]="bookedTitle() + '. Open the bookings'"><span>Booked</span><strong>{{ money(s()!.bookingValue) }}</strong></button>
                 </div>
               </div>
               @if (!s()!.funnel.length || funnelEmpty()) {
@@ -588,6 +646,7 @@
                         <span class="funnel-label">
                           {{ f.label }}
                           @if (inquiriesAllLocations() && f.stage.toLowerCase() === 'inquiries') { <small class="funnel-scope">all locations</small> }
+                          @if (noBranchNote() && f.stage.toLowerCase() === 'inquiries') { <small class="funnel-scope">{{ noBranchNote() }}</small> }
                         </span>
                         <span class="funnel-track">
                           <span class="funnel-fill" [style.width.%]="(f.count / funnelMax()) * 100" [style.background]="funnelColor(i)"></span>
@@ -601,7 +660,7 @@
                     </li>
                   }
                 </ol>
-                <p class="note">Conversion = quotations created {{ thisWord() }} that were booked / all quotations created {{ thisWord() }}@if (s()!.quotations) { ({{ conversionText() }})}.</p>
+                <p class="note">Conversion = quotations created {{ thisWord() }} that were booked (booking still live) / all quotations created {{ thisWord() }}@if (s()!.quotations) { ({{ conversionText() }})}. Booked = {{ bookedContract() ? 'contract value' : 'first invoices' }} of the bookings made {{ thisWord() }}, direct bookings included.</p>
               }
             </div>
 
@@ -610,7 +669,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Tour inquiries by type</h3>
-                  <p class="panel-sub">{{ count(inquiryTotal()) }} {{ thisWord() }}{{ inquiriesAllLocations() ? ', all locations' : '' }} · select a type for the last 6 months</p>
+                  <p class="panel-sub">{{ count(inquiryTotal()) }} {{ thisWord() }}{{ inquiriesAllLocations() ? ', all locations' : '' }}{{ noBranchNote() ? ' (' + noBranchNote() + ')' : '' }} · select a type for the last 6 months</p>
                 </div>
               </div>
               @if (!inquiryTotal()) {
@@ -651,7 +710,7 @@
                 <div class="team-card">
                   <div class="team-card-head">
                     <strong>{{ l.name }}</strong>
-                    <span>{{ l.salesExecutives }} sales executive{{ l.salesExecutives === 1 ? '' : 's' }} · quotations at this location</span>
+                    <span>{{ teamCardSub(l) }}</span>
                   </div>
                   <div class="team-nums">
                     <div><span>Quotations</span><strong>{{ count(l.quotations) }}</strong></div>
@@ -668,7 +727,11 @@
             <div class="panel-head">
               <div>
                 <h3>Sales executives</h3>
-                <p class="panel-sub">Revenue: the value of the quotations they created in the period that were converted to bookings · select a person for their last 6 months, or a revenue for its quotations</p>
+                @if (t()!.revenueBasis === 'bookings') {
+                  <p class="panel-sub">Revenue: contract value of the new bookings they sold {{ thisWord() }} (their quotation, else the booking they made) · select a person for their last 6 months, or a revenue for its bookings</p>
+                } @else {
+                  <p class="panel-sub">Revenue: the value of the quotations they created in the period that were converted to bookings · select a person for their last 6 months, or a revenue for its quotations</p>
+                }
               </div>
               @if (people().length) {
                 <div class="head-stats">
@@ -713,8 +776,8 @@
                           <div class="mini-bar revenue-bar">
                             <span class="mini-track"><span class="mini-fill" [style.width.%]="revenueMax() ? (p.revenue / revenueMax()) * 100 : 0"></span></span>
                             @if (p.revenue) {
-                              <button type="button" class="row-btn revenue-btn" [title]="fullMoney(p.revenue) + ': open the converted quotations'"
-                                [attr.aria-label]="p.name + ' revenue ' + fullMoney(p.revenue) + '. Open the converted quotations'"
+                              <button type="button" class="row-btn revenue-btn" [title]="fullMoney(p.revenue) + (p.bookings != null ? ' from ' + count(p.bookings) + ' booking' + (p.bookings === 1 ? '' : 's') : '') + ': open ' + revenueRecords()"
+                                [attr.aria-label]="p.name + ' revenue ' + fullMoney(p.revenue) + '. Open ' + revenueRecords()"
                                 (click)="openPersonRevenue(p.userId, p.name); $event.stopPropagation()">{{ money(p.revenue) }}</button>
                             } @else {
                               <span class="revenue-none">{{ money(0) }}</span>

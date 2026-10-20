@@ -54,11 +54,16 @@ export function tileState(sales: CeoRoomSale[]): TileState {
   return STATE_ORDER.find(p => sales.some(x => x.pricing === p)) ?? 'none';
 }
 
+/**
+ * Under / at / over / no list price: every room with a booking at that price (a room with an under and an over
+ * booking shows under both), so the chips count ROOMS while the KPI cards count bookings.
+ */
 export function tileMatches(t: RoomTile, f: MapFilter): boolean {
   if (f === 'all') return true;
   if (f === 'inuse') return t.room.occupiedNow;
   if (f === 'vacantnow') return !t.room.occupiedNow;
-  return t.state === f;
+  if (f === 'none') return !t.sales.length;
+  return t.sales.some(x => x.pricing === f);
 }
 
 /** The rooms by location and space type; with a shift chosen, only that shift's bookings count. */
@@ -92,7 +97,9 @@ export function tileText(room: CeoRoom): string {
 
 /**
  * A month's rent per block: what was sold, what the under-priced bookings miss against their price, and the list
- * rent of the rooms not let in the period. premium: what over-priced bookings add (inside sold).
+ * rent of the rooms not let in the period. premium: what over-priced bookings add (inside sold). A room let to one
+ * tenant after another in the period (or over a quarter / year) counts only its latest booking of each shift, so a
+ * month's rent is never two tenants' rent added up.
  */
 export interface RentRow { key: string; label: string; sold: number; below: number; notLet: number; premium: number; }
 
@@ -101,7 +108,7 @@ export function rentByGroup(groups: RoomGroup[]): RentRow[] {
     const row: RentRow = { key: g.key, label: `${g.spaceType} · ${g.location}`, sold: 0, below: 0, notLet: 0, premium: 0 };
     for (const t of g.tiles) {
       if (!t.sales.length) { row.notLet += t.room.listRoomPrice || 0; continue; }
-      for (const x of t.sales) {
+      for (const x of currentSales(t.sales)) {
         row.sold += x.soldMonthly;
         if (x.pricing === 'under') row.below += -x.varianceMonthly;
         if (x.pricing === 'over') row.premium += x.varianceMonthly;
@@ -109,6 +116,16 @@ export function rentByGroup(groups: RoomGroup[]): RentRow[] {
     }
     return row;
   });
+}
+
+/** The latest booking (by start) of each shift: what the room is let for a month now / at the end of the period. */
+export function currentSales(sales: CeoRoomSale[]): CeoRoomSale[] {
+  const byShift = new Map<string, CeoRoomSale>();
+  for (const x of sales) {
+    const cur = byShift.get(x.shift);
+    if (!cur || (x.startOn ?? '') >= (cur.startOn ?? '')) byShift.set(x.shift, x);
+  }
+  return [...byShift.values()];
 }
 
 /**

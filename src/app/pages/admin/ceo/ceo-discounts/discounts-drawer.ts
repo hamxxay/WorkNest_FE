@@ -194,12 +194,12 @@ export class CeoDiscountsDrawer {
     };
   });
 
-  /** A level 2 row -> its discounted bookings. */
+  /** A level 2 row -> its discounted bookings (none discounted: all its bookings, as the KPI cards). */
   openGroup(g: CeoDiscountGroup) {
     const by = this.groupBy();
     if (!by) return;
     const params: DashParams = by === 'location' ? { locationId: g.key ?? 'none' } : by === 'seller' ? { sellerId: g.key ?? 'none' } : { shift: g.key ?? g.name };
-    this.push({ kind: 'records', records: 'bookings', params, crumb: g.name });
+    this.push({ kind: 'records', records: 'bookings', params: g.discounted ? params : { ...params, all: true }, crumb: g.name });
   }
 
   /** The location's invoices with a discount. */

@@ -2,6 +2,7 @@ import { roomCategoryLabel, roomCategoryOf, type CeoDashboard, type CeoForecastM
 import type { DashRange } from '../../../services/dashboard-api';
 import type { XlsxCell, XlsxSheet } from '../../../utils/xlsx';
 import { ratio } from './ceo-shared';
+import { rentByGroup, roomGroups } from './ceo-rooms/rooms-view';
 
 // ============================================================
 // The CEO dashboard as an Excel workbook (Export Excel): a summary, every KPI with its previous period, and one sheet
@@ -44,15 +45,23 @@ export function summarySheet(title: string, meta: ExportMeta, notes: string[]): 
 export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null, rooms: CeoRooms | null, meta: ExportMeta): XlsxSheet[] {
   // The database update CP_01 places an invoice in the month its billing period starts (and sends billed in advance).
   const byPeriod = d.money?.billedInAdvance != null;
+  // CP_02 (sends the security deposits): invoiced without deposits, collected = paid so far, whole billing months.
+  const cp02 = d.money?.securityDeposits != null;
   const sheets: XlsxSheet[] = [summarySheet('WorkNest CEO dashboard', meta, [
     'Money in PKR. Shares and rates in %.',
     ...(byPeriod ? [
       'Invoiced, collected, the 12-month series and top customers place an invoice in the month its billing period starts, not the month it was issued.',
       'Billed in advance: unpaid invoices for a billing period that has not started yet (and not past due). Outstanding and the aging leave them out.'
     ] : []),
-    'Previous period: the same number of days just before a custom range, else the same days one period earlier.',
+    ...(cp02 ? [
+      'Invoiced, collected, the 12-month series and top customers leave out refundable security deposits (Security deposits, apart). Collected = paid so far on those invoices: part payments count, a paid invoice in full, an invoice with only its WHT left as settled.',
+      'Previous period: the same number of days just before a custom range; else invoices: the same billing months one period earlier, other figures: the same days one period earlier.'
+    ] : ['Previous period: the same number of days just before a custom range, else the same days one period earlier.']),
     'The 12-month series, receivables aging, top customers and leases expiring do not change with the period.',
-    'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.'
+    d.team?.revenueBasis === 'bookings'
+      ? 'Team: sales executives only. Revenue = the contract value of the new bookings they sold in the period (their quotation, else the booking they made).'
+      : 'Team: sales executives only. Revenue = the value of the quotations they created in the period that were converted to bookings.',
+    'Converted / conversion: quotations whose booking is still live (not rejected, cancelled or deleted).'
   ])];
 
   // ---------- KPIs ----------
@@ -60,12 +69,15 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   const m = d.money, o = d.occupancy, s = d.sales;
   if (m) {
     kpis.push(
-      ['Money', 'Invoiced (PKR)', money2(m.invoiced), money2(m.invoicedPrev), byPeriod ? 'Billing period starts in the period' : 'Issued in the period'],
-      ['Money', 'Collected (PKR)', money2(m.collected), money2(m.collectedPrev), 'Of those, now paid'],
-      ['Money', 'Collection rate (%)', pct1(m.collectionRate), m.invoicedPrev > 0 ? pct1(ratio(m.collectedPrev, m.invoicedPrev)) : null, ''],
+      ['Money', 'Invoiced (PKR)', money2(m.invoiced), money2(m.invoicedPrev),
+        cp02 ? 'Billing period starts in the period, without security deposits' : byPeriod ? 'Billing period starts in the period' : 'Issued in the period'],
+      ['Money', 'Collected (PKR)', money2(m.collected), money2(m.collectedPrev), cp02 ? 'Paid so far on those invoices, without security deposits' : 'Of those, now paid'],
+      ['Money', 'Collection rate (%)', pct1(m.collectionRate), m.invoicedPrev > 0 ? pct1(ratio(m.collectedPrev, m.invoicedPrev)) : null, cp02 ? 'Share of the billing paid so far' : ''],
+      ...(m.securityDeposits != null ? [['Money', 'Security deposits (PKR)', money2(m.securityDeposits), money2(m.securityDepositsPrev ?? 0),
+        `${m.securityDepositsCount ?? 0} invoice${m.securityDepositsCount === 1 ? '' : 's'}, billed in the period, not in Invoiced`] as XlsxCell[]] : []),
       ['Money', 'Outstanding (PKR)', money2(m.outstanding), null, `${m.outstandingCount} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}, as of today${byPeriod ? ', not counting billed in advance' : ''}`],
       ...(m.billedInAdvance != null ? [['Money', 'Billed in advance (PKR)', money2(m.billedInAdvance), null,
-        `${m.billedInAdvanceCount ?? 0} unpaid invoice${m.billedInAdvanceCount === 1 ? '' : 's'}, for months not started yet`] as XlsxCell[]] : []),
+        `${m.billedInAdvanceCount ?? 0} unpaid invoice${m.billedInAdvanceCount === 1 ? '' : 's'}, for billing periods not started yet`] as XlsxCell[]] : []),
       ['Money', 'Overdue (PKR)', money2(m.overdue), null, `${m.overdueCount} past due date, as of today`]
     );
   }
@@ -77,29 +89,42 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   }
   if (o) {
     kpis.push(
-      ['Occupancy', 'Occupancy (%)', pct1(o.occupancyPct), pct1(o.occupancyPctPrev), `${o.occupiedSpaces} of ${o.totalSpaces} spaces in use now`],
-      ['Occupancy', 'Active bookings', o.activeBookings, null, 'Running today'],
+      // CP_02: one line per room category (rooms with a confirmed booking now; seats sold), never one mixed figure.
+      ...(o.categories.length
+        ? o.categories.flatMap(c => [
+          ['Occupancy', `${c.label} occupancy (%)`, pct1(c.occupancyPct), pct1(c.occupancyPctPrev),
+            `${c.occupied} of ${c.rooms} rooms in use now (confirmed bookings); previous: ${c.occupiedPrev} of ${c.roomsPrev} rooms then`],
+          ['Occupancy', `${c.label} seat occupancy (%)`, pct1(c.seatOccupancyPct), null, `${c.seatsSold} of ${c.seats} seats sold now`]
+        ] as XlsxCell[][])
+        : [['Occupancy', 'Occupancy (%)', pct1(o.occupancyPct), pct1(o.occupancyPctPrev), `${o.occupiedSpaces} of ${o.totalSpaces} spaces in use now`] as XlsxCell[]]),
+      ['Occupancy', 'Active bookings', o.activeBookings, null, o.categories.length ? 'Confirmed, running today' : 'Running today'],
       ['Occupancy', 'New bookings', o.newBookings, o.newBookingsPrev, 'Made in the period'],
       ['Occupancy', 'Leases expiring in 90 days', o.leasesExpiringCount ?? o.leasesExpiring.length, null,
-        o.leasesExpiringMonthly != null ? `Monthly rent PKR ${Math.round(o.leasesExpiringMonthly).toLocaleString('en-US')}` : '']
+        o.leasesExpiringMonthly != null ? `Monthly rent PKR ${Math.round(o.leasesExpiringMonthly).toLocaleString('en-US')}${o.categories.length ? ', after discounts' : ''}` : '']
     );
   }
   if (s) {
     const stage = (k: string) => s.funnel.find(f => f.stage.toLowerCase() === k)?.count ?? 0;
     kpis.push(
-      ['Sales', 'Tour inquiries', stage('inquiries'), null, s.inquiriesAllLocations ? 'All locations' : ''],
+      ['Sales', 'Tour inquiries', stage('inquiries'), null,
+        s.inquiriesAllLocations ? 'All locations' : s.inquiriesNoBranch ? `+${s.inquiriesNoBranch} without a branch (not included)` : ''],
       ['Sales', 'Quotations', stage('quotations'), null, ''],
       ['Sales', 'Accepted', stage('accepted'), null, ''],
-      ['Sales', 'Bookings', stage('bookings'), null, ''],
-      ['Sales', 'Conversion (%)', pct1(s.conversionRate), null, `${s.quotationsBooked} of ${s.quotations} quotations booked`],
+      ['Sales', 'Bookings', stage('bookings'), null,
+        s.bookingsFromQuotations != null ? `${s.bookingsFromQuotations} from quotations, the rest booked directly` : ''],
+      ['Sales', 'Conversion (%)', pct1(s.conversionRate), null, `${s.quotationsBooked} of ${s.quotations} quotations booked (booking still live)`],
       ['Sales', 'Quoted (PKR)', money2(s.quotationValue), null, ''],
-      ['Sales', 'Booked (PKR)', money2(s.bookingValue), null, '']
+      ['Sales', 'Booked (PKR)', money2(s.bookingValue), null,
+        s.bookingValueBasis === 'contract' ? 'Contract value of the bookings made in the period' : 'First invoices of the bookings made in the period']
     );
   }
   if (d.team) {
     kpis.push(
       ['Team', 'Sales executives', d.team.salesExecutives, null, ''],
-      ['Team', 'Sales executives revenue (PKR)', money2(d.team.revenue), null, 'Their quotations created in the period that were converted']
+      ['Team', 'Sales executives revenue (PKR)', money2(d.team.revenue), null,
+        d.team.revenueBasis === 'bookings'
+          ? 'Contract value of the new bookings they sold in the period'
+          : 'Their quotations created in the period that were converted']
     );
   }
   if (rooms?.available) {
@@ -126,7 +151,7 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   if (m) {
     sheets.push({
       name: 'Revenue 12 months',
-      rows: [[byPeriod ? 'Month (billing period)' : 'Month', 'Invoiced (PKR)', 'Collected (PKR)', 'Collection rate (%)'],
+      rows: [[byPeriod ? 'Month (billing period)' : 'Month', cp02 ? 'Invoiced without deposits (PKR)' : 'Invoiced (PKR)', cp02 ? 'Collected, paid so far (PKR)' : 'Collected (PKR)', 'Collection rate (%)'],
         ...m.months.map(x => [x.month, money2(x.invoiced), money2(x.collected), x.invoiced > 0 ? pct1(ratio(x.collected, x.invoiced)) : null])]
     });
     sheets.push({
@@ -135,7 +160,7 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     });
     sheets.push({
       name: 'Top customers',
-      rows: [['Rank', 'Customer', 'Invoiced, last 12 months (PKR)', 'Invoices'],
+      rows: [['Rank', 'Customer', cp02 ? 'Invoiced without security deposits, last 12 months (PKR)' : 'Invoiced, last 12 months (PKR)', 'Invoices'],
         ...m.topCustomers.map((c, i) => [i + 1, c.name, money2(c.amount), c.invoices])]
     });
   }
@@ -158,24 +183,44 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
 
   // ---------- Occupancy ----------
   if (o) {
+    // CP_02: per room category (Private Office, Shared Space): the 12 month ends, now, and by location.
+    const cats = o.categories;
+    const monthCats = cats.length ? cats.map(c => ({ code: c.categoryCode, label: c.label })) : [];
     sheets.push({
       name: 'Occupancy 12 months',
-      rows: [['Month', 'Occupancy (%)', 'New bookings'], ...o.months.map(x => [x.month, pct1(x.occupancyPct), x.newBookings])]
+      rows: monthCats.length
+        ? [['Month', ...monthCats.map(c => `${c.label} occupancy at month end (%)`), 'New bookings'],
+          ...o.months.map(x => [x.month, ...monthCats.map(c => pct1(x.categories.find(k => k.categoryCode === c.code)?.occupancyPct ?? 0)), x.newBookings])]
+        : [['Month', 'Occupancy (%)', 'New bookings'], ...o.months.map(x => [x.month, pct1(x.occupancyPct), x.newBookings])]
     });
-    sheets.push({
-      name: 'By space type',
-      rows: [['Space type', 'Occupied', 'Spaces', 'Occupancy (%)'],
-        ...o.byType.map(t => [t.name, t.occupied, t.total, t.total ? pct1(ratio(t.occupied, t.total)) : null])]
-    });
+    if (cats.length) {
+      sheets.push({
+        name: 'By room category',
+        rows: [['Room category', 'Rooms', 'Occupied now', 'Occupancy (%)', 'Occupancy one period ago (%)', 'Seats', 'Seats sold', 'Seat occupancy (%)'],
+          ...cats.map(c => [c.label, c.rooms, c.occupied, pct1(c.occupancyPct), pct1(c.occupancyPctPrev), c.seats, c.seatsSold, pct1(c.seatOccupancyPct)])]
+      });
+    } else {
+      sheets.push({
+        name: 'By space type',
+        rows: [['Space type', 'Occupied', 'Spaces', 'Occupancy (%)'],
+          ...o.byType.map(t => [t.name, t.occupied, t.total, t.total ? pct1(ratio(t.occupied, t.total)) : null])]
+      });
+    }
     sheets.push({
       name: 'By location',
-      rows: [['Location', 'Occupied', 'Spaces', 'Occupancy (%)'],
-        ...o.byLocation.map(l => [l.name, l.occupied, l.total, l.total ? pct1(ratio(l.occupied, l.total)) : null])]
+      rows: cats.length
+        ? [['Location', 'Room category', 'Rooms', 'Occupied now', 'Occupancy (%)', 'Seats', 'Seats sold', 'Seat occupancy (%)'],
+          ...o.byLocation.flatMap(l => l.categories.map(c => [l.name, c.label, c.rooms, c.occupied, pct1(c.occupancyPct), c.seats, c.seatsSold, pct1(c.seatOccupancyPct)]))]
+        : [['Location', 'Occupied', 'Spaces', 'Occupancy (%)'],
+          ...o.byLocation.map(l => [l.name, l.occupied, l.total, l.total ? pct1(ratio(l.occupied, l.total)) : null])]
     });
+    // The dashboard holds the first 50 leases: say so when there are more (the full list is records/leases).
+    const leaseTotal = o.leasesExpiringCount ?? o.leasesExpiring.length;
     sheets.push({
       name: 'Leases expiring',
-      rows: [['Customer', 'Space', 'Location', 'Ends on', 'Monthly rent (PKR)'],
-        ...o.leasesExpiring.map(l => [l.customer, l.space, l.location, l.endOn.slice(0, 10), money2(l.monthlyAmount)])]
+      rows: [['Customer', 'Space', 'Location', 'Ends on', cats.length ? 'Monthly rent after discounts (PKR)' : 'Monthly rent (PKR)'],
+        ...o.leasesExpiring.map(l => [l.customer, l.space, l.location, l.endOn.slice(0, 10), money2(l.monthlyAmount)]),
+        ...(leaseTotal > o.leasesExpiring.length ? [[`The first ${o.leasesExpiring.length} of ${leaseTotal} leases expiring in the next 90 days`]] : [])]
     });
   }
 
@@ -187,8 +232,10 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     sheets.push({
       name: 'Rooms',
       rows: [['Room', 'Code', 'Location', 'Category', 'Space type', 'Seats', 'List per seat (PKR)', 'List per room (PKR)', 'In use now', 'Days occupied (%)', 'Sales'],
-        ...rooms.rooms.map(r => [r.name, r.code, r.location, categoryOf(roomCategoryOf(r)), r.spaceType, r.seats, money2(r.listSeatPrice),
-          money2(r.listRoomPrice), r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length]),
+        // no list price: an empty cell, not 0
+        ...rooms.rooms.map(r => [r.name, r.code, r.location, categoryOf(roomCategoryOf(r)), r.spaceType, r.seats,
+          r.listSeatPrice ? money2(r.listSeatPrice) : null, r.listRoomPrice ? money2(r.listRoomPrice) : null,
+          r.occupiedNow ? 'Yes' : 'No', pct1(r.periodOccupancyPct), r.sales.length]),
         // the figures per category under the rooms (the same rooms; they add up to All rooms)
         [],
         ['By category', 'Rooms', 'Occupied now', 'Vacant now', 'Occupied now (%)', 'Days occupied (%)'],
@@ -204,6 +251,17 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
           x.endOn?.slice(0, 10) ?? '', x.pricing === 'unpriced' ? null : money2(x.expectedMonthly), money2(x.soldMonthly),
           x.pricing === 'unpriced' ? null : money2(x.varianceMonthly), x.pricing === 'unpriced' ? null : pct1(x.variancePct),
           pricing[x.pricing] ?? x.pricing]))]
+    });
+    // The "Rent a month" chart: per location and space type (a room's latest booking of each shift).
+    const rent = rentByGroup(roomGroups(rooms.rooms, 'all'));
+    sheets.push({
+      name: 'Rooms rent',
+      rows: [['Space type and location', 'Sold a month (PKR)', 'Missed below the price (PKR)', 'Rooms not let, at list (PKR)',
+        'Over the price, inside sold (PKR)'],
+        ...rent.map(r => [r.label, money2(r.sold), money2(r.below), money2(r.notLet), money2(r.premium)]),
+        [],
+        ['Total', money2(rent.reduce((a, r) => a + r.sold, 0)), money2(rent.reduce((a, r) => a + r.below, 0)),
+          money2(rent.reduce((a, r) => a + r.notLet, 0)), money2(rent.reduce((a, r) => a + r.premium, 0))]]
     });
     sheets.push({
       name: 'Rooms by shift',
@@ -227,7 +285,9 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   if (d.team) {
     sheets.push({
       name: 'Team by location',
-      rows: [['Location', 'Sales executives', 'Quotations at the location', 'Converted', 'Conversion (%)'],
+      rows: [['Location', 'Sales executives',
+        d.team.perLocation.some(l => l.salesExecutivesOnly) ? 'Sales executives\' quotations at the location' : 'Quotations at the location',
+        'Converted', 'Conversion (%)'],
         ...d.team.perLocation.map(l => [l.name, l.salesExecutives, l.quotations, l.converted,
           l.quotations ? pct1(ratio(l.converted, l.quotations)) : null])]
     });
