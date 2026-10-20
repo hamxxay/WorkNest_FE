@@ -89,6 +89,17 @@ function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; area: s
   return { down: path('down'), up: path('up'), area: area.trim(), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
 }
 
+/** While the API is still reading the network (line speeds, client types, top data users): reload after this long (ms). */
+const PENDING_RETRY_MS = 60_000;
+/** At most this many reloads in a row for that (the server keeps the reads warm, so one is normally enough). */
+const PENDING_RETRIES = 5;
+
+/** Some figures were still being read when the API stopped waiting (they come within a minute). */
+function stillLoading(d: NetDashboard): boolean {
+  const loading = (m: string | null | undefined) => !!m && /loading/i.test(m);
+  return d.available && (!!d.internet?.speedsPending || loading(d.clientTypes?.message) || loading(d.topClientsMessage));
+}
+
 /** How long a UniFi speed test takes (seconds), for the "about N s" countdown. */
 const TEST_SECONDS = 30;
 /** How often a running speed test is polled (ms), as on the Network pages. */
@@ -151,6 +162,8 @@ export class DashNetworkSection {
 
   private sub: Subscription | null = null;
   private dataKey = '';
+  private pendingTimer?: ReturnType<typeof setTimeout>;
+  private pendingRetries = 0;
   private charts = new Map<ChartKey, Chart>();
   private clock?: ReturnType<typeof setInterval>;
   private nowTick = signal(Date.now());
@@ -164,6 +177,7 @@ export class DashNetworkSection {
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
+      if (this.pendingTimer) clearTimeout(this.pendingTimer);
       this.stopTestPolling();
       this.sub?.unsubscribe();
       this.destroyCharts();
@@ -188,9 +202,14 @@ export class DashNetworkSection {
 
   // ---------- loading ----------
 
-  /** quiet: the auto refresh (the figures on screen stay until the new ones arrive). */
-  load(quiet = false) {
+  /**
+   * quiet: the auto refresh (the figures on screen stay until the new ones arrive). pendingRetry: the reload that picks
+   * up figures that were still loading (any other load starts the count again).
+   */
+  load(quiet = false, pendingRetry = false) {
     this.sub?.unsubscribe();
+    if (this.pendingTimer) { clearTimeout(this.pendingTimer); this.pendingTimer = undefined; }
+    if (!pendingRetry) this.pendingRetries = 0;
     if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const key = `${this.source()}|${this.locationId() ?? ''}`;
     this.sub = this.net.get(this.source(), this.locationId()).subscribe({
@@ -201,6 +220,11 @@ export class DashNetworkSection {
         this.loading.set(false);
         this.refreshing.set(false);
         this.nowTick.set(Date.now());
+        // Figures still on their way from the network: one quiet reload in a minute (no dimming, no skeleton).
+        if (stillLoading(d) && !this.destroyed && this.pendingRetries < PENDING_RETRIES) {
+          this.pendingRetries++;
+          this.pendingTimer = setTimeout(() => this.load(true, true), PENDING_RETRY_MS);
+        }
       },
       error: (err: DashError) => {
         this.error.set(NetworkDashboardService.describeError(err));

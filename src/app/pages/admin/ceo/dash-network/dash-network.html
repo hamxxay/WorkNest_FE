@@ -96,7 +96,7 @@
                 </span>
                 <div>
                   <h3>Needs attention</h3>
-                  <p class="panel-sub">{{ alerts().length }} network issue{{ alerts().length === 1 ? '' : 's' }} right now</p>
+                  <p class="panel-sub">{{ alerts().length }} network issue{{ alerts().length === 1 ? '' : 's' }}</p>
                 </div>
               </div>
             </div>
@@ -152,13 +152,14 @@
             <div class="panel-head">
               <div>
                 <h3>Clients by type</h3>
-                <p class="panel-sub">Connected right now, as the Clients page names them</p>
+                <!-- The console's live client list (as on the Clients page), not the cloud counts behind "Clients online now". -->
+                <p class="panel-sub">{{ multiSite() ? 'Connected right now, main UniFi console only (Clients page list), so the total can differ from Clients online now' : 'Connected right now, from the Clients page list' }}</p>
               </div>
             </div>
             @if (types().length) {
               <div class="chart-box h-donut">
                 <canvas #typesCanvas role="img" [attr.aria-label]="'Clients by type: ' + typesAria()"></canvas>
-                <div class="donut-center"><span>Clients</span><strong>{{ count(typesTotal()) }}</strong></div>
+                <div class="donut-center"><span>{{ multiSite() ? 'Main console' : 'Clients' }}</span><strong>{{ count(typesTotal()) }}</strong></div>
               </div>
               <ul class="net-legend">
                 @for (t of types(); track t.kind) {
@@ -185,7 +186,7 @@
             <div class="panel-head">
               <div>
                 <h3>Network devices</h3>
-                <p class="panel-sub">Access points, switches and gateways, online and offline</p>
+                <p class="panel-sub">UniFi devices by type (access points, switches, gateways, cameras, door access...), online and offline</p>
               </div>
               @if (d.devices; as dv) {
                 <div class="head-stats">
@@ -276,7 +277,7 @@
               @if (d.internet; as i) {
                 <div class="head-stats">
                   <div><span>Latency now</span><strong [class.warn]="(i.latencyMs ?? 0) >= 100">{{ ms(i.latencyMs) }}</strong></div>
-                  <div><span>Packet loss</span><strong [class.bad]="(i.lossMaxPct ?? 0) >= 1">{{ i.lossMaxPct === null ? '-' : pct(i.lossMaxPct) }}</strong></div>
+                  <div><span>Worst loss, 24 h</span><strong [class.bad]="(i.lossMaxPct ?? 0) >= 1">{{ i.lossMaxPct === null ? '-' : pct(i.lossMaxPct) }}</strong></div>
                 </div>
               }
             </div>
