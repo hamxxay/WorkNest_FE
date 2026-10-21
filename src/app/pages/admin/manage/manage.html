@@ -3043,6 +3043,10 @@
         <div style="font-size:.7rem;opacity:.7">Invoice No.</div>
         <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.invoiceNumber || inv.InvoiceNumber ||
           ('INV-' + inv.id) }}</div>
+        @if (inv.OneBillNumber || inv.oneBillNumber) {
+        <div style="font-size:.7rem;opacity:.7;margin-top:6px">1Bill Consumer No.</div>
+        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.OneBillNumber || inv.oneBillNumber }}</div>
+        }
       </div>
     </div>
 
