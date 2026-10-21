@@ -381,32 +381,37 @@ export class CeoDashboard {
     const cp02 = this.noDeposits();
     const invoicedHint = cp02 ? 'By billing period, without security deposits' : hint;
     const collectedHint = cp02 ? 'Paid so far on the invoices for these billing periods (part payments count), without security deposits' : hint;
+    // Receivable (this period): revenue less what is paid on those invoices; never below zero.
+    const receivable = Math.max(0, m.invoiced - m.collected);
+    const receivablePrev = Math.max(0, m.invoicedPrev - m.collectedPrev);
     const kpis: Kpi[] = [
       {
-        key: 'invoiced', label: `Invoiced ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
+        key: 'invoiced', label: `Revenue ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
         sub: `${money(m.invoicedPrev)} ${w.last}`, tone: 'neutral',
         trend: trend(m.invoiced, m.invoicedPrev, '%'), vs: `vs ${w.last}`, hint: invoicedHint,
-        action: () => this.openRevenue('Invoiced', null), actionLabel: `Open invoiced ${w.thisP} by ${this.revenueBy()}`
+        action: () => this.openRevenue('Revenue', null), actionLabel: `Open revenue ${w.thisP} by ${this.revenueBy()}`
       },
       {
-        key: 'collected', label: `Collected ${w.thisP}`, value: money(m.collected), full: fullMoney(m.collected),
+        key: 'collected', label: `Paid ${w.thisP}`, value: money(m.collected), full: fullMoney(m.collected),
         sub: `${money(m.collectedPrev)} ${w.last}`, sub2: cp02 ? 'Paid so far on this billing' : undefined, tone: 'neutral',
         trend: trend(m.collected, m.collectedPrev, '%'), vs: `vs ${w.last}`, hint: collectedHint,
-        action: () => this.openRevenue('Collected', 'collected'), actionLabel: `Open collected ${w.thisP} by ${this.revenueBy()}`
+        action: () => this.openRevenue('Paid', 'collected'), actionLabel: `Open paid ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'rate', label: 'Collection rate', value: pct(rate),
-        sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'Nothing invoiced yet',
+        sub: m.invoiced > 0 ? `of ${money(m.invoiced)} revenue` : 'No revenue yet',
         tone: m.invoiced <= 0 ? 'neutral' : rate >= 80 ? 'ok' : rate >= 50 ? 'warn' : 'danger',
         hint: cp02 ? 'Share of the period\'s billing paid so far' : hint,
         action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate ${w.thisP} by ${this.revenueBy()}`
       },
       {
-        key: 'outstanding', label: 'Outstanding', value: money(m.outstanding), full: fullMoney(m.outstanding),
-        sub: `${count(m.outstandingCount)} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}`,
-        tone: m.outstanding > 0 ? 'neutral' : 'ok',
-        hint: this.byPeriod() ? 'Not counting invoices for billing periods not started yet' : undefined,
-        action: () => this.openOutstanding(), actionLabel: 'Open outstanding by days past due'
+        // Receivable = revenue - paid, for this period's billing only (both without security deposits).
+        key: 'receivable', label: `Receivable ${w.thisP}`, value: money(receivable), full: fullMoney(receivable),
+        sub: m.invoiced > 0 ? `of ${money(m.invoiced)} revenue` : 'No revenue yet',
+        tone: receivable > 0 ? 'neutral' : 'ok',
+        trend: trend(receivable, receivablePrev, '%'), vs: `vs ${w.last}`,
+        hint: 'Revenue less paid, for this period\'s billing, without security deposits',
+        action: () => this.openRevenue('Receivable', null), actionLabel: `Open revenue and paid ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'overdue', label: 'Overdue', value: money(m.overdue), full: fullMoney(m.overdue),
@@ -672,14 +677,9 @@ export class CeoDashboard {
     const rows = months
       .filter(x => { const [yy, mm] = x.month.split('-').map(Number); return yy === y && mm >= first && mm <= mo; })
       .map(x => ({ key: x.month.slice(0, 7), label: monthLong(x.month), value: x.invoiced, value2: x.collected, count: null }));
-    return { title: 'Invoiced and collected by month', subtitle: this.periodTitle(), valueLabel: 'Invoiced', value2Label: 'Collected', rows };
+    return { title: 'Revenue and paid by month', subtitle: this.periodTitle(), valueLabel: 'Revenue', value2Label: 'Paid', rows };
   });
 
-  /** Outstanding by days past due (the aging buckets). */
-  private agingBuckets = computed<CeoBreakdown>(() => ({
-    title: 'Outstanding by days past due', subtitle: 'Unpaid invoices, as of today', valueLabel: 'Outstanding', value2Label: null,
-    rows: (this.m()?.aging ?? []).map(a => ({ key: a.bucket, label: a.label, value: a.amount, value2: null, count: a.count }))
-  }));
 
   /** Occupancy by location, as of today. */
   private occupancyLocations = computed<CeoBreakdown>(() => ({
@@ -707,11 +707,6 @@ export class CeoDashboard {
         kind: 'breakdown', metric: 'revenue-months', params: extra, crumb: this.periodTitle(), local: () => this.periodMonths()
       });
     }
-  }
-
-  /** Outstanding: the aging buckets, then a bucket by location, then its invoices. */
-  openOutstanding() {
-    this.openDrill('Outstanding', { kind: 'breakdown', metric: 'aging-buckets', params: {}, crumb: 'By days past due', local: () => this.agingBuckets() });
   }
 
   /** CP_02: Received: the fee receipts and payments of the period (records/receipts, newest first). */
@@ -913,8 +908,8 @@ export class CeoDashboard {
         labels: months.map((x, i) => monthShort(x.month, i === 0)),
         datasets: [
           // Rounded data ends, square on the baseline; a small gap between the pair.
-          { label: 'Invoiced', data: months.map(x => x.invoiced), backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
-          { label: 'Collected', data: months.map(x => x.collected), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
+          { label: 'Revenue', data: months.map(x => x.invoiced), backgroundColor: TEAL_LIGHT, hoverBackgroundColor: TEAL_LIGHT_HOVER, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
+          { label: 'Paid', data: months.map(x => x.collected), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 20, borderSkipped: 'start', categoryPercentage: 0.72, barPercentage: 0.86 },
           // CP_02: money received by the day it came in (fee receipts + payments), as a line over the bars.
           ...(receivedByMonth ? [{
             type: 'line' as any, label: 'Received', data: months.map(x => receivedByMonth.get(x.month.slice(0, 7)) ?? 0),

@@ -69,19 +69,20 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
   const m = d.money, o = d.occupancy, s = d.sales;
   if (m) {
     kpis.push(
-      ['Money', 'Invoiced (PKR)', money2(m.invoiced), money2(m.invoicedPrev),
+      ['Money', 'Revenue (PKR)', money2(m.invoiced), money2(m.invoicedPrev),
         cp02 ? 'Billing period starts in the period, without security deposits' : byPeriod ? 'Billing period starts in the period' : 'Issued in the period'],
-      ['Money', 'Collected (PKR)', money2(m.collected), money2(m.collectedPrev), cp02 ? 'Paid so far on those invoices, without security deposits' : 'Of those, now paid'],
+      ['Money', 'Paid (PKR)', money2(m.collected), money2(m.collectedPrev), cp02 ? 'Paid so far on those invoices (receipts and payments), without security deposits' : 'Of those, now paid'],
       ['Money', 'Collection rate (%)', pct1(m.collectionRate), m.invoicedPrev > 0 ? pct1(ratio(m.collectedPrev, m.invoicedPrev)) : null, cp02 ? 'Share of the billing paid so far' : ''],
       ...(m.securityDeposits != null ? [['Money', 'Security deposits (PKR)', money2(m.securityDeposits), money2(m.securityDepositsPrev ?? 0),
-        `${m.securityDepositsCount ?? 0} invoice${m.securityDepositsCount === 1 ? '' : 's'}, billed in the period, not in Invoiced`] as XlsxCell[]] : []),
-      ['Money', 'Outstanding (PKR)', money2(m.outstanding), null, `${m.outstandingCount} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}, as of today${byPeriod ? ', not counting invoices for billing periods not started yet' : ''}`],
+        `${m.securityDepositsCount ?? 0} invoice${m.securityDepositsCount === 1 ? '' : 's'}, billed in the period, not in Revenue`] as XlsxCell[]] : []),
+      ['Money', 'Receivable (PKR)', money2(Math.max(0, m.invoiced - m.collected)), money2(Math.max(0, m.invoicedPrev - m.collectedPrev)),
+        'Revenue less paid, for the period\'s billing, without security deposits'],
       ['Money', 'Overdue (PKR)', money2(m.overdue), null, `${m.overdueCount} past due date, as of today`]
     );
   }
-  // CP_02: money received (fee receipts and payments by the day they came in), after Collected; none before CP_02.
+  // CP_02: money received (fee receipts and payments by the day they came in), after Paid; none before CP_02.
   if (m?.received != null) {
-    const at = kpis.findIndex(r => r[1] === 'Collected (PKR)');
+    const at = kpis.findIndex(r => r[1] === 'Paid (PKR)');
     kpis.splice(at >= 0 ? at + 1 : kpis.length, 0, ['Money', 'Received (PKR)', money2(m.received), money2(m.receivedPrev ?? 0),
       `${m.receivedCount ?? 0} receipts and payments taken in during the period (to date), whatever invoice`]);
   }
