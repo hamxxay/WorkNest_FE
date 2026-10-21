@@ -405,7 +405,7 @@ export class CeoDashboard {
         key: 'outstanding', label: 'Outstanding', value: money(m.outstanding), full: fullMoney(m.outstanding),
         sub: `${count(m.outstandingCount)} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}`,
         tone: m.outstanding > 0 ? 'neutral' : 'ok',
-        hint: this.byPeriod() ? 'Not counting invoices billed in advance' : undefined,
+        hint: this.byPeriod() ? 'Not counting invoices for billing periods not started yet' : undefined,
         action: () => this.openOutstanding(), actionLabel: 'Open outstanding by days past due'
       },
       {
@@ -415,17 +415,8 @@ export class CeoDashboard {
         action: () => this.openRecords('Invoices', 'Overdue', 'invoices', { status: 'overdue' }), actionLabel: 'Open the overdue invoices'
       }
     ];
-    // Billed in advance (CP_01): unpaid invoices for billing periods not started yet, next to outstanding (which leaves
-    // them out), before overdue.
-    if (m.billedInAdvance != null) {
-      const n = m.billedInAdvanceCount ?? 0;
-      kpis.splice(kpis.findIndex(k => k.key === 'overdue'), 0, {
-        key: 'advance', label: 'Billed in advance', value: money(m.billedInAdvance), full: fullMoney(m.billedInAdvance),
-        sub: n ? `${count(n)} unpaid invoice${n === 1 ? '' : 's'}` : 'No invoices', sub2: 'Unpaid, for billing periods not started yet',
-        tone: 'neutral',
-        action: () => this.openBilledInAdvance(), actionLabel: 'Open the invoices billed in advance'
-      });
-    }
+    // Billed in advance (CP_01: unpaid invoices for billing periods not started yet) is not shown: invoices sent ahead
+    // for next month are not a CEO figure. Outstanding still leaves them out.
     // CP_02: Received (money taken in during the period, whatever invoice), right after Collected.
     const received = this.receivedKpi();
     if (received) kpis.splice(kpis.findIndex(k => k.key === 'collected') + 1, 0, received);
@@ -745,11 +736,6 @@ export class CeoDashboard {
       to = `${y}-${String(mo).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
     }
     this.openRecords('Security deposits', this.periodTitle(), 'invoices', { status: 'deposit', from, to });
-  }
-
-  /** Billed in advance: the unpaid invoices for billing periods not started yet. */
-  openBilledInAdvance() {
-    this.openRecords('Invoices', 'Billed in advance', 'invoices', { status: 'advance' });
   }
 
   /** Occupancy: by location, then a location by space type, then its spaces. */

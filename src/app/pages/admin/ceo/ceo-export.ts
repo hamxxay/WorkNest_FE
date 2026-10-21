@@ -51,7 +51,7 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     'Money in PKR. Shares and rates in %.',
     ...(byPeriod ? [
       'Invoiced, collected, the 12-month series and top customers place an invoice in the month its billing period starts, not the month it was issued.',
-      'Billed in advance: unpaid invoices for a billing period that has not started yet (and not past due). Outstanding and the aging leave them out.'
+      'Outstanding and the aging leave out unpaid invoices for a billing period that has not started yet (and not past due).'
     ] : []),
     ...(cp02 ? [
       'Invoiced, collected, the 12-month series and top customers leave out refundable security deposits (Security deposits, apart). Collected = paid so far on those invoices: part payments count, a paid invoice in full, an invoice with only its WHT left as settled.',
@@ -75,9 +75,7 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
       ['Money', 'Collection rate (%)', pct1(m.collectionRate), m.invoicedPrev > 0 ? pct1(ratio(m.collectedPrev, m.invoicedPrev)) : null, cp02 ? 'Share of the billing paid so far' : ''],
       ...(m.securityDeposits != null ? [['Money', 'Security deposits (PKR)', money2(m.securityDeposits), money2(m.securityDepositsPrev ?? 0),
         `${m.securityDepositsCount ?? 0} invoice${m.securityDepositsCount === 1 ? '' : 's'}, billed in the period, not in Invoiced`] as XlsxCell[]] : []),
-      ['Money', 'Outstanding (PKR)', money2(m.outstanding), null, `${m.outstandingCount} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}, as of today${byPeriod ? ', not counting billed in advance' : ''}`],
-      ...(m.billedInAdvance != null ? [['Money', 'Billed in advance (PKR)', money2(m.billedInAdvance), null,
-        `${m.billedInAdvanceCount ?? 0} unpaid invoice${m.billedInAdvanceCount === 1 ? '' : 's'}, for billing periods not started yet`] as XlsxCell[]] : []),
+      ['Money', 'Outstanding (PKR)', money2(m.outstanding), null, `${m.outstandingCount} unpaid invoice${m.outstandingCount === 1 ? '' : 's'}, as of today${byPeriod ? ', not counting invoices for billing periods not started yet' : ''}`],
       ['Money', 'Overdue (PKR)', money2(m.overdue), null, `${m.overdueCount} past due date, as of today`]
     );
   }
