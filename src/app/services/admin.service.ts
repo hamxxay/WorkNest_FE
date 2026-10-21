@@ -326,6 +326,19 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice`, data);
   }
 
+  getApprovalQueue(locationId?: number): Observable<ApiResponse<any[]>> {
+    const qs = locationId ? `?locationId=${locationId}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice/approval-queue${qs}`);
+  }
+
+  recordInvoiceViewed(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/view`, {});
+  }
+
+  approveInvoice(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/approve`, {});
+  }
+
   sendInvoiceEmail(invoiceId: number): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/send-email`, {});
   }

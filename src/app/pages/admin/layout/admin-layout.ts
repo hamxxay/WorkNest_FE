@@ -1,4 +1,4 @@
-﻿import { UnifiService } from '../../../services/unifi.service';
+import { UnifiService } from '../../../services/unifi.service';
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
@@ -105,6 +105,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
     { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },
     { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
+      { route: '/admin/invoice-approvals', group: 'Finance', label: 'Invoice Approvals', icon: 'payments' },
     { route: '/admin/fee-receipts', group: 'Finance',       label: 'Receipts',            icon: 'receipt'         },
     // Shown to super admins, and to admins a super admin has given access (api/custom-invoices/access/me).
     { route: '/admin/custom-invoice', group: 'Finance',     label: 'Custom Invoice',      icon: 'custom-invoice', customInvoiceOnly: true },

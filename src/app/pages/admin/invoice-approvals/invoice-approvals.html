@@ -1,0 +1,381 @@
+<div class="approval-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-badge">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <span>Finance & Billing</span>
+      </div>
+      <h1>Recurring Invoice Approvals</h1>
+      <p>Review and authorize generated monthly recurring invoices before delivery to clients. Each invoice must be inspected individually.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-secondary" (click)="loadQueue()" [disabled]="loading()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading()">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+        <span>Refresh Queue</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Metric Summary Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon pending-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+      <div class="metric-data">
+        <span class="metric-label">Pending Approval</span>
+        <span class="metric-value">{{ totalPendingCount() }}</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon amount-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
+      </div>
+      <div class="metric-data">
+        <span class="metric-label">Queue Total (PKR)</span>
+        <span class="metric-value">PKR {{ totalPendingAmount() | number:'1.0-0' }}</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon policy-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div class="metric-data">
+        <span class="metric-label">Authorization Policy</span>
+        <span class="metric-hint">Per-invoice inspection required. No bulk approvals.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="toolbar">
+    <div class="search-box">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" placeholder="Search by invoice #, customer, space or location..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    </div>
+
+    @if (locations().length > 1) {
+    <div class="filter-group">
+      <label for="locationFilter">Location:</label>
+      <select id="locationFilter" [value]="selectedLocationId() ?? ''" (change)="onLocationChange($event)">
+        <option value="">All Scoped Locations</option>
+        @for (loc of locations(); track loc.id) {
+          <option [value]="loc.id">{{ loc.name }}</option>
+        }
+      </select>
+    </div>
+    }
+  </div>
+
+  <!-- Error Alert -->
+  @if (error()) {
+    <div class="alert alert-danger">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <!-- Queue Table Container -->
+  <div class="table-container">
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading invoice approval queue...</p>
+      </div>
+    } @else if (filteredQueue().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h3>No Pending Approvals</h3>
+        <p>All recurring invoices for your assigned location(s) are approved and dispatched.</p>
+      </div>
+    } @else {
+      <table class="queue-table">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Customer / Company</th>
+            <th>Space & Location</th>
+            <th>Rent Period</th>
+            <th>Due Date</th>
+            <th>Total (PKR)</th>
+            <th>Review Status</th>
+            <th class="text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of filteredQueue(); track (item.id || item.Id)) {
+            <tr class="queue-row" (click)="openReview(item)">
+              <td class="font-bold text-primary">
+                {{ item.invoiceNumber || item.InvoiceNumber || ('INV-' + (item.id || item.Id)) }}
+              </td>
+              <td>
+                <div class="customer-info">
+                  <span class="cust-name">{{ item.customerName || item.CustomerName || 'Customer' }}</span>
+                  @if (item.companyName || item.CompanyName) {
+                    <span class="cust-company">{{ item.companyName || item.CompanyName }}</span>
+                  }
+                </div>
+              </td>
+              <td>
+                <div class="space-info">
+                  <span class="space-name">{{ item.spaceName || item.SpaceName || 'Workspace' }}</span>
+                  <span class="location-name">{{ item.locationName || item.LocationName || '-' }}</span>
+                </div>
+              </td>
+              <td>
+                @if (item.billingPeriodStart || item.BillingPeriodStart) {
+                  <span>{{ (item.billingPeriodStart || item.BillingPeriodStart) | date:'MMM d, y' }} &ndash; {{ (item.billingPeriodEnd || item.BillingPeriodEnd) | date:'MMM d, y' }}</span>
+                } @else {
+                  <span class="text-muted">N/A</span>
+                }
+              </td>
+              <td>{{ (item.dueOn || item.DueOn) | date:'MMM d, y' }}</td>
+              <td class="amount-cell">
+                PKR {{ (item.grandTotal || item.GrandTotal || 0) | number:'1.0-0' }}
+              </td>
+              <td>
+                @if (item.viewedAt || item.ViewedAt) {
+                  <span class="badge badge-viewed" title="Viewed by {{ item.viewedByName || item.ViewedByName || 'Staff' }}">
+                    Viewed
+                  </span>
+                } @else {
+                  <span class="badge badge-pending">
+                    Pending Review
+                  </span>
+                }
+              </td>
+              <td class="text-right" (click)="$event.stopPropagation()">
+                <button type="button" class="btn btn-review" (click)="openReview(item)">
+                  <span>Review & Approve</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <!-- Single-Invoice Review Modal (Strictly per-invoice inspection) -->
+  @if (selectedInvoice()) {
+    <div class="modal-backdrop" (click)="closeReview()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <div class="modal-title-area">
+            <span class="modal-badge">Approval Inspection</span>
+            <h2>Invoice {{ selectedInvoice()?.invoiceNumber || selectedInvoice()?.InvoiceNumber || ('INV-' + (selectedInvoice()?.id || selectedInvoice()?.Id)) }}</h2>
+          </div>
+          <button type="button" class="close-btn" (click)="closeReview()" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Audit & View Tracking Status Bar -->
+        <div class="view-status-bar" [class.success]="viewSuccess()" [class.warning]="!viewSuccess() && !viewLoading()">
+          @if (viewLoading()) {
+            <div class="view-status-content">
+              <div class="spinner-small"></div>
+              <span>Verifying and recording view status for audit tracking...</span>
+            </div>
+          } @else if (viewSuccess()) {
+            <div class="view-status-content">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>View recorded. Session context and user audit timestamp active.</span>
+            </div>
+          } @else {
+            <div class="view-status-content text-danger">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>{{ viewError() || 'Could not record invoice view. Approval is disabled.' }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+          @if (detailsLoading()) {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Fetching full invoice line items and booking details...</p>
+            </div>
+          } @else {
+            <!-- Meta Details Grid -->
+            <div class="details-grid">
+              <div class="detail-box">
+                <span class="detail-label">Customer Information</span>
+                <span class="detail-value font-bold">{{ selectedInvoice()?.customerName || selectedInvoice()?.CustomerName }}</span>
+                <span class="detail-sub">{{ selectedInvoice()?.customerEmail || selectedInvoice()?.CustomerEmail }}</span>
+                @if (selectedInvoice()?.companyName || selectedInvoice()?.CompanyName) {
+                  <span class="detail-sub company-tag">{{ selectedInvoice()?.companyName || selectedInvoice()?.CompanyName }}</span>
+                }
+              </div>
+
+              <div class="detail-box">
+                <span class="detail-label">Space & Location</span>
+                <span class="detail-value font-bold">{{ selectedInvoice()?.spaceName || selectedInvoice()?.SpaceName }}</span>
+                <span class="detail-sub">{{ selectedInvoice()?.locationName || selectedInvoice()?.LocationName }}</span>
+                <span class="detail-sub">Booking #{{ selectedInvoice()?.bookingId || selectedInvoice()?.BookingId }}</span>
+              </div>
+
+              <div class="detail-box">
+                <span class="detail-label">Rent Period & Dates</span>
+                <span class="detail-value">
+                  {{ (selectedInvoice()?.billingPeriodStart || selectedInvoice()?.BillingPeriodStart) | date:'MMM d, y' }} &ndash; 
+                  {{ (selectedInvoice()?.billingPeriodEnd || selectedInvoice()?.BillingPeriodEnd) | date:'MMM d, y' }}
+                </span>
+                <span class="detail-sub">Due: <strong>{{ (selectedInvoice()?.dueOn || selectedInvoice()?.DueOn) | date:'MMM d, y' }}</strong></span>
+                <span class="detail-sub">Issued: {{ (selectedInvoice()?.issuedOn || selectedInvoice()?.IssuedOn || selectedInvoice()?.createdOn || selectedInvoice()?.CreatedOn) | date:'MMM d, y' }}</span>
+              </div>
+            </div>
+
+            <!-- Full Invoice Line Items -->
+            <div class="lines-section">
+              <h4 class="section-title">Invoice Line Items</h4>
+              <table class="lines-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-right">Unit Price (PKR)</th>
+                    <th class="text-right">Tax (PKR)</th>
+                    <th class="text-right">Total (PKR)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @if (invoiceDetails()?.lines?.length) {
+                    @for (line of invoiceDetails().lines; track (line.id || line.description)) {
+                      <tr>
+                        <td>{{ line.description }}</td>
+                        <td class="text-center">{{ line.quantity || 1 }}</td>
+                        <td class="text-right">{{ (line.unitPrice || 0) | number:'1.0-0' }}</td>
+                        <td class="text-right">{{ (line.taxAmount || 0) | number:'1.0-0' }}</td>
+                        <td class="text-right font-bold">{{ (line.totalAmount || line.amount || 0) | number:'1.0-0' }}</td>
+                      </tr>
+                    }
+                  } @else {
+                    <tr>
+                      <td>Monthly Recurring Space Rent</td>
+                      <td class="text-center">1</td>
+                      <td class="text-right">{{ (selectedInvoice()?.grandTotal || selectedInvoice()?.GrandTotal || 0) | number:'1.0-0' }}</td>
+                      <td class="text-right">0</td>
+                      <td class="text-right font-bold">{{ (selectedInvoice()?.grandTotal || selectedInvoice()?.GrandTotal || 0) | number:'1.0-0' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Financial Summary Box -->
+            <div class="summary-card">
+              <div class="summary-row">
+                <span>Subtotal</span>
+                <span>PKR {{ ((invoiceDetails()?.subTotal ?? invoiceDetails()?.subtotalAmount) || selectedInvoice()?.grandTotal || selectedInvoice()?.GrandTotal || 0) | number:'1.0-0' }}</span>
+              </div>
+              @if ((invoiceDetails()?.taxAmount ?? invoiceDetails()?.taxTotal ?? 0) > 0) {
+                <div class="summary-row">
+                  <span>Tax Amount</span>
+                  <span>PKR {{ (invoiceDetails()?.taxAmount ?? invoiceDetails()?.taxTotal ?? 0) | number:'1.0-0' }}</span>
+                </div>
+              }
+              <div class="summary-row total-row">
+                <span>Grand Total</span>
+                <span>PKR {{ (selectedInvoice()?.grandTotal || selectedInvoice()?.GrandTotal || 0) | number:'1.0-0' }}</span>
+              </div>
+            </div>
+
+            <!-- API Response Result Feedback -->
+            @if (approvalResult()) {
+              <div class="alert" [class.alert-success]="approvalResult()?.success" [class.alert-danger]="!approvalResult()?.success">
+                @if (approvalResult()?.success) {
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                }
+                <span>{{ approvalResult()?.message }}</span>
+              </div>
+            }
+          }
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeReview()" [disabled]="approving()">
+            Close
+          </button>
+
+          @if (isSuperAdmin()) {
+            <div class="super-admin-notice">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+              <span>Super Admin view-only. Approvals must be executed by branch sales executives or branch admins.</span>
+            </div>
+          } @else {
+            <button 
+              type="button" 
+              class="btn btn-primary approve-btn" 
+              (click)="approveCurrentInvoice()" 
+              [disabled]="!viewSuccess() || approving() || approvalResult()?.success">
+              @if (approving()) {
+                <div class="spinner-small light"></div>
+                <span>Authorizing & Sending...</span>
+              } @else if (approvalResult()?.success) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>Approved & Sent</span>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>Approve & Send to Customer</span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

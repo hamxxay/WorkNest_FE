@@ -3611,6 +3611,10 @@ export class Manage implements OnInit {
     }
 
     if (this.entity === 'invoices') {
+      if (col.key === 'approvalStatus') {
+        const val = item.approvalStatus ?? item.ApprovalStatus;
+        return val === 'PendingApproval' ? 'Pending Approval' : 'Approved';
+      }
       if (col.key === 'invoiceNumber') {
         return item.invoiceNumber || item.InvoiceNumber || ('INV-' + (item.id || item.Id || item.bookingId || item.BookingId));
       }
@@ -5554,6 +5558,7 @@ export class Manage implements OnInit {
           { key: 'paidTotal', label: 'Paid (PKR)', type: 'currency' },
           { key: 'balanceDue', label: 'Balance Due', type: 'currency' },
           { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
+          { key: 'approvalStatus', label: 'Approval', type: 'approval-status' },
         ],
         getFn: (p, l, s) => {
           // The API limits location-bound staff to every location they're assigned to; the Location filter narrows it.

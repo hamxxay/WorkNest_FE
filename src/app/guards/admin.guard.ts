@@ -16,6 +16,7 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/agreements',
   '/admin/lease-templates',
   '/admin/invoices',
+  '/admin/invoice-approvals',
   '/admin/fee-receipts',
   '/admin/bookings',
   '/admin/attendants',
