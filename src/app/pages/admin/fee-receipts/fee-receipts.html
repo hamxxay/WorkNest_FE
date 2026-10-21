@@ -521,6 +521,7 @@
                 <tr>
                   <th>Receipt Code</th>
                   <th>Receipt Date</th>
+                  <th>Month</th>
                   <th>Customer</th>
                   <th>Invoice #</th>
                   <th>Location</th>
@@ -535,6 +536,7 @@
                   <tr [class.voided-row]="r.status === 0">
                     <td class="mono font-bold">{{ r.code }}</td>
                     <td>{{ r.receiptDate | date:'mediumDate' }}</td>
+                    <td>{{ monthLabel(r) }}</td>
                     <td>
                       <div class="cell-customer">
                         <span class="cust-name">{{ r.customerName }}</span>
@@ -654,7 +656,7 @@
           </svg>
           <div>
             <strong>Reverting Invoice Status:</strong>
-            Voiding this receipt will cancel <strong>{{ v.code }}</strong> and revert invoice <strong>{{ v.invoiceNumber }}</strong> back to <strong>Unpaid</strong>.
+            Voiding this receipt will cancel <strong>{{ v.code }}</strong> and every monthly receipt of the same payment for invoice <strong>{{ v.invoiceNumber }}</strong>, remove their vouchers, and revert the invoice back to <strong>Unpaid</strong>.
           </div>
         </div>
 
@@ -770,6 +772,12 @@
                 <span class="label">Date:</span>
                 <span class="val">{{ p.receiptDate | date:'mediumDate' }}</span>
               </div>
+              @if (p.monthCount > 1) {
+                <div class="receipt-meta-row">
+                  <span class="label">For month:</span>
+                  <span class="val">{{ billingMonthName(p, 'long') }} ({{ p.monthNo }} of {{ p.monthCount }})</span>
+                </div>
+              }
             </div>
           </div>
 
@@ -866,6 +874,13 @@
               </tfoot>
             </table>
           </div>
+
+          <!-- Monthly receipts (RC_02): receipt 1 of a multi-month invoice -->
+          @if (p.monthCount > 1 && p.monthNo === 1) {
+            <div class="receipt-notes">
+              {{ p.monthCount === 2 ? 'Month 2 is issued automatically at the start of the month.' : 'Months 2–' + p.monthCount + ' are issued automatically at the start of each month.' }}
+            </div>
+          }
 
           <!-- Remarks / Void Info -->
           @if (p.remarks) {

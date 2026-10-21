@@ -590,6 +590,20 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     window.print();
   }
 
+  // ── Monthly receipts (RC_02) ──────────────────────────────────────────────
+  /** "Nov 2026" / "November 2026" for the receipt's billing month ('' when the API sends none). */
+  billingMonthName(r: FeeReceiptListItemDto, style: 'short' | 'long'): string {
+    const m = /^(\d{4})-(\d{2})/.exec(r.billingMonth ?? '');
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleDateString('en-US', { month: style, year: 'numeric' }) : '';
+  }
+
+  /** List "Month" column: "Nov 2026 · 2 of 4"; "—" for a single-month receipt. */
+  monthLabel(r: FeeReceiptListItemDto): string {
+    if (r.monthCount <= 1) return '—';
+    const name = this.billingMonthName(r, 'short');
+    return `${name ? name + ' · ' : ''}${r.monthNo} of ${r.monthCount}`;
+  }
+
   // ── Void Receipt Flow ─────────────────────────────────────────────────────
   openVoidModal(item: FeeReceiptListItemDto): void {
     if (!this.canVoid() || item.status === 0) return; // Not allowed / already void
@@ -618,7 +632,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
       next: () => {
         this.voiding.set(false);
         this.closeVoidModal();
-        this.toastService.success(`Receipt ${item.code} has been voided. Invoice ${item.invoiceNumber} is marked Unpaid.`);
+        this.toastService.success(`Receipt ${item.code} and every monthly receipt of the same payment have been voided. Invoice ${item.invoiceNumber} is marked Unpaid.`);
         this.loadReceipts();
       },
       error: (err) => {

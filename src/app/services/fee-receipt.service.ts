@@ -114,6 +114,13 @@ export interface FeeReceiptListItemDto {
   previousPaid: number | null;
   amountPaid: number;
   balanceAfter: number | null;
+  /**
+   * Monthly receipts (database update RC_02): a multi-month invoice gets one receipt per calendar month. Receipt 1 is
+   * saved here; months 2..N are created by the API when each month starts. Older receipts are month 1 of 1.
+   */
+  billingMonth: string | null;   // 1st of the month this receipt is for
+  monthNo: number;
+  monthCount: number;
 }
 
 export interface FeeReceiptDetailDto extends FeeReceiptListItemDto {
@@ -190,6 +197,9 @@ function mapReceipt(r: any): FeeReceiptDetailDto {
     previousPaid: numOrNull(r.previousPaid),
     amountPaid: Number(r.amountPaid ?? r.totalAmount ?? 0),
     balanceAfter: numOrNull(r.balanceAfter),
+    billingMonth: r.billingMonth ?? null,
+    monthNo: Math.max(1, Number(r.monthNo ?? 1) || 1),
+    monthCount: Math.max(1, Number(r.monthCount ?? 1) || 1),
     invoiceTypeId,
     invoiceTypeName: invoiceTypeLabel(invoiceTypeId, whtAmount),
     roomRentExclTax,
