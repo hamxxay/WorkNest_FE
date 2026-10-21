@@ -39,6 +39,14 @@
     <div class="ins-grid" aria-hidden="true">
       <div class="dash-panel span-8"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
       <div class="dash-panel span-4"><span class="sk sk-line w60"></span><span class="sk sk-block"></span></div>
+      <div class="span-4 full-md net-col">
+        <div class="dash-panel"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+        <div class="dash-panel">
+          <span class="sk sk-line w40"></span>
+          @for (i of [1,2,3,4,5]; track i) { <div class="sk-row"><span class="sk sk-line w70"></span><span class="sk sk-line w20"></span></div> }
+        </div>
+      </div>
+      <div class="dash-panel span-8 full-md"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
     </div>
   } @else if (error() && !data()) {
     <div class="dash-panel section-empty" role="alert">
@@ -88,7 +96,7 @@
                 </span>
                 <div>
                   <h3>Needs attention</h3>
-                  <p class="panel-sub">{{ alerts().length }} network issue{{ alerts().length === 1 ? '' : 's' }} right now</p>
+                  <p class="panel-sub">{{ alerts().length }} network issue{{ alerts().length === 1 ? '' : 's' }}</p>
                 </div>
               </div>
             </div>
@@ -144,13 +152,14 @@
             <div class="panel-head">
               <div>
                 <h3>Clients by type</h3>
-                <p class="panel-sub">Connected right now, as the Clients page names them</p>
+                <!-- The console's live client list (as on the Clients page), not the cloud counts behind "Clients online now". -->
+                <p class="panel-sub">{{ multiSite() ? 'Connected right now, main UniFi console only (Clients page list), so the total can differ from Clients online now' : 'Connected right now, from the Clients page list' }}</p>
               </div>
             </div>
             @if (types().length) {
               <div class="chart-box h-donut">
                 <canvas #typesCanvas role="img" [attr.aria-label]="'Clients by type: ' + typesAria()"></canvas>
-                <div class="donut-center"><span>Clients</span><strong>{{ count(typesTotal()) }}</strong></div>
+                <div class="donut-center"><span>{{ multiSite() ? 'Main console' : 'Clients' }}</span><strong>{{ count(typesTotal()) }}</strong></div>
               </div>
               <ul class="net-legend">
                 @for (t of types(); track t.kind) {
@@ -171,12 +180,13 @@
             }
           </div>
 
-          <!-- 3. Devices by type -->
-          <div class="dash-panel span-4 full-md nw-hug focus-target" id="net-panel-devices" tabindex="-1">
+          <!-- 3. Left column: devices by type, then the top data users under it -->
+          <div class="span-4 full-md net-col">
+          <div class="dash-panel focus-target" id="net-panel-devices" tabindex="-1">
             <div class="panel-head">
               <div>
                 <h3>Network devices</h3>
-                <p class="panel-sub">Access points, switches and gateways, online and offline</p>
+                <p class="panel-sub">UniFi devices by type (access points, switches, gateways, cameras, door access...), online and offline</p>
               </div>
               @if (d.devices; as dv) {
                 <div class="head-stats">
@@ -213,6 +223,50 @@
             }
           </div>
 
+          <!-- 3b. Top data users (the Clients page's list, top 5); a row opens its details -->
+          <div class="dash-panel focus-target" id="net-panel-top" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Top data users</h3>
+                <p class="panel-sub">Download and upload per device, {{ topRange() }}</p>
+              </div>
+            </div>
+            @if (d.topClients === null) {
+              <div class="empty nt-empty" role="status">
+                <ng-container *ngTemplateOutlet="chartIcon" />
+                <strong>Top data users are not available</strong>
+                <span>{{ d.topClientsMessage || 'They show here once the API update is live.' }}</span>
+              </div>
+            } @else if (!topRows().length) {
+              <div class="empty nt-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No client data yet</strong><span>Devices show here once they use data {{ topRange() }}.</span></div>
+            } @else {
+              <ol class="net-top">
+                @for (r of topRows(); track r.key) {
+                  <li>
+                    <button type="button" class="nt-row" (click)="openTop(r.c, $event)" [title]="'Open details of ' + r.c.name"
+                      [attr.aria-label]="r.c.rank + '. ' + r.c.name + ', ' + r.c.kindLabel + ', ' + r.total + ' (' + r.down + ' down, ' + r.up + ' up)' + (r.c.online ? ', online now' : '') + '. Open details'">
+                      <span class="nt-rank" aria-hidden="true">{{ r.c.rank }}</span>
+                      <span class="nt-main" aria-hidden="true">
+                        <span class="nt-name">{{ r.c.name }}</span>
+                        <span class="nt-kind"><i [style.background]="r.color"></i>{{ r.c.kindLabel }}@if (r.c.online) { <span class="nt-on">Online</span> }</span>
+                        <span class="nt-track"><span [style.width.%]="r.share" [style.background]="teal"></span></span>
+                      </span>
+                      <span class="nt-figs" aria-hidden="true">
+                        <strong>{{ r.total }}</strong>
+                        <small>
+                          <span><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>{{ r.down }}</span>
+                          <span><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>{{ r.up }}</span>
+                        </small>
+                      </span>
+                      <svg class="nt-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                  </li>
+                }
+              </ol>
+            }
+          </div>
+          </div>
+
           <!-- 4. Internet: lines and latency -->
           <div class="dash-panel span-8 full-md focus-target" id="net-panel-internet" tabindex="-1">
             <div class="panel-head">
@@ -223,7 +277,7 @@
               @if (d.internet; as i) {
                 <div class="head-stats">
                   <div><span>Latency now</span><strong [class.warn]="(i.latencyMs ?? 0) >= 100">{{ ms(i.latencyMs) }}</strong></div>
-                  <div><span>Packet loss</span><strong [class.bad]="(i.lossMaxPct ?? 0) >= 1">{{ i.lossMaxPct === null ? '-' : pct(i.lossMaxPct) }}</strong></div>
+                  <div><span>Worst loss, 24 h</span><strong [class.bad]="(i.lossMaxPct ?? 0) >= 1">{{ i.lossMaxPct === null ? '-' : pct(i.lossMaxPct) }}</strong></div>
                 </div>
               }
             </div>
@@ -246,6 +300,23 @@
                       <div><dt>Last test (down / up)</dt><dd [title]="r.testTitle">{{ r.test }}@if (r.testWhen) { <small>{{ r.testWhen }}</small> }</dd></div>
                       <div><dt>Data 24 h (down / up)</dt><dd [title]="r.dataTitle">{{ r.data24 }}</dd></div>
                     </dl>
+                    @if (r.testable) {
+                      <!-- CEO only: run a speed test on this line now (one at a time across the network, as UniFi allows) -->
+                      <div class="nl-test">
+                        @if (testNotes()[r.w.label]; as note) { <p class="nl-test-note">{{ note }}</p> }
+                        @let busyHere = testRun()?.wan === r.w.label || testStarting() === r.w.label;
+                        <button type="button" class="nl-test-btn" [class.is-running]="busyHere" [disabled]="testBusy() || !r.w.up"
+                          [attr.aria-busy]="busyHere ? 'true' : null" [attr.data-tooltip]="testTip(r.w)" (click)="runSpeedtest(r.w)">
+                          @if (busyHere) {
+                            <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                            {{ testLabel() }}
+                          } @else {
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                            Test speed
+                          }
+                        </button>
+                      </div>
+                    }
                     @if (r.spark; as sp) {
                       <div class="nl-spark">
                         <svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
@@ -287,4 +358,38 @@
   }
 
   <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
+  <span class="sr-only" aria-live="polite">{{ testAnnounce() }}</span>
 </section>
+
+<!-- Details of one top data user: the dashboard drawer's look, view only. -->
+@if (topOpen(); as c) {
+  <div class="nt-backdrop" (click)="closeTop()" (wheel)="$event.preventDefault()" aria-hidden="true"></div>
+  <aside class="nt-drawer" #topPanel role="dialog" aria-modal="true" [attr.aria-labelledby]="'nt-title-' + source()" tabindex="-1">
+    <header class="nt-drawer-head">
+      <div class="nt-drawer-nav">
+        <span class="nt-crumbs">Network <span aria-hidden="true">/</span> Top data users</span>
+        <button type="button" class="nt-close" (click)="closeTop()" aria-label="Close (Escape)" title="Close (Esc)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <h2 [id]="'nt-title-' + source()" #topHeading tabindex="-1">{{ c.name }}</h2>
+      <p class="nt-drawer-sub">
+        <span class="pill" [class.on]="c.online">{{ c.online ? 'Online now' : 'Offline' }}</span>
+        {{ c.kindLabel }} · number {{ c.rank }} by data used {{ topRange() }} · view only
+      </p>
+    </header>
+    <div class="nt-drawer-body">
+      <div class="nt-stats">
+        <div><span>Downloaded</span><strong>{{ bytes(c.downloadBytes) }}</strong></div>
+        <div><span>Uploaded</span><strong>{{ bytes(c.uploadBytes) }}</strong></div>
+        <div><span>Total</span><strong>{{ bytes(c.totalBytes) }}</strong></div>
+      </div>
+      <dl class="nt-details">
+        @for (row of topDetails(); track row.label) {
+          <div><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+        }
+      </dl>
+      <p class="note">Data used {{ topRange() }}, from UniFi's daily usage report (the same figures as Network &gt; Clients, Top data users). Downloaded is what the device received.</p>
+    </div>
+  </aside>
+}

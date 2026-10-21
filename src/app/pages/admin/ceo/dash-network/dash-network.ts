@@ -1,11 +1,12 @@
 import {
-  Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, signal, untracked, viewChild
+  Component, DestroyRef, ElementRef, HostListener, afterRenderEffect, computed, effect, inject, input, signal, untracked, viewChild
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import type { DashError } from '../../../../services/dashboard-api';
 import {
-  NetDashboard, NetHistoryPoint, NetTrafficPoint, NetWan, NetworkDashboardService, NetworkSource
+  NetDashboard, NetHistoryPoint, NetSpeedtest, NetSpeedtestError, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService,
+  NetworkSource
 } from '../../../../services/network-dashboard.service';
 import { bytesText, linkText, mbpsText, pairText, stampText, whenText } from './net-format';
 import {
@@ -88,11 +89,35 @@ function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; area: s
   return { down: path('down'), up: path('up'), area: area.trim(), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
 }
 
+/** While the API is still reading the network (line speeds, client types, top data users): reload after this long (ms). */
+const PENDING_RETRY_MS = 60_000;
+/** At most this many reloads in a row for that (the server keeps the reads warm, so one is normally enough). */
+const PENDING_RETRIES = 5;
+
+/** Some figures were still being read when the API stopped waiting (they come within a minute). */
+function stillLoading(d: NetDashboard): boolean {
+  const loading = (m: string | null | undefined) => !!m && /loading/i.test(m);
+  return d.available && (!!d.internet?.speedsPending || loading(d.clientTypes?.message) || loading(d.topClientsMessage));
+}
+
+/** How long a UniFi speed test takes (seconds), for the "about N s" countdown. */
+const TEST_SECONDS = 30;
+/** How often a running speed test is polled (ms), as on the Network pages. */
+const TEST_POLL_MS = 3000;
+
+/** "14:05" in the viewer's time; "" when unknown. */
+function timeOf(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 /**
  * Network section of the CEO and Sales Manager dashboards: the Wi-Fi / network (UniFi) picture of the dashboard's
  * location. Clients online now (Wi-Fi / wired / guest) and over time (24 hours or 7 days, from the stored history),
- * devices online against offline by type, clients by type, internet lines and latency, and the issues that need
- * attention. Read-only; loads on its own (GET api/ceo/network or api/sales-manager/network), so a network that is
+ * devices online against offline by type, clients by type, the top 5 data users (each opens its details), internet
+ * lines and latency, and the issues that need attention. Read-only, except that the CEO can run a speed test on a line
+ * ("Test speed", api/ceo/network/speedtest: one at a time, as UniFi allows). Loads on its own (GET api/ceo/network or api/sales-manager/network), so a network that is
  * not set up or not reachable shows one plain message here and the rest of the dashboard keeps working. Follows the
  * dashboard's location picker; the API limits a Sales Manager to the sites of their locations.
  */
@@ -122,6 +147,7 @@ export class DashNetworkSection {
   readonly count = count;
   readonly pct = pct;
   readonly ms = ms;
+  readonly bytes = bytesText;
   readonly wifiColor = WIFI;
   readonly wiredColor = WIRED;
   readonly guestColor = GUEST;
@@ -136,6 +162,8 @@ export class DashNetworkSection {
 
   private sub: Subscription | null = null;
   private dataKey = '';
+  private pendingTimer?: ReturnType<typeof setTimeout>;
+  private pendingRetries = 0;
   private charts = new Map<ChartKey, Chart>();
   private clock?: ReturnType<typeof setInterval>;
   private nowTick = signal(Date.now());
@@ -143,9 +171,14 @@ export class DashNetworkSection {
   private clientsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('clientsCanvas');
   private typesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('typesCanvas');
   private latencyCanvas = viewChild<ElementRef<HTMLCanvasElement>>('latencyCanvas');
+  private topPanel = viewChild<ElementRef<HTMLElement>>('topPanel');
+  private topHeading = viewChild<ElementRef<HTMLElement>>('topHeading');
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+      if (this.pendingTimer) clearTimeout(this.pendingTimer);
+      this.stopTestPolling();
       this.sub?.unsubscribe();
       this.destroyCharts();
       if (this.clock) clearInterval(this.clock);
@@ -155,19 +188,28 @@ export class DashNetworkSection {
       this.source();
       this.locationId();
       this.reload();
-      untracked(() => this.load());
+      untracked(() => { this.closeTop(false); this.load(); });
     });
     effect(() => {
       if (this.quietReload()) untracked(() => this.load(true));
+    });
+    // A test started elsewhere (the Network pages, another tab) keeps the buttons disabled until it ends.
+    effect(() => {
+      if (this.canTest()) untracked(() => this.followRunningTest());
     });
     afterRenderEffect(() => this.renderCharts());
   }
 
   // ---------- loading ----------
 
-  /** quiet: the auto refresh (the figures on screen stay until the new ones arrive). */
-  load(quiet = false) {
+  /**
+   * quiet: the auto refresh (the figures on screen stay until the new ones arrive). pendingRetry: the reload that picks
+   * up figures that were still loading (any other load starts the count again).
+   */
+  load(quiet = false, pendingRetry = false) {
     this.sub?.unsubscribe();
+    if (this.pendingTimer) { clearTimeout(this.pendingTimer); this.pendingTimer = undefined; }
+    if (!pendingRetry) this.pendingRetries = 0;
     if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const key = `${this.source()}|${this.locationId() ?? ''}`;
     this.sub = this.net.get(this.source(), this.locationId()).subscribe({
@@ -178,6 +220,11 @@ export class DashNetworkSection {
         this.loading.set(false);
         this.refreshing.set(false);
         this.nowTick.set(Date.now());
+        // Figures still on their way from the network: one quiet reload in a minute (no dimming, no skeleton).
+        if (stillLoading(d) && !this.destroyed && this.pendingRetries < PENDING_RETRIES) {
+          this.pendingRetries++;
+          this.pendingTimer = setTimeout(() => this.load(true, true), PENDING_RETRY_MS);
+        }
       },
       error: (err: DashError) => {
         this.error.set(NetworkDashboardService.describeError(err));
@@ -324,23 +371,30 @@ export class DashNetworkSection {
 
   lines = computed(() => this.data()?.internet?.lines ?? []);
   /** Each line with its figures written out: speed now, link, last speed test, data in 24 h, sparkline. */
-  lineRows = computed(() => this.lines().map((w, i) => {
-    const st = w.speedtest;
-    return {
-      w,
-      key: `${w.site}|${w.label}|${i}`,
-      meta: this.lineMeta(w),
-      downNow: mbpsText(w.downMbps),
-      upNow: mbpsText(w.upMbps),
-      link: linkText(w.linkMbps),
-      test: st ? pairText(st.downMbps, st.upMbps) : '-',
-      testWhen: whenText(st?.at),
-      testTitle: st ? ['Download / upload', st.pingMs !== null ? `ping ${ms(st.pingMs)}` : '', stampText(st.at)].filter(Boolean).join(' · ') : '',
-      data24: w.down24hBytes === null && w.up24hBytes === null ? '-' : `${bytesText(w.down24hBytes)} / ${bytesText(w.up24hBytes)}`,
-      dataTitle: 'Downloaded / uploaded in the last 24 hours',
-      spark: sparkOf(w.traffic)
-    };
-  }));
+  lineRows = computed(() => {
+    this.nowTick();
+    const tested = this.testResults();
+    return this.lines().map((w, i) => {
+      const st = this.latestTest(w.speedtest, w.live ? tested[w.label] : undefined);
+      const fresh = !!st && st === tested[w.label];
+      return {
+        w,
+        key: `${w.site}|${w.label}|${i}`,
+        /** The CEO can test this line: the main gateway reports it (its figures are live). */
+        testable: this.canTest() && w.live,
+        meta: this.lineMeta(w),
+        downNow: mbpsText(w.downMbps),
+        upNow: mbpsText(w.upMbps),
+        link: linkText(w.linkMbps),
+        test: st ? pairText(st.downMbps, st.upMbps) : '-',
+        testWhen: fresh ? [whenText(st?.at), timeOf(st?.at)].filter(Boolean).join(', ') : whenText(st?.at),
+        testTitle: st ? ['Download / upload', st.pingMs !== null ? `ping ${ms(st.pingMs)}` : '', stampText(st.at)].filter(Boolean).join(' · ') : '',
+        data24: w.down24hBytes === null && w.up24hBytes === null ? '-' : `${bytesText(w.down24hBytes)} / ${bytesText(w.up24hBytes)}`,
+        dataTitle: 'Downloaded / uploaded in the last 24 hours',
+        spark: sparkOf(w.traffic)
+      };
+    });
+  });
   /** "Primary · uptime 100% · 1 issue" (and the site when there are several). */
   lineMeta(w: NetWan): string {
     return [
@@ -351,7 +405,236 @@ export class DashNetworkSection {
     ].filter(Boolean).join(' · ');
   }
   multiSite = computed(() => (this.data()?.sites.length ?? 0) > 1);
+
+  // ---------- speed test (CEO only) ----------
+
+  /** Only the CEO dashboard (the CEO and super admins) runs speed tests; the Sales Manager's stays read-only. */
+  canTest = computed(() => this.source() === 'ceo');
+  /** The test running now (here or elsewhere): its line and seconds since it started. */
+  testRun = signal<{ wan: string; elapsed: number } | null>(null);
+  /** The line whose test is being started (the request is on its way). */
+  testStarting = signal<string | null>(null);
+  /** Per line (WAN1...): why its test failed or what UniFi did instead, in plain words. */
+  testNotes = signal<Record<string, string>>({});
+  /** Per line: results of tests run while the page is open (newer than the figures the dashboard last read). */
+  testResults = signal<Record<string, NetSpeedtest>>({});
+  testAnnounce = signal('');
+  /** A test is starting or running: every "Test speed" button waits (UniFi runs one at a time). */
+  testBusy = computed(() => !!this.testRun() || !!this.testStarting());
+
+  private testTimer?: ReturnType<typeof setTimeout>;
+  private testSub: Subscription | null = null;
+  private testIfname = '';
+  private destroyed = false;
+
+  /** The newer of the dashboard's last test and one run here. */
+  private latestTest(server: NetSpeedtest | null, local: NetSpeedtest | undefined): NetSpeedtest | null {
+    if (!local) return server;
+    const t = (x: NetSpeedtest | null) => (x?.at ? new Date(x.at).getTime() : NaN);
+    return !server || !(t(server) > t(local)) ? local : server;
+  }
+
+  /** "Testing… about 24 s" from the seconds since the test started. */
+  testLabel(): string {
+    if (this.testStarting()) return 'Starting…';
+    const left = TEST_SECONDS - (this.testRun()?.elapsed ?? 0);
+    return left > 3 ? `Testing… about ${Math.round(left)} s` : 'Testing… almost done';
+  }
+
+  /** The button's tooltip: what the test does, or why it cannot run now. */
+  testTip(w: NetWan): string {
+    const run = this.testRun();
+    const starting = this.testStarting();
+    if (run?.wan === w.label || starting === w.label) return `Testing ${w.label}. It takes about ${TEST_SECONDS} seconds.`;
+    if (run || starting) return `A speed test is running on ${run?.wan || starting}. UniFi runs one test at a time.`;
+    if (!w.up) return `${w.label} is down, so it cannot be tested.`;
+    return `Run a speed test on ${w.label} now. It uses the line's full bandwidth for about ${TEST_SECONDS} seconds.`;
+  }
+
+  runSpeedtest(w: NetWan) {
+    if (!this.canTest() || !w.live || !w.up || this.testBusy()) return;
+    const key = w.label;
+    const ok = confirm(`Run a speed test on ${key}?\n\nIt uses the full bandwidth of this line for about 20-30 seconds, so people using it may notice a short slowdown.`);
+    if (!ok) return;
+    this.setTestNote(key, null);
+    this.testStarting.set(key);
+    this.testSub?.unsubscribe();
+    this.testSub = this.net.startSpeedtest(key).subscribe({
+      next: run => {
+        this.testStarting.set(null);
+        this.testIfname = run.ifname;
+        this.testRun.set({ wan: run.wan || key, elapsed: 0 });
+        this.testAnnounce.set(`Speed test started on ${run.wan || key}. It takes about ${TEST_SECONDS} seconds.`);
+        this.scheduleTestPoll();
+      },
+      error: (err: NetSpeedtestError) => {
+        this.testStarting.set(null);
+        this.setTestNote(key, `Could not start the test: ${err.message}`);
+        this.testAnnounce.set(`Could not start the speed test on ${key}.`);
+        // Another test is running (the Network pages, another tab): follow it so the buttons wait for it.
+        if (err.status === 409) this.followRunningTest();
+      }
+    });
+  }
+
+  /** Asks once whether a test is running; if so, polls it until it ends. */
+  private followRunningTest() {
+    if (this.testRun() || this.testStarting()) return;
+    this.testSub?.unsubscribe();
+    this.testSub = this.net.speedtestStatus().subscribe({
+      next: st => {
+        if (!st.running || !st.wan || this.testRun() || this.testStarting()) return;
+        this.testIfname = '';
+        this.testRun.set({ wan: st.wan, elapsed: st.elapsed });
+        this.scheduleTestPoll();
+      },
+      error: () => { /* nothing to follow: the buttons stay available */ }
+    });
+  }
+
+  private scheduleTestPoll() {
+    if (this.testTimer) clearTimeout(this.testTimer);
+    if (this.destroyed) return;
+    this.testTimer = setTimeout(() => this.pollTest(), TEST_POLL_MS);
+  }
+
+  private pollTest() {
+    const run = this.testRun();
+    if (!run || this.destroyed) return;
+    this.testSub?.unsubscribe();
+    this.testSub = this.net.speedtestStatus().subscribe({
+      next: st => {
+        if (st.running) {
+          this.testRun.set({ wan: st.wan || run.wan, elapsed: st.elapsed });
+          this.scheduleTestPoll();
+          return;
+        }
+        this.testRun.set(null);
+        const wan = st.wan || run.wan;
+        if (st.timedOut) {
+          this.setTestNote(wan, 'The test took too long and was stopped. Try again in a minute.');
+          this.testAnnounce.set(`The speed test on ${wan} took too long and was stopped.`);
+        } else if (st.result && (st.result.down !== null || st.result.up !== null)) {
+          const r = st.result;
+          if (this.testIfname && r.interface && r.interface !== this.testIfname) {
+            // Some UniFi versions only test the primary line: the result is not this line's.
+            this.setTestNote(wan, `UniFi ran the test on the primary line instead (${r.interface}). This UniFi version may only test the primary line.`);
+          } else {
+            this.testResults.set({ ...this.testResults(), [wan]: { downMbps: r.down, upMbps: r.up, pingMs: r.ping, at: new Date().toISOString() } });
+            this.setTestNote(wan, null);
+            this.testAnnounce.set(`Speed test on ${wan} finished: ${pairText(r.down, r.up)} down / up.`);
+          }
+        }
+        this.testIfname = '';
+        // The rest of the line's figures (and the stored last test) from the server, without dimming the section.
+        this.load(true);
+      },
+      error: (err: NetSpeedtestError) => {
+        this.testRun.set(null);
+        this.testIfname = '';
+        this.setTestNote(run.wan, `Lost track of the test: ${err.message}`);
+        this.testAnnounce.set(`Lost track of the speed test on ${run.wan}.`);
+      }
+    });
+  }
+
+  private setTestNote(wan: string, text: string | null) {
+    const n = { ...this.testNotes() };
+    if (text) n[wan] = text; else delete n[wan];
+    this.testNotes.set(n);
+  }
+
+  private stopTestPolling() {
+    if (this.testTimer) clearTimeout(this.testTimer);
+    this.testTimer = undefined;
+    this.testSub?.unsubscribe();
+    this.testSub = null;
+  }
   latencyEmpty = computed(() => !(this.data()?.internet?.latency ?? []).some(s => s.points.some(p => p.avg !== null)));
+
+  // ---------- top data users ----------
+
+  /** The range under the title: "Today" -> "today", "Last 7 days" -> "last 7 days". */
+  topRange = computed(() => {
+    const d = this.data();
+    const label = d?.topClientsRangeLabel;
+    if (label) return label.charAt(0).toLowerCase() + label.slice(1);
+    const days = d?.topClientsRangeDays;
+    return days && days > 1 ? `last ${days} days` : 'today';
+  });
+  /** Each row with its bar (share of the biggest) and figures written out. */
+  topRows = computed(() => {
+    const list = this.data()?.topClients ?? [];
+    const max = Math.max(0, ...list.map(c => c.totalBytes)) || 1;
+    return list.map((c, i) => ({
+      c,
+      key: `${c.mac}|${i}`,
+      share: Math.max(2, (c.totalBytes / max) * 100),
+      color: KIND_COLORS[c.kind] ?? KIND_FALLBACK[i % KIND_FALLBACK.length],
+      total: bytesText(c.totalBytes),
+      down: bytesText(c.downloadBytes),
+      up: bytesText(c.uploadBytes)
+    }));
+  });
+  readonly kindColor = (kind: string) => KIND_COLORS[kind] ?? KIND_COLORS['other'];
+
+  /** The client whose details are open (a snapshot: a refresh behind it does not change it). */
+  topOpen = signal<NetTopClient | null>(null);
+  private topReturn: HTMLElement | null = null;
+
+  openTop(c: NetTopClient, ev?: Event) {
+    this.topReturn = (ev?.currentTarget as HTMLElement | null) ?? (document.activeElement as HTMLElement | null);
+    this.topOpen.set(c);
+    setTimeout(() => (this.topHeading()?.nativeElement ?? this.topPanel()?.nativeElement)?.focus({ preventScroll: true }));
+  }
+
+  closeTop(restoreFocus = true) {
+    if (!this.topOpen()) return;
+    this.topOpen.set(null);
+    const target = this.topReturn;
+    this.topReturn = null;
+    if (restoreFocus && target && document.contains(target)) setTimeout(() => target.focus({ preventScroll: true }));
+  }
+
+  /** The details, one row each ("-" when not reported). */
+  topDetails = computed(() => {
+    const c = this.topOpen();
+    if (!c) return [];
+    this.nowTick();
+    const seen = c.online ? 'Now' : c.lastSeen ? `${stampText(c.lastSeen)} (${whenText(c.lastSeen)})` : '-';
+    return [
+      { label: 'Name', value: c.name },
+      { label: 'Type', value: c.kindLabel },
+      { label: 'Status', value: c.online ? 'Online now' : 'Offline' },
+      { label: 'Last seen', value: seen },
+      { label: 'MAC address', value: c.mac || '-' },
+      { label: 'IP address', value: c.ip || '-' },
+      { label: 'Connection', value: c.connection || (c.wired ? 'Wired' : 'Wi-Fi') },
+      { label: c.wired ? 'Switch' : 'Access point', value: c.uplink || '-' },
+      ...(c.wired ? [{ label: 'Switch port', value: c.port || '-' }] : [{ label: 'Wi-Fi name', value: c.ssid || '-' }]),
+      { label: 'Network', value: c.network || '-' },
+      { label: 'Guest', value: c.guest ? 'Yes' : 'No' },
+      { label: 'Hostname', value: c.hostname || '-' },
+      { label: 'Maker', value: c.vendor || '-' }
+    ];
+  });
+
+  /** Escape closes the details; Tab stays inside them. */
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    if (!this.topOpen()) return;
+    if (e.key === 'Escape') { e.preventDefault(); this.closeTop(); return; }
+    if (e.key !== 'Tab') return;
+    const panel = this.topPanel()?.nativeElement;
+    if (!panel) return;
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'))
+      .filter(el => el.offsetParent !== null);
+    if (!focusable.length) { e.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    if (e.shiftKey && (active === first || !panel.contains(active))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (active === last || !panel.contains(active))) { e.preventDefault(); first.focus(); }
+  }
 
   alerts = computed(() => this.data()?.alerts ?? []);
   /** A critical issue among them (the panel's icon turns red). */

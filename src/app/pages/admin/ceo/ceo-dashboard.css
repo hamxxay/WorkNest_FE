@@ -208,6 +208,9 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .head-stats strong.good { color: #047857; }
 .head-stats strong.bad { color: #b91c1c; }
 .head-stats strong.warn { color: #b45309; }
+/* CP_02: Next 3 months, the rent of bookings waiting for confirmation under "Expected" */
+.head-stats .head-note, .cmp-table .pending-note { font-size: 0.75rem; font-weight: 500; color: #64748b; white-space: nowrap; }
+.cmp-table .pending-note { display: block; text-align: right; margin-top: 2px; }
 /* a header figure that opens its records */
 .head-stats .stat-btn { margin: -4px -8px; padding: 4px 8px; border-radius: 8px; transition: background-color .12s; }
 .head-stats .stat-btn:hover { background: #f0fdfa; }
@@ -263,6 +266,11 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .legend-row:hover, .bar-row:hover, .funnel-row:hover { background: #f8fafc; }
 .bar-row.static { cursor: default; }
 .bar-row.static:hover { background: none; }
+/* CP_02: occupancy by location, one group per location with a row per room category */
+.bar-group-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 8px 2px; border: none; border-radius: 8px; background: none; font: inherit; font-weight: 600; color: #0f172a; text-align: left; cursor: pointer; }
+.bar-group-head > span { flex: 1; min-width: 0; }
+.bar-group-head:hover { background: #f8fafc; }
+.bar-group > .bar-list { padding-left: 8px; }
 .legend-row i, .type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .type-dot { display: inline-block; }
 .legend-row .lg-label { flex: 1; min-width: 0; }
@@ -409,6 +417,8 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
   .span-4:not(.full-md), .span-6:not(.full-md) { grid-column: span 12; }
 }
 @media (max-width: 767.98px) { :host { --ceo-sticky-top: 56px; } }
+/* CEO / Sales Manager sign-ins: the 56px top bar is there at every width, so the section nav sticks below it. */
+:host-context(.focus-shell) { --ceo-sticky-top: 56px; }
 @media (max-width: 760px) {
   .panel-head { flex-direction: column; }
   .head-stats div, .head-stats .stat-btn { align-items: flex-start; }

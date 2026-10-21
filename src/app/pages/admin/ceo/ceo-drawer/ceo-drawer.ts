@@ -3,10 +3,10 @@ import {
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, map } from 'rxjs';
 import {
-  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoLeaseRecord, CeoLocalMetric,
-  CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
+  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoInvoiceTotals, CeoLeaseRecord, CeoLocalMetric,
+  CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoReceiptRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
 import type {
   SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
@@ -46,18 +46,48 @@ type SpaceRow = CeoSpaceRecord & { bookingId?: number | null };
 /** A link to another list about the same selection (DrillRecords.related). */
 type RelatedList = NonNullable<DrillRecords['related']>[number];
 
+/** "01 Nov 2026" from "yyyy-MM-dd" (no year: "01 Nov"); null when it is not a date. */
+function dayText(iso: string | null | undefined, withYear = true): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  if (isNaN(d.getTime())) return null;
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `${m[3]} ${month}${withYear ? ' ' + m[1] : ''}`;
+}
+
+/** An invoice's billing period: "01 Nov - 30 Nov 2026", "21 Oct 2026 - 31 Jan 2027", "From 01 Nov 2026"; null = none. */
+function billingPeriodText(start: string | null | undefined, end: string | null | undefined): string | null {
+  const from = dayText(start);
+  if (!from) return null;
+  const to = dayText(end);
+  if (!to) return `From ${from}`;
+  const sameYear = start!.slice(0, 4) === end!.slice(0, 4);
+  return `${sameYear ? dayText(start, false) : from} - ${to}`;
+}
+
+/**
+ * The line under an invoice list's title (CP_02): the totals of every invoice in it, as the dashboard counts them
+ * (billed and collected without security deposits, owed = what is left to pay); undefined = none sent.
+ */
+function invoiceSummary(t: CeoInvoiceTotals | null | undefined): string | undefined {
+  if (!t) return undefined;
+  return `Billed ${fullMoney(t.billed)} · collected ${fullMoney(t.collected)} · owed ${fullMoney(t.balance)} (without security deposits)`;
+}
+
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
 const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
-    // status: 'paid' when opened from Collected (the API's breakdown leaves it out; the invoices use it). A custom period
-    // opens it with from / to instead of a month (the invoices issued in that range).
+    // status: 'collected' when opened from Collected (CP_02: the invoices with something paid; the API's breakdown leaves
+    // it out, the invoices use it). A custom period opens it with from / to instead of a month (the invoices whose
+    // billing period starts in that range, CP_01).
     next: (p, r) => ({
       kind: 'records', records: 'invoices',
       params: { month: p['month'], from: p['from'], to: p['to'], locationId: r.key, status: p['status'] }, crumb: r.label
     }),
-    nextLabel: (p, r) => `Open the ${p['status'] === 'paid' ? 'paid ' : ''}invoices of ${r.label}`
+    nextLabel: (p, r) => p['status'] === 'collected' || p['status'] === 'paid' ? `Open the invoices of ${r.label} with payments` : `Open the invoices of ${r.label}`
   },
   // ----- level 2 lists built from the dashboard's own figures (DrillLevel.local) -----
   'revenue-months': {
@@ -92,10 +122,27 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
     next: (p, r) => ({ kind: 'records', records: 'spaces', params: { spaceTypeId: p['spaceTypeId'], locationId: r.key }, crumb: r.label })
   },
   'occupancy-location': {
-    rowLabel: 'Space type', money: false, chart: 'stacked-occupancy', vertical: false,
+    rowLabel: 'Room category', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    // CP_02: rows per room category (key PrivateOffice | SharedSpace); before it per space type (numeric key).
+    next: (p, r) => ({
+      kind: 'records', records: 'spaces',
+      params: /^\d+$/.test(r.key)
+        ? { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }
+        : { locationId: p['locationId'], category: r.key, occupied: p['occupied'] },
+      crumb: r.label
+    }),
     nextLabel: (p, r) => p['occupied'] ? `Open the occupied ${r.label} rooms` : `Open ${r.label}`,
+    keep: (p, r) => !p['occupied'] || r.value > 0
+  },
+  // CP_02: one room category (Private Office / Shared Space) by location, rooms with a confirmed booking now; from the
+  // category's KPI card only the occupied rooms (occupied: true).
+  'occupancy-category': {
+    rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
+    derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
+    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { category: p['category'], locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label}` : `Open the rooms of ${r.label}`,
+    hint: () => 'Select a location for its rooms.',
     keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'bookings-month': {
@@ -115,7 +162,7 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
 
 const RECORD_TITLES: Record<string, string> = {
   invoices: 'Invoices', spaces: 'Spaces', bookings: 'Bookings', inquiries: 'Tour inquiries', quotations: 'Quotations',
-  leases: 'Expiring leases', complaints: 'Complaints'
+  leases: 'Expiring leases', complaints: 'Complaints', receipts: 'Money received'
 };
 
 /**
@@ -159,7 +206,7 @@ export class CeoDrawer {
   private readonly ceoSource: DrillSource = {
     metrics: METRICS,
     breakdown: (metric, params) => this.ceo.getBreakdown(metric as CeoMetric, params),
-    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params),
+    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params).pipe(map(r => ({ ...r, summary: invoiceSummary(r.invoiceTotals) }))),
     describeError: err => CeoService.describeError(err)
   };
   private src = computed<DrillSource>(() => this.source() ?? this.ceoSource);
@@ -425,6 +472,8 @@ export class CeoDrawer {
   quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
   leaseRows = computed(() => this.recordsOf<LeaseRow>('leases'));
   complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
+  /** CP_02: fee receipts and payments (records/receipts). */
+  receiptRows = computed(() => this.recordsOf<CeoReceiptRecord>('receipts'));
   /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
   highlight = computed<number | null>(() => {
     const e = this.current();
@@ -445,7 +494,8 @@ export class CeoDrawer {
     const occupied = rows.filter(r => r.occupied);
     return {
       all: rows.length, occupied: occupied.length, vacant: rows.length - occupied.length,
-      seatsInUse: occupied.reduce((a, r) => a + (r.capacity ?? 0), 0)
+      // CP_02: the seats sold of the confirmed bookings when the API sends them, else the rooms' seats.
+      seatsInUse: occupied.reduce((a, r) => a + (r.seatsSold ?? r.capacity ?? 0), 0)
     };
   });
   spaceMixed = computed(() => this.spaceStats().occupied > 0 && this.spaceStats().vacant > 0);
@@ -483,6 +533,11 @@ export class CeoDrawer {
   bookingLink(bookingId: number | null | undefined) {
     return bookingId ? this.src().bookingLink?.(bookingId) ?? null : null;
   }
+  /** The billing period under an invoice number (CP_01); null = not sent: the list shows the issue date only. */
+  periodOf(r: InvoiceRow): string | null {
+    return billingPeriodText(r.periodStart, r.periodEnd);
+  }
+
   /** The line under an invoice's customer: its space and location (the CEO records have only the location). */
   placeOf(r: InvoiceRow): string {
     return [r.space, r.location].filter(Boolean).join(' · ');

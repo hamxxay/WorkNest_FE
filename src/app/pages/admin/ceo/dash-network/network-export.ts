@@ -12,12 +12,14 @@ function localStamp(iso: string | null): string {
 
 /**
  * The Network section for Export Excel (CEO and Sales Manager dashboards): one sheet with the figures on screen
- * (clients, devices by type, client types, internet lines, issues) and one with the client history (24 hours, 15-minute
+ * (clients, devices by type, client types, top data users, internet lines, issues) and one with the client history (24 hours, 15-minute
  * steps, and 7 days, hourly). None when the section shows no figures (not set up, not reachable, no site).
  */
 export function networkSheets(d: NetDashboard | null): XlsxSheet[] {
   if (!d || !d.available || !d.sites.length || !d.clients) return [];
   const c = d.clients;
+  // Data in GB as numbers; an unknown figure is an empty cell, never 0.
+  const gb = (b: number | null) => (b === null ? null : Math.round((b / 1e9) * 100) / 100);
   const rows: XlsxCell[][] = [
     ['Network (UniFi)', ''],
     ['Sites', d.sites.map(s => s.name).join(', ')],
@@ -38,10 +40,24 @@ export function networkSheets(d: NetDashboard | null): XlsxSheet[] {
     rows.push([], ['Clients by type', 'Clients', 'Wi-Fi', 'Wired']);
     d.clientTypes.items.forEach(t => rows.push([t.label, t.count, t.wifi, t.wired]));
   }
+  if (d.topClients || d.topClientsMessage) {
+    const range = d.topClientsRangeLabel ?? 'Today';
+    rows.push([], [
+      `Top data users (${range.toLowerCase()})`, 'Rank', 'Type', 'Total (GB)', 'Downloaded (GB)', 'Uploaded (GB)', 'Online now', 'Last seen',
+      'MAC address', 'IP address', 'Connection'
+    ]);
+    if (d.topClients?.length) {
+      d.topClients.forEach(t => rows.push([
+        t.name, t.rank, t.kindLabel, gb(t.totalBytes), gb(t.downloadBytes), gb(t.uploadBytes), t.online ? 'Yes' : 'No',
+        t.online ? 'Now' : localStamp(t.lastSeen), t.mac, t.ip, t.connection
+      ]));
+    } else {
+      rows.push([d.topClients ? 'No client data yet' : d.topClientsMessage ?? '']);
+    }
+  }
   if (d.internet) {
     const i = d.internet;
-    // Speeds in Mbps and data in GB as numbers; an unknown figure is an empty cell, never 0.
-    const gb = (b: number | null) => (b === null ? null : Math.round((b / 1e9) * 100) / 100);
+    // Speeds in Mbps as numbers; an unknown figure is an empty cell, never 0.
     rows.push([], [
       'Internet line', 'Provider', 'Role', 'Up', 'Uptime 24 h (%)', 'Issues', 'Site',
       'Download now (Mbps)', 'Upload now (Mbps)', 'Link speed (Mbps)',

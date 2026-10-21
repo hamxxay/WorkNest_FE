@@ -64,6 +64,8 @@
               <th scope="col" class="num">Sold</th>
               <th scope="col" class="num">Empty</th>
               @if (hasShifts()) { <th scope="col">Shifts</th> }
+              <th scope="col" class="num">Sold a month</th>
+              <th scope="col" class="num">Per seat</th>
               <th scope="col" class="num">List a seat</th>
               <th scope="col" class="num">Rent not earned</th>
             </tr></thead>
@@ -83,6 +85,12 @@
                       @if (r.oneShiftSeats) { <small class="free">{{ count(r.oneShiftSeats) }} with one shift free</small> }
                     </td>
                   }
+                  <td class="num">
+                    @if (r.seatsSold) { <span [title]="fullMoney(r.soldMonthly) + ' a month'">{{ money(r.soldMonthly) }}</span> } @else { <span class="none">-</span> }
+                  </td>
+                  <td class="num">
+                    @if (r.seatsSold) { <span [title]="fullMoney(r.revenuePerSeat) + ' a month per seat sold'">{{ money(r.revenuePerSeat) }}</span> } @else { <span class="none">-</span> }
+                  </td>
                   <td class="num">
                     @if (r.listSeatPrice !== null) { <span [title]="fullMoney(r.listSeatPrice) + ' a month'">{{ money(r.listSeatPrice) }}</span> }
                     @else { <span class="none">Not set</span> }
@@ -109,6 +117,12 @@
                     @if (totals().oneShiftSeats) { <small class="free">{{ count(totals().oneShiftSeats) }} with one shift free</small> }
                   </td>
                 }
+                <td class="num">
+                  @if (totals().seatsSold) { <span [title]="fullMoney(totals().soldMonthly) + ' a month'">{{ money(totals().soldMonthly) }}</span> } @else { <span class="none">-</span> }
+                </td>
+                <td class="num">
+                  @if (totals().seatsSold) { <span [title]="fullMoney(totals().revenuePerSeat) + ' a month per seat sold'">{{ money(totals().revenuePerSeat) }}</span> } @else { <span class="none">-</span> }
+                </td>
                 <td class="num">
                   @if (totals().listSeatPriceAll !== null) { <span [title]="'Average ' + fullMoney(totals().listSeatPriceAll) + ' a month over the seats with a list price'">{{ money(totals().listSeatPriceAll) }}</span><small>average</small> }
                   @else { <span class="none">-</span> }

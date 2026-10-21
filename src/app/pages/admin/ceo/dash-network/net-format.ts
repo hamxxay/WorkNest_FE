@@ -1,14 +1,15 @@
 // Number formats of the Network section (dashboard and Export Excel). An unknown figure is always a dash, never 0.
 
-/** A speed in Mbps without the unit: "<0.1", "4.2", "285", "1,250"; null for unknown. */
+/** A speed in Mbps without the unit: "0", "<0.1", "4.2", "285", "1,250"; null for unknown. */
 function mbpsNumber(v: number | null | undefined): string | null {
   if (v === null || v === undefined || !Number.isFinite(v) || v < 0) return null;
+  if (v === 0) return '0';
   if (v < 0.1) return '<0.1';
   if (v < 10) return (Math.round(v * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 });
   return Math.round(v).toLocaleString();
 }
 
-/** "100 Mbps", "4.2 Mbps", "<0.1 Mbps", "1.2 Gbps"; "-" when unknown. */
+/** "100 Mbps", "4.2 Mbps", "<0.1 Mbps", "0 Mbps" (idle), "1.2 Gbps"; "-" when unknown. */
 export function mbpsText(v: number | null | undefined): string {
   if (v !== null && v !== undefined && v >= 1000) return `${(Math.round(v / 100) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 })} Gbps`;
   const n = mbpsNumber(v);

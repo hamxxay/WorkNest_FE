@@ -185,7 +185,13 @@
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
                           <th scope="row">
-                            <strong>{{ r.invoiceNumber || '-' }}</strong><small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small>
+                            <strong>{{ r.invoiceNumber || '-' }}</strong>
+                            @if (periodOf(r); as period) {
+                              <span class="rec-period">{{ period }}</span>
+                              @if (r.issuedOn) { <small>Issued {{ r.issuedOn | date:'d MMM y' }}</small> }
+                            } @else {
+                              <small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small>
+                            }
                             @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
                           </th>
                           <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ placeOf(r) }}</small></td>
@@ -193,8 +199,12 @@
                             @if (r.dueOn) { {{ r.dueOn | date:'d MMM y' }} } @else { - }
                             @if (r.balance > 0 && (daysFrom(r.dueOn) ?? 0) < 0) { <small class="late">{{ -(daysFrom(r.dueOn) ?? 0) }}d overdue</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small></td>
-                          <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}</td>
+                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small>
+                            @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Invoiced'">incl. {{ money(r.deposit) }} deposit</small> }
+                          </td>
+                          <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}
+                            @if (r.wht) { <small [title]="fullMoney(r.wht) + ' withheld by the customer, not owed'">WHT {{ money(r.wht) }}</small> }
+                          </td>
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }
@@ -250,7 +260,10 @@
                           <td>@if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }</td>
                           @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
                           @else { <td class="num" [title]="fullMoney(r.totalAmount)">{{ money(r.totalAmount) }}</td> }
-                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
+                          <td>
+                            <span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span>
+                            @if (r.seller) { <small>Sold by {{ r.seller }}</small> }
+                          </td>
                         </tr>
                       }
                     </tbody>
@@ -301,6 +314,29 @@
                           </td>
                           @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
                           @else { <td class="num" [title]="fullMoney(r.monthlyAmount) + ' a month'">{{ money(r.monthlyAmount) }}</td> }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+                @case ('receipts') {
+                  <!-- CP_02: money received, by the day it came in -->
+                  <table class="dr-table records">
+                    <thead><tr><th scope="col">Received</th><th scope="col">Customer</th><th scope="col">Invoice</th><th scope="col">Method</th><th scope="col" class="num">Amount</th></tr></thead>
+                    <tbody>
+                      @for (r of receiptRows(); track r.kind + r.refId) {
+                        <tr>
+                          <th scope="row">
+                            <strong class="clip">{{ r.reference || '-' }}</strong>
+                            <small>@if (r.receivedOn) { {{ r.receivedOn | date:'d MMM y' }} · }{{ r.kind === 'payment' ? 'Payment' : 'Fee receipt' }}</small>
+                          </th>
+                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
+                          <td>
+                            {{ r.invoiceNumber || '-' }}
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                          </td>
+                          <td><span class="clip">{{ r.method || '-' }}</span></td>
+                          <td class="num" [title]="fullMoney(r.amount)">{{ money(r.amount) }}</td>
                         </tr>
                       }
                     </tbody>

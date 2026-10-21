@@ -201,43 +201,6 @@
           </div>
           </div>
 
-          <!-- 3. Occupancy per room in the period -->
-          <div class="dash-panel span-12 focus-target" id="panel-rooms-occ" tabindex="-1">
-            <div class="panel-head">
-              <div>
-                <h3>Occupancy by room</h3>
-                <p class="panel-sub">Rooms with a tenant {{ thisWord() }}: share of the days so far, most occupied first · select a bar for the room</p>
-              </div>
-              <div class="head-side">
-                <div class="head-stats">
-                  <div><span>Average</span><strong>{{ pct(s()!.periodOccupancyPct) }}</strong></div>
-                  <div><span>Now</span><strong>{{ count(s()!.occupiedNow) }} of {{ count(s()!.rooms) }}</strong></div>
-                </div>
-                @if (occCount() > limit) {
-                  <button type="button" class="view-toggle" (click)="showAllOcc.set(!showAllOcc())" [attr.aria-pressed]="showAllOcc()">
-                    {{ showAllOcc() ? 'Show the first ' + limit : 'Show all ' + occCount() }}
-                  </button>
-                }
-              </div>
-            </div>
-            <div class="rooms-legend" aria-hidden="true">
-              <span><i class="sw occ-now"></i>Occupied now</span>
-              <span><i class="sw occ-vacant"></i>Vacant now</span>
-            </div>
-            <div class="chart-box chart-nav" [style.height.px]="occHeight()"
-              [attr.tabindex]="occCount() ? 0 : null" role="group" aria-roledescription="interactive chart"
-              aria-label="Occupancy by room in the period. Arrow keys move between rooms, Enter opens the room."
-              (keydown)="occNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && occNav.focus()" (blur)="occNav.clear()">
-              <canvas #occCanvas aria-hidden="true"></canvas>
-              @if (!occCount()) {
-                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No room had a tenant {{ thisWord() }}</strong><span>Rooms with confirmed bookings show up here.</span></div>
-              }
-            </div>
-            @if (occCount() && rooms().length > occCount()) {
-              <p class="note">{{ count(rooms().length - occCount()) }} of {{ count(rooms().length) }} rooms had no tenant {{ thisWord() }} (grey on the room map).</p>
-            }
-          </div>
-
         </div>
 
         <!-- Room map: every room as a tile, coloured by how it was sold; a card with the chosen room -->
@@ -283,7 +246,7 @@
           <div class="map-layout">
             <div class="map">
               @for (g of groups(); track g.key) {
-                <div class="map-group">
+                <div class="map-group" [attr.data-group]="g.key" tabindex="-1">
                   <div class="map-group-head">
                     <strong>{{ g.spaceType }} · {{ g.location }}</strong>
                     <span>{{ count(g.let) }} of {{ count(g.tiles.length) }} let · {{ count(g.inUse) }} in use now</span>
@@ -306,7 +269,7 @@
               }
               <p class="note map-key">
                 <span><i class="sw solid" aria-hidden="true"></i>Filled: in use today</span>
-                <span><i class="sw outline" aria-hidden="true"></i>Outlined: booked {{ thisWord() }}, not in use today</span>
+                <span><i class="sw outline" aria-hidden="true"></i>Outlined: let {{ thisWord() }}, not in use today</span>
                 <span><i class="sw blank" aria-hidden="true"></i>Grey: not let {{ thisWord() }}</span>
               </p>
             </div>
@@ -340,6 +303,7 @@
                     <p class="rc-meta">
                       {{ x.sale.shift }} · {{ x.sale.seatsSold }} seat{{ x.sale.seatsSold === 1 ? '' : 's' }}
                       @if (x.sale.startOn) { · {{ x.sale.startOn | date:'d MMM y' }}@if (x.sale.endOn) { to {{ x.sale.endOn | date:'d MMM y' }} } }
+                      @if (x.sale.fixedMonthly) { · fixed discount {{ amount(x.sale.fixedMonthly) }} a month }
                     </p>
                     @if (x.sale.pricing !== 'unpriced') {
                       <div class="rc-bar" [title]="expectedNote(x.sale)" aria-hidden="true">
@@ -358,6 +322,7 @@
                 } @empty {
                   <div class="rc-none">
                     <strong>Not let {{ thisWord() }}{{ shift() !== 'all' ? ' (' + shift() + ')' : '' }}</strong>
+                    @if (t.room.upcomingStartOn) { <span>Starts {{ t.room.upcomingStartOn | date:'d MMM y' }}</span> }
                     @if (t.room.listRoomPrice) { <span>At list it would bring {{ fullMoney(t.room.listRoomPrice) }} a month.</span> }
                   </div>
                 }

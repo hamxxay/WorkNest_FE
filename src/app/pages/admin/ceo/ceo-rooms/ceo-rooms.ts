@@ -8,19 +8,19 @@ import {
   CEO_SHIFTS, CeoError, CeoPeriod, CeoPricing, CeoRoomCategory, CeoRooms, CeoService, roomCategoryOf
 } from '../../../../services/ceo.service';
 import {
-  AXIS_MONEY, Chart, ChartKeyNav, DashKpi, GRID, LEGEND, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP,
+  AXIS_MONEY, Chart, ChartKeyNav, DashKpi, GRID, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
   applyChartDefaults, count, fullMoney, money, pct, pointerOnHover
 } from '../ceo-shared';
 import { periodTitleOf, periodWords } from '../period-range';
 import type { DashRange } from '../../../../services/dashboard-api';
 import {
   MAP_FILTERS, MapFilter, NOT_LET_COLOR, PRICING_COLORS, PRICING_HOVER, PRICING_LABELS, RoomSale, RoomTile, SHIFT_FILTERS,
-  ShiftFilter, amount, clip, mapCounts, rentByGroup, roomGroups, roomLabel, roomsMostOccupied, saleLabel, salesWorstFirst,
+  ShiftFilter, amount, clip, mapCounts, rentByGroup, roomGroups, roomLabel, saleLabel, salesWorstFirst,
   signedAmount, signedPct, tileMatches, tileText
 } from './rooms-view';
 import type { CeoRoom, CeoRoomSale } from '../../../../services/ceo.service';
 
-type ChartKey = 'mix' | 'off' | 'occ' | 'rent';
+type ChartKey = 'mix' | 'off' | 'rent';
 
 /** A KPI card of this section: a category card has a second line (days occupied) and its own grid placement. */
 type RoomKpi = DashKpi & { sub2?: string; cat?: boolean };
@@ -34,13 +34,12 @@ function niceCeil(v: number): number {
 /** Bars a room chart shows before "Show all". */
 const CHART_LIMIT = 12;
 /** Height of one bar row on the per-room charts, and room for the axis. */
-const ROW_PX = 30;
 const AXIS_PX = 44;
 
 /**
  * Rooms section of the CEO dashboard: private offices and shared spaces, their occupancy (now and in the period) and
  * the price each confirmed booking was sold at against the list (Morning / Evening against the shift price). KPI
- * cards (occupancy per room category, then under / at / over), four charts and a room map (every room as a tile
+ * cards (occupancy per room category, then under / at / over), three charts and a room map (every room as a tile
  * coloured by its price, a card with the selected room's tenant and price); a category card shows its rooms in use
  * on the map, a chart mark selects its room on the map. Follows the dashboard's
  * period and location. Data: GET api/ceo/rooms (database update CEO_02; before it, only the API's message shows).
@@ -93,7 +92,6 @@ export class CeoRoomsSection {
   mapFilter = signal<MapFilter>('all');
   selectedId = signal<number | null>(null);
   showAllPrices = signal(false);
-  showAllOcc = signal(false);
   chartAnnounce = signal('');
 
   private sub: Subscription | null = null;
@@ -102,7 +100,6 @@ export class CeoRoomsSection {
 
   private mixCanvas = viewChild<ElementRef<HTMLCanvasElement>>('mixCanvas');
   private offCanvas = viewChild<ElementRef<HTMLCanvasElement>>('offCanvas');
-  private occCanvas = viewChild<ElementRef<HTMLCanvasElement>>('occCanvas');
   private rentCanvas = viewChild<ElementRef<HTMLCanvasElement>>('rentCanvas');
 
   constructor() {
@@ -320,11 +317,6 @@ export class CeoRoomsSection {
   offCount = computed(() => this.off().length);
   offHeight = computed(() => Math.max(120, this.offShown().length * 38 + AXIS_PX));
 
-  private mostOccupied = computed(() => roomsMostOccupied(this.rooms()));
-  occShown = computed(() => this.showAllOcc() ? this.mostOccupied() : this.mostOccupied().slice(0, CHART_LIMIT));
-  occCount = computed(() => this.mostOccupied().length);
-  occHeight = computed(() => Math.max(150, this.occShown().length * ROW_PX + AXIS_PX));
-
   /** Rent per location and space type (every shift). */
   rent = computed(() => rentByGroup(roomGroups(this.rooms(), 'all')));
   rentEmpty = computed(() => !this.rent().some(r => r.sold || r.below || r.notLet));
@@ -333,12 +325,23 @@ export class CeoRoomsSection {
 
   // ---------- leading to the map ----------
 
-  /** Sets the map's category, shift and highlight (the rest back to All) and brings the map into view. */
-  showMap(f: { category?: string; shift?: ShiftFilter; filter?: MapFilter }) {
+  /**
+   * Sets the map's category, shift and highlight (the rest back to All) and brings the map into view; with a group
+   * (location and space type, the rent chart's bar) that block of the map.
+   */
+  showMap(f: { category?: string; shift?: ShiftFilter; filter?: MapFilter; group?: string }) {
     this.category.set(f.category ?? null);
     this.shift.set(f.shift ?? 'all');
     this.mapFilter.set(f.filter ?? 'all');
-    afterNextRender(() => this.focusEl('panel-rooms-map'), { injector: this.injector });
+    afterNextRender(() => {
+      const block = f.group ? [...this.host.nativeElement.querySelectorAll('.map-group[data-group]') as NodeListOf<HTMLElement>]
+        .find(el => el.dataset['group'] === f.group) : null;
+      if (!block) { this.focusEl('panel-rooms-map'); return; }
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      block.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      block.focus({ preventScroll: true });
+      this.flash(block);
+    }, { injector: this.injector });
   }
 
   /** Opens a room's card on the map and brings its tile into view. */
@@ -358,7 +361,6 @@ export class CeoRoomsSection {
   }
 
   showSale(i: number) { const x = this.offShown()[i]; if (x) this.showRoomOnMap(x.room); }
-  showRoom(i: number) { const room = this.occShown()[i]; if (room) this.showRoomOnMap(room); }
 
   focusEl(id: string) {
     const el = this.host.nativeElement.querySelector(`#${id}`) as HTMLElement | null;
@@ -389,16 +391,6 @@ export class CeoRoomsSection {
     announce: t => this.chartAnnounce.set(t)
   });
 
-  readonly occNav = new ChartKeyNav({
-    charts: () => [this.charts.get('occ')],
-    count: () => this.occShown().length,
-    describe: i => {
-      const r = this.occShown()[i];
-      return r ? `${r.name}: occupied ${pct(r.periodOccupancyPct)} of the days so far, ${r.occupiedNow ? 'occupied' : 'vacant'} now. Press Enter for the room.` : '';
-    },
-    pick: i => this.showRoom(i),
-    announce: t => this.chartAnnounce.set(t)
-  });
 
   // ---------- charts: drawing ----------
 
@@ -425,10 +417,8 @@ export class CeoRoomsSection {
     const d = this.data();
     const mixCanvas = this.mixCanvas();
     const offCanvas = this.offCanvas();
-    const occCanvas = this.occCanvas();
     const rentCanvas = this.rentCanvas();
     const off = this.offShown();
-    const occ = this.occShown();
     if (!d || !d.available) { this.destroyCharts(); return; }
     applyChartDefaults();
     const noSales = this.noSales();
@@ -524,51 +514,7 @@ export class CeoRoomsSection {
       }
     });
 
-    // 3. Occupancy in the period per room (%), rooms with a tenant, most occupied first; dark = occupied now, light = vacant now.
-    const occLabels = occ.map(r => roomLabel(r));
-    this.upsert('occ', occ.length ? occCanvas : undefined, {
-      type: 'bar',
-      data: {
-        labels: occLabels,
-        datasets: [{
-          label: 'Occupancy', data: occ.map(r => r.periodOccupancyPct),
-          backgroundColor: occ.map(r => r.occupiedNow ? TEAL : TEAL_LIGHT),
-          hoverBackgroundColor: occ.map(r => r.occupiedNow ? TEAL_DARK : TEAL_LIGHT_HOVER),
-          borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18, categoryPercentage: 0.8, barPercentage: 0.9,
-          minBarLength: 2
-        }]
-      },
-      options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', axis: 'y', intersect: false },
-        onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.showRoom(els[0].index); },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP,
-            callbacks: {
-              title: (items: any[]) => {
-                const r = occ[items[0]?.dataIndex];
-                return r ? `${r.name}${r.location ? ' · ' + r.location : ''}` : '';
-              },
-              label: (c: any) => ` Occupied ${pct(c.parsed.x)} of the days so far`,
-              afterLabel: (c: any) => {
-                const r = occ[c.dataIndex];
-                return r ? ` ${r.occupiedNow ? 'Occupied' : 'Vacant'} now · ${r.seats} seat${r.seats === 1 ? '' : 's'}` : '';
-              },
-              footer: () => 'Click for the room'
-            }
-          }
-        },
-        scales: {
-          x: { min: 0, max: 100, grid: GRID, border: { display: false }, ticks: { stepSize: 25, padding: 6, callback: (v: any) => v + '%' } },
-          y: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, callback: yLabel(occLabels) } }
-        }
-      }
-    });
-
-    // 4. A month's rent per location and space type: sold, missed below the price, rooms not let (at list).
+    // 3. A month's rent per location and space type: sold, missed below the price, rooms not let (at list).
     const rent = this.rent();
     const parts: { key: 'sold' | 'below' | 'notLet'; label: string; color: string; hover: string }[] = [
       { key: 'sold', label: 'Sold', color: TEAL, hover: TEAL_DARK },
@@ -595,7 +541,8 @@ export class CeoRoomsSection {
           if (!els.length) return;
           const hit = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false)[0];
           const part = hit ? parts[hit.datasetIndex].key : null;
-          this.showMap({ filter: part === 'below' ? 'under' : part === 'notLet' ? 'none' : 'all' });
+          // That block of the map (its location and space type), with the part highlighted.
+          this.showMap({ filter: part === 'below' ? 'under' : part === 'notLet' ? 'none' : 'all', group: rent[els[0].index]?.key });
         },
         plugins: {
           legend: LEGEND,
