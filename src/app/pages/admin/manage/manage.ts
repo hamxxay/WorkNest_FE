@@ -4044,6 +4044,16 @@ export class Manage implements OnInit {
       addressLine2: '',
       cityId: ''
     };
+    // From a tour inquiry (Convert to quotation): start with its name, email and phone.
+    const inq = this.pendingInquiryId ? this.inquiryCustomer : null;
+    if (inq) {
+      const [first, ...rest] = inq.name.trim().split(/\s+/);
+      this.quickCustomerForm.firstName = first || '';
+      this.quickCustomerForm.lastName = rest.join(' ');
+      this.quickCustomerForm.email = inq.email;
+      const digits = inq.phone.replace(/\D/g, '');
+      if (digits) this.quickCustomerForm.phoneNumber = digits.startsWith('92') ? digits.slice(2) : digits.replace(/^0/, '');
+    }
     this.quickCustomerError.set('');
     this.showQuickCreateCustomer.set(true);
   }
@@ -6242,6 +6252,10 @@ export class Manage implements OnInit {
   contactFeedbackOutcome: '' | 'not_interested' | 'future_prospect' | 'converted' = '';
   contactFeedbackReason = '';
   contactFeedbackDate = '';
+  /** Convert to quotation: the customer's email (the quotation's customer is found / created by email). */
+  contactFeedbackEmail = '';
+  /** Inquiry being converted: its name / email / phone, to fill Create Customer when the customer does not exist yet. */
+  private inquiryCustomer: { name: string; email: string; phone: string } | null = null;
   /** Inquiry being converted: set when Create Quotation is opened from it, linked when the quotation is saved. */
   private pendingInquiryId: InquiryRef | null = null;
 
@@ -6320,6 +6334,8 @@ export class Manage implements OnInit {
     this.contactFeedbackOutcome = '';
     this.contactFeedbackReason = '';
     this.contactFeedbackDate = '';
+    const email = String(item?.email ?? '').trim();
+    this.contactFeedbackEmail = email && email !== '-' ? email : '';
     this.contactFeedbackError.set('');
     this.showContactFeedback.set(true);
   }
@@ -6341,7 +6357,13 @@ export class Manage implements OnInit {
     }
     if (outcome === 'not_interested' && !this.contactFeedbackReason.trim()) { this.contactFeedbackError.set('Enter the reason.'); return; }
     if (outcome === 'future_prospect' && !this.contactFeedbackDate) { this.contactFeedbackError.set('Choose the follow-up date.'); return; }
-    if (outcome === 'converted') { this.startQuotationFromInquiry(item); return; }
+    if (outcome === 'converted') {
+      const email = this.contactFeedbackEmail.trim();
+      if (!email) { this.contactFeedbackError.set('Enter the customer\'s email: the quotation\'s customer is created with it.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.contactFeedbackError.set('Enter a valid email address.'); return; }
+      this.startQuotationFromInquiry(item, email);
+      return;
+    }
 
     this.contactFeedbackSaving.set(true);
     this.contactFeedbackError.set('');
@@ -6366,13 +6388,15 @@ export class Manage implements OnInit {
   }
 
   /** "Conversion into quotation": open Create Quotation with the inquiry's customer details to search. */
-  startQuotationFromInquiry(item: any) {
+  startQuotationFromInquiry(item: any, email: string) {
     this.showContactFeedback.set(false);
+    const phone = String(item.phone ?? '').trim();
     this.router.navigate(['/admin/quotations'], {
       queryParams: {
         fromInquiry: inquiryRefParam(inquiryRef(item)),
         name: item.fullName && item.fullName !== '-' ? item.fullName : null,
-        email: item.email && item.email !== '-' ? item.email : null
+        email,
+        phone: phone && phone !== '-' ? phone : null
       }
     });
   }
@@ -6384,6 +6408,7 @@ export class Manage implements OnInit {
     if (!inquiryId) return;
     this.openAdminQuotationForm();
     this.pendingInquiryId = inquiryId;   // after opening: a form opened any other way is not linked
+    this.inquiryCustomer = { name: qp.get('name') || '', email: qp.get('email') || '', phone: qp.get('phone') || '' };
     this.customerSearchQuery = qp.get('email') || qp.get('name') || '';
     if (this.customerSearchQuery) this.onCustomerSearch();
     // Drop the parameters so a refresh does not reopen the form.
