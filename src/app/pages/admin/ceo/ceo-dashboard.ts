@@ -474,7 +474,12 @@ export class CeoDashboard {
   });
   revenueEmpty = computed(() => !(this.m()?.months ?? []).some(x => x.invoiced > 0 || x.collected > 0));
   agingTotal = computed(() => (this.m()?.aging ?? []).reduce((a, b) => a + b.amount, 0));
-  agingEmpty = computed(() => !(this.m()?.aging ?? []).some(a => a.amount > 0));
+  /** RC_06: security deposits owed, apart from the aging amounts (rent owed); null before RC_06. */
+  agingDeposits = computed(() => {
+    const aging = this.m()?.aging ?? [];
+    return aging.some(a => a.deposits !== null) ? aging.reduce((a, b) => a + (b.deposits ?? 0), 0) : null;
+  });
+  agingEmpty = computed(() => !(this.m()?.aging ?? []).some(a => a.amount > 0 || (a.deposits ?? 0) > 0));
   agingColor(bucket: string, i: number): string { return AGING_COLORS[bucket] ?? AGING_FALLBACK[i % AGING_FALLBACK.length]; }
   topMax = computed(() => Math.max(1, ...(this.m()?.topCustomers ?? []).map(c => c.amount)));
 

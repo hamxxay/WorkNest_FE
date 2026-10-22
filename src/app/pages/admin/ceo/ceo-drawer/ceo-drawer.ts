@@ -510,6 +510,8 @@ export class CeoDrawer {
   complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
   /** CP_02: fee receipts and payments (records/receipts). */
   receiptRows = computed(() => this.recordsOf<CeoReceiptRecord>('receipts'));
+  /** RC_06: a Security deposit column when any receipt / payment in the list carries one (inside its amount). */
+  receiptDeposits = computed(() => this.receiptRows().some(r => !!r.deposit));
   /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
   highlight = computed<number | null>(() => {
     const e = this.current();

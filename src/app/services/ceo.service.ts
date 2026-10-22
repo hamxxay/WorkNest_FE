@@ -24,7 +24,8 @@ export interface CeoMoneyMonth {
   /** RC_05: WHT not paid on the month's billing (customers withhold it, never pay it); null before the database update. */
   whtOpen: number | null;
 }
-export interface CeoAging { bucket: string; label: string; amount: number; count: number; }
+/** RC_06: amount = rent owed (without security deposits), deposits = security deposits owed; null before RC_06 (amount = all). */
+export interface CeoAging { bucket: string; label: string; amount: number; count: number; deposits: number | null; }
 export interface CeoTopCustomer { customerId: number; name: string; amount: number; invoices: number; }
 export interface CeoMoney {
   /**
@@ -286,6 +287,8 @@ export interface CeoReceiptRecord {
   amount: number;
   /** Cash / Bank / Cheque ... (receipt), or the payment method label. */
   method: string;
+  /** RC_06: the security deposit inside amount; null before RC_06. */
+  deposit: number | null;
 }
 export interface CeoRecordRowMap {
   invoices: CeoInvoiceRecord; spaces: CeoSpaceRecord; bookings: CeoBookingRecord;
@@ -805,7 +808,7 @@ export class CeoService {
       collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
       months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected), whtOpen: numOrNull(x.whtOpen) }))
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
-      aging: arr(m.aging, (x: any) => ({ bucket: str(x.bucket), label: str(x.label) || str(x.bucket), amount: num(x.amount), count: num(x.count) })),
+      aging: arr(m.aging, (x: any) => ({ bucket: str(x.bucket), label: str(x.label) || str(x.bucket), amount: num(x.amount), count: num(x.count), deposits: numOrNull(x.deposits) })),
       topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) })),
       // CP_02: money received (null before the database update)
       received: numOrNull(m.received), receivedPrev: numOrNull(m.received) === null ? null : num(m.receivedPrev),
@@ -915,11 +918,14 @@ export class CeoService {
     const d = obj(raw) ?? {};
     const rows = arr(d.rows, (r: any) => this.toRecord(kind, r)) as CeoRecordRowMap[K][];
     const amount = kind === 'receipts' ? numOrNull(d.amount) : null;   // CP_02: the sum of every matching receipt / payment
+    const deposits = kind === 'receipts' ? numOrNull(d.deposits) : null;   // RC_06: the security deposits inside it
     const t = obj(d.invoiceTotals);
     const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance), receivable: numOrNull(t.receivable) } : null;
     return {
       title: str(d.title), total: Math.max(num(d.total), rows.length), rows, invoiceTotals,
-      ...(amount !== null ? { summary: `PKR ${Math.round(amount).toLocaleString('en-US')} received` } : {})
+      // RC_06: the security deposits inside the money received, named apart.
+      ...(amount !== null ? { summary: `PKR ${Math.round(amount).toLocaleString('en-US')} received`
+        + (deposits ? ` (incl. PKR ${Math.round(deposits).toLocaleString('en-US')} security deposits)` : '') } : {})
     };
   }
 
@@ -957,7 +963,7 @@ export class CeoService {
         kind: str(r.kind) === 'payment' ? 'payment' : 'receipt', refId: num(r.refId),
         reference: str(r.reference) || (r.refId ? `#${r.refId}` : ''), receivedOn: strOrNull(r.receivedOn),
         customer: str(r.customer), location: str(r.location), invoiceId: numOrNull(r.invoiceId), invoiceNumber: str(r.invoiceNumber),
-        bookingId: numOrNull(r.bookingId), amount: num(r.amount), method: str(r.method)
+        bookingId: numOrNull(r.bookingId), amount: num(r.amount), method: str(r.method), deposit: numOrNull(r.deposit)
       };
       case 'leases': {
         const endOn = strOrNull(r.endOn);
