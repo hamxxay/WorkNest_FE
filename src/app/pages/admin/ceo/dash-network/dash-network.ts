@@ -3,7 +3,7 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
-import type { DashError } from '../../../../services/dashboard-api';
+import type { DashError, DashRange } from '../../../../services/dashboard-api';
 import {
   NetDashboard, NetHistoryPoint, NetSpeedtest, NetSpeedtestError, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService,
   NetworkSource
@@ -139,6 +139,9 @@ export class DashNetworkSection {
   locations = input<{ locationId: number; name: string }[]>([]);
   /** What no location means on this dashboard ("All locations", "All my locations"). */
   allLabel = input('All locations');
+  /** The dashboard's period (month / quarter / year / custom + range): the top data users follow it. */
+  period = input<string | null>(null);
+  range = input<DashRange | null>(null);
   /** Bumped by the dashboard's refresh button. */
   reload = input(0);
   /** Bumped by the dashboard's auto refresh: reload without dimming the section. */
@@ -157,7 +160,7 @@ export class DashNetworkSection {
   loading = signal(true);
   refreshing = signal(false);
   error = signal<DashError | null>(null);
-  range = signal<HistoryRange>('day');
+  historyRange = signal<HistoryRange>('day');
   chartAnnounce = signal('');
 
   private sub: Subscription | null = null;
@@ -187,6 +190,8 @@ export class DashNetworkSection {
     effect(() => {
       this.source();
       this.locationId();
+      this.period();
+      this.range();
       this.reload();
       untracked(() => { this.closeTop(false); this.load(); });
     });
@@ -212,7 +217,7 @@ export class DashNetworkSection {
     if (!pendingRetry) this.pendingRetries = 0;
     if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const key = `${this.source()}|${this.locationId() ?? ''}`;
-    this.sub = this.net.get(this.source(), this.locationId()).subscribe({
+    this.sub = this.net.get(this.source(), this.locationId(), this.period(), this.range()).subscribe({
       next: d => {
         this.data.set(d);
         this.dataKey = key;
@@ -317,7 +322,7 @@ export class DashNetworkSection {
 
   history = computed<NetHistoryPoint[]>(() => {
     const h = this.data()?.history;
-    return (this.range() === 'week' ? h?.week : h?.day) ?? [];
+    return (this.historyRange() === 'week' ? h?.week : h?.day) ?? [];
   });
   historyEmpty = computed(() => !this.history().some(p => p.peak !== null));
   historyStats = computed(() => {
@@ -329,12 +334,12 @@ export class DashNetworkSection {
   });
   historyAria = computed(() => {
     const s = this.historyStats();
-    const span = this.range() === 'week' ? 'the last 7 days' : 'the last 24 hours';
+    const span = this.historyRange() === 'week' ? 'the last 7 days' : 'the last 24 hours';
     return s ? `Clients online over ${span}: average ${s.avg}, most at once ${s.peak} on ${s.peakAt}. Use the arrow keys to read each step.`
       : `Clients online over ${span}: no samples yet.`;
   });
 
-  setRange(r: HistoryRange) { this.range.set(r); }
+  setRange(r: HistoryRange) { this.historyRange.set(r); }
 
   readonly clientsNav = new ChartKeyNav({
     charts: () => [this.charts.get('clients')],
@@ -558,7 +563,8 @@ export class DashNetworkSection {
   topRange = computed(() => {
     const d = this.data();
     const label = d?.topClientsRangeLabel;
-    if (label) return label.charAt(0).toLowerCase() + label.slice(1);
+    // "Today" -> "today"; the dashboard's period ("October 2026", "Q4 2026", "1 Oct - 15 Oct 2026") -> "in October 2026".
+    if (label) return label.toLowerCase() === 'today' ? 'today' : label.toLowerCase().startsWith('last ') ? label.charAt(0).toLowerCase() + label.slice(1) : `in ${label}`;
     const days = d?.topClientsRangeDays;
     return days && days > 1 ? `last ${days} days` : 'today';
   });
@@ -679,7 +685,7 @@ export class DashNetworkSection {
     const typesCanvas = this.typesCanvas();
     const latencyCanvas = this.latencyCanvas();
     const pts = this.history();
-    const range = this.range();
+    const range = this.historyRange();
     const types = this.types();
     if (!d || !this.shown()) { this.destroyCharts(); return; }
     applyChartDefaults();

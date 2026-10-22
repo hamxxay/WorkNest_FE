@@ -76,7 +76,7 @@ function invoiceSummary(t: CeoInvoiceTotals | null | undefined): string | undefi
   if (!t) return undefined;
   if (t.receivable !== null && t.receivable !== undefined)
     return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} · receivable ${fullMoney(Math.max(0, t.receivable))} (without security deposits and WHT withheld)`;
-  return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} (without security deposits) · owed ${fullMoney(t.balance)}`;
+  return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} (without security deposits) · owed ${fullMoney(t.balance)} (incl. security deposits)`;
 }
 
 /** Receivable of a revenue row (RC_05): revenue - paid - the WHT customers withhold (wht; 0 before RC_05), never below 0. */
@@ -223,7 +223,7 @@ export class CeoDrawer {
   private readonly ceoSource: DrillSource = {
     metrics: METRICS,
     breakdown: (metric, params) => this.ceo.getBreakdown(metric as CeoMetric, params),
-    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params).pipe(map(r => ({ ...r, summary: invoiceSummary(r.invoiceTotals) }))),
+    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params).pipe(map(r => ({ ...r, summary: invoiceSummary(r.invoiceTotals) ?? r.summary }))),
     describeError: err => CeoService.describeError(err)
   };
   private src = computed<DrillSource>(() => this.source() ?? this.ceoSource);
@@ -662,7 +662,10 @@ export class CeoDrawer {
       };
       const cell = (v: unknown): XlsxCell =>
         typeof v === 'boolean' ? (v ? 'Yes' : 'No') : typeof v === 'number' || typeof v === 'string' ? v : v === null || v === undefined ? null : String(v);
-      table = [keys.map(head), ...list.map(r => keys.map(k => cell(r[k])))];
+      // A tour inquiry's stored "Resolved" reads "Tour Done", as on screen.
+      const inquiries = e.level.kind === 'records' && e.level.records === 'inquiries';
+      const value = (k: string, v: unknown) => inquiries && k === 'status' && String(v ?? '').toLowerCase() === 'resolved' ? 'Tour Done' : v;
+      table = [keys.map(head), ...list.map(r => keys.map(k => cell(value(k, r[k]))))];
     }
     const sub = e.breakdown?.subtitle;
     const about: XlsxCell[][] = [

@@ -3131,17 +3131,17 @@
           <div
             style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
             <span>Total Amount</span>
-            <span>PKR {{ (inv.totalAmount ?? inv.TotalAmount ?? inv.total ?? inv.Total ?? 0) | number:'1.0-0' }}</span>
+            <span>PKR {{ (inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount ?? inv.total ?? inv.Total ?? 0) | number:'1.0-0' }}</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#166534">
             <span>Amount Paid</span>
-            <span>PKR {{ (inv.paidAmount ?? inv.PaidAmount ?? 0) | number:'1.0-0' }}</span>
+            <span>PKR {{ (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? inv.amountPaid ?? inv.AmountPaid ?? 0) | number:'1.0-0' }}</span>
           </div>
           <div
             style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
             <span>Balance Due</span>
-            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balance ?? ((inv.totalAmount || inv.TotalAmount
-              || 0) - (inv.paidAmount || inv.PaidAmount || 0))) | number:'1.0-0' }}</span>
+            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balanceDue ?? inv.BalanceDue ?? inv.balance ?? ((inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount
+              ?? 0) - (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? 0))) | number:'1.0-0' }}</span>
           </div>
         </div>
       </div>

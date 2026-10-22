@@ -872,7 +872,7 @@
   </section>
 
   <!-- ===================== NETWORK (UniFi; own endpoint, only the manager's locations, follows the location picker) ===================== -->
-  <app-dash-network source="sales-manager" [locationId]="locationId()" [locations]="locations()" [allLabel]="allLabel"
+  <app-dash-network source="sales-manager" [locationId]="locationId()" [locations]="locations()" [allLabel]="allLabel" [period]="period()" [range]="activeRange()"
     [reload]="networkReload()" [quietReload]="networkQuietReload()" />
   </div>
 

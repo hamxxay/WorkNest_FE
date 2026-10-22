@@ -1,9 +1,13 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Subscription } from 'rxjs';
 import {
   ServiceSwitch, ServiceSwitchesService, serviceSwitchErrorMessage
 } from '../../../services/service-switches.service';
 import { ToastService } from '../../../services/toast.service';
+import {
+  EmailOutboxService, OutboxCounts, OutboxItem, OutboxStatus, outboxErrorMessage
+} from '../../../services/email-outbox.service';
 
 type ServiceState = 'running' | 'paused' | 'config-off';
 
@@ -24,7 +28,20 @@ interface ServiceRow {
 const OFF_WARNINGS: Record<string, string> = {
   AccessCardRestriction: 'Lapsed customers will keep door access while this is off.',
   BillingAutomation: 'Recurring invoices will not be generated.',
+  EmailSending: 'No e-mail goes out at all: invoices, challans, agreements, quotations and alerts wait in Pending emails until it is turned back on.',
 };
+
+/** The Email Sending switch's name (the API's identifier). */
+const EMAIL_SENDING = 'EmailSending';
+
+/** The tabs of Pending emails, in order. */
+const OUTBOX_TABS: { status: OutboxStatus | null; label: string; count: (c: OutboxCounts) => number | null }[] = [
+  { status: 'Pending', label: 'Pending', count: c => c.pending },
+  { status: 'Failed', label: 'Failed', count: c => c.failed },
+  { status: 'Sent', label: 'Sent', count: c => c.sent },
+  { status: 'Discarded', label: 'Discarded', count: c => c.discarded },
+  { status: null, label: 'All', count: () => null },
+];
 
 @Component({
   selector: 'app-admin-services',
@@ -34,9 +51,29 @@ const OFF_WARNINGS: Record<string, string> = {
   styleUrls: ['../manage/manage.css', '../../../styles/form-popup.css', './services.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ServicesPage implements OnInit {
+export class ServicesPage implements OnInit, OnDestroy {
   private readonly api = inject(ServiceSwitchesService);
   private readonly toast = inject(ToastService);
+  private readonly outboxApi = inject(EmailOutboxService);
+
+  // ---------- Pending emails ----------
+  readonly outboxTabs = OUTBOX_TABS;
+  readonly outboxStatus = signal<OutboxStatus | null>('Pending');
+  readonly outboxItems = signal<OutboxItem[]>([]);
+  readonly outboxCounts = signal<OutboxCounts>({ pending: 0, sending: 0, sent: 0, failed: 0, discarded: 0 });
+  readonly outboxLoading = signal(false);
+  readonly outboxLoaded = signal(false);
+  /** Set when the list can't be loaded (e.g. 503 "Database update needed: run SS_02..."). */
+  readonly outboxError = signal('');
+  /** The Email Sending switch, as the outbox list last reported it. */
+  readonly emailSendingOn = signal(true);
+  /** Ids being sent / discarded. */
+  readonly outboxBusy = signal<ReadonlySet<number>>(new Set());
+  /** Waiting for "discard" to be confirmed: one e-mail, or 'all'. */
+  readonly discardTarget = signal<OutboxItem | 'all' | null>(null);
+  readonly discardAllBusy = signal(false);
+  private outboxSub?: Subscription;
+  readonly outboxOpenCount = computed(() => this.outboxCounts().pending + this.outboxCounts().sending + this.outboxCounts().failed);
 
   readonly items = signal<ServiceSwitch[]>([]);
   readonly loading = signal(false);
@@ -76,6 +113,105 @@ export class ServicesPage implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadOutbox();
+  }
+
+  ngOnDestroy(): void {
+    this.outboxSub?.unsubscribe();
+  }
+
+  loadOutbox(): void {
+    // A newer load replaces an older one (another tab, or a reload after an action): its answer never lands late.
+    this.outboxSub?.unsubscribe();
+    this.outboxLoading.set(true);
+    this.outboxSub = this.outboxApi.list(this.outboxStatus()).subscribe({
+      next: res => {
+        this.outboxItems.set(res.items);
+        this.outboxCounts.set(res.counts);
+        this.emailSendingOn.set(res.emailSendingOn);
+        this.outboxError.set('');
+        this.outboxLoading.set(false);
+        this.outboxLoaded.set(true);
+      },
+      error: err => {
+        this.outboxLoading.set(false);
+        this.outboxLoaded.set(true);
+        this.outboxError.set(outboxErrorMessage(err, "The pending e-mails couldn't be loaded. Please try again."));
+      }
+    });
+  }
+
+  showOutboxTab(status: OutboxStatus | null): void {
+    if (this.outboxStatus() === status) return;
+    this.outboxStatus.set(status);
+    this.outboxItems.set([]);
+    this.loadOutbox();
+  }
+
+  isOutboxBusy(id: number): boolean {
+    return this.outboxBusy().has(id);
+  }
+
+  /** Pending / Failed e-mails can be sent now or discarded. */
+  canAct(item: OutboxItem): boolean {
+    return item.status === 'Pending' || item.status === 'Failed';
+  }
+
+  outboxDate(value: string | null): Date | null {
+    return parseUtc(value);
+  }
+
+  sendNow(item: OutboxItem): void {
+    if (this.isOutboxBusy(item.id) || !this.emailSendingOn()) return;
+    this.setOutboxBusy(item.id, true);
+    this.outboxApi.send(item.id).subscribe({
+      next: msg => { this.setOutboxBusy(item.id, false); this.toast.success(msg || `E-mail sent to ${item.toEmail}.`, 'Sent'); this.loadOutbox(); },
+      error: err => {
+        this.setOutboxBusy(item.id, false);
+        this.toast.error(outboxErrorMessage(err, 'The e-mail could not be sent.'), 'Not sent');
+        this.loadOutbox();
+      }
+    });
+  }
+
+  askDiscard(target: OutboxItem | 'all'): void {
+    this.discardTarget.set(target);
+    focusSoon('ob-confirm-cancel');
+  }
+
+  cancelDiscard(): void {
+    this.discardTarget.set(null);
+  }
+
+  confirmDiscard(): void {
+    const target = this.discardTarget();
+    if (!target) return;
+    this.discardTarget.set(null);
+    if (target === 'all') {
+      this.discardAllBusy.set(true);
+      this.outboxApi.discardAll().subscribe({
+        next: msg => { this.discardAllBusy.set(false); this.toast.success(msg || 'Pending e-mails discarded.', 'Discarded'); this.loadOutbox(); },
+        error: err => { this.discardAllBusy.set(false); this.toast.error(outboxErrorMessage(err, 'Nothing was discarded.'), 'Not discarded'); this.loadOutbox(); }
+      });
+      return;
+    }
+    this.setOutboxBusy(target.id, true);
+    this.outboxApi.discard(target.id).subscribe({
+      next: msg => { this.setOutboxBusy(target.id, false); this.toast.success(msg || 'E-mail discarded.', 'Discarded'); this.loadOutbox(); },
+      error: err => {
+        this.setOutboxBusy(target.id, false);
+        this.toast.error(outboxErrorMessage(err, 'The e-mail was not discarded.'), 'Not discarded');
+        this.loadOutbox();
+      }
+    });
+  }
+
+  private setOutboxBusy(id: number, on: boolean): void {
+    this.outboxBusy.update(set => {
+      const copy = new Set(set);
+      if (on) copy.add(id); else copy.delete(id);
+      return copy;
+    });
   }
 
   load(): void {
@@ -138,7 +274,8 @@ export class ServicesPage implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    if (this.confirmTarget()) this.cancelOff();
+    if (this.discardTarget()) this.cancelDiscard();
+    else if (this.confirmTarget()) this.cancelOff();
   }
 
   switchId(name: string): string {
@@ -156,6 +293,7 @@ export class ServicesPage implements OnInit {
       next: ({ item: saved, message }) => {
         this.setPending(item.name, false);
         if (saved && saved.name === item.name) this.replace(item.name, saved);
+        if (item.name === EMAIL_SENDING) this.loadOutbox();
         const now = saved ?? this.items().find(i => i.name === item.name) ?? before;
         const text = message || `${now.displayName} turned ${isEnabled ? 'on' : 'off'}.`;
         if (isEnabled && !now.configEnabled) {
