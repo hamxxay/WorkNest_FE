@@ -31,7 +31,8 @@ import {
 import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx-table';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
 
-interface ColDef { key: string; label: string; type?: string; }
+/** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
+interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
 
 interface EntityConfig {
@@ -59,6 +60,8 @@ export class Manage implements OnInit {
   billingPeriods: any[] = [];
   entity = '';
   readonly config = signal<EntityConfig>({ title: '', columns: [], getFn: () => of({ data: [], total: 0 }) });
+  /** The list's columns on screen (the export uses every column of the config). */
+  readonly screenColumns = computed(() => this.config().columns.filter(c => !c.hideOnScreen));
 
   loading = signal(true);
   /** Set when the list could not be loaded: shown with a Retry button instead of "No records found.". */
@@ -5593,13 +5596,14 @@ export class Manage implements OnInit {
           { key: 'customerName', label: 'Customer / User' },
           { key: 'spaceName', label: 'Space' },
           { key: 'billingPeriodDisplay', label: 'Rent Period' },
-          { key: 'issuedOn', label: 'Issued On', type: 'date' },
-          { key: 'dueOn', label: 'Due On', type: 'date' },
+          // On screen Issued / Due and Status / Approval share a column each, so the list fits without scrolling.
+          { key: 'issuedOn', label: 'Issued On', type: 'date', screenLabel: 'Issued / Due' },
+          { key: 'dueOn', label: 'Due On', type: 'date', hideOnScreen: true },
           { key: 'grandTotal', label: 'Total (PKR)', type: 'currency' },
           { key: 'paidTotal', label: 'Paid (PKR)', type: 'currency' },
-          { key: 'balanceDue', label: 'Balance Due', type: 'currency' },
+          { key: 'balanceDue', label: 'Balance (PKR)', type: 'currency' },
           { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
-          { key: 'approvalStatus', label: 'Approval', type: 'approval-status' },
+          { key: 'approvalStatus', label: 'Approval', type: 'approval-status', hideOnScreen: true },
         ],
         getFn: (p, l, s) => {
           // The API limits location-bound staff to every location they're assigned to; the Location filter narrows it.

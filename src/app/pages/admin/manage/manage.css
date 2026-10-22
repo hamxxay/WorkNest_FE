@@ -710,3 +710,11 @@
   #quotation-printable { padding: 14px !important; }
   #quotation-printable h1 { font-size: 1.4rem !important; }
 }
+
+/* Invoices list: fits the page (tighter cells; Issued / Due and Status / Approval share a column); the invoice number
+   is never wrapped or cut. */
+.admin-table.compact-list th, .admin-table.compact-list td { padding-left: 8px; padding-right: 8px; }
+.admin-table td.col-key-invoiceNumber, .admin-table th.col-key-invoiceNumber { white-space: nowrap; }
+.admin-table td.col-key-invoiceNumber .cell-text { display: inline; -webkit-line-clamp: unset; max-width: none; overflow: visible; overflow-wrap: normal; }
+.admin-table .cell-sub { display: block; margin-top: 3px; font-size: .74rem; font-weight: 500; color: #64748b; white-space: nowrap; }
+.admin-table .cell-sub-warn { color: #b45309; font-weight: 600; }

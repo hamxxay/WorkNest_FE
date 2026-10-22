@@ -240,11 +240,11 @@
     </div>
     }
     <div class="table-wrap">
-      <table class="admin-table">
+      <table class="admin-table" [class.compact-list]="entity === 'invoices'">
         <thead>
           <tr>
-            @for (col of config().columns; track col.key) {
-            <th [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">{{ col.label }}</th>
+            @for (col of screenColumns(); track col.key) {
+            <th [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">{{ col.screenLabel || col.label }}</th>
             }
             <th class="actions-col">Actions</th>
           </tr>
@@ -252,9 +252,20 @@
         <tbody>
           @for (item of filtered; track item.rowKey || item.bookingId || item.id || item.idGuid || $index) {
           <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
-            @for (col of config().columns; track col.key) {
+            @for (col of screenColumns(); track col.key) {
             <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
-              @if (entity === 'contacts' && col.key === 'inquiryType') {
+              @if (entity === 'invoices' && col.key === 'issuedOn') {
+              <!-- Issued, and Due below it (the export keeps them as two columns). -->
+              {{ getCellValue(item, col) | date:'mediumDate' }}
+              @let dueOn = item.dueOn || item.DueOn;
+              @if (dueOn) { <small class="cell-sub">Due {{ dueOn | date:'mediumDate' }}</small> }
+              } @else if (entity === 'invoices' && col.key === 'statusLabel') {
+              <!-- Payment status, and the approval below it (the export keeps them as two columns). -->
+              <span class="status-badge"
+                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{ getCellValue(item, col) }}</span>
+              @let approval = (item.approvalStatus ?? item.ApprovalStatus) === 'PendingApproval' ? 'Pending approval' : 'Approved';
+              <small class="cell-sub" [class.cell-sub-warn]="approval !== 'Approved'">{{ approval }}</small>
+              } @else if (entity === 'contacts' && col.key === 'inquiryType') {
               <!-- The Type and a pencil to change it (clicking either opens the Inquiry type popup). Old website bookings
                    (canChangeType false, before QA_05) show the Type only. -->
               @if (item.canChangeType !== false) {
@@ -339,7 +350,7 @@
               } @else if (col.type === 'datetime') {
               {{ getCellValue(item, col) | date:'short' }}
               } @else if (col.type === 'currency') {
-              PKR {{ (getCellValue(item, col) || 0) | number:'1.0-0' }}
+              @if (!col.label.includes('(PKR)')) { PKR }{{ (getCellValue(item, col) || 0) | number:'1.0-0' }}
               } @else if (col.type === 'space-prices') {
               <span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(item).display }}</span>
               } @else if (col.type === 'roles') {
