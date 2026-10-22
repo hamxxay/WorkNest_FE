@@ -500,6 +500,8 @@ export class CeoDrawer {
   invoiceWindowed = computed(() => this.invoiceRows().some(r => r.receivable !== null && r.receivable !== undefined));
 
   invoiceRows = computed(() => this.recordsOf<InvoiceRow>('invoices'));
+  /** A Security deposit column when any invoice in the list has one (kept out of the Revenue / Amount column). */
+  invoiceDeposits = computed(() => this.invoiceRows().some(r => !!r.deposit));
   spaceRows = computed(() => this.recordsOf<SpaceRow>('spaces'));
   bookingRows = computed(() => this.recordsOf<BookingRow>('bookings'));
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));

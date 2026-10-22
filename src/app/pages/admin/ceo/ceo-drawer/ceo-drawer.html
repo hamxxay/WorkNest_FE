@@ -184,7 +184,9 @@
                 @case ('invoices') {
                   <table class="dr-table records">
                     <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th>
-                      <th scope="col" class="num">{{ invoiceWindowed() ? 'Revenue' : 'Total' }}</th><th scope="col" class="num">{{ invoiceWindowed() ? 'Receivable' : 'Balance' }}</th><th scope="col">Status</th></tr></thead>
+                      <th scope="col" class="num">{{ invoiceWindowed() ? 'Revenue' : 'Amount' }}</th>
+                      @if (invoiceDeposits()) { <th scope="col" class="num">Security deposit</th> }
+                      <th scope="col" class="num">{{ invoiceWindowed() ? 'Receivable' : 'Balance' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
@@ -205,20 +207,19 @@
                           </td>
                           @if (r.receivable !== null && r.receivable !== undefined) {
                             <!-- RC_05: a list with a period: the period's revenue / paid / receivable; the whole invoice below. -->
-                            <td class="num" [title]="fullMoney(r.billed ?? 0) + ' revenue in the period, without security deposits'">{{ money(r.billed ?? 0) }}<small [title]="fullMoney(r.collected ?? 0) + ' paid in the period'">{{ money(r.collected ?? 0) }} paid</small>
-                              @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Revenue'">+ {{ money(r.deposit) }} deposit</small> }
-                              <small [title]="'Whole invoice: ' + fullMoney(r.total) + ' total, ' + fullMoney(r.paid) + ' paid'">Invoice {{ money(r.total) }} · {{ money(r.paid) }} paid</small>
-                            </td>
+                            <td class="num" [title]="fullMoney(r.billed ?? 0) + ' revenue in the period, without security deposits'">{{ money(r.billed ?? 0) }}<small [title]="fullMoney(r.collected ?? 0) + ' paid in the period'">{{ money(r.collected ?? 0) }} paid</small></td>
+                            @if (invoiceDeposits()) { <td class="num" [title]="r.deposit ? fullMoney(r.deposit) + ' security deposit, not in Revenue' : 'No security deposit'">@if (r.deposit) { {{ money(r.deposit) }} } @else { - }</td> }
                             <td class="num" [class.strong]="r.receivable > 0" [title]="fullMoney(r.receivable) + ' left to pay for the period'">{{ money(r.receivable) }}
                               @if (r.whtOpen) { <small [title]="fullMoney(r.whtOpen) + ' WHT withheld by the customer, not owed'">WHT {{ money(r.whtOpen) }}</small> }
-                              <small [title]="fullMoney(r.balance) + ' owed on the whole invoice'">Balance {{ money(r.balance) }}</small>
+                              <small [title]="'Whole invoice: ' + fullMoney(r.total) + ' total, ' + fullMoney(r.paid) + ' paid, ' + fullMoney(r.balance) + ' owed'">Invoice {{ money(r.total) }} · {{ money(r.paid) }} paid</small>
                             </td>
                           } @else {
-                            <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small>
-                              @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Revenue'">incl. {{ money(r.deposit) }} deposit</small> }
-                            </td>
+                            <!-- The invoice without its security deposit; the deposit in its own column. -->
+                            <td class="num" [title]="fullMoney(r.total - (r.deposit ?? 0)) + ' without the security deposit'">{{ money(r.total - (r.deposit ?? 0)) }}</td>
+                            @if (invoiceDeposits()) { <td class="num" [title]="r.deposit ? fullMoney(r.deposit) + ' security deposit, not in Revenue' : 'No security deposit'">@if (r.deposit) { {{ money(r.deposit) }} } @else { - }</td> }
                             <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}
                               @if (r.wht) { <small [title]="fullMoney(r.wht) + ' withheld by the customer, not owed'">WHT {{ money(r.wht) }}</small> }
+                              <small [title]="'Whole invoice: ' + fullMoney(r.total) + ' total, ' + fullMoney(r.paid) + ' paid'">Invoice {{ money(r.total) }} · {{ money(r.paid) }} paid</small>
                             </td>
                           }
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
