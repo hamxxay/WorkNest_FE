@@ -68,11 +68,24 @@ function billingPeriodText(start: string | null | undefined, end: string | null 
 
 /**
  * The line under an invoice list's title (CP_02): the totals of every invoice in it, as the dashboard counts them
- * (billed and collected without security deposits, owed = what is left to pay); undefined = none sent.
+ * (revenue and paid without security deposits). A list with a period (RC_05 sends its receivable): receivable = the
+ * period's revenue - paid - the WHT customers withhold, as the Receivable card; else owed = what is left to pay on the
+ * whole invoices. Undefined = none sent.
  */
 function invoiceSummary(t: CeoInvoiceTotals | null | undefined): string | undefined {
   if (!t) return undefined;
-  return `Billed ${fullMoney(t.billed)} · collected ${fullMoney(t.collected)} · owed ${fullMoney(t.balance)} (without security deposits)`;
+  if (t.receivable !== null && t.receivable !== undefined)
+    return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} · receivable ${fullMoney(Math.max(0, t.receivable))} (without security deposits and WHT withheld)`;
+  return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} (without security deposits) · owed ${fullMoney(t.balance)}`;
+}
+
+/** Receivable of a revenue row (RC_05): revenue - paid - the WHT customers withhold (wht; 0 before RC_05), never below 0. */
+function receivableOf(r: CeoBreakdownRow): number {
+  return Math.max(0, r.value - (r.value2 ?? 0) - (r.wht ?? 0));
+}
+/** The Receivable column of the revenue breakdowns when they were opened from the Receivable card (status receivable). */
+function receivableColumn(p: CeoParams) {
+  return p['status'] === 'receivable' ? { label: 'Receivable', of: receivableOf } : null;
 }
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
@@ -80,19 +93,23 @@ const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
-    // status: 'collected' when opened from Collected (CP_02: the invoices with something paid; the API's breakdown leaves
-    // it out, the invoices use it). A custom period opens it with from / to instead of a month (the invoices whose
-    // billing period starts in that range, CP_01).
+    amount: receivableColumn,
+    // status: 'collected' when opened from Paid (CP_02: the invoices with something paid; the API's breakdown leaves
+    // it out, the invoices use it); 'receivable' from Receivable (RC_05: the invoices with something left to pay for the
+    // period). A custom period opens it with from / to instead of a month (the invoices whose billing period starts in
+    // that range, CP_01).
     next: (p, r) => ({
       kind: 'records', records: 'invoices',
       params: { month: p['month'], from: p['from'], to: p['to'], locationId: r.key, status: p['status'] }, crumb: r.label
     }),
-    nextLabel: (p, r) => p['status'] === 'collected' || p['status'] === 'paid' ? `Open the invoices of ${r.label} with payments` : `Open the invoices of ${r.label}`
+    nextLabel: (p, r) => p['status'] === 'collected' || p['status'] === 'paid' ? `Open the invoices of ${r.label} with payments`
+      : p['status'] === 'receivable' ? `Open the invoices of ${r.label} with something left to pay` : `Open the invoices of ${r.label}`
   },
   // ----- level 2 lists built from the dashboard's own figures (DrillLevel.local) -----
   'revenue-months': {
     rowLabel: 'Month', money: true, chart: 'grouped', vertical: true,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
+    amount: receivableColumn,
     next: (p, r) => ({ kind: 'breakdown', metric: 'revenue', params: { month: r.key, status: p['status'] }, crumb: r.label }),
     nextLabel: (_p, r) => `Open ${r.label} by location`,
     hint: () => 'Select a month for its locations.'
@@ -396,6 +413,11 @@ export class CeoDrawer {
   });
   hasValue2 = computed(() => !!this.current()?.breakdown?.value2Label || this.rows().some(r => r.value2 !== null));
   hasCount = computed(() => this.rows().some(r => r.count !== null));
+  /** The extra amount column of this breakdown (e.g. Receivable), null = none. */
+  amountCol = computed(() => {
+    const e = this.current();
+    return e?.level.kind === 'breakdown' ? this.spec()?.amount?.(e.level.params) ?? null : null;
+  });
   canOpenRows = computed(() => this.rows().some(r => !!r.key));
   /** The second list each row offers (same order as rows), null where none. */
   secondaries = computed(() => {
@@ -422,9 +444,15 @@ export class CeoDrawer {
     return {
       value: rows.reduce((a, r) => a + r.value, 0),
       value2: rows.reduce((a, r) => a + (r.value2 ?? 0), 0),
-      count: rows.reduce((a, r) => a + (r.count ?? 0), 0)
+      count: rows.reduce((a, r) => a + (r.count ?? 0), 0),
+      wht: rows.reduce((a, r) => a + (r.wht ?? 0), 0)
     };
   });
+  /** The extra amount column's total: the sum of its rows. */
+  amountTotal(): number | null {
+    const a = this.amountCol();
+    return a ? this.rows().reduce((t, r) => t + a.of(r), 0) : null;
+  }
   /** The two values are in different units (a count and an amount): only the first one sets the bar widths. */
   private mixedUnits = computed(() => {
     const s = this.spec();
@@ -465,7 +493,15 @@ export class CeoDrawer {
 
   // ---------- level 3 helpers ----------
 
+  /**
+   * RC_05: an invoice list with a period (the API sends each row's receivable): the rows show the period's revenue /
+   * paid / receivable, the whole invoice's total / paid / balance as a second line.
+   */
+  invoiceWindowed = computed(() => this.invoiceRows().some(r => r.receivable !== null && r.receivable !== undefined));
+
   invoiceRows = computed(() => this.recordsOf<InvoiceRow>('invoices'));
+  /** A Security deposit column when any invoice in the list has one (kept out of the Revenue / Amount column). */
+  invoiceDeposits = computed(() => this.invoiceRows().some(r => !!r.deposit));
   spaceRows = computed(() => this.recordsOf<SpaceRow>('spaces'));
   bookingRows = computed(() => this.recordsOf<BookingRow>('bookings'));
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
@@ -474,6 +510,8 @@ export class CeoDrawer {
   complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
   /** CP_02: fee receipts and payments (records/receipts). */
   receiptRows = computed(() => this.recordsOf<CeoReceiptRecord>('receipts'));
+  /** RC_06: a Security deposit column when any receipt / payment in the list carries one (inside its amount). */
+  receiptDeposits = computed(() => this.receiptRows().some(r => !!r.deposit));
   /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
   highlight = computed<number | null>(() => {
     const e = this.current();
@@ -588,17 +626,32 @@ export class CeoDrawer {
     if (e.level.kind === 'breakdown' && e.breakdown) {
       const spec = this.spec();
       const b = e.breakdown;
-      const v2 = this.hasValue2(), cnt = this.hasCount(), derived = spec?.derived;
+      const v2 = this.hasValue2(), cnt = this.hasCount(), derived = spec?.derived, amount = this.amountCol();
       const unit = spec?.money ? ' (PKR)' : '';
       const unit2 = (spec?.money2 ?? spec?.money) ? ' (PKR)' : '';
       table = [
         [spec?.rowLabel ?? 'Row', `${b.valueLabel}${unit}`, ...(v2 ? [`${b.value2Label || 'Second value'}${unit2}`] : []),
-          ...(derived ? [`${derived.label} (%)`] : []), ...(cnt ? ['Items'] : [])],
+          ...(amount ? [`${amount.label}${unit}`] : []), ...(derived ? [`${derived.label} (%)`] : []), ...(cnt ? ['Items'] : [])],
         ...this.rows().map(r => {
           const d = derived?.of(r);
-          return [r.label, r.value, ...(v2 ? [r.value2] : []), ...(derived ? [d === null || d === undefined ? null : Math.round(d * 10) / 10] : []),
+          return [r.label, r.value, ...(v2 ? [r.value2] : []), ...(amount ? [Math.round(amount.of(r) * 100) / 100] : []),
+            ...(derived ? [d === null || d === undefined ? null : Math.round(d * 10) / 10] : []),
             ...(cnt ? [r.count] : [])];
         })
+      ];
+    } else if (e.level.kind === 'records' && e.level.records === 'invoices') {
+      // Revenue and paid without the security deposit; the deposit and the whole invoice in their own columns.
+      const rows = this.invoiceRows();
+      const windowed = this.invoiceWindowed();
+      table = [
+        ['Invoice number', 'Customer', 'Location', 'Issued on', 'Period start', 'Period end', 'Due on',
+          'Revenue (without deposit)', 'Revenue paid', 'Security deposit', 'Invoice total', 'Invoice paid', 'Balance', 'WHT',
+          ...(windowed ? ['Receivable'] : []), 'Status'],
+        ...rows.map(r => [
+          r.invoiceNumber, r.customer, r.location, r.issuedOn, r.periodStart ?? null, r.periodEnd ?? null, r.dueOn,
+          r.billed ?? r.total - (r.deposit ?? 0), r.collected ?? null, r.deposit ?? 0, r.total, r.paid, r.balance, r.wht ?? 0,
+          ...(windowed ? [r.receivable ?? null] : []), r.status
+        ] as XlsxCell[])
       ];
     } else {
       const list = (e.records?.rows ?? []) as Record<string, unknown>[];

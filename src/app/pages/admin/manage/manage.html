@@ -698,7 +698,7 @@
                 }
               </button>
               <button class="btn-admin btn-outline-admin" style="padding:4px 10px;font-size:.8rem;white-space:nowrap"
-                (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Feedback</button>
+                (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Action</button>
               }
               @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
               <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()" [attr.aria-label]="'Delete ' + rowNoun()">
@@ -4954,6 +4954,14 @@
             <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'converted' }" /></span>
             <span class="inq-choice-text"><strong>Convert to quotation</strong><small>Opens Create Quotation for this customer. The inquiry is marked converted once the quotation is saved.</small></span>
           </label>
+          @if (contactFeedbackOutcome === 'converted') {
+          <!-- The quotation's customer is found / created by email, so the email is needed here. -->
+          <div class="inq-choice-extra">
+            <label class="inq-mini-label" for="fbEmail">Customer email *</label>
+            <input id="fbEmail" class="form-input-admin" type="email" maxlength="200" autocomplete="off"
+              [(ngModel)]="contactFeedbackEmail" name="fbEmail" placeholder="name@example.com" />
+          </div>
+          }
         </div>
       </fieldset>
 

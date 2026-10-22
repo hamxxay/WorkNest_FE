@@ -17,8 +17,8 @@ import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService, AgreementESignature } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
-import { firstValueFrom, of, timeout } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { firstValueFrom, Observable, of, timeout } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso, pakistanDateIso } from '../../../utils/dates';
 import { rangeLabel } from '../ceo/period-range';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
@@ -4044,6 +4044,16 @@ export class Manage implements OnInit {
       addressLine2: '',
       cityId: ''
     };
+    // From a tour inquiry (Convert to quotation): start with its name, email and phone.
+    const inq = this.pendingInquiryId ? this.inquiryCustomer : null;
+    if (inq) {
+      const [first, ...rest] = inq.name.trim().split(/\s+/);
+      this.quickCustomerForm.firstName = first || '';
+      this.quickCustomerForm.lastName = rest.join(' ');
+      this.quickCustomerForm.email = inq.email;
+      const digits = inq.phone.replace(/\D/g, '');
+      if (digits) this.quickCustomerForm.phoneNumber = digits.startsWith('92') ? digits.slice(2) : digits.replace(/^0/, '');
+    }
     this.quickCustomerError.set('');
     this.showQuickCreateCustomer.set(true);
   }
@@ -4139,7 +4149,11 @@ export class Manage implements OnInit {
         }
         this.quickCustomerSaving.set(false);
         this.showQuickCreateCustomer.set(false);
-        const created = res?.data ?? res;
+        const sent = this.quickCustomerForm;
+        let created = res?.data ?? res;
+        if (created && typeof created === 'object' && !created.email) {
+          created = { ...created, email: (sent.email || '').trim(), firstName: created.firstName ?? sent.firstName, lastName: created.lastName ?? sent.lastName };
+        }
         if (created) {
           if (!this.showQuotationForm() && !this.showBookingForm()) {
             this.openAdminQuotationForm();
@@ -4733,8 +4747,9 @@ export class Manage implements OnInit {
     return String(value ?? '').toLowerCase().replace(/[\s_-]+/g, '');
   }
 
-  /** "InProgress" -> "In Progress". */
+  /** "InProgress" -> "In Progress"; a tour inquiry's "Resolved" reads "Tour Done" (the stored status stays Resolved). */
   statusDisplay(value: string): string {
+    if (this.entity === 'contacts' && this.statusKey(value) === 'resolved') return 'Tour Done';
     return String(value ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
   }
 
@@ -6241,6 +6256,10 @@ export class Manage implements OnInit {
   contactFeedbackOutcome: '' | 'not_interested' | 'future_prospect' | 'converted' = '';
   contactFeedbackReason = '';
   contactFeedbackDate = '';
+  /** Convert to quotation: the customer's email (the quotation's customer is found / created by email). */
+  contactFeedbackEmail = '';
+  /** Inquiry being converted: its name / email / phone, to fill Create Customer when the customer does not exist yet. */
+  private inquiryCustomer: { name: string; email: string; phone: string } | null = null;
   /** Inquiry being converted: set when Create Quotation is opened from it, linked when the quotation is saved. */
   private pendingInquiryId: InquiryRef | null = null;
 
@@ -6319,6 +6338,8 @@ export class Manage implements OnInit {
     this.contactFeedbackOutcome = '';
     this.contactFeedbackReason = '';
     this.contactFeedbackDate = '';
+    const email = String(item?.email ?? '').trim();
+    this.contactFeedbackEmail = email && email !== '-' ? email : '';
     this.contactFeedbackError.set('');
     this.showContactFeedback.set(true);
   }
@@ -6340,7 +6361,13 @@ export class Manage implements OnInit {
     }
     if (outcome === 'not_interested' && !this.contactFeedbackReason.trim()) { this.contactFeedbackError.set('Enter the reason.'); return; }
     if (outcome === 'future_prospect' && !this.contactFeedbackDate) { this.contactFeedbackError.set('Choose the follow-up date.'); return; }
-    if (outcome === 'converted') { this.startQuotationFromInquiry(item); return; }
+    if (outcome === 'converted') {
+      const email = this.contactFeedbackEmail.trim();
+      if (!email) { this.contactFeedbackError.set('Enter the customer\'s email: the quotation\'s customer is created with it.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.contactFeedbackError.set('Enter a valid email address.'); return; }
+      this.startQuotationFromInquiry(item, email);
+      return;
+    }
 
     this.contactFeedbackSaving.set(true);
     this.contactFeedbackError.set('');
@@ -6365,13 +6392,15 @@ export class Manage implements OnInit {
   }
 
   /** "Conversion into quotation": open Create Quotation with the inquiry's customer details to search. */
-  startQuotationFromInquiry(item: any) {
+  startQuotationFromInquiry(item: any, email: string) {
     this.showContactFeedback.set(false);
+    const phone = String(item.phone ?? '').trim();
     this.router.navigate(['/admin/quotations'], {
       queryParams: {
         fromInquiry: inquiryRefParam(inquiryRef(item)),
         name: item.fullName && item.fullName !== '-' ? item.fullName : null,
-        email: item.email && item.email !== '-' ? item.email : null
+        email,
+        phone: phone && phone !== '-' ? phone : null
       }
     });
   }
@@ -6383,10 +6412,38 @@ export class Manage implements OnInit {
     if (!inquiryId) return;
     this.openAdminQuotationForm();
     this.pendingInquiryId = inquiryId;   // after opening: a form opened any other way is not linked
-    this.customerSearchQuery = qp.get('email') || qp.get('name') || '';
-    if (this.customerSearchQuery) this.onCustomerSearch();
+    this.inquiryCustomer = { name: qp.get('name') || '', email: qp.get('email') || '', phone: qp.get('phone') || '' };
+    const email = (qp.get('email') || '').trim();
+    if (email) {
+      // The customer with this email is selected; with none, Create Customer opens filled from the inquiry and the
+      // customer made there is selected (submitQuickCreateCustomer).
+      this.customerSearchQuery = email;
+      this.findCustomerByEmail(email).subscribe(found => {
+        if (!this.showQuotationForm() || this.pendingInquiryId !== inquiryId) return;   // form closed / another one opened
+        if (found) this.selectCustomer(found);
+        else if (found === null) this.openCreateCustomerFromBooking();
+        else this.onCustomerSearch();   // the search failed: show the matches to pick from
+      });
+    } else {
+      this.customerSearchQuery = qp.get('name') || '';
+      if (this.customerSearchQuery) this.onCustomerSearch();
+    }
     // Drop the parameters so a refresh does not reopen the form.
     this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+  }
+
+  /** The customer whose email is exactly this one (any case); null when there is none, undefined when the search failed. */
+  private findCustomerByEmail(email: string): Observable<any | null | undefined> {
+    const key = email.trim().toLowerCase();
+    const exact = (res: any) => ((res?.data ?? (Array.isArray(res) ? res : [])) as any[])
+      .find(u => String(u?.email ?? '').trim().toLowerCase() === key) ?? null;
+    return this.admin.searchCustomers(key).pipe(
+      map(exact),
+      // Not found by the search: the paged list with the same text (as the search box's fallback).
+      switchMap(found => found ? of(found) : this.admin.getCustomers(1, 100, key).pipe(map(exact))),
+      timeout(30000),
+      catchError(() => of(undefined))
+    );
   }
 
   /** Bookings opened as /admin/bookings?booking=<id> (e.g. from the dashboard's rooms in use): show that booking's details. */
