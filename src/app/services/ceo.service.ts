@@ -19,7 +19,11 @@ export type CeoPeriod = 'month' | 'quarter' | 'year' | 'custom';
 
 export interface CeoLocation { locationId: number; name: string; }
 
-export interface CeoMoneyMonth { month: string; invoiced: number; collected: number; }
+export interface CeoMoneyMonth {
+  month: string; invoiced: number; collected: number;
+  /** RC_05: WHT not paid on the month's billing (customers withhold it, never pay it); null before the database update. */
+  whtOpen: number | null;
+}
 export interface CeoAging { bucket: string; label: string; amount: number; count: number; }
 export interface CeoTopCustomer { customerId: number; name: string; amount: number; invoices: number; }
 export interface CeoMoney {
@@ -30,6 +34,12 @@ export interface CeoMoney {
    */
   invoiced: number; invoicedPrev: number;
   collected: number; collectedPrev: number;
+  /**
+   * RC_05: the WHT not paid on the period's / previous period's billing (each month's WHT, at most what is left of it):
+   * customers withhold it and never pay it, so Receivable = max(0, invoiced - collected - whtOpen). Null before the
+   * database update RC_05 (Receivable is then invoiced - collected).
+   */
+  whtOpen: number | null; whtOpenPrev: number | null;
   /**
    * Security deposits billed on the period's invoices (left out of invoiced, the 12 months and the top customers), the
    * previous period's, and how many invoices carry one; null when the API did not send them (before CP_02).
@@ -203,6 +213,8 @@ export type CeoLocalMetric = 'revenue-months' | 'aging-buckets' | 'occupancy-loc
 
 export interface CeoBreakdownRow {
   key: string; label: string; value: number; value2: number | null; count: number | null;
+  /** RC_05, revenue: WHT not paid on the row's billing (receivable = value - value2 - wht); left out / null otherwise. */
+  wht?: number | null;
 }
 export interface CeoBreakdown {
   title: string; subtitle: string; valueLabel: string; value2Label: string | null; rows: CeoBreakdownRow[];
@@ -226,9 +238,18 @@ export interface CeoInvoiceRecord {
    * Invoiced counts); collected = paid so far less the deposit's share (what Collected counts).
    */
   wht?: number | null; deposit?: number | null; billed?: number | null; collected?: number | null;
+  /**
+   * RC_05: WHT not paid (with a period: of its months); receivable = billed - collected - whtOpen of the period's months,
+   * sent only for a list with a period (null otherwise): the row then shows the period's billed / collected.
+   */
+  whtOpen?: number | null; receivable?: number | null;
 }
 /** records/invoices (CP_02): the totals of every matching invoice (the list holds at most 200). */
-export interface CeoInvoiceTotals { billed: number; collected: number; balance: number; }
+export interface CeoInvoiceTotals {
+  billed: number; collected: number; balance: number;
+  /** RC_05: billed - collected - WHT not paid of the list's period (what the Receivable card counts); null without a period / before RC_05. */
+  receivable: number | null;
+}
 export interface CeoSpaceRecord {
   spaceId: number; name: string; spaceType: string; location: string; capacity: number | null;
   occupied: boolean; customer: string; bookingEndOn: string | null;
@@ -773,6 +794,7 @@ export class CeoService {
     const money: CeoMoney | null = m && {
       invoiced: num(m.invoiced), invoicedPrev: num(m.invoicedPrev),
       collected: num(m.collected), collectedPrev: num(m.collectedPrev),
+      whtOpen: numOrNull(m.whtOpen), whtOpenPrev: numOrNull(m.whtOpen) === null ? null : num(m.whtOpenPrev),
       outstanding: num(m.outstanding), outstandingCount: num(m.outstandingCount),
       overdue: num(m.overdue), overdueCount: num(m.overdueCount),
       billedInAdvance: numOrNull(m.billedInAdvance),
@@ -781,7 +803,7 @@ export class CeoService {
       securityDepositsPrev: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsPrev),
       securityDepositsCount: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsCount),
       collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
-      months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected) }))
+      months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected), whtOpen: numOrNull(x.whtOpen) }))
         .filter(x => /^\d{4}-\d{2}/.test(x.month)),
       aging: arr(m.aging, (x: any) => ({ bucket: str(x.bucket), label: str(x.label) || str(x.bucket), amount: num(x.amount), count: num(x.count) })),
       topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) })),
@@ -883,7 +905,8 @@ export class CeoService {
       title: str(d.title), subtitle: str(d.subtitle),
       valueLabel: str(d.valueLabel) || 'Value', value2Label: strOrNull(d.value2Label),
       rows: arr(d.rows, (r: any) => ({
-        key: str(r.key), label: str(r.label) || str(r.key), value: num(r.value), value2: numOrNull(r.value2), count: numOrNull(r.count)
+        key: str(r.key), label: str(r.label) || str(r.key), value: num(r.value), value2: numOrNull(r.value2), count: numOrNull(r.count),
+        ...(r.wht !== undefined && r.wht !== null ? { wht: num(r.wht) } : {})
       }))
     };
   }
@@ -893,7 +916,7 @@ export class CeoService {
     const rows = arr(d.rows, (r: any) => this.toRecord(kind, r)) as CeoRecordRowMap[K][];
     const amount = kind === 'receipts' ? numOrNull(d.amount) : null;   // CP_02: the sum of every matching receipt / payment
     const t = obj(d.invoiceTotals);
-    const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance) } : null;
+    const invoiceTotals = t ? { billed: num(t.billed), collected: num(t.collected), balance: num(t.balance), receivable: numOrNull(t.receivable) } : null;
     return {
       title: str(d.title), total: Math.max(num(d.total), rows.length), rows, invoiceTotals,
       ...(amount !== null ? { summary: `PKR ${Math.round(amount).toLocaleString('en-US')} received` } : {})
@@ -907,7 +930,8 @@ export class CeoService {
         customer: str(r.customer), location: str(r.location), issuedOn: strOrNull(r.issuedOn),
         ...(r.periodStart !== undefined || r.periodEnd !== undefined ? { periodStart: strOrNull(r.periodStart), periodEnd: strOrNull(r.periodEnd) } : {}),
         dueOn: strOrNull(r.dueOn), total: num(r.total), paid: num(r.paid), balance: num(r.balance), status: str(r.status),
-        ...(r.billed !== undefined ? { wht: numOrNull(r.wht), deposit: numOrNull(r.deposit), billed: numOrNull(r.billed), collected: numOrNull(r.collected) } : {})
+        ...(r.billed !== undefined ? { wht: numOrNull(r.wht), deposit: numOrNull(r.deposit), billed: numOrNull(r.billed), collected: numOrNull(r.collected) } : {}),
+        ...(r.whtOpen !== undefined ? { whtOpen: numOrNull(r.whtOpen), receivable: numOrNull(r.receivable) } : {})
       };
       case 'spaces': return {
         spaceId: num(r.spaceId), name: str(r.name), spaceType: str(r.spaceType), location: str(r.location),

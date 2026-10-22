@@ -629,10 +629,22 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
 
     this.voiding.set(true);
     this.feeReceiptService.voidReceipt({ id: item.id, voidReason: reason }).subscribe({
-      next: () => {
+      next: (res) => {
         this.voiding.set(false);
         this.closeVoidModal();
-        this.toastService.success(`Receipt ${item.code} and every monthly receipt of the same payment have been voided. Invoice ${item.invoiceNumber} is marked Unpaid.`);
+        // API data: { receiptId, invoiceRestored, accessCardsNeedReview, voidedCount } (voidedCount null before RC_02).
+        const d = res?.data ?? {};
+        const voidedCount = Number(d.voidedCount ?? d.VoidedCount ?? 0);
+        const invoiceRestored = (d.invoiceRestored ?? d.InvoiceRestored) === true;
+        const cardsNeedReview = (d.accessCardsNeedReview ?? d.AccessCardsNeedReview) === true;
+        const head = voidedCount > 1
+          ? `${voidedCount} monthly receipts voided (receipt ${item.code} and the other months of the same payment).`
+          : voidedCount === 1 ? `Receipt ${item.code} voided.` : 'Receipt(s) voided.';
+        let msg = invoiceRestored
+          ? `${head} Invoice ${item.invoiceNumber} is marked Unpaid.`
+          : `${head} Invoice ${item.invoiceNumber} was not changed (it is no longer paid by this receipt).`;
+        if (cardsNeedReview) msg += ` Check the booking's access cards.`;
+        this.toastService.success(msg);
         this.loadReceipts();
       },
       error: (err) => {

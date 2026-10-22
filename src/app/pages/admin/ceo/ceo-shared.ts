@@ -42,6 +42,11 @@ export interface DrillMetricSpec {
   separateUnits?: boolean;
   /** Derived % column (value2 / value or value / value2). */
   derived?: { label: string; of: (r: CeoBreakdownRow) => number | null };
+  /**
+   * An extra amount column worked out from each row, for the params it answers (e.g. Receivable = revenue - paid - WHT
+   * when the breakdown was opened from the Receivable card); null = no such column. Same number format as the values.
+   */
+  amount?: (params: CeoParams) => { label: string; of: (r: CeoBreakdownRow) => number } | null;
   chart: 'grouped' | 'stacked-occupancy' | 'single';
   vertical: boolean;
   next: (params: CeoParams, row: CeoBreakdownRow) => DrillLevel<string, string>;

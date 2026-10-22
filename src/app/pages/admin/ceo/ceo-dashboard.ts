@@ -381,9 +381,10 @@ export class CeoDashboard {
     const cp02 = this.noDeposits();
     const invoicedHint = cp02 ? 'By billing period, without security deposits' : hint;
     const collectedHint = cp02 ? 'Paid so far on the invoices for these billing periods (part payments count), without security deposits' : hint;
-    // Receivable (this period): revenue less what is paid on those invoices; never below zero.
-    const receivable = Math.max(0, m.invoiced - m.collected);
-    const receivablePrev = Math.max(0, m.invoicedPrev - m.collectedPrev);
+    // Receivable (this period): revenue less what is paid on those invoices and less the WHT customers withhold (RC_05:
+    // whtOpen; they never pay it); never below zero.
+    const receivable = Math.max(0, m.invoiced - m.collected - (m.whtOpen ?? 0));
+    const receivablePrev = Math.max(0, m.invoicedPrev - m.collectedPrev - (m.whtOpenPrev ?? 0));
     const kpis: Kpi[] = [
       {
         key: 'invoiced', label: `Revenue ${w.thisP}`, value: money(m.invoiced), full: fullMoney(m.invoiced),
@@ -405,13 +406,16 @@ export class CeoDashboard {
         action: () => this.openRevenue('Collection rate', null), actionLabel: `Open the collection rate ${w.thisP} by ${this.revenueBy()}`
       },
       {
-        // Receivable = revenue - paid, for this period's billing only (both without security deposits).
+        // Receivable = revenue - paid - WHT withheld, for this period's billing only (without security deposits).
+        // Lower is better: a fall shows as good.
         key: 'receivable', label: `Receivable ${w.thisP}`, value: money(receivable), full: fullMoney(receivable),
         sub: m.invoiced > 0 ? `of ${money(m.invoiced)} revenue` : 'No revenue yet',
         tone: receivable > 0 ? 'neutral' : 'ok',
-        trend: trend(receivable, receivablePrev, '%'), vs: `vs ${w.last}`,
-        hint: 'Revenue less paid, for this period\'s billing, without security deposits',
-        action: () => this.openRevenue('Receivable', null), actionLabel: `Open revenue and paid ${w.thisP} by ${this.revenueBy()}`
+        trend: trend(receivable, receivablePrev, '%', false), vs: `vs ${w.last}`,
+        hint: m.whtOpen != null
+          ? 'Revenue less paid and less the WHT customers withhold, for this period\'s billing, without security deposits'
+          : 'Revenue less paid, for this period\'s billing, without security deposits',
+        action: () => this.openRevenue('Receivable', 'receivable'), actionLabel: `Open receivable ${w.thisP} by ${this.revenueBy()}`
       },
       {
         key: 'overdue', label: 'Overdue', value: money(m.overdue), full: fullMoney(m.overdue),
@@ -420,8 +424,6 @@ export class CeoDashboard {
         action: () => this.openRecords('Invoices', 'Overdue', 'invoices', { status: 'overdue' }), actionLabel: 'Open the overdue invoices'
       }
     ];
-    // Billed in advance (CP_01: unpaid invoices for billing periods not started yet) is not shown: invoices sent ahead
-    // for next month are not a CEO figure. Outstanding still leaves them out.
     // CP_02: Received (money taken in during the period, whatever invoice), right after Collected.
     const received = this.receivedKpi();
     if (received) kpis.splice(kpis.findIndex(k => k.key === 'collected') + 1, 0, received);
@@ -431,7 +433,7 @@ export class CeoDashboard {
       kpis.splice(kpis.findIndex(k => k.key === 'rate') + 1, 0, {
         key: 'deposits', label: `Security deposits ${w.thisP}`, value: money(m.securityDeposits), full: fullMoney(m.securityDeposits),
         sub: `${money(m.securityDepositsPrev ?? 0)} ${w.last}`,
-        sub2: n ? `${count(n)} invoice${n === 1 ? '' : 's'}, not in Invoiced` : 'No deposits billed',
+        sub2: n ? `${count(n)} invoice${n === 1 ? '' : 's'}, not in Revenue` : 'No deposits billed',
         tone: 'neutral', trend: trend(m.securityDeposits, m.securityDepositsPrev ?? 0, '%'), vs: `vs ${w.last}`,
         hint: 'Refundable security deposits billed, by billing period',
         action: () => this.openDeposits(), actionLabel: `Open the invoices with a security deposit ${w.thisP}`
@@ -666,7 +668,7 @@ export class CeoDashboard {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  /** What Invoiced / Collected open first: this month or a custom range by location, a quarter or year by month. */
+  /** What Revenue / Paid / Receivable open first: this month or a custom range by location, a quarter or year by month. */
   revenueBy = computed(() => (this.shownPeriod() === 'month' || this.shownPeriod() === 'custom' ? 'location' : 'month'));
 
   /** The months of the period so far (calendar quarter / year to date), invoiced and collected. */
@@ -676,7 +678,7 @@ export class CeoDashboard {
     const first = this.shownPeriod() === 'year' ? 1 : this.shownPeriod() === 'quarter' ? Math.floor((mo - 1) / 3) * 3 + 1 : mo;
     const rows = months
       .filter(x => { const [yy, mm] = x.month.split('-').map(Number); return yy === y && mm >= first && mm <= mo; })
-      .map(x => ({ key: x.month.slice(0, 7), label: monthLong(x.month), value: x.invoiced, value2: x.collected, count: null }));
+      .map(x => ({ key: x.month.slice(0, 7), label: monthLong(x.month), value: x.invoiced, value2: x.collected, count: null, wht: x.whtOpen }));
     return { title: 'Revenue and paid by month', subtitle: this.periodTitle(), valueLabel: 'Revenue', value2Label: 'Paid', rows };
   });
 
@@ -690,10 +692,12 @@ export class CeoDashboard {
   }));
 
   /**
-   * Invoiced / Collected / Collection rate: by location (this month) or by month (quarter, year), then invoices.
-   * status collected (Collected, CP_02): the invoices with something paid (an older API answers with the paid ones).
+   * Revenue / Paid / Collection rate / Receivable: by location (this month) or by month (quarter, year), then invoices.
+   * status collected (Paid, CP_02): the invoices with something paid (an older API answers with the paid ones).
+   * status receivable (Receivable, RC_05): a Receivable column (revenue - paid - WHT withheld), then only the invoices
+   * with something left to pay for the period (an older API answers with every invoice of the period).
    */
-  openRevenue(root: string, status: 'collected' | null) {
+  openRevenue(root: string, status: 'collected' | 'receivable' | null) {
     const extra = status ? { status } : {};
     const range = this.shownRange();
     if (this.shownPeriod() === 'custom' && range) {
@@ -841,7 +845,7 @@ export class CeoDashboard {
     count: () => this.m()?.months.length ?? 0,
     describe: i => {
       const x = this.m()?.months[i];
-      return x ? `${monthLong(x.month)}: invoiced ${fullMoney(x.invoiced)}, collected ${fullMoney(x.collected)}. Press Enter for the breakdown by location.` : '';
+      return x ? `${monthLong(x.month)}: revenue ${fullMoney(x.invoiced)}, paid ${fullMoney(x.collected)}. Press Enter for the breakdown by location.` : '';
     },
     pick: i => this.openRevenueMonth(i),
     announce: t => this.chartAnnounce.set(t)

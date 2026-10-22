@@ -96,6 +96,7 @@
                     <th scope="col">{{ spec()?.rowLabel }}</th>
                     <th scope="col" class="num">{{ current()?.breakdown?.valueLabel }}</th>
                     @if (hasValue2()) { <th scope="col" class="num">{{ current()?.breakdown?.value2Label || 'Second value' }}</th> }
+                    @if (amountCol(); as a) { <th scope="col" class="num">{{ a.label }}</th> }
                     @if (hasCount()) { <th scope="col" class="num">Count</th> }
                     @if (spec()?.derived; as d) { <th scope="col" class="num">{{ d.label }}</th> }
                     @if (canOpenRows()) { <th scope="col" class="col-go"><span class="sr-only">Open</span></th> }
@@ -115,6 +116,7 @@
                       </th>
                       <td class="num" [title]="fmtFull(r.value)">{{ fmt(r.value) }}</td>
                       @if (hasValue2()) { <td class="num" [title]="fmtFull2(r.value2)">{{ fmt2(r.value2) }}</td> }
+                      @if (amountCol(); as a) { <td class="num strong" [title]="fmtFull(a.of(r))">{{ fmt(a.of(r)) }}</td> }
                       @if (hasCount()) { <td class="num">{{ r.count === null ? '-' : count(r.count) }}</td> }
                       @if (spec()?.derived; as d) {
                         <td class="num">{{ derivedText(d.of(r)) }}</td>
@@ -133,6 +135,7 @@
                       <th scope="row">Total</th>
                       <td class="num" [title]="fmtFull(totals().value)">{{ fmt(totals().value) }}</td>
                       @if (hasValue2()) { <td class="num" [title]="fmtFull2(totals().value2)">{{ fmt2(totals().value2) }}</td> }
+                      @if (amountCol()) { <td class="num" [title]="fmtFull(amountTotal())">{{ fmt(amountTotal()) }}</td> }
                       @if (hasCount()) { <td class="num">{{ count(totals().count) }}</td> }
                       @if (spec()?.derived) { <td class="num">{{ derivedText(derivedTotal()) }}</td> }
                       @if (canOpenRows()) { <td class="col-go"></td> }
@@ -180,7 +183,8 @@
               @switch (recordKind()) {
                 @case ('invoices') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th><th scope="col" class="num">Total</th><th scope="col" class="num">Balance</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th>
+                      <th scope="col" class="num">{{ invoiceWindowed() ? 'Revenue' : 'Total' }}</th><th scope="col" class="num">{{ invoiceWindowed() ? 'Receivable' : 'Balance' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
@@ -199,12 +203,24 @@
                             @if (r.dueOn) { {{ r.dueOn | date:'d MMM y' }} } @else { - }
                             @if (r.balance > 0 && (daysFrom(r.dueOn) ?? 0) < 0) { <small class="late">{{ -(daysFrom(r.dueOn) ?? 0) }}d overdue</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small>
-                            @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Invoiced'">incl. {{ money(r.deposit) }} deposit</small> }
-                          </td>
-                          <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}
-                            @if (r.wht) { <small [title]="fullMoney(r.wht) + ' withheld by the customer, not owed'">WHT {{ money(r.wht) }}</small> }
-                          </td>
+                          @if (r.receivable !== null && r.receivable !== undefined) {
+                            <!-- RC_05: a list with a period: the period's revenue / paid / receivable; the whole invoice below. -->
+                            <td class="num" [title]="fullMoney(r.billed ?? 0) + ' revenue in the period, without security deposits'">{{ money(r.billed ?? 0) }}<small [title]="fullMoney(r.collected ?? 0) + ' paid in the period'">{{ money(r.collected ?? 0) }} paid</small>
+                              @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Revenue'">+ {{ money(r.deposit) }} deposit</small> }
+                              <small [title]="'Whole invoice: ' + fullMoney(r.total) + ' total, ' + fullMoney(r.paid) + ' paid'">Invoice {{ money(r.total) }} · {{ money(r.paid) }} paid</small>
+                            </td>
+                            <td class="num" [class.strong]="r.receivable > 0" [title]="fullMoney(r.receivable) + ' left to pay for the period'">{{ money(r.receivable) }}
+                              @if (r.whtOpen) { <small [title]="fullMoney(r.whtOpen) + ' WHT withheld by the customer, not owed'">WHT {{ money(r.whtOpen) }}</small> }
+                              <small [title]="fullMoney(r.balance) + ' owed on the whole invoice'">Balance {{ money(r.balance) }}</small>
+                            </td>
+                          } @else {
+                            <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small>
+                              @if (r.deposit) { <small [title]="fullMoney(r.deposit) + ' security deposit, not in Revenue'">incl. {{ money(r.deposit) }} deposit</small> }
+                            </td>
+                            <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}
+                              @if (r.wht) { <small [title]="fullMoney(r.wht) + ' withheld by the customer, not owed'">WHT {{ money(r.wht) }}</small> }
+                            </td>
+                          }
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }

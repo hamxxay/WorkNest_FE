@@ -211,8 +211,8 @@
                 </div>
                 <div class="head-side">
                   <div class="head-stats">
-                    <div><span>Invoiced</span><strong [title]="fullMoney(revenueTotals().invoiced)">{{ money(revenueTotals().invoiced) }}</strong></div>
-                    <div><span>Collected</span><strong [title]="fullMoney(revenueTotals().collected)">{{ money(revenueTotals().collected) }}</strong></div>
+                    <div><span>Revenue</span><strong [title]="fullMoney(revenueTotals().invoiced)">{{ money(revenueTotals().invoiced) }}</strong></div>
+                    <div><span>Paid</span><strong [title]="fullMoney(revenueTotals().collected)">{{ money(revenueTotals().collected) }}</strong></div>
                     <div><span>Rate</span><strong [class.good]="revenueTotals().rate >= 80" [class.bad]="revenueTotals().invoiced > 0 && revenueTotals().rate < 50">{{ pct(revenueTotals().rate) }}</strong></div>
                   </div>
                   @if (!revenueEmpty()) {
@@ -234,7 +234,7 @@
               @if (revenueTable()) {
                 <div class="table-scroll">
                   <table class="cmp-table compact">
-                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Invoiced</th><th scope="col" class="num">Collected</th><th scope="col" class="num">Rate</th></tr></thead>
+                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Revenue</th><th scope="col" class="num">Paid</th><th scope="col" class="num">Rate</th></tr></thead>
                     <tbody>
                       @for (x of m()!.months; track x.month; let i = $index) {
                         <tr class="clickable" (click)="openRevenueMonth(i)">
