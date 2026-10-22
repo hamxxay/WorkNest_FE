@@ -421,6 +421,7 @@ export class CeoDashboard {
         key: 'overdue', label: 'Overdue', value: money(m.overdue), full: fullMoney(m.overdue),
         sub: m.overdueCount ? `${count(m.overdueCount)} past due date` : 'Nothing overdue',
         tone: m.overdueCount ? 'danger' : 'ok',
+        hint: 'Unpaid invoices past their due date, as of today, including security deposits not paid yet',
         action: () => this.openRecords('Invoices', 'Overdue', 'invoices', { status: 'overdue' }), actionLabel: 'Open the overdue invoices'
       }
     ];
@@ -480,6 +481,8 @@ export class CeoDashboard {
     return aging.some(a => a.deposits !== null) ? aging.reduce((a, b) => a + (b.deposits ?? 0), 0) : null;
   });
   agingEmpty = computed(() => !(this.m()?.aging ?? []).some(a => a.amount > 0 || (a.deposits ?? 0) > 0));
+  /** RC_06: no rent owed, only security deposits: no donut to draw (its slices are rent). */
+  agingOnlyDeposits = computed(() => !this.agingEmpty() && !(this.m()?.aging ?? []).some(a => a.amount > 0));
   agingColor(bucket: string, i: number): string { return AGING_COLORS[bucket] ?? AGING_FALLBACK[i % AGING_FALLBACK.length]; }
   topMax = computed(() => Math.max(1, ...(this.m()?.topCustomers ?? []).map(c => c.amount)));
 
@@ -954,7 +957,7 @@ export class CeoDashboard {
 
     // Receivables aging: part-to-whole by days past due.
     const aging = d.money?.aging ?? [];
-    this.upsert('aging', this.agingEmpty() ? undefined : this.agingCanvas(), {
+    this.upsert('aging', this.agingEmpty() || this.agingOnlyDeposits() ? undefined : this.agingCanvas(), {
       type: 'doughnut',
       data: {
         labels: aging.map(a => a.label),

@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, arr, describeDashboardError, getDashboardData, num, numOrNull, obj, serverMessageOf, str, strOrNull
+  DashError, DashErrorWording, DashRange, arr, describeDashboardError, getDashboardData, num, numOrNull, obj, periodQuery, serverMessageOf, str, strOrNull
 } from './dashboard-api';
 
 // ============================================================
@@ -217,10 +217,14 @@ export class NetworkDashboardService {
   private http = inject(HttpClient);
   private api = environment.apiUrl;
 
-  /** The network figures for the dashboard's location (null = all the caller's locations). */
-  get(source: NetworkSource, locationId: number | null): Observable<NetDashboard> {
+  /**
+   * The network figures for the dashboard's location (null = all the caller's locations). period / range: the
+   * dashboard's period, for the top data users (none = today).
+   */
+  get(source: NetworkSource, locationId: number | null, period: string | null = null, range: DashRange | null = null): Observable<NetDashboard> {
     const url = `${this.api}/${source === 'ceo' ? 'ceo' : 'sales-manager'}/network`;
-    return getDashboardData(this.http, url, { locationId }, err => NetworkDashboardService.describeError(err)).pipe(map(toNetDashboard));
+    const params = period ? { locationId, ...periodQuery(period, range) } : { locationId };
+    return getDashboardData(this.http, url, params, err => NetworkDashboardService.describeError(err)).pipe(map(toNetDashboard));
   }
 
   /**

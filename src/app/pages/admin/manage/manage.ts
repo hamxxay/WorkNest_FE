@@ -2962,7 +2962,8 @@ export class Manage implements OnInit {
       const customerFirstName = nameParts[0] || 'Customer';
       const customerLastName = nameParts.slice(1).join(' ') || '';
       const currentAdminId = Number((this.auth.user() as any)?.id || (this.auth.user() as any)?.userId || 1);
-      const bookingUserId = Number(u.userId || 0) || currentAdminId;
+      // The customer's own user; none (a customer from the search has no user id) = 0: the API resolves it from customerEmail.
+      const bookingUserId = Number(u.userId || 0);
 
       const payload = {
         userId: bookingUserId || 0,
@@ -2979,6 +2980,7 @@ export class Manage implements OnInit {
         customerFirstName,
         customerLastName,
         customerPhone: u.phoneNumber || u.phone || this.bookingFormData.phone || null,
+        phone: ((p: string | null) => (p && isValidPhone(p) ? p : null))(u.phoneNumber || u.phone || this.bookingFormData.phone || null),
         customerCnic: u.cnicOrPassport || this.bookingFormData.cnicOrPassport || null,
         customerAddress: u.address || this.bookingFormData.address || null,
         customerCityId: this.bookingFormData.cityId ? Number(this.bookingFormData.cityId) : (u.cityId ? Number(u.cityId) : null),
@@ -3667,6 +3669,9 @@ export class Manage implements OnInit {
         return Math.max(0, total - paid);
       }
       if (col.key === 'statusLabel') {
+        // The API's list status (ListFilterRules.InvoiceListStatus), the same one the Status filter uses.
+        const listStatus = String(item.listStatus ?? item.ListStatus ?? '').trim();
+        if (listStatus) return listStatus;
         // The API resolves the label from dbo.OrderStatus (and legacy values) ” show it, normalised.
         const label = String(item.statusLabel ?? item.StatusLabel ?? item.status ?? '').trim().toLowerCase();
         const map: Record<string, string> = {
@@ -4052,10 +4057,34 @@ export class Manage implements OnInit {
       this.quickCustomerForm.lastName = rest.join(' ');
       this.quickCustomerForm.email = inq.email;
       const digits = inq.phone.replace(/\D/g, '');
-      if (digits) this.quickCustomerForm.phoneNumber = digits.startsWith('92') ? digits.slice(2) : digits.replace(/^0/, '');
+      if (digits) {
+        // "+971501234567" -> +971 / 501234567; "03001234567" / "923001234567" -> +92 / 3001234567.
+        const match = inq.phone.trim().startsWith('0') ? undefined
+          : [...this.countryCodeOptions].sort((a, b) => b.v.length - a.v.length).find(c => digits.startsWith(c.v.replace(/\D/g, '')));
+        if (match) this.quickCustomerForm.countryCode = match.v;
+        this.quickCustomerForm.phoneNumber = this.nationalDigits(match?.v ?? '+92', digits);
+      }
     }
     this.quickCustomerError.set('');
     this.showQuickCreateCustomer.set(true);
+  }
+
+  /** The national digits of a phone: no leading 0, and without the country code when it was typed or stored with it. */
+  private nationalDigits(countryCode: string, raw: unknown): string {
+    let digits = String(raw ?? '').replace(/\D/g, '');
+    const cc = countryCode.replace(/\D/g, '');
+    const national = countryCode === '+92' ? 10 : 7;
+    if (cc && digits.startsWith(cc) && digits.length - cc.length >= national) digits = digits.slice(cc.length);
+    if (digits.startsWith('0')) digits = digits.substring(1);
+    return digits;
+  }
+
+  /** Pakistan: 10 digits (3001234567). Other countries: the whole number 11-15 digits, as the API checks it. */
+  private nationalPhoneError(countryCode: string, digits: string): string | null {
+    if (!digits) return 'Phone number is required.';
+    if (countryCode === '+92') return digits.length === 10 ? null : 'Phone number must contain 10 digits (e.g. 3001234567).';
+    const full = `${countryCode}${digits}`;
+    return isValidPhone(full) ? null : phoneError(full);
   }
 
   submitQuickCreateCustomer() {
@@ -4064,10 +4093,7 @@ export class Manage implements OnInit {
     const compName = custType === 'Company' ? (company || '').trim() : null;
     const fn = (firstName || '').trim();
     const em = (email || '').trim();
-    let phoneDigits = (phoneNumber || '').replace(/\D/g, '');
-    if (phoneDigits.startsWith('0')) {
-      phoneDigits = phoneDigits.substring(1);
-    }
+    const phoneDigits = this.nationalDigits(countryCode || '+92', phoneNumber);
     const addr1 = (addressLine1 || '').trim();
 
     if (custType === 'Company' && !compName) {
@@ -4095,8 +4121,9 @@ export class Manage implements OnInit {
       this.quickCustomerError.set(msg);
       return;
     }
-    if (!phoneDigits || phoneDigits.length !== 10) {
-      const msg = 'Phone number must contain 10 digits (e.g. 3001234567).';
+    const quickPhoneError = this.nationalPhoneError(countryCode || '+92', phoneDigits);
+    if (quickPhoneError) {
+      const msg = quickPhoneError;
       this.showError(msg);
       this.quickCustomerError.set(msg);
       return;
@@ -4513,10 +4540,8 @@ export class Manage implements OnInit {
       const compName = custType === 'Company' ? (this.formData.company || '').trim() : null;
       const fn = (this.formData.firstName || '').trim();
       const em = (this.formData.email || '').trim();
-      let phoneDigits = (this.formData.phoneNumber || '').replace(/\D/g, '');
-      if (phoneDigits.startsWith('0')) {
-        phoneDigits = phoneDigits.substring(1);
-      }
+      // From the field as typed, or "+923001234567" left in the form by a save the API refused: the country code goes.
+      const phoneDigits = this.nationalDigits(this.selectedCountryCode || '+92', this.formData.phoneNumber);
       const addr1 = (this.formData.addressLine1 || '').trim();
 
       const ntnVal = (this.formData.ntn || '').trim();
@@ -4568,8 +4593,9 @@ export class Manage implements OnInit {
           return;
         }
       }
-      if (!phoneDigits || phoneDigits.length !== 10) {
-        this.error.set('Phone number must contain 10 digits (e.g. 3001234567).');
+      const custPhoneError = this.nationalPhoneError(this.selectedCountryCode || '+92', phoneDigits);
+      if (custPhoneError) {
+        this.error.set(custPhoneError);
         this.showError(this.error());
         this.saving.set(false);
         return;
@@ -6420,6 +6446,7 @@ export class Manage implements OnInit {
       this.customerSearchQuery = email;
       this.findCustomerByEmail(email).subscribe(found => {
         if (!this.showQuotationForm() || this.pendingInquiryId !== inquiryId) return;   // form closed / another one opened
+        if (this.selectedCustomer || this.showQuickCreateCustomer() || (this.customerSearchQuery || '').trim() !== email) return;   // the user chose meanwhile
         if (found) this.selectCustomer(found);
         else if (found === null) this.openCreateCustomerFromBooking();
         else this.onCustomerSearch();   // the search failed: show the matches to pick from

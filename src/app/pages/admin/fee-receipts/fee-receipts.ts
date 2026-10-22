@@ -226,8 +226,9 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     }
 
     // Setup invoice search debounce
+    // No distinctUntilChanged: after Clear (which lists every invoice) the same text typed again must search again.
     this.searchSub = this.invoiceSearch$
-      .pipe(debounceTime(300), distinctUntilChanged())
+      .pipe(debounceTime(300))
       .subscribe(query => {
         this.fetchUnpaidInvoices(query);
       });
@@ -244,7 +245,10 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     this.fetchUnpaidInvoices('');
   }
 
+  private invoicesSub?: Subscription;
+
   ngOnDestroy(): void {
+    this.invoicesSub?.unsubscribe();
     this.searchSub?.unsubscribe();
     this.listSearchSub?.unsubscribe();
   }
@@ -321,9 +325,11 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   }
 
   fetchUnpaidInvoices(search: string): void {
+    // A newer search replaces an older one, so an older answer never overwrites the newer list.
+    this.invoicesSub?.unsubscribe();
     this.searchingInvoices.set(true);
     // No locationId: the API scopes location-bound users to their own locations.
-    this.feeReceiptService.getUnpaidInvoices(search, undefined, 30).subscribe({
+    this.invoicesSub = this.feeReceiptService.getUnpaidInvoices(search, undefined, 30).subscribe({
       next: (list) => {
         this.unpaidInvoices.set(list);
         this.searchingInvoices.set(false);

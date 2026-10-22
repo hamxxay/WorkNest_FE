@@ -265,6 +265,8 @@
                 <canvas #agingCanvas aria-hidden="true"></canvas>
                 @if (agingEmpty()) {
                   <div class="chart-empty"><span class="chart-empty-icon ok"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><strong>Nothing outstanding</strong><span>Every invoice is paid.</span></div>
+                } @else if (agingOnlyDeposits()) {
+                  <div class="chart-empty"><span class="chart-empty-icon ok"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><strong>No rent outstanding</strong><span [title]="fullMoney(agingDeposits() ?? 0)">Only {{ money(agingDeposits() ?? 0) }} of security deposits is owed.</span></div>
                 } @else {
                   <div class="donut-center"><span>Outstanding</span><strong [title]="fullMoney(agingTotal())">{{ money(agingTotal()) }}</strong>
                     @if (agingDeposits()) { <small class="donut-note" [title]="fullMoney(agingDeposits()!) + ' security deposits owed, not in Outstanding'">+ {{ money(agingDeposits()!) }} deposits</small> }</div>
@@ -797,7 +799,7 @@
       </section>
 
       <!-- ===================== NETWORK (UniFi; own endpoint, follows the location picker) ===================== -->
-      <app-dash-network source="ceo" [locationId]="locationId()" [locations]="locations()" allLabel="All locations"
+      <app-dash-network source="ceo" [locationId]="locationId()" [locations]="locations()" allLabel="All locations" [period]="period()" [range]="activeRange()"
         [reload]="networkReload()" [quietReload]="networkQuietReload()" />
     </div>
   }

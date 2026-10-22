@@ -122,7 +122,7 @@
             <div class="panel-head">
               <div>
                 <h3>Clients online over time</h3>
-                <p class="panel-sub">{{ range() === 'week' ? 'Last 7 days, hourly average' : 'Last 24 hours, 15-minute average' }} · Wi-Fi, wired and guest</p>
+                <p class="panel-sub">{{ historyRange() === 'week' ? 'Last 7 days, hourly average' : 'Last 24 hours, 15-minute average' }} · Wi-Fi, wired and guest</p>
               </div>
               <div class="head-side">
                 @if (historyStats(); as s) {
@@ -132,8 +132,8 @@
                   </div>
                 }
                 <div class="net-seg" role="group" aria-label="Time range">
-                  <button type="button" [class.active]="range() === 'day'" [attr.aria-pressed]="range() === 'day'" (click)="setRange('day')">24 hours</button>
-                  <button type="button" [class.active]="range() === 'week'" [attr.aria-pressed]="range() === 'week'" (click)="setRange('week')">7 days</button>
+                  <button type="button" [class.active]="historyRange() === 'day'" [attr.aria-pressed]="historyRange() === 'day'" (click)="setRange('day')">24 hours</button>
+                  <button type="button" [class.active]="historyRange() === 'week'" [attr.aria-pressed]="historyRange() === 'week'" (click)="setRange('week')">7 days</button>
                 </div>
               </div>
             </div>

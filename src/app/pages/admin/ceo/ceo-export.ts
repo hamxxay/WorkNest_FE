@@ -158,7 +158,10 @@ export function ceoWorkbook(d: CeoDashboard, forecast: CeoForecastMonth[] | null
     });
     sheets.push({
       name: 'Receivables aging',
-      rows: [['Days past due', 'Owed (PKR)', 'Invoices'], ...m.aging.map(a => [a.label, money2(a.amount), a.count])]
+      // RC_06: amount = rent owed; deposits owed apart (null before RC_06: amount = everything owed).
+      rows: m.aging.some(a => a.deposits !== null)
+        ? [['Days past due', 'Rent owed (PKR)', 'Security deposits owed (PKR)', 'Invoices'], ...m.aging.map(a => [a.label, money2(a.amount), money2(a.deposits ?? 0), a.count])]
+        : [['Days past due', 'Owed (PKR)', 'Invoices'], ...m.aging.map(a => [a.label, money2(a.amount), a.count])]
     });
     sheets.push({
       name: 'Top customers',

@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Subscription } from 'rxjs';
 import {
   ServiceSwitch, ServiceSwitchesService, serviceSwitchErrorMessage
 } from '../../../services/service-switches.service';
@@ -35,7 +36,7 @@ const EMAIL_SENDING = 'EmailSending';
 
 /** The tabs of Pending emails, in order. */
 const OUTBOX_TABS: { status: OutboxStatus | null; label: string; count: (c: OutboxCounts) => number | null }[] = [
-  { status: 'Pending', label: 'Pending', count: c => c.pending + c.sending },
+  { status: 'Pending', label: 'Pending', count: c => c.pending },
   { status: 'Failed', label: 'Failed', count: c => c.failed },
   { status: 'Sent', label: 'Sent', count: c => c.sent },
   { status: 'Discarded', label: 'Discarded', count: c => c.discarded },
@@ -50,7 +51,7 @@ const OUTBOX_TABS: { status: OutboxStatus | null; label: string; count: (c: Outb
   styleUrls: ['../manage/manage.css', '../../../styles/form-popup.css', './services.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ServicesPage implements OnInit {
+export class ServicesPage implements OnInit, OnDestroy {
   private readonly api = inject(ServiceSwitchesService);
   private readonly toast = inject(ToastService);
   private readonly outboxApi = inject(EmailOutboxService);
@@ -71,6 +72,7 @@ export class ServicesPage implements OnInit {
   /** Waiting for "discard" to be confirmed: one e-mail, or 'all'. */
   readonly discardTarget = signal<OutboxItem | 'all' | null>(null);
   readonly discardAllBusy = signal(false);
+  private outboxSub?: Subscription;
   readonly outboxOpenCount = computed(() => this.outboxCounts().pending + this.outboxCounts().sending + this.outboxCounts().failed);
 
   readonly items = signal<ServiceSwitch[]>([]);
@@ -114,9 +116,15 @@ export class ServicesPage implements OnInit {
     this.loadOutbox();
   }
 
+  ngOnDestroy(): void {
+    this.outboxSub?.unsubscribe();
+  }
+
   loadOutbox(): void {
+    // A newer load replaces an older one (another tab, or a reload after an action): its answer never lands late.
+    this.outboxSub?.unsubscribe();
     this.outboxLoading.set(true);
-    this.outboxApi.list(this.outboxStatus()).subscribe({
+    this.outboxSub = this.outboxApi.list(this.outboxStatus()).subscribe({
       next: res => {
         this.outboxItems.set(res.items);
         this.outboxCounts.set(res.counts);
@@ -183,7 +191,7 @@ export class ServicesPage implements OnInit {
       this.discardAllBusy.set(true);
       this.outboxApi.discardAll().subscribe({
         next: msg => { this.discardAllBusy.set(false); this.toast.success(msg || 'Pending e-mails discarded.', 'Discarded'); this.loadOutbox(); },
-        error: err => { this.discardAllBusy.set(false); this.toast.error(outboxErrorMessage(err, 'Nothing was discarded.'), 'Not discarded'); }
+        error: err => { this.discardAllBusy.set(false); this.toast.error(outboxErrorMessage(err, 'Nothing was discarded.'), 'Not discarded'); this.loadOutbox(); }
       });
       return;
     }
