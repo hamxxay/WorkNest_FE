@@ -116,6 +116,8 @@
 .dr-table tfoot th, .dr-table tfoot td { border-top: 1px solid var(--dr-line); font-weight: 700; color: var(--dr-ink); background: var(--dr-surface-2); }
 .dr-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dr-table thead th.num { text-align: right; }
+/* Number cells: the body cell rule above (text-align: left) outranks .num once Angular scopes both, so say it here. */
+.dr-table tbody td.num, .dr-table tbody th.num, .dr-table tfoot td.num, .dr-table tfoot th.num { text-align: right; }
 .dr-table td.strong { color: var(--dr-ink); font-weight: 700; }
 .dr-table small { display: block; margin-top: 2px; font-size: 0.72rem; color: var(--dr-faint); font-weight: 500; }
 .dr-table small.late { color: var(--dr-bad); font-weight: 600; }
