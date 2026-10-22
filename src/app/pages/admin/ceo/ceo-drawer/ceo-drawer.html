@@ -297,7 +297,7 @@
                             <span class="type-pill" [style.background]="typeStyle(r.type).bg" [style.color]="typeStyle(r.type).fg">{{ typeStyle(r.type).label }}</span>
                             @if (r.referenceName) { <small>{{ r.referenceName }}</small> }
                           </td>
-                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
+                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ (r.status || '').toLowerCase() === 'resolved' ? 'Tour Done' : (r.status || '-') }}</span></td>
                           <td>@if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} } @else { - }</td>
                           @if (inquiryFollowUp()) {
                             <td>

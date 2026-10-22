@@ -4733,8 +4733,9 @@ export class Manage implements OnInit {
     return String(value ?? '').toLowerCase().replace(/[\s_-]+/g, '');
   }
 
-  /** "InProgress" -> "In Progress". */
+  /** "InProgress" -> "In Progress"; a tour inquiry's "Resolved" reads "Tour Done" (the stored status stays Resolved). */
   statusDisplay(value: string): string {
+    if (this.entity === 'contacts' && this.statusKey(value) === 'resolved') return 'Tour Done';
     return String(value ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
   }
 
