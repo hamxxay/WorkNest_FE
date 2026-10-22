@@ -298,3 +298,46 @@
   .sv-switch.on .sv-knob { transform: translateX(22px); }
   .sv-control { min-height: 44px; align-items: flex-start; }
 }
+
+/* Pending emails (Email Sending off) */
+.ob-card { margin-top: 20px; padding: 20px 22px; }
+.ob-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ob-head h2 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 700; color: var(--sv-ink); }
+.ob-sub { margin: 0; color: var(--sv-muted); font-size: 0.88rem; max-width: 640px; }
+.ob-discard-all { color: #b91c1c; border-color: #fecaca; white-space: nowrap; }
+.ob-discard-all:disabled { opacity: 0.5; cursor: not-allowed; }
+.ob-note { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 0.86rem; }
+.ob-note svg { flex-shrink: 0; margin-top: 2px; }
+.ob-note.off { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.ob-note.on { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+.ob-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 12px; border-bottom: 1px solid var(--sv-line); }
+.ob-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 10px; margin-bottom: -1px; font: inherit;
+  font-size: 0.88rem; color: var(--sv-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.ob-tab:hover { color: var(--sv-ink); }
+.ob-tab.active { color: var(--sv-teal-dark); border-bottom-color: var(--sv-teal); font-weight: 600; }
+.ob-tab-count { background: var(--sv-line-soft); color: var(--sv-text); border-radius: 999px; padding: 0 7px; font-size: 0.75rem; line-height: 1.5; }
+.ob-tab.active .ob-tab-count { background: #ccfbf1; color: var(--sv-teal-dark); }
+.ob-empty { margin: 0; padding: 18px 4px; color: var(--sv-muted); font-size: 0.9rem; }
+.ob-table-wrap { overflow-x: auto; }
+.ob-table-wrap.dim { opacity: 0.6; }
+.ob-table td small { display: block; color: var(--sv-muted); font-size: 0.76rem; margin-top: 2px; }
+.ob-subject { display: block; color: var(--sv-ink); font-weight: 600; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-to { max-width: 220px; overflow-wrap: anywhere; }
+.ob-nowrap { white-space: nowrap; color: var(--sv-text); }
+.ob-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; background: var(--sv-line-soft); color: var(--sv-text); }
+.ob-status[data-status="Pending"], .ob-status[data-status="Sending"] { background: #fffbeb; color: #92400e; }
+.ob-status[data-status="Sent"] { background: #ecfdf5; color: #047857; }
+.ob-status[data-status="Failed"] { background: #fef2f2; color: #b91c1c; }
+.ob-status[data-status="Discarded"] { background: #f1f5f9; color: #64748b; }
+.ob-table small.ob-error { color: #b91c1c; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-actions { white-space: nowrap; text-align: right; }
+.ob-actions-col { width: 1%; }
+.ob-btn { padding: 4px 10px; font-size: 0.8rem; }
+.ob-btn + .ob-btn { margin-left: 6px; }
+.ob-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ob-btn-danger { color: #b91c1c; border-color: #fecaca; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+@media (max-width: 640px) {
+  .ob-card { padding: 16px; }
+  .ob-subject { max-width: 200px; }
+}
