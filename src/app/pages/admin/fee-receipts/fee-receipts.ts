@@ -109,8 +109,12 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   balance = computed(() => round2(this.selectedInvoice()?.balanceAmount ?? 0));
   /** Custom invoices (type 7) are paid in full only: the amount is the whole balance and cannot be changed. */
   isCustomInvoice = computed(() => !!this.selectedInvoice()?.isCustom);
-  /** Withholding-tax and custom invoices (and every invoice before the database update) are paid in full only. */
-  partialAllowed = computed(() => !!this.selectedInvoice()?.allowPartial && !this.isCustomInvoice());
+  /** Withholding-tax and custom invoices are paid in full only. Standard invoices allow part payments. */
+  partialAllowed = computed(() => {
+    const inv = this.selectedInvoice();
+    if (!inv) return false;
+    return !!inv.allowPartial && !this.isCustomInvoice() && inv.invoiceTypeName !== 'WHT Invoice';
+  });
   /** This receipt's amount: the whole balance (Full) or the typed amount (Partial; NaN while it is not a valid amount). */
   receiptAmount = computed(() => this.paymentMode() === 'Full' ? this.balance() : parseAmount(this.partialAmountText()));
   /** Balance after this payment, live as the amount changes (the balance itself while the amount is not valid). */

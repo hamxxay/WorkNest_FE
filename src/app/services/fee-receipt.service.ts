@@ -249,6 +249,7 @@ export class FeeReceiptService {
           const invoiceTypeId = Number(r.invoiceTypeId ?? 0);
           const whtAmount = Number(r.whtAmount ?? 0);
           const isCustom = invoiceTypeId === CUSTOM_INVOICE_TYPE_ID || r.isCustom === true;
+          const isWht = isWhtInvoice(invoiceTypeId, whtAmount);
           return {
             invoiceId: r.invoiceId ?? 0,
             invoiceIdGuid: r.invoiceIdGUID ?? '',
@@ -279,7 +280,7 @@ export class FeeReceiptService {
             balanceAmount: Number(r.balanceAmount ?? r.netReceivableAmount ?? 0),
             paymentStatus: r.paymentStatus ?? 'Unpaid',
             statusLabel: r.statusLabel ?? 'Unpaid',
-            allowPartial: r.allowPartial === true && !isCustom,
+            allowPartial: (r.allowPartial === true || !isWht) && !isCustom && !isWht,
             isCustom
           };
         });
