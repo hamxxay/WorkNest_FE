@@ -637,6 +637,20 @@ export class CeoDrawer {
             ...(cnt ? [r.count] : [])];
         })
       ];
+    } else if (e.level.kind === 'records' && e.level.records === 'invoices') {
+      // Revenue and paid without the security deposit; the deposit and the whole invoice in their own columns.
+      const rows = this.invoiceRows();
+      const windowed = this.invoiceWindowed();
+      table = [
+        ['Invoice number', 'Customer', 'Location', 'Issued on', 'Period start', 'Period end', 'Due on',
+          'Revenue (without deposit)', 'Revenue paid', 'Security deposit', 'Invoice total', 'Invoice paid', 'Balance', 'WHT',
+          ...(windowed ? ['Receivable'] : []), 'Status'],
+        ...rows.map(r => [
+          r.invoiceNumber, r.customer, r.location, r.issuedOn, r.periodStart ?? null, r.periodEnd ?? null, r.dueOn,
+          r.billed ?? r.total - (r.deposit ?? 0), r.collected ?? null, r.deposit ?? 0, r.total, r.paid, r.balance, r.wht ?? 0,
+          ...(windowed ? [r.receivable ?? null] : []), r.status
+        ] as XlsxCell[])
+      ];
     } else {
       const list = (e.records?.rows ?? []) as Record<string, unknown>[];
       const keys = Object.keys(list[0] ?? {}).filter(k => !/Id$/.test(k));
