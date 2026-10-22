@@ -14,7 +14,6 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/kyc',
   '/admin/quotations',
   '/admin/agreements',
-  '/admin/lease-templates',
   '/admin/invoices',
   '/admin/invoice-approvals',
   '/admin/fee-receipts',

@@ -43,7 +43,7 @@ export const routes: Routes = [
       { path: 'quotations',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'quotations' } },
       { path: 'payments',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'payments' } },
       { path: 'agreements',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'agreements' } },
-      { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [adminGuard] },
+      { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [superAdminGuard] },
       { path: 'invoices',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'invoices' } },
         { path: 'invoice-approvals', loadComponent: () => import('./pages/admin/invoice-approvals/invoice-approvals').then(m => m.InvoiceApprovalsComponent), canActivate: [adminGuard] },
       { path: 'fee-receipts', loadComponent: () => import('./pages/admin/fee-receipts/fee-receipts').then(m => m.FeeReceiptsComponent), canActivate: [adminGuard] },

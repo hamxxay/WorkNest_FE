@@ -19,7 +19,7 @@ Roles come from the WorkNest API (`super_admin`, `admin`, `sales_executive`, `cu
 |---|---|
 | Super admin | Everything, including Space Config and Challan Validity |
 | Admin | All of `/admin` except the super-admin pages |
-| Sales executive | A subset of `/admin` (dashboard, KYC, quotations, agreements, lease templates, invoices, bookings, tour inquiries, complaints, WhatsApp, attendants and access users, network). The list is `SALES_EXECUTIVE_ROUTES` in `src/app/guards/admin.guard.ts`, used by both the guard and the sidebar. |
+| Sales executive | A subset of `/admin` (dashboard, KYC, quotations, agreements, invoices, bookings, tour inquiries, complaints, WhatsApp, attendants and access users, network). The list is `SALES_EXECUTIVE_ROUTES` in `src/app/guards/admin.guard.ts`, used by both the guard and the sidebar. |
 | Customer | Public pages and the customer area |
 
 When roles were read only from browser storage, the admin guards confirm them with `GET auth/me` before opening an admin page, so edited roles are not trusted.
@@ -29,7 +29,7 @@ When roles were read only from browser storage, the admin guards confirm them wi
 | Group | Pages (`/admin/...`) |
 |---|---|
 | Dashboard | `dashboard` (role dashboards, forecast, weekly report, access overview), `profile` |
-| Sales | `customers`, `kyc`, `bookings`, `quotations`, `quotation-responses`, `agreements`, `lease-templates` (rich-text lease editor) |
+| Sales | `customers`, `kyc`, `bookings`, `quotations`, `quotation-responses`, `agreements`, `lease-templates` (super admin, rich-text lease editor) |
 | Inquiries | `contacts` (Tour Inquiries), `complaints`, `whatsapp` (WhatsApp inbox) |
 | Finance | `invoices` (Invoices and Billing), `payments`, `pricing`, `reports/security-deposits`, `challan-validity` (super admin) |
 | Spaces | `locations`, `spacetypes`, `spaces`, `manage-spaces`, `space-configuration` (super admin), `gallery` |
