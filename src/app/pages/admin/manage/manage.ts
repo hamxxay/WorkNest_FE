@@ -17,8 +17,8 @@ import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService, AgreementESignature } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
-import { firstValueFrom, of, timeout } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { firstValueFrom, Observable, of, timeout } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { localDateIso, localDateTimeIso, pakistanDateIso } from '../../../utils/dates';
 import { rangeLabel } from '../ceo/period-range';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
@@ -4149,7 +4149,11 @@ export class Manage implements OnInit {
         }
         this.quickCustomerSaving.set(false);
         this.showQuickCreateCustomer.set(false);
-        const created = res?.data ?? res;
+        const sent = this.quickCustomerForm;
+        let created = res?.data ?? res;
+        if (created && typeof created === 'object' && !created.email) {
+          created = { ...created, email: (sent.email || '').trim(), firstName: created.firstName ?? sent.firstName, lastName: created.lastName ?? sent.lastName };
+        }
         if (created) {
           if (!this.showQuotationForm() && !this.showBookingForm()) {
             this.openAdminQuotationForm();
@@ -6409,10 +6413,37 @@ export class Manage implements OnInit {
     this.openAdminQuotationForm();
     this.pendingInquiryId = inquiryId;   // after opening: a form opened any other way is not linked
     this.inquiryCustomer = { name: qp.get('name') || '', email: qp.get('email') || '', phone: qp.get('phone') || '' };
-    this.customerSearchQuery = qp.get('email') || qp.get('name') || '';
-    if (this.customerSearchQuery) this.onCustomerSearch();
+    const email = (qp.get('email') || '').trim();
+    if (email) {
+      // The customer with this email is selected; with none, Create Customer opens filled from the inquiry and the
+      // customer made there is selected (submitQuickCreateCustomer).
+      this.customerSearchQuery = email;
+      this.findCustomerByEmail(email).subscribe(found => {
+        if (!this.showQuotationForm() || this.pendingInquiryId !== inquiryId) return;   // form closed / another one opened
+        if (found) this.selectCustomer(found);
+        else if (found === null) this.openCreateCustomerFromBooking();
+        else this.onCustomerSearch();   // the search failed: show the matches to pick from
+      });
+    } else {
+      this.customerSearchQuery = qp.get('name') || '';
+      if (this.customerSearchQuery) this.onCustomerSearch();
+    }
     // Drop the parameters so a refresh does not reopen the form.
     this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+  }
+
+  /** The customer whose email is exactly this one (any case); null when there is none, undefined when the search failed. */
+  private findCustomerByEmail(email: string): Observable<any | null | undefined> {
+    const key = email.trim().toLowerCase();
+    const exact = (res: any) => ((res?.data ?? (Array.isArray(res) ? res : [])) as any[])
+      .find(u => String(u?.email ?? '').trim().toLowerCase() === key) ?? null;
+    return this.admin.searchCustomers(key).pipe(
+      map(exact),
+      // Not found by the search: the paged list with the same text (as the search box's fallback).
+      switchMap(found => found ? of(found) : this.admin.getCustomers(1, 100, key).pipe(map(exact))),
+      timeout(30000),
+      catchError(() => of(undefined))
+    );
   }
 
   /** Bookings opened as /admin/bookings?booking=<id> (e.g. from the dashboard's rooms in use): show that booking's details. */
