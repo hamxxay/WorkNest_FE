@@ -698,7 +698,7 @@
                 }
               </button>
               <button class="btn-admin btn-outline-admin" style="padding:4px 10px;font-size:.8rem;white-space:nowrap"
-                (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Feedback</button>
+                (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Action</button>
               }
               @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
               <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()" [attr.aria-label]="'Delete ' + rowNoun()">
