@@ -5,7 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { UnifiService } from '../../../../services/unifi.service';
 import { AdminService } from '../../../../services/admin.service';
 import { AuthService } from '../../../../services/auth.service';
-import { GwnNetwork, GwnService } from '../../../../services/gwn.service';
+import { GwnError, GwnNetwork, GwnService } from '../../../../services/gwn.service';
 
 /**
  * "I-8 · UniFi | F-7 · Grandstream" at the top of every Network page. Shows only the networks this user may see
@@ -116,7 +116,10 @@ export class NetworkSwitch implements OnInit {
         const cur = this.gwn.net();
         if (cur && list.length && !list.some(n => n.id === cur)) this.gwn.setNet(null);
       },
-      error: () => this.networks.set([])
+      // Grandstream not set up on the server: a super admin still gets F-7, whose pages show the server's reason.
+      error: err => this.networks.set(superAdmin && err instanceof GwnError && err.unavailable
+        ? [{ id: 0, name: 'Grandstream', locationIds: [2] }]
+        : [])
     });
     if (!locationNames$) {
       locationNames$ = this.admin.getLocations(1, 1000).pipe(
@@ -133,7 +136,7 @@ export class NetworkSwitch implements OnInit {
 
   go(o: SwitchOption) {
     if (o.key === this.activeKey()) return;
-    if (o.kind === 'gwn') this.gwn.setNet(o.netId ?? null);
+    if (o.kind === 'gwn') this.gwn.setNet(o.netId || null);
     // Another Grandstream network on the same page: the page reloads its data when GwnService.net changes.
     this.router.navigateByUrl(counterpart(this.path(), o.kind));
   }

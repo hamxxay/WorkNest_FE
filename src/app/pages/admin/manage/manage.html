@@ -552,6 +552,16 @@
                   <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                 </svg>
               </button>
+              @if (canRevertInvoiceApproval(item)) {
+              <button class="action-btn" (click)="openRevertApproval(item)" title="Revert to Pending Approval"
+                aria-label="Revert to Pending Approval" style="background:#b45309;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 7v6h6" />
+                  <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+                </svg>
+              </button>
+              }
               }
 
               @if (entity === 'quotations') {
@@ -3271,8 +3281,62 @@
           <polyline points="7 10 12 15 17 10" />
           <line x1="12" y1="15" x2="12" y2="3" />
         </svg>Download PDF</button>
+      @if (canRevertInvoiceApproval(inv)) {
+      <button class="btn-admin" (click)="openRevertApproval(inv)"
+        style="background:#b45309;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600">
+        Revert to Pending Approval</button>
+      }
       <button class="btn-admin btn-primary-admin" (click)="openRecordPaymentModal(inv)">Record Payment</button>
     </div>
+  </div>
+</div>
+}
+
+<!-- Revert Invoice Approval Modal (super admin) -->
+@if (revertApprovalInvoice(); as rinv) {
+<div class="modal-overlay" (click)="closeRevertApproval()" style="z-index:1100">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;width:100%;">
+    <button class="modal-close" (click)="closeRevertApproval()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Revert to Pending Approval</h2>
+    <div class="user-detail-grid" style="margin-bottom: 1rem;">
+      <div class="user-line"><span>Invoice</span><strong>{{ rinv.invoiceNumber || rinv.InvoiceNumber || ('INV-' +
+          (rinv.id || rinv.Id)) }}</strong></div>
+      <div class="user-line"><span>Customer</span><strong>{{ getCellValue(rinv, { key: 'customerName', label:
+          'Customer' }) }}</strong></div>
+    </div>
+    <ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.82rem;color:#92400e;line-height:1.5">
+      <li>The customer has already received the original invoice email.</li>
+      <li>It will disappear from the customer portal until it is approved again.</li>
+      <li>Door access suspension for this invoice is lifted while it is pending.</li>
+      <li>Invoices on 1Bill/EzPay or with received payments can't be reverted.</li>
+    </ul>
+    @if (revertApprovalError()) {
+    <div class="alert-admin alert-error-admin">{{ revertApprovalError() }}</div>
+    }
+    <form (ngSubmit)="submitRevertApproval()">
+      <div class="form-group-admin">
+        <label for="revertReason">Reason <span style="color:#dc2626">*</span></label>
+        <textarea id="revertReason" class="form-input-admin" rows="3" maxlength="500" name="revertReason"
+          [value]="revertApprovalReason()" (input)="revertApprovalReason.set($any($event.target).value)"
+          [disabled]="revertApprovalSaving()" placeholder="Why is this invoice going back for approval?"></textarea>
+        <small style="display:block;text-align:right;color:#64748b;font-size:.75rem">{{ revertApprovalReason().length
+          }} / 500</small>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeRevertApproval()"
+          [disabled]="revertApprovalSaving()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin"
+          [disabled]="revertApprovalSaving() || !revertApprovalReason().trim()">
+          {{ revertApprovalSaving() ? 'Reverting...' : 'Revert to Pending Approval' }}
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 }
