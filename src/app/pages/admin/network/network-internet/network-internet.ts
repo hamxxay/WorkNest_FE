@@ -5,6 +5,7 @@ import {
   AMBER, ChartBag, ExportKind, NET_SHARED, S1, S2, ago, baseOptions, bytes, dateTime, dur, errMsg, exportCard, exportPagePdf, fmt, line,
   linkText, pct, shortDate, timeLabel
 } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 /** One colour per line in every chart on this page (colour follows the WAN, not its rank). */
 const WAN_COLOR: Record<string, string> = { WAN1: S1, WAN2: S2, WAN3: AMBER };
@@ -18,7 +19,7 @@ type Better = 'high' | 'low' | null;
 @Component({
   selector: 'app-network-internet',
   standalone: true,
-  imports: [...NET_SHARED],
+  imports: [...NET_SHARED, NetworkSwitch],
   templateUrl: './network-internet.html',
   styleUrls: ['../network-shared.css', './network-internet.css']
 })

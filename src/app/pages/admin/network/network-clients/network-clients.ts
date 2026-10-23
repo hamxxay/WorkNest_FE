@@ -8,6 +8,7 @@ import {
   ChartBag, ExportKind, NET_SHARED, S1, S2, ago, avg, baseOptions, buildTimeline, bytes, clientIcon, clock, dur, errMsg, exportCard,
   exportPagePdf, fmt, hbar, hbarOptions, logWhen, normMac, signalInfo, sum, timeLabel, timelineStats
 } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 type SortKey = 'name' | 'kind' | 'conn' | 'uplink' | 'signal' | 'ip' | 'exp' | 'data' | 'uptime';
 type ConnType = '' | 'wifi' | 'wired' | 'guest';
@@ -17,7 +18,7 @@ const CLIENT_LABELS = { upLabel: 'Connected', downLabel: 'Disconnected', leadLab
 @Component({
   selector: 'app-network-clients',
   standalone: true,
-  imports: [FormsModule, RouterLink, ...NET_SHARED],
+  imports: [FormsModule, RouterLink, ...NET_SHARED, NetworkSwitch],
   templateUrl: './network-clients.html',
   styleUrls: ['../network-shared.css', './network-clients.css']
 })

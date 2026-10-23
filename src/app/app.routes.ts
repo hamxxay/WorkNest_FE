@@ -71,6 +71,12 @@ export const routes: Routes = [
       { path: 'network/device/:mac', loadComponent: () => import('./pages/admin/network/network-device/network-device').then(m => m.NetworkDevice), canActivate: [adminGuard] },
       { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
       { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
+      // Grandstream GWN network (F-7): same guard as the UniFi pages; the API limits it to staff of the network's locations.
+      { path: 'network/gwn', loadComponent: () => import('./pages/admin/network/gwn-overview/gwn-overview').then(m => m.GwnOverviewPage), canActivate: [adminGuard] },
+      { path: 'network/gwn/clients', loadComponent: () => import('./pages/admin/network/gwn-clients/gwn-clients').then(m => m.GwnClientsPage), canActivate: [adminGuard] },
+      { path: 'network/gwn/devices', loadComponent: () => import('./pages/admin/network/gwn-devices/gwn-devices').then(m => m.GwnDevicesPage), canActivate: [adminGuard] },
+      { path: 'network/gwn/device/:mac', loadComponent: () => import('./pages/admin/network/gwn-device/gwn-device').then(m => m.GwnDevicePage), canActivate: [adminGuard] },
+      { path: 'network/gwn/wifi', loadComponent: () => import('./pages/admin/network/gwn-wifi/gwn-wifi').then(m => m.GwnWifiPage), canActivate: [adminGuard] },
       // Message templates (tour inquiry WhatsApp message): admin and super admin only (adminGuard sends other staff away).
       { path: 'message-templates', loadComponent: () => import('./pages/admin/message-templates/message-templates').then(m => m.MessageTemplates), canActivate: [adminGuard],
         canDeactivate: [(page: { canLeave(): boolean }) => page.canLeave()] },

@@ -27,7 +27,7 @@
       @for (g of menuGroups; track g.name) {
         @if (g.name) { <span class="nav-label">{{ g.name }}</span> } @else { <span class="nav-label">Overview</span> }
         @for (item of g.items; track item.route) {
-            <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/admin' || item.route === '/admin/network'}" class="nav-item" (click)="closeMobileNav()" [attr.title]="sidebarCollapsed ? (badgeCount(item.route) > 0 ? item.label + ' (' + badgeCount(item.route) + ' waiting)' : item.label) : null">
+            <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/admin' || item.route === '/admin/network' || item.route === '/admin/network/gwn'}" class="nav-item" (click)="closeMobileNav()" [attr.title]="sidebarCollapsed ? (badgeCount(item.route) > 0 ? item.label + ' (' + badgeCount(item.route) + ' waiting)' : item.label) : null">
               <span class="nav-icon">
                 @switch (item.icon) {
                   @case ('ceo') {

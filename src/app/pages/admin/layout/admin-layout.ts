@@ -1,4 +1,6 @@
 import { UnifiService } from '../../../services/unifi.service';
+import { GwnService } from '../../../services/gwn.service';
+import { counterpart } from '../network/gwn-switch/gwn-switch';
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
@@ -53,6 +55,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   private router = inject(Router);
   private admin = inject(AdminService);
   private unifi = inject(UnifiService);
+  private gwn = inject(GwnService);
   private titleService = inject(Title);
   private customInvoices = inject(CustomInvoiceService);
 
@@ -292,9 +295,16 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   /** Visible menu items (role rules applied), grouped under section headings. */
   private visibleItems(): any[] {
-    return this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
+    const items = this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
       && (!i.customInvoiceOnly || this.customInvoiceAllowed())
       && (i.group !== 'Network' || this.networkAllowed()));
+    // On the Grandstream (F-7) pages, or for staff who only see Grandstream, the Network links open its pages
+    // (it has no Internet page). The switch at the top of every Network page moves between the two networks.
+    const gwnMode = this.currentPath().startsWith('/admin/network/gwn') || (!this.unifiAllowed() && this.gwnAllowed());
+    if (!gwnMode) return items;
+    return items
+      .filter((i: any) => i.route !== '/admin/network/internet')
+      .map((i: any) => (i.group === 'Network' ? { ...i, route: counterpart(i.route, 'gwn') } : i));
   }
 
   /**
@@ -309,10 +319,14 @@ export class AdminLayout implements OnInit, OnDestroy {
   }
 
   /** False when the UniFi network belongs to other locations than this admin's / sales executive's (api/unifi/scope). */
-  readonly networkAllowed = signal(true);
+  /** The Network section shows when the user may see the UniFi network (I-8) or a Grandstream one (F-7, api/gwn/networks). */
+  readonly unifiAllowed = signal(true);
+  readonly gwnAllowed = signal(false);
+  readonly networkAllowed = computed(() => this.unifiAllowed() || this.gwnAllowed());
   private loadNetworkScope() {
+    this.gwn.getNetworks().subscribe({ next: list => this.gwnAllowed.set(list.length > 0), error: () => { /* UniFi decides */ } });
     if (this.isSuperAdmin) return;
-    this.unifi.getScope().subscribe({ next: s => this.networkAllowed.set(s.allowed), error: () => { /* keep the section */ } });
+    this.unifi.getScope().subscribe({ next: s => this.unifiAllowed.set(s.allowed), error: () => { /* keep the section */ } });
   }
 
   get menuGroups(): { name: string; items: any[] }[] {

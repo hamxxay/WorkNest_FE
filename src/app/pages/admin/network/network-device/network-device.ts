@@ -7,11 +7,12 @@ import {
   ChartBag, ExportKind, NET_SHARED, S1, S2, TimelineMarker, ago, avg, baseOptions, bucketPoints, buildTimeline, bytes, clientIcon, clock,
   dur, errMsg, exportCard, exportPagePdf, fmt, glow, line, linkText, logWhen, normMac, rate, sum, thin, timeLabel, timelineStats, typeIcon
 } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 @Component({
   selector: 'app-network-device',
   standalone: true,
-  imports: [RouterLink, ...NET_SHARED],
+  imports: [RouterLink, ...NET_SHARED, NetworkSwitch],
   templateUrl: './network-device.html',
   styleUrls: ['../network-shared.css', './network-device.css']
 })

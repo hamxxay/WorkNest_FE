@@ -29,7 +29,9 @@ export const SALES_EXECUTIVE_ROUTES: string[] = [
   '/admin/network/clients',
   '/admin/network/devices',
   '/admin/network/internet',
-  '/admin/network/wifi'
+  '/admin/network/wifi',
+  // Grandstream (F-7) pages: /admin/network/gwn and its children (clients, devices, device/:mac, wifi).
+  '/admin/network/gwn'
 ];
 
 /** True when `url` is one of the allowed routes or a child of one (query/fragment ignored). */

@@ -14,6 +14,7 @@ import {
   CRIT, ChartBag, ExportKind, MUTED, NET_SHARED, S1, S2, S3, SparkPoint, ago, avg, baseOptions, bucketPoints, bytes, clientIcon,
   errMsg, exportCard, exportPagePdf, fmt, glow, hbar, hbarOptions, line, linkText, mbpsText, pct, speedParts, sum, thin, timeLabel, typeIcon
 } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 interface MapNode { node: UnifiTopologyNode; children: MapNode[] }
 interface TopItem { name: string; sub: string; value: string; frac: number; icon: string; link?: string[]; color?: string }
@@ -23,7 +24,7 @@ const MODE_TEXT: Record<string, string> = { failover_only: 'Failover', failover:
 @Component({
   selector: 'app-network-overview',
   standalone: true,
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, ...NET_SHARED, NetworkLocation, NetworkSiteLocations],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, ...NET_SHARED, NetworkLocation, NetworkSiteLocations, NetworkSwitch],
   templateUrl: './network-overview.html',
   styleUrls: ['../network-shared.css', './network-overview.css']
 })
