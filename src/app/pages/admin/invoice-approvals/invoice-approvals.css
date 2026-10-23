@@ -626,3 +626,88 @@
 .text-danger { color: #dc2626; }
 .text-primary { color: #0d9488; }
 .font-bold { font-weight: 700; }
+
+/* Recurring Invoice Modal & Button */
+.btn-recurring {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.btn-recurring:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.modal-card-sm {
+  max-width: 520px;
+}
+
+.badge-purple {
+  color: #7c3aed;
+  background: #f3e8ff;
+  border-color: #e9d5ff;
+}
+
+.recurring-modal-notice {
+  padding: 12px 24px;
+  background: #faf5ff;
+  border-bottom: 1px solid #f3e8ff;
+  color: #6b21a8;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.4;
+}
+
+.recurring-modal-notice svg {
+  flex-shrink: 0;
+  color: #7c3aed;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-field:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.form-select,
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.88rem;
+  background: #ffffff;
+  color: #0f172a;
+  box-sizing: border-box;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.form-select:focus,
+.form-input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.select-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: #64748b;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}

@@ -93,9 +93,9 @@
   <div class="admin-card">
     <div class="card-toolbar">
       <div class="search-box">
-        <svg (click)="onSearchImmediate()" data-tooltip="Search now" style="cursor:pointer" xmlns="http://www.w3.org/2000/svg" width="16"
-          height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round">
+        <svg (click)="onSearchImmediate()" data-tooltip="Search now" style="cursor:pointer"
+          xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
@@ -108,30 +108,31 @@
       </div>
       @if (entity === 'contacts' || entity === 'complaints') {
       <div class="toolbar-filters">
-      @if (entity === 'contacts') {
-      <label class="page-size-wrap type-filter">
-        <span>Type</span>
-        <select [ngModel]="contactTypeFilter" (ngModelChange)="onContactTypeFilter($event)" aria-label="Filter by type">
-          <option value="">All types</option>
-          @for (o of inquiryTypeOptions; track o.v) {
-          <option [value]="o.v">{{ o.l }}</option>
-          }
-        </select>
-      </label>
-      }
-      @if (showBranchFilter) {
-      <!-- Only when the user sees more than one branch (the API scopes the list to theirs). -->
-      <label class="page-size-wrap type-filter">
-        <span>{{ entity === 'contacts' ? 'Location' : 'Branch' }}</span>
-        <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)"
-          [attr.aria-label]="entity === 'contacts' ? 'Filter by location' : 'Filter by branch'">
-          <option value="">{{ entity === 'contacts' ? 'All locations' : 'All branches' }}</option>
-          @for (b of itemBranches(); track b.id) {
-          <option [value]="b.id">{{ b.name }}</option>
-          }
-        </select>
-      </label>
-      }
+        @if (entity === 'contacts') {
+        <label class="page-size-wrap type-filter">
+          <span>Type</span>
+          <select [ngModel]="contactTypeFilter" (ngModelChange)="onContactTypeFilter($event)"
+            aria-label="Filter by type">
+            <option value="">All types</option>
+            @for (o of inquiryTypeOptions; track o.v) {
+            <option [value]="o.v">{{ o.l }}</option>
+            }
+          </select>
+        </label>
+        }
+        @if (showBranchFilter) {
+        <!-- Only when the user sees more than one branch (the API scopes the list to theirs). -->
+        <label class="page-size-wrap type-filter">
+          <span>{{ entity === 'contacts' ? 'Location' : 'Branch' }}</span>
+          <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)"
+            [attr.aria-label]="entity === 'contacts' ? 'Filter by location' : 'Filter by branch'">
+            <option value="">{{ entity === 'contacts' ? 'All locations' : 'All branches' }}</option>
+            @for (b of itemBranches(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+            }
+          </select>
+        </label>
+        }
       </div>
       }
       @if (hasListFilters) {
@@ -153,8 +154,8 @@
         @if (listStatusOptions().length) {
         <label class="page-size-wrap type-filter">
           <span>Status</span>
-          <select [ngModel]="listStatusFilter" (ngModelChange)="onListStatusFilter($event)" aria-label="Filter by status"
-            [disabled]="exporting()">
+          <select [ngModel]="listStatusFilter" (ngModelChange)="onListStatusFilter($event)"
+            aria-label="Filter by status" [disabled]="exporting()">
             <option value="">All statuses</option>
             @for (o of listStatusOptions(); track o.value) {
             <option [value]="o.value">{{ statusDisplay(o.label) }}</option>
@@ -166,8 +167,8 @@
         <!-- Invoices: opens on this month (issue date, Pakistan dates); a wider period fetches that range. -->
         <label class="page-size-wrap type-filter">
           <span>{{ listDateLabel }}</span>
-          <select [ngModel]="listPeriod" (ngModelChange)="onListPeriod($event)" [attr.aria-label]="listDateLabel + ' period'"
-            [disabled]="exporting()">
+          <select [ngModel]="listPeriod" (ngModelChange)="onListPeriod($event)"
+            [attr.aria-label]="listDateLabel + ' period'" [disabled]="exporting()">
             @for (o of listPeriodOptions; track o.value) {
             <option [value]="o.value">{{ o.label }}</option>
             }
@@ -262,8 +263,10 @@
               } @else if (entity === 'invoices' && col.key === 'statusLabel') {
               <!-- Payment status, and the approval below it (the export keeps them as two columns). -->
               <span class="status-badge"
-                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{ getCellValue(item, col) }}</span>
-              @let approval = (item.approvalStatus ?? item.ApprovalStatus) === 'PendingApproval' ? 'Pending approval' : 'Approved';
+                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{
+                getCellValue(item, col) }}</span>
+              @let approval = (item.approvalStatus ?? item.ApprovalStatus) === 'PendingApproval' ? 'Pending approval' :
+              'Approved';
               <small class="cell-sub" [class.cell-sub-warn]="approval !== 'Approved'">{{ approval }}</small>
               } @else if (entity === 'contacts' && col.key === 'inquiryType') {
               <!-- The Type and a pencil to change it (clicking either opens the Inquiry type popup). Old website bookings
@@ -272,17 +275,21 @@
               <button type="button" class="type-edit" (click)="openContactType(item)"
                 [attr.aria-label]="'Change type: ' + (item.inquiryType ? inquiryTypeLabel(item.inquiryType) : 'not set')">
                 @if (item.inquiryType) {
-                <span class="type-pill" [class]="'type-pill type-' + item.inquiryType.toLowerCase()">{{ inquiryTypeLabel(item.inquiryType) }}</span>
+                <span class="type-pill" [class]="'type-pill type-' + item.inquiryType.toLowerCase()">{{
+                  inquiryTypeLabel(item.inquiryType) }}</span>
                 } @else {
                 <span class="type-pill type-unset">Not set</span>
                 }
-                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
+                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  aria-hidden="true">
+                  <path
+                    d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
                 </svg>
               </button>
               } @else if (item.inquiryType) {
-              <span class="type-pill" [class]="'type-pill type-' + item.inquiryType.toLowerCase()">{{ inquiryTypeLabel(item.inquiryType) }}</span>
+              <span class="type-pill" [class]="'type-pill type-' + item.inquiryType.toLowerCase()">{{
+                inquiryTypeLabel(item.inquiryType) }}</span>
               } @else {
               <span class="type-pill type-unset">Not set</span>
               }
@@ -292,7 +299,8 @@
               @if (item.subject && !isTourSubject(item.subject)) {
               <small class="type-ref">{{ item.subject }}</small>
               }
-              } @else if ((entity === 'contacts' && col.key === 'locationName') || (entity === 'complaints' && col.key === 'branch')) {
+              } @else if ((entity === 'contacts' && col.key === 'locationName') || (entity === 'complaints' && col.key
+              === 'branch')) {
               <!-- The branch and a pencil to set / change it (opens the branch popup). No branch = seen by every branch. -->
               @let branchName = itemBranchName(item);
               @if (canSetItemBranch(item)) {
@@ -303,9 +311,11 @@
                 } @else {
                 <span class="type-pill type-unset">No branch</span>
                 }
-                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
+                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  aria-hidden="true">
+                  <path
+                    d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
                 </svg>
               </button>
               } @else if (branchName) {
@@ -318,7 +328,8 @@
               } @else if (canEditStatus(col)) {
               <!-- Status is changed right here: the pill shows the current status and is coloured by it. -->
               <span class="status-picker" [class]="'status-picker status-' + statusKey(getCellValue(item, col))">
-                <select (change)="changeStatus(item, $any($event.target).value, $any($event.target), currentStatusOption(item, col))"
+                <select
+                  (change)="changeStatus(item, $any($event.target).value, $any($event.target), currentStatusOption(item, col))"
                   aria-label="Change status" [title]="'Change status'">
                   @if (!currentStatusOption(item, col)) {
                   <option value="" disabled selected>{{ getCellValue(item, col) || 'Not set' }}</option>
@@ -327,14 +338,16 @@
                   <option [value]="s" [selected]="s === currentStatusOption(item, col)">{{ statusDisplay(s) }}</option>
                   }
                 </select>
-                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </span>
               } @else if (col.type === 'status' || col.type === 'booking-status' || col.type === 'invoice-status') {
               <span class="status-badge"
-                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{ getCellValue(item,
+                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{
+                getCellValue(item,
                 col) }}</span>
               } @else if (col.type === 'approval-status') {
               <span class="status-badge"
@@ -360,7 +373,8 @@
               } @else if (col.type === 'role' && entity === 'users' && isSuperAdmin) {
               <!-- Super admin: the role is changed right here; the pill shows the current role. -->
               <span class="status-picker" [class]="'status-picker role-pick-' + getRoleClass(item[col.key])">
-                <select (change)="changeUserRole(item, $any($event.target).value, $any($event.target), getRoleClass(item[col.key]))"
+                <select
+                  (change)="changeUserRole(item, $any($event.target).value, $any($event.target), getRoleClass(item[col.key]))"
                   aria-label="Change role" title="Change role">
                   @if (!isAssignableRole(item[col.key])) {
                   <option value="" disabled selected>{{ getRoleLabel(item[col.key]) }}</option>
@@ -369,8 +383,9 @@
                   <option [value]="r.v" [selected]="r.v === getRoleClass(item[col.key])">{{ r.l }}</option>
                   }
                 </select>
-                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </span>
@@ -380,7 +395,8 @@
               } @else if (entity === 'customers' && col.key === 'fullName' && item.id) {
               <!-- The name opens the customer detail page (/admin/customers/:id). -->
               <a class="cell-text" [href]="'/admin/customers/' + item.id" (click)="openCustomerDetail(item, $event)"
-                [title]="'Open ' + (getCellValue(item, col) || 'customer')" style="color:#0f766e;font-weight:600;text-decoration:none">{{ getCellValue(item, col) || '-' }}</a>
+                [title]="'Open ' + (getCellValue(item, col) || 'customer')"
+                style="color:#0f766e;font-weight:600;text-decoration:none">{{ getCellValue(item, col) || '-' }}</a>
               } @else {
               <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
               }
@@ -388,15 +404,16 @@
             }
             <td class="actions-cell">
               @if (entity === 'bookings') {
-              <button class="action-btn info" (click)="openBookingUser(item)" title="View customer details" aria-label="View customer details">
+              <button class="action-btn info" (click)="openBookingUser(item)" title="View customer details"
+                aria-label="View customer details">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21a8 8 0 1 0-16 0" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="Billing & deposit summary" aria-label="Billing & deposit summary"
-                style="background:#6366f1;color:#fff;border:none">
+              <button class="action-btn" (click)="openBookingDetailsModal(item)" title="Billing & deposit summary"
+                aria-label="Billing & deposit summary" style="background:#6366f1;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -405,7 +422,9 @@
               </button>
               <button class="action-btn" (click)="resendBookingEmail(item)"
                 [disabled]="resendingBookingEmailId() === (item.id ?? item.bookingId)"
-                [title]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? 'Sending the email' : 'Email the booking and challan'" [attr.aria-label]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? 'Sending the email' : 'Email the booking and challan'" style="background:#0d9488;color:#fff;border:none;opacity:1"
+                [title]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? 'Sending the email' : 'Email the booking and challan'"
+                [attr.aria-label]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? 'Sending the email' : 'Email the booking and challan'"
+                style="background:#0d9488;color:#fff;border:none;opacity:1"
                 [style.opacity]="resendingBookingEmailId() === (item.id ?? item.bookingId) ? '0.6' : '1'">
                 @if (resendingBookingEmailId() === (item.id ?? item.bookingId)) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -423,7 +442,8 @@
               @if (!item.initialInvoiceSent && !sentInitialInvoices.has(item.id ?? item.bookingId)) {
               <button class="action-btn" (click)="sendInitialInvoice(item)"
                 [disabled]="sendingInitialInvoiceId() !== null"
-                title="Send the first invoice (advance rent + security deposit)" aria-label="Send the first invoice (advance rent + security deposit)"
+                title="Send the first invoice (advance rent + security deposit)"
+                aria-label="Send the first invoice (advance rent + security deposit)"
                 style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -433,7 +453,8 @@
               </button>
               } @else {
               <button class="action-btn" (click)="openCreateCustomInvoiceModal(item, true)"
-                title="Create the next invoice (room rent, extra lines optional)" aria-label="Create the next invoice (room rent, extra lines optional)"
+                title="Create the next invoice (room rent, extra lines optional)"
+                aria-label="Create the next invoice (room rent, extra lines optional)"
                 style="background:#059669;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -443,10 +464,30 @@
                   <line x1="9" y1="15" x2="15" y2="15" />
                 </svg>
               </button>
+
               }
 
+              <button class="action-btn" (click)="generateRecurringInvoice(item)"
+                [disabled]="generatingRecurringInvoiceId() === (item.id ?? item.bookingId)"
+                title="Generate Recurring Invoice (Send to Invoice Approvals)"
+                aria-label="Generate Recurring Invoice (Send to Invoice Approvals)"
+                style="background:#7c3aed;color:#fff;border:none">
+                @if (generatingRecurringInvoiceId() === (item.id ?? item.bookingId)) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                }
+              </button>
+
               @if (item.bookingStatus === 'Confirmed') {
-              <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign space" aria-label="Reassign space">
+              <button class="action-btn edit" (click)="openReassignModal(item)" title="Reassign space"
+                aria-label="Reassign space">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2-2z" />
@@ -466,8 +507,8 @@
               </button> -->
               }
               @if (entity === 'invoices') {
-              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View invoice details" aria-label="View invoice details"
-                style="background:#0284c7;color:#fff;border:none">
+              <button class="action-btn info" (click)="openInvoiceDetails(item)" title="View invoice details"
+                aria-label="View invoice details" style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -477,15 +518,16 @@
                 </svg>
               </button>
               <button class="action-btn" (click)="openCreateCustomInvoiceModal(item)"
-                title="Review and send the invoice" aria-label="Review and send the invoice" style="background:#0284c7;color:#fff;border:none">
+                title="Review and send the invoice" aria-label="Review and send the invoice"
+                style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               </button>
-              <button class="action-btn" (click)="downloadStatementPdf(item)" title="Download invoice PDF" aria-label="Download invoice PDF"
-                style="background:#0f766e;color:#fff;border:none">
+              <button class="action-btn" (click)="downloadStatementPdf(item)" title="Download invoice PDF"
+                aria-label="Download invoice PDF" style="background:#0f766e;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -494,15 +536,16 @@
                 </svg>
               </button>
               <button class="action-btn" (click)="openBookingDetailsModal(item)"
-                title="View booking and contract periods" aria-label="View booking and contract periods" style="background:#6366f1;color:#fff;border:none">
+                title="View booking and contract periods" aria-label="View booking and contract periods"
+                style="background:#6366f1;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="2" y="5" width="20" height="14" rx="2" />
                   <line x1="2" y1="10" x2="22" y2="10" />
                 </svg>
               </button>
-              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record a payment" aria-label="Record a payment"
-                style="background:#16a34a;color:#fff;border:none">
+              <button class="action-btn edit" (click)="openRecordPaymentModal(item)" title="Record a payment"
+                aria-label="Record a payment" style="background:#16a34a;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="1" x2="12" y2="23" />
@@ -512,7 +555,8 @@
               }
 
               @if (entity === 'quotations') {
-              <button class="action-btn info" (click)="previewQuotation(item)" title="View quotation and version history" aria-label="View quotation and version history">
+              <button class="action-btn info" (click)="previewQuotation(item)"
+                title="View quotation and version history" aria-label="View quotation and version history">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -521,8 +565,8 @@
               </button>
               @if ((item.status || item.Status || '').toLowerCase() === 'draft') {
               <button class="action-btn" (click)="sendQuotationVersionToCustomer(item)"
-                [disabled]="sendingQuotationId() !== null"
-                title="Send this version to the customer" aria-label="Send this version to the customer" style="background:#2563eb;color:#fff;border:none">
+                [disabled]="sendingQuotationId() !== null" title="Send this version to the customer"
+                aria-label="Send this version to the customer" style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />
@@ -531,8 +575,8 @@
               </button>
               }
               @if ((item.status || item.Status || '').toLowerCase() === 'declined') {
-              <button class="action-btn" (click)="createNextVersion(item)"
-                title="Create a new version" aria-label="Create a new version" style="background:#7c3aed;color:#fff;border:none">
+              <button class="action-btn" (click)="createNextVersion(item)" title="Create a new version"
+                aria-label="Create a new version" style="background:#7c3aed;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 5v14M5 12h14" />
@@ -540,8 +584,8 @@
               </button>
               }
               @if (isQuotationAccepted(item)) {
-              <button class="action-btn" (click)="openSendAgreement(item)" title="Send the agreement to the customer" aria-label="Send the agreement to the customer"
-                style="background:#0284c7;color:#fff;border:none">
+              <button class="action-btn" (click)="openSendAgreement(item)" title="Send the agreement to the customer"
+                aria-label="Send the agreement to the customer" style="background:#0284c7;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -555,7 +599,9 @@
               @if (entity === 'agreements') {
               @if (!(item.bookingId || item.BookingId)) {
               <button class="action-btn" (click)="openSignAgreement(item)"
-                title="Signed agreement received — upload it, date it, create the booking" aria-label="Signed agreement received — upload it, date it, create the booking" style="background:#16a34a;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
+                title="Signed agreement received — upload it, date it, create the booking"
+                aria-label="Signed agreement received — upload it, date it, create the booking"
+                style="background:#16a34a;color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -575,7 +621,8 @@
               </button>
 
               <button class="action-btn" (click)="downloadAgreementPdf(item.id || item.agreementId)"
-                title="Download draft agreement PDF" aria-label="Download draft agreement PDF" style="background:#0f766e;color:#fff;border:none">
+                title="Download draft agreement PDF" aria-label="Download draft agreement PDF"
+                style="background:#0f766e;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -586,7 +633,8 @@
 
               @if (item.signedPdfUploadedAt || item.SignedPdfUploadedAt) {
               <button class="action-btn" (click)="downloadSignedAgreementPdf(item.id || item.agreementId)"
-                title="Download signed agreement PDF" aria-label="Download signed agreement PDF" style="background:#2563eb;color:#fff;border:none">
+                title="Download signed agreement PDF" aria-label="Download signed agreement PDF"
+                style="background:#2563eb;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -599,7 +647,8 @@
 
               }
               @if (entity === 'spaces') {
-              <button class="action-btn info" (click)="openSpaceDetails(item)" title="View space details" aria-label="View space details">
+              <button class="action-btn info" (click)="openSpaceDetails(item)" title="View space details"
+                aria-label="View space details">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -610,8 +659,8 @@
               }
               @if (entity === 'payments') {
               @if (item.bookingId || item.BookingId) {
-              <button class="action-btn" (click)="viewBillingChallan(item)" title="View booking challan" aria-label="View booking challan"
-                style="background:#6366f1;color:#fff;border:none">
+              <button class="action-btn" (click)="viewBillingChallan(item)" title="View booking challan"
+                aria-label="View booking challan" style="background:#6366f1;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -619,7 +668,8 @@
                 </svg>
               </button>
               }
-              <button class="action-btn info" (click)="openPaymentSummary(item)" title="View payment summary" aria-label="View payment summary">
+              <button class="action-btn info" (click)="openPaymentSummary(item)" title="View payment summary"
+                aria-label="View payment summary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 9h20" />
@@ -630,7 +680,8 @@
               </button>
               @if (item.paymentStatus === 'Pending') {
               <button class="action-btn approve" (click)="approvePayment(item)"
-                [disabled]="approvingPaymentId() === item.id" title="Approve cash payment" aria-label="Approve cash payment">
+                [disabled]="approvingPaymentId() === item.id" title="Approve cash payment"
+                aria-label="Approve cash payment">
                 @if (approvingPaymentId() === item.id) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -656,7 +707,8 @@
                 </svg>
               </button>
               <button class="action-btn" (click)="createNextVersion(item.rawQuotationItem || item)"
-                title="Create a new version" aria-label="Create a new version" style="background:#7c3aed;color:#fff;border:none">
+                title="Create a new version" aria-label="Create a new version"
+                style="background:#7c3aed;color:#fff;border:none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 5v14M5 12h14" />
@@ -664,7 +716,8 @@
               </button>
               }
               @if (config().updateFn && config().fields && (entity !== 'users' || canEditUser(item))) {
-              <button class="action-btn edit" (click)="openEdit(item)" [title]="'Edit ' + rowNoun()" [attr.aria-label]="'Edit ' + rowNoun()">
+              <button class="action-btn edit" (click)="openEdit(item)" [title]="'Edit ' + rowNoun()"
+                [attr.aria-label]="'Edit ' + rowNoun()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -673,7 +726,8 @@
               }
               @if (entity === 'users' && canLockOrDeleteUser(item)) {
               <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive"
-                (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate user' : 'Activate user'" [attr.aria-label]="item.isActive ? 'Deactivate user' : 'Activate user'">
+                (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate user' : 'Activate user'"
+                [attr.aria-label]="item.isActive ? 'Deactivate user' : 'Activate user'">
                 @if (item.isActive) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -694,15 +748,17 @@
                    aria-disabled (not disabled) so the tooltip still shows when there is no phone number. -->
               @let waPhone = hasInquiryPhone(item);
               @let waBusy = isWhatsAppBusy(item);
-              <button type="button" class="action-btn whatsapp" [class.busy]="waBusy" (click)="openInquiryWhatsApp(item)"
-                [attr.aria-disabled]="!waPhone || waBusy ? 'true' : null" [attr.aria-busy]="waBusy ? 'true' : null"
+              <button type="button" class="action-btn whatsapp" [class.busy]="waBusy"
+                (click)="openInquiryWhatsApp(item)" [attr.aria-disabled]="!waPhone || waBusy ? 'true' : null"
+                [attr.aria-busy]="waBusy ? 'true' : null"
                 [title]="!waPhone ? 'No phone number on this inquiry' : waBusy ? 'Preparing the WhatsApp message' : 'Message on WhatsApp'"
                 [attr.aria-label]="!waPhone ? 'WhatsApp: no phone number on this inquiry' : 'Message ' + (item.fullName || 'this customer') + ' on WhatsApp'">
                 @if (waBusy) {
                 <span class="wa-spin" aria-hidden="true"></span>
                 } @else {
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  aria-hidden="true">
                   <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
                   <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1" />
                 </svg>
@@ -712,7 +768,8 @@
                 (click)="openContactFeedback(item)" title="Record the outcome of this inquiry">Action</button>
               }
               @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
-              <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()" [attr.aria-label]="'Delete ' + rowNoun()">
+              <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()"
+                [attr.aria-label]="'Delete ' + rowNoun()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 6h18" />
@@ -799,7 +856,7 @@
       }
       @for (field of config().fields; track field.key) {
       @if ((entity !== 'customers' || field.key !== 'company' || formData.customerType === 'Company')
-        && (entity !== 'contacts' || field.key !== 'referenceName' || formData.inquiryType === 'Reference')) {
+      && (entity !== 'contacts' || field.key !== 'referenceName' || formData.inquiryType === 'Reference')) {
       <div class="form-group-admin">
         <label>
           {{ field.label }}
@@ -834,7 +891,8 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
-            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onPhoneInput($event, field.key)" style="flex:1" />
+            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onPhoneInput($event, field.key)"
+            style="flex:1" />
         </div>
         <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
           Country code will be joined automatically.</small>
@@ -902,9 +960,11 @@
           style="background:#f1f5f9;color:#94a3b8" />
         }
         } @else if (field.type === 'user-location-select' && getRoleClass(formData['role']) === 'ceo') {
-        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations. A CEO sees the CEO dashboard for every location, view only.</div>
+        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations. A CEO sees the CEO dashboard for every
+          location, view only.</div>
         } @else if (field.type === 'user-location-select' && !isLocationRole(formData['role'])) {
-        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only the {{ locationRoleNames }} roles are limited to specific locations).</div>
+        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only the {{ locationRoleNames }} roles
+          are limited to specific locations).</div>
         } @else if (field.type === 'user-location-select') {
         <div class="location-checklist">
           @for (loc of assignableUserLocations; track loc.v) {
@@ -965,7 +1025,8 @@
         } @else if (field.type === 'password') {
         <!-- new-password: the browser must not fill in the signed-in admin's own saved password here. -->
         <input class="form-input-admin" type="password" [(ngModel)]="formData[field.key]" [name]="field.key"
-          autocomplete="new-password" [placeholder]="editItem ? 'Leave blank to keep the current password' : 'At least 6 characters'" />
+          autocomplete="new-password"
+          [placeholder]="editItem ? 'Leave blank to keep the current password' : 'At least 6 characters'" />
         @if (editItem) {
         <small class="field-hint-text">Type a new password only to change it. The user then signs in with it.</small>
         }
@@ -988,7 +1049,8 @@
         } @else if (cia.error) {
         <small class="field-error-text" id="ci-access-hint">{{ cia.error }}</small>
         } @else {
-        <small class="field-hint-text" id="ci-access-hint">Opens the Custom Invoice page for this admin. Saved separately after
+        <small class="field-hint-text" id="ci-access-hint">Opens the Custom Invoice page for this admin. Saved
+          separately after
           the other details; you are told if only this part fails.</small>
         }
       </div>
@@ -1273,7 +1335,8 @@
             <td>{{ cfg.openingTime }}</td>
             <td>{{ cfg.closingTime }}</td>
             <td class="actions-cell">
-              <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit category settings" aria-label="Edit category settings">
+              <button class="action-btn edit" (click)="openEditConfig(cfg)" title="Edit category settings"
+                aria-label="Edit category settings">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -1342,7 +1405,8 @@
           <td>{{ s.locationName }}</td>
           <td><span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(s).display }}</span></td>
           <td>
-            <button class="action-btn delete" (click)="removeSpace(s)" [title]="'Remove space ' + s.code" [attr.aria-label]="'Remove space ' + s.code">
+            <button class="action-btn delete" (click)="removeSpace(s)" [title]="'Remove space ' + s.code"
+              [attr.aria-label]="'Remove space ' + s.code">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 6h18" />
@@ -1641,101 +1705,104 @@
 
       <!-- Itemized Payment Statement Table (Payable Now) -->
       <div class="m-table-scroll">
-      <table
-        style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-        <thead>
-          <tr style="background:#0f172a;color:#ffffff">
-            <th style="padding:12px 14px;text-align:left;font-weight:700">Itemized Billing Description (Payment Due Now)
-            </th>
-            <th style="padding:12px 14px;text-align:center;font-weight:700">Billing Basis</th>
-            <th style="padding:12px 14px;text-align:right;font-weight:700">Amount (PKR)</th>
-          </tr>
-        </thead>
-        <tbody>
-          @if (isMeetingRoom(c)) {
-          <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
-            <td style="padding:12px 14px">
-              <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
-              <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
-            </td>
-            <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-              Per Booking Slot
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-              PKR {{ (c.subtotalAmount || c.totalPayable || 0) | number:'1.0-0' }}
-            </td>
-          </tr>
-          } @else {
-          <!-- 1st Advance Rent Period -->
-          <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
-            <td style="padding:12px 14px">
-              <strong style="color:#0f172a">1st Advance Rent Period ({{ getChallanBillingMonths(c) }} Month(s))</strong>
-              <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
-            </td>
-            <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-              {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.0-0' }}
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-              PKR {{ getChallanFirstCycleRent(c) | number:'1.0-0' }}
-            </td>
-          </tr>
+        <table
+          style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+          <thead>
+            <tr style="background:#0f172a;color:#ffffff">
+              <th style="padding:12px 14px;text-align:left;font-weight:700">Itemized Billing Description (Payment Due
+                Now)
+              </th>
+              <th style="padding:12px 14px;text-align:center;font-weight:700">Billing Basis</th>
+              <th style="padding:12px 14px;text-align:right;font-weight:700">Amount (PKR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (isMeetingRoom(c)) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
+                <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                Per Booking Slot
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                PKR {{ (c.subtotalAmount || c.totalPayable || 0) | number:'1.0-0' }}
+              </td>
+            </tr>
+            } @else {
+            <!-- 1st Advance Rent Period -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">1st Advance Rent Period ({{ getChallanBillingMonths(c) }}
+                  Month(s))</strong>
+                <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.0-0' }}
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                PKR {{ getChallanFirstCycleRent(c) | number:'1.0-0' }}
+              </td>
+            </tr>
 
-          <!-- Security Deposit (only when the stored deposit > 0) -->
-          @if (getChallanSecurityDeposit(c) > 0) {
-          <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
-            <td style="padding:12px 14px">
-              <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
-              <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination</div>
-            </td>
-            <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-              @if (getChallanSecurityMonths(c) > 0) { {{ getChallanSecurityMonths(c) }} Month(s) Equivalent } @else { Refundable }
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
-              PKR {{ getChallanSecurityDeposit(c) | number:'1.0-0' }}
-            </td>
-          </tr>
-          }
-          }
+            <!-- Security Deposit (only when the stored deposit > 0) -->
+            @if (getChallanSecurityDeposit(c) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
+                <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                @if (getChallanSecurityMonths(c) > 0) { {{ getChallanSecurityMonths(c) }} Month(s) Equivalent } @else {
+                Refundable }
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
+                PKR {{ getChallanSecurityDeposit(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
+            }
 
-          <!-- Provincial Sales Tax (PST) on Advance Rent -->
-          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getChallanTaxAmount(c) > 0">
-            <td style="padding:12px 14px">
-              <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
-              <div style="font-size:0.78rem;color:#166534">16% PST on Support Charges (PKR 2,000/seat/mo)</div>
-            </td>
-            <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
-              16% on Support Services
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
-              + PKR {{ getChallanTaxAmount(c) | number:'1.0-0' }}
-            </td>
-          </tr>
+            <!-- Provincial Sales Tax (PST) on Advance Rent -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getChallanTaxAmount(c) > 0">
+              <td style="padding:12px 14px">
+                <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+                <div style="font-size:0.78rem;color:#166534">16% PST on Support Charges (PKR 2,000/seat/mo)</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+                16% on Support Services
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ getChallanTaxAmount(c) | number:'1.0-0' }}
+              </td>
+            </tr>
 
-          <!-- Special Discount if any -->
-          <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5" *ngIf="getChallanFirstCycleDiscount(c) > 0">
-            <td style="padding:12px 14px;color:#16a34a">
-              <strong>Special Discount Applied</strong>
-            </td>
-            <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
-              Discount Offset
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
-              - PKR {{ getChallanFirstCycleDiscount(c) | number:'1.0-0' }}
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <!-- Grand Total Payable Row -->
-          <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
-            <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
-              TOTAL INITIAL AMOUNT PAYABLE (NOW)
-            </td>
-            <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
-              PKR {{ getChallanInitialPayable(c) | number:'1.0-0' }}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+            <!-- Special Discount if any -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5" *ngIf="getChallanFirstCycleDiscount(c) > 0">
+              <td style="padding:12px 14px;color:#16a34a">
+                <strong>Special Discount Applied</strong>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+                Discount Offset
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
+                - PKR {{ getChallanFirstCycleDiscount(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <!-- Grand Total Payable Row -->
+            <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+              <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
+                TOTAL INITIAL AMOUNT PAYABLE (NOW)
+              </td>
+              <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
+                PKR {{ getChallanInitialPayable(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
       <!-- Booking Reference Banner -->
@@ -1755,14 +1822,14 @@
           <div>2. Worknest will charge Provincial Sales Tax on service.</div>
           <div>3. Payment must be made before the challan expiry date to confirm the booking.</div>
           @if (getChallanSecurityDeposit(c) > 0) {
-            <div>4. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
-            <div>5. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.
-            </div>
-            <div>6. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          <div>4. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
+          <div>5. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.
+          </div>
+          <div>6. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
           } @else {
-            <!-- No security deposit: no deposit terms (owner's rule, 16 Oct 2026) -->
-            <div>4. Cancellation policy applies as per the signed agreement.</div>
-            <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          <!-- No security deposit: no deposit terms (owner's rule, 16 Oct 2026) -->
+          <div>4. Cancellation policy applies as per the signed agreement.</div>
+          <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
           }
         </div>
       </div>
@@ -1780,8 +1847,7 @@
       data-challan-actions>
       <button class="btn-admin btn-outline-admin" (click)="showChallanModal.set(false)">Close</button>
       <div style="display:flex;gap:10px">
-        <button class="btn-admin" (click)="sendInitialInvoice(c)"
-          [disabled]="sendingInitialInvoiceId() !== null"
+        <button class="btn-admin" (click)="sendInitialInvoice(c)" [disabled]="sendingInitialInvoiceId() !== null"
           style="background:#1d4ed8;color:#fff;border:none;display:flex;align-items:center;gap:6px">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1835,8 +1901,7 @@
 
 @if (showQuotationForm()) {
 <div class="modal-overlay sheet-overlay" (click)="closeAdminQuotationForm()">
-  <div class="modal-content booking-modal sheet-modal"
-    (click)="$event.stopPropagation()">
+  <div class="modal-content booking-modal sheet-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeAdminQuotationForm()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1902,8 +1967,8 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId" [disabled]="locationLocked"
-            (change)="onQuotationLocationChange()">
+          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId"
+            [disabled]="locationLocked" (change)="onQuotationLocationChange()">
             @for (loc of locationOptions(); track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
             }
@@ -1931,7 +1996,8 @@
             <option [value]="st.v">{{ st.l }}</option>
             }
           </select>
-          @if (spaceTypeHintAt(selectedQuotationLocationId, spaceTypeOptionsAt(selectedQuotationLocationId).length); as hint) {
+          @if (spaceTypeHintAt(selectedQuotationLocationId, spaceTypeOptionsAt(selectedQuotationLocationId).length); as
+          hint) {
           <small class="space-type-hint">{{ hint }}</small>
           }
         </div>
@@ -2025,8 +2091,8 @@
       @if (quotationMeetingRoomMode === 'slot') {
       <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
         <label>Date *</label>
-        <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate"
-          required (change)="generateQuotationMeetingSlots()" />
+        <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" required
+          (change)="generateQuotationMeetingSlots()" />
       </div>
       <div class="form-group-admin" data-field="slots" [class.has-error]="quotationFormErrorField === 'slots'">
         <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{
@@ -2051,7 +2117,8 @@
         <div class="form-group-admin" data-field="startDate"
           [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart" required (change)="recalcQuotationAmount()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart" required
+            (change)="recalcQuotationAmount()" />
         </div>
         <div class="form-group-admin">
           <label>End Date *</label>
@@ -2065,8 +2132,8 @@
         <div class="form-group-admin" data-field="startDate"
           [class.has-error]="quotationFormErrorField === 'startDate'">
           <label>Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate"
-            required (change)="onQuotationMonthPeriodChange()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" required
+            (change)="onQuotationMonthPeriodChange()" />
         </div>
         <div class="form-group-admin">
           <label>Number of Months * <small style="color:#94a3b8">(min 1)</small></label>
@@ -2097,10 +2164,13 @@
           [class.has-error]="quotationFormErrorField === 'discount' || !!quotationDiscountError()">
           <label>Discount Value
             @if (quotationDiscountType === 'Percentage') {
-            <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%@if (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{ quotationFloorPerSeat | number:'1.0-0' }}/seat})</small>
+            <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%@if
+              (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{ quotationFloorPerSeat |
+              number:'1.0-0' }}/seat})</small>
             } @else {
             <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ quotationMaxAllowedDiscountFixed |
-              number:'1.0-0' }}@if (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{ quotationFloorPerSeat | number:'1.0-0' }}/seat})</small>
+              number:'1.0-0' }}@if (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{
+              quotationFloorPerSeat | number:'1.0-0' }}/seat})</small>
             }
           </label>
           <input class="form-input-admin" [class.is-invalid]="quotationDiscountError()" type="number" min="0"
@@ -2138,13 +2208,14 @@
         <div class="form-group-admin" data-field="securityDepositMonths">
           <label for="qSecMonths">Security Deposit (Months)</label>
           @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
-          <select id="qSecMonths" class="form-input-admin" [(ngModel)]="quotationSecurityDepositMonths" name="qSecMonths"
-            (ngModelChange)="recalcQuotationAmount()" aria-describedby="qSecMonthsHint">
+          <select id="qSecMonths" class="form-input-admin" [(ngModel)]="quotationSecurityDepositMonths"
+            name="qSecMonths" (ngModelChange)="recalcQuotationAmount()" aria-describedby="qSecMonthsHint">
             @for (o of securityDepositMonthOptions; track o.v) {
             <option [ngValue]="o.v">{{ o.l }}</option>
             }
           </select>
-          <small id="qSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
+          <small id="qSecMonthsHint"
+            style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
             @if (effectiveQuotationSecurityDeposit > 0) {
             Deposit: <strong style="color:#0f172a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.0-2' }}</strong>
             ({{ quotationDepositMonths }} x monthly rent, less the rent discount)
@@ -2158,7 +2229,9 @@
           <select id="qSecMonths" class="form-input-admin" disabled aria-describedby="qSecMonthsHint">
             <option selected>No deposit</option>
           </select>
-          <small id="qSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no security deposit</small>
+          <small id="qSecMonthsHint"
+            style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no
+            security deposit</small>
           }
         </div>
       </div>
@@ -2167,8 +2240,7 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Valid Until *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil"
-            required />
+          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" required />
         </div>
         <div class="form-group-admin">
           <label>Remarks</label>
@@ -2237,8 +2309,7 @@
 
 @if (showBookingForm()) {
 <div class="modal-overlay sheet-overlay" (click)="closeAdminBookingForm()">
-  <div class="modal-content booking-modal sheet-modal"
-    (click)="$event.stopPropagation()">
+  <div class="modal-content booking-modal sheet-modal" (click)="$event.stopPropagation()">
     <button class="modal-close" (click)="closeAdminBookingForm()" title="Close" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2305,11 +2376,9 @@
         </div>
         <div class="form-group-admin" data-field="phone" [class.has-error]="bookingFormErrorField === 'phone'">
           <label>Phone @if (isCustomerFieldEmpty('phone')) { <span class="field-required-badge">fill in</span> }</label>
-          <input class="form-input-admin" [(ngModel)]="bookingFormData.phone" name="phone"
-            #bkPhoneCtrl="ngModel"
+          <input class="form-input-admin" [(ngModel)]="bookingFormData.phone" name="phone" #bkPhoneCtrl="ngModel"
             [readonly]="!isCustomerFieldEmpty('phone')"
-            [attr.maxlength]="isCustomerFieldEmpty('phone') ? phoneMaxLength : null"
-            inputmode="tel"
+            [attr.maxlength]="isCustomerFieldEmpty('phone') ? phoneMaxLength : null" inputmode="tel"
             (input)="isCustomerFieldEmpty('phone') && onPhoneFieldInput($event, bookingFormData, 'phone')"
             [placeholder]="isCustomerFieldEmpty('phone') ? 'e.g. 03001234567' : ''"
             [style.background]="isCustomerFieldEmpty('phone') ? '#fff' : '#f1f5f9'" />
@@ -2323,14 +2392,13 @@
           <label>CNIC / Passport @if (isCustomerFieldEmpty('cnicOrPassport')) { <span class="field-required-badge">fill
               in</span> }</label>
           <input class="form-input-admin" [(ngModel)]="bookingFormData.cnicOrPassport" name="cnicOrPassport"
-            #bkCnicCtrl="ngModel"
-            [readonly]="!isCustomerFieldEmpty('cnicOrPassport')"
-            [attr.maxlength]="isCustomerFieldEmpty('cnicOrPassport') ? cnicMaxLength : null"
-            inputmode="numeric"
+            #bkCnicCtrl="ngModel" [readonly]="!isCustomerFieldEmpty('cnicOrPassport')"
+            [attr.maxlength]="isCustomerFieldEmpty('cnicOrPassport') ? cnicMaxLength : null" inputmode="numeric"
             (input)="isCustomerFieldEmpty('cnicOrPassport') && onCnicFieldInput($event, bookingFormData, 'cnicOrPassport')"
             [placeholder]="isCustomerFieldEmpty('cnicOrPassport') ? 'e.g. 42101-1234567-1' : ''"
             [style.background]="isCustomerFieldEmpty('cnicOrPassport') ? '#fff' : '#f1f5f9'" />
-          @if (isCustomerFieldEmpty('cnicOrPassport') && bkCnicCtrl.touched && cnicError(bookingFormData.cnicOrPassport); as msg) {
+          @if (isCustomerFieldEmpty('cnicOrPassport') && bkCnicCtrl.touched &&
+          cnicError(bookingFormData.cnicOrPassport); as msg) {
           <small class="field-error-text">{{ msg }}</small>
           }
         </div>
@@ -2359,8 +2427,8 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId" [disabled]="locationLocked"
-            (change)="onBookingLocationChange()">
+          <select class="form-input-admin" [(ngModel)]="selectedLocationId" name="bookingLocationId"
+            [disabled]="locationLocked" (change)="onBookingLocationChange()">
             @for (loc of locationOptions(); track loc.v) {
             <option [value]="loc.v">{{ loc.l }}</option>
             }
@@ -2425,16 +2493,17 @@
         <div class="form-group-admin" data-field="basePrice" [class.has-error]="!!bookingBasePriceError()">
           <label>Base Price (per seat) *
             @if (bookingMinPerSeatBasePrice > 0) {
-            <small style="color:#64748b;font-weight:500">(Min: PKR {{ bookingMinPerSeatBasePrice | number:'1.0-0' }})</small>
+            <small style="color:#64748b;font-weight:500">(Min: PKR {{ bookingMinPerSeatBasePrice | number:'1.0-0'
+              }})</small>
             }
           </label>
           <input class="form-input-admin" [class.is-invalid]="bookingBasePriceError()" type="number"
             [min]="bookingMinPerSeatBasePrice || 0" [(ngModel)]="bookingPerSeatBasePrice" name="bookingPerSeatPrice"
-            (ngModelChange)="onBookingBasePriceChange()" required
-            [disabled]="!bookingFormData.spaceId"
+            (ngModelChange)="onBookingBasePriceChange()" required [disabled]="!bookingFormData.spaceId"
             [placeholder]="bookingFormData.spaceId ? '0' : 'Select a space first'" />
           @if (bookingBasePriceError()) {
-          <div style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500">{{ bookingBasePriceError() }}</div>
+          <div style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500">{{ bookingBasePriceError() }}
+          </div>
           }
         </div>
         }
@@ -2468,8 +2537,8 @@
       @if (meetingRoomBookingMode === 'slot') {
       <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
         <label>Date *</label>
-        <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDate" name="adminMeetingDate"
-          required (change)="generateAdminMeetingSlots()" />
+        <input class="form-input-admin" type="date" [(ngModel)]="adminMeetingDate" name="adminMeetingDate" required
+          (change)="generateAdminMeetingSlots()" />
       </div>
       <div class="form-group-admin" data-field="slots" [class.has-error]="bookingFormErrorField === 'slots'">
         <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{
@@ -2493,7 +2562,8 @@
       <div class="form-row-admin">
         <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
           <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart" required (change)="onAdminMeetingDayChange()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminMeetingDayStart" required
+            (change)="onAdminMeetingDayChange()" />
         </div>
         <div class="form-group-admin">
           <label>End Date *</label>
@@ -2506,8 +2576,8 @@
       <div class="form-row-admin">
         <div class="form-group-admin" data-field="startDate" [class.has-error]="bookingFormErrorField === 'startDate'">
           <label>Booking Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminStartDate"
-            required (change)="onAdminMonthPeriodChange()" />
+          <input class="form-input-admin" type="date" [(ngModel)]="adminStartDate" name="adminStartDate" required
+            (change)="onAdminMonthPeriodChange()" />
         </div>
         <div class="form-group-admin">
           <label>Number of Months * <small style="color:#94a3b8">(min 1)</small></label>
@@ -2587,7 +2657,8 @@
             <option [ngValue]="o.v">{{ o.l }}</option>
             }
           </select>
-          <small id="bookingSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
+          <small id="bookingSecMonthsHint"
+            style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
             @if (effectiveSecurityDeposit > 0) {
             Deposit: <strong style="color:#0f172a">PKR {{ effectiveSecurityDeposit | number:'1.0-2' }}</strong>
             ({{ bookingDepositMonths }} x monthly rent, less the rent discount)
@@ -2604,14 +2675,16 @@
           <select id="bookingSecMonths" class="form-input-admin" disabled aria-describedby="bookingSecMonthsHint">
             <option selected>No deposit</option>
           </select>
-          <small id="bookingSecMonthsHint" style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no security deposit</small>
+          <small id="bookingSecMonthsHint"
+            style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no
+            security deposit</small>
           }
         </div>
       </div>
       }
       @if (!editingBookingId) {
-      <app-wht-invoice-fields idPrefix="bWht" [showErrors]="bookingWhtTouched"
-        [(enabled)]="bookingSendWht" [(rate)]="bookingWhtRate" />
+      <app-wht-invoice-fields idPrefix="bWht" [showErrors]="bookingWhtTouched" [(enabled)]="bookingSendWht"
+        [(rate)]="bookingWhtRate" />
       }
       <div class="form-group-admin">
         <label>Notes</label>
@@ -2759,7 +2832,8 @@
             }
           </select>
           <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.phoneNumber" name="qcPhone"
-            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onQuickPhoneInput($event)" style="flex:1" />
+            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onQuickPhoneInput($event)"
+            style="flex:1" />
         </div>
         <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
           Country code will be joined automatically.</small>
@@ -2966,7 +3040,8 @@
 
       <!-- Security Deposit & Billing Schedule Summary (not shown when the booking has no deposit) -->
       @if (bookingBillingSummaryData(); as summary) {
-      @if ((summary.securityDepositRequired ?? 0) > 0 || (summary.securityDepositInvoiced ?? 0) > 0 || (summary.securityDepositPaid ?? 0) > 0) {
+      @if ((summary.securityDepositRequired ?? 0) > 0 || (summary.securityDepositInvoiced ?? 0) > 0 ||
+      (summary.securityDepositPaid ?? 0) > 0) {
       <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin-bottom:20px">
         <h4 style="margin:0 0 12px 0;font-size:0.9rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px">
           Security Deposit Status</h4>
@@ -3030,6 +3105,16 @@
         <button class="btn-admin btn-outline-admin" (click)="viewBillingChallan(booking)">
           View Current Billing Challan
         </button>
+        <button class="btn-admin" (click)="generateRecurringInvoice(booking)"
+          [disabled]="generatingRecurringInvoiceId() === (booking.id || booking.bookingId)"
+          style="background:#7c3aed;color:#fff;border:none;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+          </svg>
+          {{ generatingRecurringInvoiceId() === (booking.id || booking.bookingId) ? 'Generating...' : 'Generate
+          Recurring Invoice' }}
+        </button>
         <button class="btn-admin btn-primary-admin"
           (click)="showBookingDetailsModal.set(false); openAdminBookingForm(booking)"
           style="background:#2563eb;color:#fff">
@@ -3061,7 +3146,8 @@
           ('INV-' + inv.id) }}</div>
         @if (inv.OneBillNumber || inv.oneBillNumber) {
         <div style="font-size:.7rem;opacity:.7;margin-top:6px">1Bill Consumer No.</div>
-        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.OneBillNumber || inv.oneBillNumber }}</div>
+        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.OneBillNumber || inv.oneBillNumber }}
+        </div>
         }
       </div>
     </div>
@@ -3142,17 +3228,21 @@
           <div
             style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
             <span>Total Amount</span>
-            <span>PKR {{ (inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount ?? inv.total ?? inv.Total ?? 0) | number:'1.0-0' }}</span>
+            <span>PKR {{ (inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount ?? inv.total ??
+              inv.Total ?? 0) | number:'1.0-0' }}</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#166534">
             <span>Amount Paid</span>
-            <span>PKR {{ (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? inv.amountPaid ?? inv.AmountPaid ?? 0) | number:'1.0-0' }}</span>
+            <span>PKR {{ (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? inv.amountPaid ??
+              inv.AmountPaid ?? 0) | number:'1.0-0' }}</span>
           </div>
           <div
             style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
             <span>Balance Due</span>
-            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balanceDue ?? inv.BalanceDue ?? inv.balance ?? ((inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount
-              ?? 0) - (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? 0))) | number:'1.0-0' }}</span>
+            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balanceDue ?? inv.BalanceDue ?? inv.balance ??
+              ((inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount
+              ?? 0) - (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? 0))) | number:'1.0-0'
+              }}</span>
           </div>
         </div>
       </div>
@@ -3202,11 +3292,13 @@
     <form (ngSubmit)="submitRecordPayment()">
       <div class="form-group-admin">
         <label>Amount (PKR) *</label>
-        <input type="number" class="form-input-admin" [(ngModel)]="recordPaymentFormData.paidAmount" name="paidAmount" required min="1" step="any" placeholder="Enter paid amount" />
+        <input type="number" class="form-input-admin" [(ngModel)]="recordPaymentFormData.paidAmount" name="paidAmount"
+          required min="1" step="any" placeholder="Enter paid amount" />
       </div>
       <div class="form-group-admin">
         <label>Payment Method *</label>
-        <select class="form-input-admin" [(ngModel)]="recordPaymentFormData.paymentMethod" name="paymentMethod" required>
+        <select class="form-input-admin" [(ngModel)]="recordPaymentFormData.paymentMethod" name="paymentMethod"
+          required>
           <option value="Bank Transfer">Bank Transfer</option>
           <option value="Cash">Cash</option>
           <option value="Cheque">Cheque</option>
@@ -3216,15 +3308,19 @@
       </div>
       <div class="form-group-admin">
         <label>Transaction Reference / Cheque #</label>
-        <input type="text" class="form-input-admin" [(ngModel)]="recordPaymentFormData.transactionRef" name="transactionRef" placeholder="e.g. TR-123456" />
+        <input type="text" class="form-input-admin" [(ngModel)]="recordPaymentFormData.transactionRef"
+          name="transactionRef" placeholder="e.g. TR-123456" />
       </div>
       <div class="form-group-admin">
         <label>Notes</label>
-        <textarea class="form-input-admin" [(ngModel)]="recordPaymentFormData.notes" name="notes" rows="2" placeholder="Optional notes..."></textarea>
+        <textarea class="form-input-admin" [(ngModel)]="recordPaymentFormData.notes" name="notes" rows="2"
+          placeholder="Optional notes..."></textarea>
       </div>
       <div class="modal-actions" style="margin-top: 1.5rem;">
-        <button type="button" class="btn-admin btn-outline-admin" (click)="showRecordPaymentModal.set(false)" [disabled]="recordPaymentSaving()">Cancel</button>
-        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="recordPaymentSaving() || !recordPaymentFormData.paidAmount || recordPaymentFormData.paidAmount <= 0">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="showRecordPaymentModal.set(false)"
+          [disabled]="recordPaymentSaving()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin"
+          [disabled]="recordPaymentSaving() || !recordPaymentFormData.paidAmount || recordPaymentFormData.paidAmount <= 0">
           {{ recordPaymentSaving() ? 'Recording...' : 'Record Payment' }}
         </button>
       </div>
@@ -3472,108 +3568,109 @@
 
         <!-- Financial Breakdown Table -->
         <div class="m-table-scroll">
-        <table
-          style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-          <thead>
-            <tr style="background:#0f172a;color:#fff">
-              <th style="padding:10px 14px;text-align:left">Itemized Commercial Description</th>
-              <th style="padding:10px 14px;text-align:center">Billing Basis</th>
-              <th style="padding:10px 14px;text-align:right">Amount (PKR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            @if (isMeetingRoom(q)) {
-            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
-              <td style="padding:12px 14px">
-                <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
-                <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-                Per Booking Slot
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-                PKR {{ (q.subtotalAmount || 0) | number:'1.0-0' }}
-              </td>
-            </tr>
-            } @else {
-            <!-- 1st Advance Rent Period -->
-            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
-              <td style="padding:12px 14px">
-                <strong style="color:#0f172a">1st Advance Rent Period ({{ getQuotationBillingMonths(q) }}
-                  Month(s))</strong>
-                <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle (inclusive of support
-                  services)</div>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-                {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.0-0' }}
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
-                PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
-              </td>
-            </tr>
+          <table
+            style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="background:#0f172a;color:#fff">
+                <th style="padding:10px 14px;text-align:left">Itemized Commercial Description</th>
+                <th style="padding:10px 14px;text-align:center">Billing Basis</th>
+                <th style="padding:10px 14px;text-align:right">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (isMeetingRoom(q)) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+                <td style="padding:12px 14px">
+                  <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
+                  <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                  Per Booking Slot
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                  PKR {{ (q.subtotalAmount || 0) | number:'1.0-0' }}
+                </td>
+              </tr>
+              } @else {
+              <!-- 1st Advance Rent Period -->
+              <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+                <td style="padding:12px 14px">
+                  <strong style="color:#0f172a">1st Advance Rent Period ({{ getQuotationBillingMonths(q) }}
+                    Month(s))</strong>
+                  <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle (inclusive of support
+                    services)</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                  {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.0-0' }}
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                  PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
+                </td>
+              </tr>
 
-            <!-- Special Discount if any -->
-            @if (getQuotationDiscountAmount(q) > 0) {
-            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
-              <td style="padding:12px 14px;color:#16a34a">
-                <strong>Special Discount Applied ({{ getQuotationDiscountPercentage(q) }}%)</strong>
-                <div style="font-size:0.78rem;color:#16a34a">Discount applied to advance rent</div>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
-                Rent Discount Offset
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
-                - PKR {{ getQuotationDiscountAmount(q) | number:'1.0-0' }}
-              </td>
-            </tr>
-            }
+              <!-- Special Discount if any -->
+              @if (getQuotationDiscountAmount(q) > 0) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+                <td style="padding:12px 14px;color:#16a34a">
+                  <strong>Special Discount Applied ({{ getQuotationDiscountPercentage(q) }}%)</strong>
+                  <div style="font-size:0.78rem;color:#16a34a">Discount applied to advance rent</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+                  Rent Discount Offset
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
+                  - PKR {{ getQuotationDiscountAmount(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+              }
 
-            <!-- Provincial Sales Tax (PST - 16%) -->
-            @if (getQuotationTaxAmount(q) > 0) {
-            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
-              <td style="padding:12px 14px">
-                <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
-                <div style="font-size:0.78rem;color:#166534">16% PST on support services portion (PKR 2,000/seat/mo,
-                  itemized on Sales Tax Invoice)</div>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
-                16% on PKR {{ getQuotationSupportCharges(q) | number:'1.0-0' }} Support Portion
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
-                + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
-              </td>
-            </tr>
-            }
+              <!-- Provincial Sales Tax (PST - 16%) -->
+              @if (getQuotationTaxAmount(q) > 0) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+                <td style="padding:12px 14px">
+                  <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+                  <div style="font-size:0.78rem;color:#166534">16% PST on support services portion (PKR 2,000/seat/mo,
+                    itemized on Sales Tax Invoice)</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+                  16% on PKR {{ getQuotationSupportCharges(q) | number:'1.0-0' }} Support Portion
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+                  + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+              }
 
-            <!-- Security Deposit (Refundable) -->
-            @if (getQuotationSecurityDeposit(q) > 0) {
-            <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
-              <td style="padding:12px 14px">
-                <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
-                <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination (mirrors {{
-                  getQuotationDiscountPercentage(q) }}% discount)</div>
-              </td>
-              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
-                @if (getQuotationSecurityMonths(q) > 0) { {{ getQuotationSecurityMonths(q) }} Month(s) Equivalent } @else { Refundable }
-              </td>
-              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
-                PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
-              </td>
-            </tr>
-            }
-            }
-          </tbody>
-          <tfoot>
-            <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
-              <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
-                TOTAL INITIAL PAYABLE AMOUNT (1ST BILLING CYCLE)
-              </td>
-              <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
-                PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+              <!-- Security Deposit (Refundable) -->
+              @if (getQuotationSecurityDeposit(q) > 0) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
+                <td style="padding:12px 14px">
+                  <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
+                  <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination (mirrors {{
+                    getQuotationDiscountPercentage(q) }}% discount)</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                  @if (getQuotationSecurityMonths(q) > 0) { {{ getQuotationSecurityMonths(q) }} Month(s) Equivalent }
+                  @else { Refundable }
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
+                  PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+              }
+              }
+            </tbody>
+            <tfoot>
+              <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+                <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
+                  TOTAL INITIAL PAYABLE AMOUNT (1ST BILLING CYCLE)
+                </td>
+                <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
+                  PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
         <!-- Terms Footer -->
@@ -3584,7 +3681,7 @@
             <li>Worknest will charge Provincial Sales Tax on services.</li>
             <li>Quotation validity is subject to space availability at the time of customer acceptance.</li>
             @if (getQuotationSecurityDeposit(q) > 0) {
-              <li>Security deposit is fully refundable upon completion of contract period.</li>
+            <li>Security deposit is fully refundable upon completion of contract period.</li>
             }
             <li>All utility charges, high-speed Wi-Fi, and cleaning are included unless specified otherwise.</li>
           </ol>
@@ -3679,70 +3776,74 @@
 
       <!-- Financial Conversion Itemization Table -->
       <div class="m-table-scroll">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
-        <thead>
-          <tr style="background:#0f172a;color:#fff">
-            <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Booking Line Item Description</th>
-            <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom:1px solid #e2e8f0">
-            <td style="padding:10px 14px">
-              <strong>{{ isMeetingRoom(q) ? 'Booking Rent' : ('1st Cycle Advance Rent (' + getQuotationBillingMonths(q)
-                + ' Month(s))') }}</strong>
-              <div style="font-size:0.75rem;color:#64748b">Advance rent for initial billed period (before discount &
-                tax)</div>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600">
-              PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
-            </td>
-          </tr>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
+          <thead>
+            <tr style="background:#0f172a;color:#fff">
+              <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Booking Line Item Description
+              </th>
+              <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:10px 14px">
+                <strong>{{ isMeetingRoom(q) ? 'Booking Rent' : ('1st Cycle Advance Rent (' +
+                  getQuotationBillingMonths(q)
+                  + ' Month(s))') }}</strong>
+                <div style="font-size:0.75rem;color:#64748b">Advance rent for initial billed period (before discount &
+                  tax)</div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600">
+                PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
+              </td>
+            </tr>
 
-          @if (getQuotationDiscountAmount(q) > 0) {
-          <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
-            <td style="padding:10px 14px;color:#16a34a">
-              <strong>Special Discount</strong>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
-              - PKR {{ getQuotationDiscountAmount(q) | number:'1.0-0' }}
-            </td>
-          </tr>
-          }
+            @if (getQuotationDiscountAmount(q) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+              <td style="padding:10px 14px;color:#16a34a">
+                <strong>Special Discount</strong>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
+                - PKR {{ getQuotationDiscountAmount(q) | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
 
-          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
-            <td style="padding:10px 14px">
-              <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
-              <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking lines
-                & challan</div>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
-            </td>
-          </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+              <td style="padding:10px 14px">
+                <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
+                <div style="font-size:0.75rem;color:#166534">Effective-dated tax snapshot to be persisted on booking
+                  lines
+                  & challan</div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
+              </td>
+            </tr>
 
-          @if (getQuotationSecurityDeposit(q) > 0) {
-          <tr style="border-bottom:1px solid #e2e8f0">
-            <td style="padding:10px 14px">
-              <strong>Security Deposit (Refundable)</strong>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600">
-              + PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
-            </td>
-          </tr>
-          }
-        </tbody>
-        <tfoot>
-          <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
-            <td style="padding:12px 14px;font-weight:800;color:#1e40af">
-              Initial Challan Amount Payable (1st Cycle Rent + Tax@if (getQuotationSecurityDeposit(q) > 0) { + Security Deposit})
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
-              PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+            @if (getQuotationSecurityDeposit(q) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:10px 14px">
+                <strong>Security Deposit (Refundable)</strong>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600">
+                + PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+              <td style="padding:12px 14px;font-weight:800;color:#1e40af">
+                Initial Challan Amount Payable (1st Cycle Rent + Tax@if (getQuotationSecurityDeposit(q) > 0) { +
+                Security Deposit})
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
+                PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
     </div>
@@ -3797,9 +3898,11 @@
     <div
       style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
       <div style="font-size:0.82rem;color:#1e40af">
-        Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>,@if (initialInvoicePreview()?.securityDeposit > 0) { <strong>Security Deposit</strong>,}
+        Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>,@if
+        (initialInvoicePreview()?.securityDeposit > 0) { <strong>Security Deposit</strong>,}
         and <strong>Bank Payment Procedure</strong> directly to the customer.
-        @if (initialInvoiceIssuedOn()) { The invoice is dated <strong>{{ initialInvoiceIssuedOn() | date:'d MMM y' }}</strong> (the signed agreement's date). }
+        @if (initialInvoiceIssuedOn()) { The invoice is dated <strong>{{ initialInvoiceIssuedOn() | date:'d MMM y'
+          }}</strong> (the signed agreement's date). }
       </div>
     </div>
 
@@ -3838,9 +3941,11 @@
 
       <!-- Invoice type: Standard or Withholding Tax (WHT). Not shown when the first invoice already exists (it is only re-sent). -->
       @if (!initialInvoicePreview()?.hasExistingInvoice) {
-      <div class="m-stack" style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="m-stack"
+        style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div>
-          <label for="initInvType" style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">Invoice Type</label>
+          <label for="initInvType"
+            style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">Invoice Type</label>
           <select id="initInvType" class="form-input-admin" style="width:100%;font-size:0.9rem"
             [ngModel]="initialInvoiceType()" (ngModelChange)="onInitialInvoiceTypeChange($event)"
             [disabled]="sendingInitialInvoiceId() !== null">
@@ -3850,13 +3955,15 @@
         </div>
         @if (initialInvoiceType() === 'wht') {
         <div>
-          <label for="initInvWhtRate" style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">
+          <label for="initInvWhtRate"
+            style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">
             WHT Rate <span style="color:#ef4444">*</span>
           </label>
           <select id="initInvWhtRate" class="form-input-admin" style="width:100%;font-size:0.9rem"
             [ngModel]="initialInvoiceWhTaxId()" (ngModelChange)="onInitialInvoiceWhtRateChange($event)"
             [disabled]="sendingInitialInvoiceId() !== null">
-            <option [ngValue]="null" disabled>{{ initialInvoiceWhtRates().length ? 'Select WHT rate' : 'Loading…' }}</option>
+            <option [ngValue]="null" disabled>{{ initialInvoiceWhtRates().length ? 'Select WHT rate' : 'Loading…' }}
+            </option>
             @for (o of initialInvoiceWhtRates(); track o.id) {
             <option [ngValue]="o.id">{{ o.description }} ({{ o.rate }}%)</option>
             }
@@ -3867,106 +3974,114 @@
       }
 
       @if (initialInvoiceNeedsWhtRate()) {
-      <div style="padding:16px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;margin-bottom:20px;font-size:0.88rem">
+      <div
+        style="padding:16px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;margin-bottom:20px;font-size:0.88rem">
         Select a WHT rate to calculate the withholding tax invoice.
       </div>
       } @else if (initialInvoicePreview(); as pv) {
       <!-- Financial Conversion Itemization Table -->
       <div class="m-table-scroll">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
-        <thead>
-          <tr style="background:#0f172a;color:#fff">
-            <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Line Description</th>
-            <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom:1px solid #e2e8f0">
-            <td style="padding:10px 14px">
-              <strong>1st Cycle Advance Rent ({{ pv.billingMonths }} Month(s))</strong>
-              <div style="font-size:0.75rem;color:#64748b">
-                {{ pv.description }}
-              </div>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600">
-              PKR {{ pv.rent | number:'1.0-0' }}
-            </td>
-          </tr>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
+          <thead>
+            <tr style="background:#0f172a;color:#fff">
+              <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Line Description</th>
+              <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:10px 14px">
+                <strong>1st Cycle Advance Rent ({{ pv.billingMonths }} Month(s))</strong>
+                <div style="font-size:0.75rem;color:#64748b">
+                  {{ pv.description }}
+                </div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600">
+                PKR {{ pv.rent | number:'1.0-0' }}
+              </td>
+            </tr>
 
-          @if (pv.discount > 0) {
-          <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
-            <td style="padding:10px 14px;color:#16a34a">
-              <strong>Special Discount @if (pv.discountPercentage) { ({{ pv.discountPercentage }}%) }</strong>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
-              - PKR {{ pv.discount | number:'1.0-0' }}
-            </td>
-          </tr>
-          }
+            @if (pv.discount > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+              <td style="padding:10px 14px;color:#16a34a">
+                <strong>Special Discount @if (pv.discountPercentage) { ({{ pv.discountPercentage }}%) }</strong>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
+                - PKR {{ pv.discount | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
 
-          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
-            <td style="padding:10px 14px">
-              <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
-              <div style="font-size:0.75rem;color:#166534">Effective-dated provincial tax snapshot</div>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
-              + PKR {{ pv.tax | number:'1.0-0' }}
-            </td>
-          </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+              <td style="padding:10px 14px">
+                <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
+                <div style="font-size:0.75rem;color:#166534">Effective-dated provincial tax snapshot</div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ pv.tax | number:'1.0-0' }}
+              </td>
+            </tr>
 
-          @if (pv.isWhtInvoice) {
-          <tr style="border-bottom:1px solid #e2e8f0;background:#fffbeb">
-            <td style="padding:10px 14px">
-              <strong style="color:#92400e">Withholding Tax Gross-up ({{ pv.whtRatePercent }}%)</strong>
-              <div style="font-size:0.75rem;color:#92400e">Rent + support grossed up; support, tax and deposit are not.</div>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600;color:#92400e">
-              + PKR {{ pv.whtGrossUp | number:'1.0-2' }}
-            </td>
-          </tr>
-          }
+            @if (pv.isWhtInvoice) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fffbeb">
+              <td style="padding:10px 14px">
+                <strong style="color:#92400e">Withholding Tax Gross-up ({{ pv.whtRatePercent }}%)</strong>
+                <div style="font-size:0.75rem;color:#92400e">Rent + support grossed up; support, tax and deposit are
+                  not.</div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#92400e">
+                + PKR {{ pv.whtGrossUp | number:'1.0-2' }}
+              </td>
+            </tr>
+            }
 
-          @if (pv.securityDeposit > 0) {
-          <tr style="border-bottom:1px solid #e2e8f0">
-            <td style="padding:10px 14px">
-              <strong>Security Deposit (Refundable)</strong>
-            </td>
-            <td style="padding:10px 14px;text-align:right;font-weight:600">
-              + PKR {{ pv.securityDeposit | number:'1.0-0' }}
-            </td>
-          </tr>
-          }
-        </tbody>
-        <tfoot>
-          <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
-            <td style="padding:12px 14px;font-weight:800;color:#1e40af">
-              Total Initial Amount Payable
-            </td>
-            <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
-              PKR {{ pv.grandTotal | number:'1.0-0' }}
-            </td>
-          </tr>
-          @if (pv.isWhtInvoice) {
-          <tr style="font-size:0.88rem">
-            <td style="padding:8px 14px;color:#92400e">Less Withholding Tax ({{ pv.whtRatePercent }}%) withheld by the customer</td>
-            <td style="padding:8px 14px;text-align:right;color:#92400e">- PKR {{ pv.whtAmount | number:'1.0-2' }}</td>
-          </tr>
-          <tr style="font-size:0.9rem">
-            <td style="padding:8px 14px;font-weight:700">Net Payable</td>
-            <td style="padding:8px 14px;text-align:right;font-weight:700">PKR {{ pv.netPayableAfterWht | number:'1.0-2' }}</td>
-          </tr>
-          }
-        </tfoot>
-      </table>
+            @if (pv.securityDeposit > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:10px 14px">
+                <strong>Security Deposit (Refundable)</strong>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600">
+                + PKR {{ pv.securityDeposit | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+              <td style="padding:12px 14px;font-weight:800;color:#1e40af">
+                Total Initial Amount Payable
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
+                PKR {{ pv.grandTotal | number:'1.0-0' }}
+              </td>
+            </tr>
+            @if (pv.isWhtInvoice) {
+            <tr style="font-size:0.88rem">
+              <td style="padding:8px 14px;color:#92400e">Less Withholding Tax ({{ pv.whtRatePercent }}%) withheld by the
+                customer</td>
+              <td style="padding:8px 14px;text-align:right;color:#92400e">- PKR {{ pv.whtAmount | number:'1.0-2' }}</td>
+            </tr>
+            <tr style="font-size:0.9rem">
+              <td style="padding:8px 14px;font-weight:700">Net Payable</td>
+              <td style="padding:8px 14px;text-align:right;font-weight:700">PKR {{ pv.netPayableAfterWht |
+                number:'1.0-2' }}</td>
+            </tr>
+            }
+          </tfoot>
+        </table>
       </div>
       } @else if (initialInvoicePreviewLoading()) {
-      <div style="padding:28px;text-align:center;color:#64748b;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px">
+      <div
+        style="padding:28px;text-align:center;color:#64748b;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px">
         Calculating the invoice&hellip;
       </div>
       } @else {
-      <div style="padding:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;margin-bottom:20px;font-size:0.88rem;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div
+        style="padding:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;margin-bottom:20px;font-size:0.88rem;display:flex;justify-content:space-between;align-items:center;gap:12px">
         <span>{{ initialInvoicePreviewError() || 'The invoice could not be calculated.' }} Nothing has been sent.</span>
-        <button class="btn-admin btn-outline-admin" (click)="loadInitialInvoicePreview(+(item.bookingId || item.BookingId || item.id || item.Id), initialInvoiceIssuedOn())">Try again</button>
+        <button class="btn-admin btn-outline-admin"
+          (click)="loadInitialInvoicePreview(+(item.bookingId || item.BookingId || item.id || item.Id), initialInvoiceIssuedOn())">Try
+          again</button>
       </div>
       }
 
@@ -4254,9 +4369,8 @@
       <div class="form-row-admin">
         <div class="form-group-admin">
           <label>Phone Number</label>
-          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone"
-            name="agCustPhone" #agCustPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel"
-            placeholder="e.g. 03001234567"
+          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone" name="agCustPhone"
+            #agCustPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" placeholder="e.g. 03001234567"
             (input)="onPhoneFieldInput($event, sendAgreementData, 'customerPhone')"
             [class.input-invalid]="agCustPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone)" />
           @if (agCustPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone); as msg) {
@@ -4302,9 +4416,8 @@
         </div>
         <div class="form-group-admin">
           <label>Contact Phone</label>
-          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone"
-            name="agCompPhone" #agCompPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel"
-            placeholder="e.g. 03001234567"
+          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone" name="agCompPhone"
+            #agCompPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" placeholder="e.g. 03001234567"
             (input)="onPhoneFieldInput($event, sendAgreementData, 'customerPhone')"
             [class.input-invalid]="agCompPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone)" />
           @if (agCompPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone); as msg) {
@@ -4356,8 +4469,8 @@
         </div>
         <div class="form-group-admin">
           <label for="agSecurityDeposit">Refundable Security Deposit (PKR)</label>
-          <input id="agSecurityDeposit" class="form-input-admin" type="text" [value]="sendAgreementDepositText"
-            readonly aria-describedby="agSecurityDepositHint" />
+          <input id="agSecurityDeposit" class="form-input-admin" type="text" [value]="sendAgreementDepositText" readonly
+            aria-describedby="agSecurityDepositHint" />
           <small id="agSecurityDepositHint" style="color:#64748b;font-size:0.75rem">Clause 4.4: from the quotation's
             Security Deposit (Months); not editable here</small>
         </div>
@@ -4384,27 +4497,37 @@
 <!-- Agreement Details & Signed Copy Modal -->
 @if (signAgreementItem(); as ag) {
 <div class="modal-overlay" (click)="closeSignAgreement()">
-  <div class="modal-content" style="max-width:520px;width:100%;padding:0;overflow-y:auto;border-radius:12px" (click)="$event.stopPropagation()">
-    <div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+  <div class="modal-content" style="max-width:520px;width:100%;padding:0;overflow-y:auto;border-radius:12px"
+    (click)="$event.stopPropagation()">
+    <div
+      style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <div>
         <h3 style="margin:0;font-size:1.05rem;font-weight:700">Signed agreement received</h3>
-        <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ ag.customerName || ag.CustomerName || 'Customer' }} &middot; Agreement #{{ ag.id || ag.agreementId }}</div>
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ ag.customerName || ag.CustomerName || 'Customer'
+          }} &middot; Agreement #{{ ag.id || ag.agreementId }}</div>
       </div>
-      <button (click)="closeSignAgreement()" title="Close" aria-label="Close" style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+      <button (click)="closeSignAgreement()" title="Close" aria-label="Close"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
     </div>
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
       <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">
-        Upload the scanned signed agreement and enter the date written on it. This creates the booking dated on that day,
+        Upload the scanned signed agreement and enter the date written on it. This creates the booking dated on that
+        day,
         then issues the first invoice with the same date.
       </p>
       @if (customerCopyOnFile(ag)) {
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:8px;padding:10px 12px;font-size:0.82rem;line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div
+        style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:8px;padding:10px 12px;font-size:0.82rem;line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:10px">
         @if (eSignedAt(ag)) {
-        <span><strong>E-signed</strong> by {{ eSignedBy(ag) || 'the customer' }} on {{ eSignedAt(ag) | date:'d MMM y, h:mm a' }}, but the booking was not created automatically. Check the quotation's space and dates, then confirm.</span>
+        <span><strong>E-signed</strong> by {{ eSignedBy(ag) || 'the customer' }} on {{ eSignedAt(ag) | date:'d MMM y,
+          h:mm a' }}, but the booking was not created automatically. Check the quotation's space and dates, then
+          confirm.</span>
         } @else {
-        <span>The customer uploaded the signed copy on {{ (ag.signedPdfUploadedAt || ag.SignedPdfUploadedAt) | date:'d MMM y' }}. Check it before confirming.</span>
+        <span>The customer uploaded the signed copy on {{ (ag.signedPdfUploadedAt || ag.SignedPdfUploadedAt) | date:'d
+          MMM y' }}. Check it before confirming.</span>
         }
-        <button class="btn-admin btn-outline-admin" style="white-space:nowrap" (click)="downloadSignedAgreementPdf(ag.id || ag.agreementId)">View copy</button>
+        <button class="btn-admin btn-outline-admin" style="white-space:nowrap"
+          (click)="downloadSignedAgreementPdf(ag.id || ag.agreementId)">View copy</button>
       </div>
       }
       <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
@@ -4413,23 +4536,31 @@
       </label>
       <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
         Date on the signed agreement
-        <input type="date" [value]="signDate()" (input)="signDate.set($any($event.target).value)" [max]="todayIso()" [min]="signMinDate(ag)" />
+        <input type="date" [value]="signDate()" (input)="signDate.set($any($event.target).value)" [max]="todayIso()"
+          [min]="signMinDate(ag)" />
       </label>
       @if (signChallanAlreadyExpired()) {
-      <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:0.8rem;line-height:1.5">
-        This date is more than 7 days ago, so the booking challan will already be expired. If it is not paid, door access
+      <div
+        style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:0.8rem;line-height:1.5">
+        This date is more than 7 days ago, so the booking challan will already be expired. If it is not paid, door
+        access
         will be suspended at the next hourly check.
       </div>
       }
       <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
         Note (optional)
-        <textarea rows="2" [value]="signNote()" (input)="signNote.set($any($event.target).value)" placeholder="e.g. Received by hand at reception"></textarea>
+        <textarea rows="2" [value]="signNote()" (input)="signNote.set($any($event.target).value)"
+          placeholder="e.g. Received by hand at reception"></textarea>
       </label>
     </div>
-    <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
-      <button class="btn-admin btn-outline-admin" (click)="closeSignAgreement()" [disabled]="signingAgreement()">Cancel</button>
-      <button class="btn-admin btn-primary-admin" (click)="submitSignAgreement()" [disabled]="signingAgreement() || (!signFile() && !customerCopyOnFile(ag)) || !signDate()">
-        {{ signingAgreement() ? 'Creating booking…' : (customerCopyOnFile(ag) ? 'Verify & create booking' : 'Save & create booking') }}
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn-admin btn-outline-admin" (click)="closeSignAgreement()"
+        [disabled]="signingAgreement()">Cancel</button>
+      <button class="btn-admin btn-primary-admin" (click)="submitSignAgreement()"
+        [disabled]="signingAgreement() || (!signFile() && !customerCopyOnFile(ag)) || !signDate()">
+        {{ signingAgreement() ? 'Creating booking…' : (customerCopyOnFile(ag) ? 'Verify & create booking' : 'Save &
+        create booking') }}
       </button>
     </div>
   </div>
@@ -4525,19 +4656,24 @@
       <!-- Signed Agreement Section -->
       <div
         style="background:#ffffff;border:1.5px dashed #94a3b8;border-radius:10px;padding:18px 20px;margin-bottom:10px">
-        <h4 style="margin:0 0 10px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <h4
+          style="margin:0 0 10px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           Signed Agreement Copy
           @if (eSignedAt(agreement)) {
-          <span style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">E-signed</span>
+          <span
+            style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">E-signed</span>
           } @else if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
-          <span style="background:#e0f2fe;color:#0369a1;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">Uploaded</span>
+          <span
+            style="background:#e0f2fe;color:#0369a1;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">Uploaded</span>
           }
         </h4>
 
         @if (eSignedAt(agreement)) {
-        <div style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:#334155;line-height:1.6">
+        <div
+          style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:#334155;line-height:1.6">
           <div style="font-weight:700;color:#5b21b6;margin-bottom:4px">
-            Signed electronically by {{ eSignedBy(agreement) || 'the customer' }} on {{ eSignedAt(agreement) | date:'d MMM y, h:mm a' }} (PKT)
+            Signed electronically by {{ eSignedBy(agreement) || 'the customer' }} on {{ eSignedAt(agreement) | date:'d
+            MMM y, h:mm a' }} (PKT)
           </div>
           @if (loadingAgreementESignature()) {
           <div style="color:#64748b">Loading signature details…</div>
@@ -4546,13 +4682,16 @@
             <span style="color:#64748b">Email</span><span>{{ es.signerEmail || '—' }}</span>
             <span style="color:#64748b">IP address</span><span>{{ es.ipAddress || '—' }}</span>
             <span style="color:#64748b">Browser</span><span>{{ es.userAgent || '—' }}</span>
-            <span style="color:#64748b">SHA-256</span><span style="font-family:monospace;font-size:0.75rem">{{ es.documentSha256 || '—' }}</span>
+            <span style="color:#64748b">SHA-256</span><span style="font-family:monospace;font-size:0.75rem">{{
+              es.documentSha256 || '—' }}</span>
           </div>
           @if (es.signatureImage) {
-          <img [src]="es.signatureImage" alt="Customer signature" style="margin-top:8px;max-width:260px;max-height:90px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px" />
+          <img [src]="es.signatureImage" alt="Customer signature"
+            style="margin-top:8px;max-width:260px;max-height:90px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px" />
           }
           }
-          <div style="color:#64748b;font-size:0.75rem;margin-top:6px">The signed PDF ends with the electronic signature certificate.</div>
+          <div style="color:#64748b;font-size:0.75rem;margin-top:6px">The signed PDF ends with the electronic signature
+            certificate.</div>
         </div>
         }
 
@@ -4697,19 +4836,63 @@
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     @switch (name) {
-    @case ('Website') { <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /> }
-    @case ('WhatsApp') { <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" /><path d="M8 12h.01" /><path d="M12 12h.01" /><path d="M16 12h.01" /> }
-    @case ('WalkIn') { <path d="M13 4h3a2 2 0 0 1 2 2v14" /><path d="M2 20h3" /><path d="M13 20h9" /><path d="M10 12v.01" /><path d="M13 4.56v16.16a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z" /> }
-    @case ('Reference') { <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6" /><path d="M22 11h-6" /> }
-    @case ('not_interested') { <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /> }
-    @case ('future_prospect') { <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h5" /><path d="M17.5 17.5 16 16.3V14" /><circle cx="16" cy="16" r="6" /> }
-    @case ('converted') { <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="m9 15 2 2 4-4" /> }
-    @case ('inquiry') { <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 8h8" /><path d="M8 12h5" /> }
-    @case ('feedback') { <rect width="8" height="4" x="8" y="2" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="m9 14 2 2 4-4" /> }
-    @case ('type') { <path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z" /><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /> }
-    @case ('close') { <path d="M18 6 6 18" /><path d="m6 6 12 12" /> }
-    @case ('complaint') { <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 7v3" /><path d="M12 13h.01" /> }
-    @case ('branch') { <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" /> }
+    @case ('Website') {
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /> }
+    @case ('WhatsApp') {
+    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+    <path d="M8 12h.01" />
+    <path d="M12 12h.01" />
+    <path d="M16 12h.01" /> }
+    @case ('WalkIn') {
+    <path d="M13 4h3a2 2 0 0 1 2 2v14" />
+    <path d="M2 20h3" />
+    <path d="M13 20h9" />
+    <path d="M10 12v.01" />
+    <path d="M13 4.56v16.16a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z" /> }
+    @case ('Reference') {
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M19 8v6" />
+    <path d="M22 11h-6" /> }
+    @case ('not_interested') {
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" /> }
+    @case ('future_prospect') {
+    <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
+    <path d="M16 2v4" />
+    <path d="M8 2v4" />
+    <path d="M3 10h5" />
+    <path d="M17.5 17.5 16 16.3V14" />
+    <circle cx="16" cy="16" r="6" /> }
+    @case ('converted') {
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="m9 15 2 2 4-4" /> }
+    @case ('inquiry') {
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M8 8h8" />
+    <path d="M8 12h5" /> }
+    @case ('feedback') {
+    <rect width="8" height="4" x="8" y="2" rx="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="m9 14 2 2 4-4" /> }
+    @case ('type') {
+    <path
+      d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z" />
+    <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /> }
+    @case ('close') {
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" /> }
+    @case ('complaint') {
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M12 7v3" />
+    <path d="M12 13h.01" /> }
+    @case ('branch') {
+    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="10" r="3" /> }
     }
   </svg>
 </ng-template>
@@ -4717,10 +4900,11 @@
 <!-- Add inquiry -->
 @if (showAddInquiry()) {
 <div class="modal-overlay" (click)="showAddInquiry.set(false)">
-  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqAddTitle" (click)="$event.stopPropagation()"
-    (ngSubmit)="saveAddInquiry()" novalidate>
+  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqAddTitle"
+    (click)="$event.stopPropagation()" (ngSubmit)="saveAddInquiry()" novalidate>
     <header class="inq-head">
-      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'inquiry' }" /></span>
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'inquiry' }" /></span>
       <div>
         <h2 id="inqAddTitle">Add tour inquiry</h2>
         <p>For a customer who walked in or was referred. WhatsApp and website inquiries come in on their own.</p>
@@ -4736,12 +4920,14 @@
         <div class="inq-choice-grid two">
           <label class="inq-choice src-walkin" [class.selected]="addInquiry.type === 'WalkIn'">
             <input type="radio" name="addInqType" value="WalkIn" [(ngModel)]="addInquiry.type" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'WalkIn' }" /></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'WalkIn' }" /></span>
             <span class="inq-choice-text"><strong>Walk-In</strong><small>Visited or called in</small></span>
           </label>
           <label class="inq-choice src-reference" [class.selected]="addInquiry.type === 'Reference'">
             <input type="radio" name="addInqType" value="Reference" [(ngModel)]="addInquiry.type" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'Reference' }" /></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'Reference' }" /></span>
             <span class="inq-choice-text"><strong>Reference</strong><small>Someone referred them</small></span>
           </label>
         </div>
@@ -4756,7 +4942,8 @@
         <label for="inqBranch">Branch <span class="req">*</span></label>
         <select id="inqBranch" class="form-input-admin" name="addInqBranch" [(ngModel)]="addInquiry.locationId"
           [disabled]="itemBranchesState() === 'loading'">
-          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a branch' }}</option>
+          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a
+            branch' }}</option>
           @for (b of itemBranches(); track b.id) {
           <option [ngValue]="b.id">{{ b.name }}</option>
           }
@@ -4819,9 +5006,11 @@
 <!-- Change the Type -->
 @if (showContactType() && contactTypeItem; as ti) {
 <div class="modal-overlay" (click)="showContactType.set(false)">
-  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqTypeTitle" (click)="$event.stopPropagation()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqTypeTitle"
+    (click)="$event.stopPropagation()">
     <header class="inq-head">
-      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'type' }" /></span>
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'type' }" /></span>
       <div>
         <h2 id="inqTypeTitle">Inquiry type</h2>
         <p>{{ inquiryContactLine(ti) }}</p>
@@ -4836,9 +5025,11 @@
         <legend>Where did this inquiry come from?</legend>
         <div class="inq-choice-grid two">
           @for (o of inquiryTypeOptions; track o.v) {
-          <label class="inq-choice" [class]="'inq-choice src-' + o.v.toLowerCase()" [class.selected]="contactTypeValue === o.v">
+          <label class="inq-choice" [class]="'inq-choice src-' + o.v.toLowerCase()"
+            [class.selected]="contactTypeValue === o.v">
             <input type="radio" name="inqType" [value]="o.v" [(ngModel)]="contactTypeValue" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: o.v }" /></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: o.v }" /></span>
             <span class="inq-choice-text"><strong>{{ o.l }}</strong></span>
           </label>
           }
@@ -4858,7 +5049,8 @@
 
     <footer class="inq-foot">
       <button type="button" class="btn-admin btn-outline-admin" (click)="showContactType.set(false)">Cancel</button>
-      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactType()" [disabled]="contactTypeSaving()">
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactType()"
+        [disabled]="contactTypeSaving()">
         {{ contactTypeSaving() ? 'Saving…' : 'Save type' }}
       </button>
     </footer>
@@ -4869,14 +5061,17 @@
 <!-- Set / change the branch of an inquiry or a complaint -->
 @if (showItemBranch() && itemBranchItem; as bi) {
 <div class="modal-overlay" (click)="closeItemBranch()">
-  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="itemBranchTitle" (click)="$event.stopPropagation()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="itemBranchTitle"
+    (click)="$event.stopPropagation()">
     <header class="inq-head">
-      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
       <div>
         <h2 id="itemBranchTitle">{{ entity === 'contacts' ? 'Inquiry location' : 'Complaint branch' }}</h2>
         <p>{{ itemBranchLine(bi) }}</p>
       </div>
-      <button type="button" class="inq-close" (click)="closeItemBranch()" [disabled]="itemBranchSaving()" title="Close" aria-label="Close">
+      <button type="button" class="inq-close" (click)="closeItemBranch()" [disabled]="itemBranchSaving()" title="Close"
+        aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
       </button>
     </header>
@@ -4888,7 +5083,8 @@
           @for (b of itemBranches(); track b.id) {
           <label class="inq-choice teal" [class.selected]="itemBranchValue === b.id">
             <input type="radio" name="itemBranch" [value]="b.id" [(ngModel)]="itemBranchValue" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
             <span class="inq-choice-text">
               <strong>{{ b.name }}</strong>
               @if (itemBranchId(bi) === b.id) { <small>Current branch</small> }
@@ -4898,7 +5094,8 @@
         </div>
       </fieldset>
       @if (!itemBranchId(bi)) {
-      <p class="inq-note">Without a branch, the staff of every branch see it. Once set, it goes to that branch's staff.</p>
+      <p class="inq-note">Without a branch, the staff of every branch see it. Once set, it goes to that branch's staff.
+      </p>
       }
       @if (itemBranchError()) {
       <p class="inq-error" role="alert">{{ itemBranchError() }}</p>
@@ -4906,8 +5103,10 @@
     </div>
 
     <footer class="inq-foot">
-      <button type="button" class="btn-admin btn-outline-admin" (click)="closeItemBranch()" [disabled]="itemBranchSaving()">Cancel</button>
-      <button type="button" class="btn-admin btn-primary-admin" (click)="saveItemBranch()" [disabled]="itemBranchSaving() || !itemBranchValue">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeItemBranch()"
+        [disabled]="itemBranchSaving()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveItemBranch()"
+        [disabled]="itemBranchSaving() || !itemBranchValue">
         {{ itemBranchSaving() ? 'Saving…' : 'Save branch' }}
       </button>
     </footer>
@@ -4918,9 +5117,11 @@
 <!-- Feedback -->
 @if (showContactFeedback() && contactFeedbackItem; as fi) {
 <div class="modal-overlay" (click)="showContactFeedback.set(false)">
-  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqFbTitle" (click)="$event.stopPropagation()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqFbTitle"
+    (click)="$event.stopPropagation()">
     <header class="inq-head">
-      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'feedback' }" /></span>
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'feedback' }" /></span>
       <div>
         <h2 id="inqFbTitle">Inquiry feedback</h2>
         <p>{{ inquiryContactLine(fi) }}</p>
@@ -4936,34 +5137,42 @@
         <div class="inq-choice-grid">
           <label class="inq-choice out-not_interested" [class.selected]="contactFeedbackOutcome === 'not_interested'">
             <input type="radio" name="fbOutcome" value="not_interested" [(ngModel)]="contactFeedbackOutcome" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'not_interested' }" /></span>
-            <span class="inq-choice-text"><strong>Not interested</strong><small>Give the reason. The inquiry is closed.</small></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'not_interested' }" /></span>
+            <span class="inq-choice-text"><strong>Not interested</strong><small>Give the reason. The inquiry is
+                closed.</small></span>
           </label>
           @if (contactFeedbackOutcome === 'not_interested') {
           <div class="inq-choice-extra">
-            <textarea class="form-input-admin" rows="3" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbReason"
-              placeholder="Reason, e.g. budget or chose another provider" aria-label="Reason"></textarea>
+            <textarea class="form-input-admin" rows="3" maxlength="1000" [(ngModel)]="contactFeedbackReason"
+              name="fbReason" placeholder="Reason, e.g. budget or chose another provider"
+              aria-label="Reason"></textarea>
           </div>
           }
 
           <label class="inq-choice out-future_prospect" [class.selected]="contactFeedbackOutcome === 'future_prospect'">
             <input type="radio" name="fbOutcome" value="future_prospect" [(ngModel)]="contactFeedbackOutcome" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'future_prospect' }" /></span>
-            <span class="inq-choice-text"><strong>Future prospect</strong><small>Pick a date. You will be reminded on that day.</small></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'future_prospect' }" /></span>
+            <span class="inq-choice-text"><strong>Future prospect</strong><small>Pick a date. You will be reminded on
+                that day.</small></span>
           </label>
           @if (contactFeedbackOutcome === 'future_prospect') {
           <div class="inq-choice-extra">
             <label class="inq-mini-label" for="fbDate">Follow up on</label>
-            <input id="fbDate" class="form-input-admin" type="date" [min]="today" [(ngModel)]="contactFeedbackDate" name="fbDate" />
-            <textarea class="form-input-admin" rows="2" maxlength="1000" [(ngModel)]="contactFeedbackReason" name="fbNote"
-              placeholder="Note (optional)" aria-label="Note"></textarea>
+            <input id="fbDate" class="form-input-admin" type="date" [min]="today" [(ngModel)]="contactFeedbackDate"
+              name="fbDate" />
+            <textarea class="form-input-admin" rows="2" maxlength="1000" [(ngModel)]="contactFeedbackReason"
+              name="fbNote" placeholder="Note (optional)" aria-label="Note"></textarea>
           </div>
           }
 
           <label class="inq-choice out-converted" [class.selected]="contactFeedbackOutcome === 'converted'">
             <input type="radio" name="fbOutcome" value="converted" [(ngModel)]="contactFeedbackOutcome" />
-            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'converted' }" /></span>
-            <span class="inq-choice-text"><strong>Convert to quotation</strong><small>Opens Create Quotation for this customer. The inquiry is marked converted once the quotation is saved.</small></span>
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'converted' }" /></span>
+            <span class="inq-choice-text"><strong>Convert to quotation</strong><small>Opens Create Quotation for this
+                customer. The inquiry is marked converted once the quotation is saved.</small></span>
           </label>
           @if (contactFeedbackOutcome === 'converted') {
           <!-- The quotation's customer is found / created by email, so the email is needed here. -->
@@ -4983,8 +5192,10 @@
 
     <footer class="inq-foot">
       <button type="button" class="btn-admin btn-outline-admin" (click)="showContactFeedback.set(false)">Cancel</button>
-      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactFeedback()" [disabled]="contactFeedbackSaving()">
-        {{ contactFeedbackOutcome === 'converted' ? 'Create quotation' : (contactFeedbackSaving() ? 'Saving…' : 'Save feedback') }}
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactFeedback()"
+        [disabled]="contactFeedbackSaving()">
+        {{ contactFeedbackOutcome === 'converted' ? 'Create quotation' : (contactFeedbackSaving() ? 'Saving…' : 'Save
+        feedback') }}
       </button>
     </footer>
   </div>
@@ -4994,13 +5205,15 @@
 <!-- ===================== New complaint (Complaints page) ===================== -->
 @if (showAddComplaint()) {
 <div class="modal-overlay" (click)="closeAddComplaint()">
-  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="cmpAddTitle" (click)="$event.stopPropagation()"
-    (ngSubmit)="saveAddComplaint()" novalidate>
+  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="cmpAddTitle"
+    (click)="$event.stopPropagation()" (ngSubmit)="saveAddComplaint()" novalidate>
     <header class="inq-head">
-      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'complaint' }" /></span>
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'complaint' }" /></span>
       <div>
         <h2 id="cmpAddTitle">New complaint</h2>
-        <p>For a customer who called, walked in or emailed. With their WhatsApp number, they get status updates there.</p>
+        <p>For a customer who called, walked in or emailed. With their WhatsApp number, they get status updates there.
+        </p>
       </div>
       <button type="button" class="inq-close" (click)="closeAddComplaint()" title="Close" aria-label="Close">
         <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
@@ -5017,8 +5230,9 @@
         </div>
         <div class="inq-field">
           <label for="cmpPhone">WhatsApp number</label>
-          <input id="cmpPhone" class="form-input-admin" type="tel" name="cmpPhone" [maxlength]="phoneMaxLength" inputmode="tel"
-            [(ngModel)]="addComplaint.phoneNumber" #cmpPhoneCtrl="ngModel" placeholder="e.g. 03001234567" autocomplete="off"
+          <input id="cmpPhone" class="form-input-admin" type="tel" name="cmpPhone" [maxlength]="phoneMaxLength"
+            inputmode="tel" [(ngModel)]="addComplaint.phoneNumber" #cmpPhoneCtrl="ngModel"
+            placeholder="e.g. 03001234567" autocomplete="off"
             (input)="onPhoneFieldInput($event, addComplaint, 'phoneNumber')"
             [class.input-invalid]="(cmpPhoneCtrl.touched || addComplaintTried()) && complaintFieldError('phoneNumber')" />
           @if ((cmpPhoneCtrl.touched || addComplaintTried()) && complaintFieldError('phoneNumber'); as msg) {
@@ -5042,7 +5256,8 @@
         <label for="cmpBranch">Branch <span class="req">*</span></label>
         <select id="cmpBranch" class="form-input-admin" name="cmpBranch" [(ngModel)]="addComplaintLocationId"
           [disabled]="itemBranchesState() === 'loading'" [class.input-invalid]="!!complaintFieldError('branch')">
-          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a branch' }}</option>
+          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a
+            branch' }}</option>
           @for (b of itemBranches(); track b.id) {
           <option [ngValue]="b.id">{{ b.name }}</option>
           }
@@ -5090,4 +5305,4 @@
     </footer>
   </form>
 </div>
-}
+}

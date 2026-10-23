@@ -370,6 +370,14 @@ export class AdminService {
   }
 
   /** Get booking billing and security deposit summary */
+  /** Generate a recurring invoice for a booking (autoApproveAndSend=false sends it to Invoice Approvals) */
+  generateRecurringInvoice(bookingId: number, autoApproveAndSend: boolean = false, sendIfAlreadyExists: boolean = false): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/generate-recurring-invoice`, {
+      autoApproveAndSend,
+      sendIfAlreadyExists
+    });
+  }
+
   getBookingBillingSummary(bookingId: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/booking/${bookingId}/billing-summary`);
   }

@@ -42,6 +42,27 @@ export class InvoiceApprovalsComponent implements OnInit {
   readonly approving = signal<boolean>(false);
   readonly approvalResult = signal<{ success: boolean; message: string } | null>(null);
 
+  // Generate recurring invoice modal state
+  readonly showGenerateRecurringModal = signal<boolean>(false);
+  readonly generatingRecurring = signal<boolean>(false);
+  readonly selectedBookingId = signal<number | null>(null);
+  readonly bookingsList = signal<any[]>([]);
+  readonly bookingsLoading = signal<boolean>(false);
+  readonly bookingSearch = signal<string>('');
+
+  readonly filteredBookings = computed(() => {
+    const q = this.bookingSearch().trim().toLowerCase();
+    const list = this.bookingsList();
+    if (!q) return list;
+    return list.filter(b => {
+      const id = String(b.bookingId ?? b.id ?? '');
+      const cust = String(b.fullName || b.customerName || b.customer || '').toLowerCase();
+      const space = String(b.spaceCode || b.spaceTitle || '').toLowerCase();
+      const comp = String(b.companyName || '').toLowerCase();
+      return id.includes(q) || cust.includes(q) || space.includes(q) || comp.includes(q);
+    });
+  });
+
   // Filtered queue items
   readonly filteredQueue = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
@@ -176,6 +197,65 @@ export class InvoiceApprovalsComponent implements OnInit {
         const errMsg = err?.error?.message || err?.message || 'Failed to approve invoice.';
         this.approvalResult.set({ success: false, message: errMsg });
         this.toast.error(errMsg);
+      }
+    });
+  }
+
+  openGenerateRecurringModal(): void {
+    this.selectedBookingId.set(null);
+    this.bookingSearch.set('');
+    this.showGenerateRecurringModal.set(true);
+    if (this.bookingsList().length === 0) {
+      this.loadBookingsForRecurring();
+    }
+  }
+
+  closeGenerateRecurringModal(): void {
+    this.showGenerateRecurringModal.set(false);
+  }
+
+  loadBookingsForRecurring(): void {
+    this.bookingsLoading.set(true);
+    this.admin.getBookings(1, 1000, '').subscribe({
+      next: (res: any) => {
+        this.bookingsLoading.set(false);
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        this.bookingsList.set(list);
+        if (list.length > 0 && !this.selectedBookingId()) {
+          const first = list[0];
+          this.selectedBookingId.set(Number(first.id ?? first.bookingId ?? null));
+        }
+      },
+      error: () => {
+        this.bookingsLoading.set(false);
+      }
+    });
+  }
+
+  submitGenerateRecurringInvoice(): void {
+    const bookingId = this.selectedBookingId();
+    if (!bookingId) {
+      this.toast.error('Please select or enter a valid Booking ID.');
+      return;
+    }
+
+    this.generatingRecurring.set(true);
+    this.admin.generateRecurringInvoice(Number(bookingId), false).subscribe({
+      next: (res: any) => {
+        this.generatingRecurring.set(false);
+        if (res?.success || res?.isSuccessful) {
+          const invNum = res.data?.invoiceNumber || res.invoiceNumber ? ` (#${res.data?.invoiceNumber || res.invoiceNumber})` : '';
+          this.toast.success(res.message || `Recurring invoice${invNum} generated and added to Invoice Approvals queue.`);
+          this.closeGenerateRecurringModal();
+          this.loadQueue();
+        } else {
+          this.toast.error(res?.message || 'Failed to generate recurring invoice.');
+        }
+      },
+      error: (err: any) => {
+        this.generatingRecurring.set(false);
+        const msg = err?.error?.message || err?.message || 'Error generating recurring invoice.';
+        this.toast.error(msg);
       }
     });
   }

@@ -7540,6 +7540,34 @@ export class Manage implements OnInit {
   // the Custom Invoice page (/admin/custom-invoice).
   sendingInitialInvoiceId = signal<number | null>(null);
   sentInitialInvoices = new Set<number>();
+  generatingRecurringInvoiceId = signal<number | null>(null);
+
+  generateRecurringInvoice(item: any) {
+    if (!item) return;
+    const bookingId = item?.bookingId ?? item?.BookingId ?? item?.id ?? item?.Id;
+    if (!bookingId) {
+      this.toast.error('Booking ID is missing.');
+      return;
+    }
+
+    this.generatingRecurringInvoiceId.set(Number(bookingId));
+    this.admin.generateRecurringInvoice(Number(bookingId), false).subscribe({
+      next: (res: any) => {
+        this.generatingRecurringInvoiceId.set(null);
+        if (res?.isSuccessful) {
+          const invNum = res.invoiceNumber ? ` (${res.invoiceNumber})` : '';
+          this.toast.success(res.message || `Recurring invoice${invNum} generated and sent to Invoice Approval page.`);
+        } else {
+          this.toast.error(res?.message || 'Failed to generate recurring invoice.');
+        }
+      },
+      error: (err: any) => {
+        this.generatingRecurringInvoiceId.set(null);
+        const msg = err?.error?.message || err?.message || 'Error generating recurring invoice.';
+        this.toast.error(msg);
+      }
+    });
+  }
 
   readonly showCreateCustomInvoiceModal = signal(false);
   customInvoiceSelectedMonths = 3;
