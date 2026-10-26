@@ -22,7 +22,8 @@
         }
       </button>
       }
-      @if (config().createFn) {
+      <!-- Add Inquiry creates tour inquiries: not on the Simple Inquiries sub-tab. -->
+      @if (config().createFn && !(entity === 'contacts' && contactCategory === 'general')) {
       <button class="btn-admin btn-primary-admin" (click)="openCreate()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -40,6 +41,23 @@
   }
 
   <div class="admin-card">
+    @if (entity === 'contacts') {
+    <!-- Sub-tabs: Tour Inquiries | Simple Inquiries (WhatsApp free text), kept in the URL as ?category=general. -->
+    <div class="inq-tabs" role="tablist" aria-label="Inquiry category">
+      @for (t of contactCategoryTabs; track t.key) {
+      @let tabCount = contactCategoryCounts()[t.key];
+      <button type="button" role="tab" class="inq-tab" [id]="'inq-tab-' + t.key"
+        [attr.aria-selected]="contactCategory === t.key" [attr.tabindex]="contactCategory === t.key ? 0 : -1"
+        [class.active]="contactCategory === t.key" (click)="selectContactCategory(t.key)"
+        (keydown)="onContactCategoryKey($event)">
+        {{ t.label }}
+        @if (tabCount > 0) {
+        <span class="inq-tab-count" [attr.aria-label]="tabCount + ' new'">{{ tabCount > 99 ? '99+' : tabCount }}</span>
+        }
+      </button>
+      }
+    </div>
+    }
     <div class="card-toolbar">
       <div class="search-box">
         <svg (click)="onSearchImmediate()" data-tooltip="Search now" style="cursor:pointer"
@@ -195,7 +213,7 @@
               @if (entity === 'contacts' && col.key === 'inquiryType') {
               <!-- The Type and a pencil to change it (clicking either opens the Inquiry type popup). Old website bookings
                    (canChangeType false, before QA_05) show the Type only. -->
-              @if (item.canChangeType !== false) {
+              @if (item.canChangeType !== false && item.inquiryCategory !== 'general') {
               <button type="button" class="type-edit" (click)="openContactType(item)"
                 [attr.aria-label]="'Change type: ' + (item.inquiryType ? inquiryTypeLabel(item.inquiryType) : 'not set')">
                 @if (item.inquiryType) {
