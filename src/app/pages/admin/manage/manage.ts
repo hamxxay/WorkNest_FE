@@ -5699,8 +5699,10 @@ export class Manage implements OnInit {
   readonly showAddInquiry = signal(false);
   readonly addInquirySaving = signal(false);
   readonly addInquiryError = signal('');
-  addInquiry = { type: 'WalkIn' as 'WalkIn' | 'Reference', referenceName: '', fullName: '', phone: '', email: '', notes: '',
-    locationId: null as number | null };
+  addInquiry = {
+    type: 'WalkIn' as 'WalkIn' | 'Reference', referenceName: '', fullName: '', phone: '', email: '', notes: '',
+    locationId: null as number | null
+  };
   openAddInquiry() {
     this.addInquiry = { type: 'WalkIn', referenceName: this.myDisplayName(), fullName: '', phone: '', email: '', notes: '', locationId: null };
     this.addInquiryError.set('');
