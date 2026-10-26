@@ -29,13 +29,13 @@ When roles were read only from browser storage, the admin guards confirm them wi
 | Group | Pages (`/admin/...`) |
 |---|---|
 | Dashboard | `dashboard` (role dashboards, forecast, weekly report, access overview), `profile` |
-| Sales | `customers`, `kyc`, `bookings`, `quotations`, `quotation-responses`, `agreements`, `lease-templates` (super admin, rich-text lease editor) |
+| Sales | `customers`, `kyc`, `bookings`, `quotations`, `quotation-responses`, `agreements` |
 | Inquiries | `contacts` (Tour Inquiries), `complaints`, `whatsapp` (WhatsApp inbox) |
 | Finance | `invoices` (Invoices and Billing), `payments`, `pricing`, `reports/security-deposits`, `challan-validity` (super admin) |
 | Spaces | `locations`, `spacetypes`, `spaces`, `manage-spaces`, `space-configuration` (super admin), `gallery` |
 | Access control (Hikvision) | `attendants`, `biometric-users`, `staff-access`, `access-dashboard`, `access-activity-log`, `access-analytics` |
 | Network (UniFi) | `network`, `network/clients`, `network/devices`, `network/device/:mac`, `network/internet`, `network/wifi` |
-| Administration | `users` |
+| Administration | `users`, `lease-templates` (super admin, rich-text lease editor), `message-templates`, `services`, `audit-log`, `login-history` |
 
 Hikvision machines and the UniFi console are never called from the browser. The app calls the WorkNest API (`/hik/*`, `/unifi/*`), which talks to the devices.
 

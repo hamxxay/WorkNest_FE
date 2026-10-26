@@ -103,7 +103,6 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/quotation-responses', group: 'Sales', label: 'Quotation Responses', icon: 'quotation-responses' },
     { route: '/admin/payments', group: 'Finance',       label: 'Payments',          icon: 'payments'        },
     { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
-    { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan', superAdminOnly: true },
     { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
       { route: '/admin/invoice-approvals', group: 'Finance', label: 'Invoice Approvals', icon: 'payments' },
     { route: '/admin/fee-receipts', group: 'Finance',       label: 'Receipts',            icon: 'receipt'         },
@@ -132,6 +131,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/login-history', group: 'Administration', label: 'Login History', icon: 'login-history', superAdminOnly: true },
     { route: '/admin/services', group: 'Administration', label: 'Services', icon: 'net-devices', superAdminOnly: true },
     { route: '/admin/message-templates', group: 'Administration', label: 'Message Templates', icon: 'message-template', adminOnly: true },
+    { route: '/admin/lease-templates', group: 'Administration', label: 'Lease Templates', icon: 'challan', superAdminOnly: true },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
 
