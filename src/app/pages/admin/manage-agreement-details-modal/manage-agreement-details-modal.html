@@ -1,0 +1,204 @@
+<div class="modal-overlay" (click)="closeAgreementDetails.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px);max-height:min(92dvh,900px)">
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0;font-size:1.15rem;font-weight:700">Agreement Details #{{ agreement.id ||
+          agreement.agreementId }}</h3>
+        <span style="font-size:0.78rem;color:#94a3b8">{{ agreement.customerName || 'Signatory' }} — Quotation #{{
+          agreement.quotationNumber || agreement.quotationId }}</span>
+      </div>
+      <button (click)="closeAgreementDetails.emit()" title="Close" aria-label="Close"
+        style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <div style="padding:24px;flex:1 1 auto;min-height:0;overflow-y:auto">
+      <!-- Status & Info Card -->
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
+        <div>
+          <span
+            style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Agreement
+            Status</span>
+          <span class="status-badge" [class]="'status-' + (agreement.status || 'agreementsent').toLowerCase()"
+            style="font-weight:700;font-size:0.85rem">
+            {{ agreement.status || 'AgreementSent' }}
+          </span>
+        </div>
+        <div style="text-align:right">
+          <span
+            style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Entity
+            Type</span>
+          <span style="font-weight:700;color:#0284c7;font-size:0.95rem">{{ agreement.entityType || 'Individual'
+            }}</span>
+        </div>
+      </div>
+
+      <!-- Detail Grid -->
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Customer / Signatory</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ agreement.customerName || '—' }}</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ agreement.customerPhone ||
+            agreement.customerEmail || '' }}</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Company / Identity</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ agreement.companyName ||
+            agreement.customerCnic || '—' }}</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ agreement.ntn ? 'NTN: ' + agreement.ntn :
+            (agreement.secpRegistrationNo ? 'SECP: ' + agreement.secpRegistrationNo : '') }}</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Monthly Fee</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#16a34a">{{ (agreement.feeAmount || agreement.monthlyFee
+            || 0) | currency:'PKR ':'symbol':'1.0-0' }}</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Security Deposit</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ (agreement.securityDeposit || 0) |
+            currency:'PKR ':'symbol':'1.0-0' }}</div>
+        </div>
+      </div>
+
+      <!-- Generated Draft PDF Section -->
+      <div
+        style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:14px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:0.85rem;font-weight:700;color:#0f172a">System Generated Lease Agreement</div>
+          <div style="font-size:0.78rem;color:#64748b">Sent on {{ (agreement.sentDate || agreement.createdOn) |
+            date:'mediumDate' }}</div>
+        </div>
+        <button class="btn-admin" (click)="downloadAgreementPdf.emit(agreement.id || agreement.agreementId)"
+          style="background:#0f766e;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:600;cursor:pointer">
+          Download Generated PDF
+        </button>
+      </div>
+
+      <!-- Signed Agreement Section -->
+      <div
+        style="background:#ffffff;border:1.5px dashed #94a3b8;border-radius:10px;padding:18px 20px;margin-bottom:10px">
+        <h4
+          style="margin:0 0 10px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          Signed Agreement Copy
+          @if (eSignedAt(agreement)) {
+          <span
+            style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">E-signed</span>
+          } @else if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
+          <span
+            style="background:#e0f2fe;color:#0369a1;border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:700">Uploaded</span>
+          }
+        </h4>
+
+        @if (eSignedAt(agreement)) {
+        <div
+          style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:#334155;line-height:1.6">
+          <div style="font-weight:700;color:#5b21b6;margin-bottom:4px">
+            Signed electronically by {{ eSignedBy(agreement) || 'the customer' }} on {{ eSignedAt(agreement) | date:'d
+            MMM y, h:mm a' }} (PKT)
+          </div>
+          @if (loadingAgreementESignature()) {
+          <div style="color:#64748b">Loading signature details…</div>
+          } @else if (selectedAgreementESignature(); as es) {
+          <div style="display:grid;grid-template-columns:120px 1fr;gap:2px 10px;word-break:break-all">
+            <span style="color:#64748b">Email</span><span>{{ es.signerEmail || '—' }}</span>
+            <span style="color:#64748b">IP address</span><span>{{ es.ipAddress || '—' }}</span>
+            <span style="color:#64748b">Browser</span><span>{{ es.userAgent || '—' }}</span>
+            <span style="color:#64748b">SHA-256</span><span style="font-family:monospace;font-size:0.75rem">{{
+              es.documentSha256 || '—' }}</span>
+          </div>
+          @if (es.signatureImage) {
+          <img [src]="es.signatureImage" alt="Customer signature"
+            style="margin-top:8px;max-width:260px;max-height:90px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px" />
+          }
+          }
+          <div style="color:#64748b;font-size:0.75rem;margin-top:6px">The signed PDF ends with the electronic signature
+            certificate.</div>
+        </div>
+        }
+
+        <!-- Conditional Download Link -->
+        <div style="margin-bottom:16px">
+          @if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
+          <div
+            style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;padding:10px 14px;border-radius:6px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <path d="M12 18v-6"></path>
+              <path d="m9 15 3 3 3-3"></path>
+            </svg>
+            <div>
+              <a [href]="getSignedAgreementDownloadUrl(agreement.id || agreement.agreementId)"
+                (click)="$event.preventDefault(); downloadSignedAgreementPdf.emit(agreement.id || agreement.agreementId)"
+                target="_blank"
+                style="color:#059669;font-weight:700;font-size:0.9rem;text-decoration:underline;cursor:pointer">
+                Download Signed Agreement (PDF)
+              </a>
+              <span style="display:block;font-size:0.75rem;color:#047857;margin-top:2px">
+                Uploaded on: {{ (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) | date:'medium' }}
+              </span>
+            </div>
+          </div>
+          } @else {
+          <div style="color:#64748b;font-size:0.88rem;font-style:italic;padding:8px 0">
+            No signed copy uploaded yet.
+          </div>
+          }
+        </div>
+
+        @if (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) {
+        <div style="margin-bottom:12px;display:flex;justify-content:flex-end">
+          <button type="button" (click)="deleteSignedAgreementPdf.emit(agreement.id || agreement.agreementId)"
+            style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:5px 12px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+            </svg>
+            Delete Uploaded Signed Copy
+          </button>
+        </div>
+        }
+
+        <!-- File Upload Input -->
+        <div style="background:#f8fafc;padding:12px 14px;border-radius:6px;border:1px solid #e2e8f0">
+          <label style="display:block;font-size:0.8rem;font-weight:600;color:#334155;margin-bottom:6px">
+            {{ (agreement.signedPdfUploadedAt || agreement.SignedPdfUploadedAt) ? 'Replace Signed Copy (PDF):' : 'Upload
+            Signed Copy (PDF):' }}
+          </label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="file" accept="application/pdf"
+              [disabled]="uploadingSignedAgreementId() === (agreement.id || agreement.agreementId)"
+              (change)="onSignedAgreementFileSelected(agreement.id || agreement.agreementId, $event)"
+              style="font-size:0.82rem;color:#334155" />
+            @if (uploadingSignedAgreementId() === (agreement.id || agreement.agreementId)) {
+            <span style="font-size:0.8rem;color:#0284c7;font-weight:600;display:flex;align-items:center;gap:4px">
+              Uploading...
+            </span>
+            }
+          </div>
+          <span style="font-size:0.72rem;color:#94a3b8;display:block;margin-top:4px">Max file size: 10MB (.pdf
+            only)</span>
+        </div>
+      </div>
+    </div>
+
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+      <button class="btn-admin btn-outline-admin" (click)="closeAgreementDetails.emit()">
+        Close
+      </button>
+    </div>
+  </div>
+</div>

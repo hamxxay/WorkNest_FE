@@ -1,0 +1,98 @@
+.status-select{border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:.78rem;color:#475569;background:#fff;cursor:pointer}
+.btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-outline-admin{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-outline-admin:hover{background:#f8fafc}
+.btn-outline-admin:disabled{opacity:.4;cursor:not-allowed}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-content{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative}
+.modal-content h2{font-size:1.2rem;font-weight:700;color:#0f172a;margin-bottom:20px}
+/* Print */
+@media print {
+  body * { visibility: hidden !important; }
+}
+/* Status badges for Quotation */
+.status-badge.status-approved,
+.status-badge.status-active {
+  background: #ecfdf5;
+  color: #047857;
+}
+.status-badge.status-inactive,
+.status-badge.status-expired {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.status-badge.status-converted {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.status-badge.status-agreementsent,
+.status-badge.status-sent {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.status-badge.status-signed {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+.modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
+.modal-content h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 22px;padding:0 40px 16px 0;border-bottom:1px solid #f1f5f9}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+@keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* Status column dropdown: a pill that shows the current status, coloured by it.
+   The select's own box is reset in styles.css (the admin-wide select style would otherwise draw over the pill). */
+.status-picker {
+  --sp-bg: #f8fafc; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #94a3b8;
+  position: relative; display: inline-flex; align-items: center; height: 30px;
+  background: var(--sp-bg); color: var(--sp-fg); border: 1px solid var(--sp-bd);
+  border-radius: 999px; transition: box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.status-picker::before {
+  content: ''; position: absolute; left: 12px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px;
+  border-radius: 50%; background: var(--sp-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 18%, transparent);
+  pointer-events: none;
+}
+.status-picker:hover { border-color: var(--sp-dot); }
+.status-picker:focus-within { border-color: var(--sp-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 22%, transparent); }
+.status-picker-chevron { position: absolute; right: 11px; top: 50%; margin-top: -6px; pointer-events: none; opacity: .7; }
+.status-picker.status-pending, .status-picker.status-new, .status-picker.status-open {
+  --sp-bg: #fffbeb; --sp-fg: #b45309; --sp-bd: #fde68a; --sp-dot: #f59e0b;
+}
+.status-picker.status-inprogress {
+  --sp-bg: #eff6ff; --sp-fg: #1d4ed8; --sp-bd: #bfdbfe; --sp-dot: #3b82f6;
+}
+.status-picker.status-confirmed, .status-picker.status-paid, .status-picker.status-resolved {
+  --sp-bg: #ecfdf5; --sp-fg: #047857; --sp-bd: #a7f3d0; --sp-dot: #10b981;
+}
+.status-picker.status-rejected, .status-picker.status-cancelled, .status-picker.status-failed {
+  --sp-bg: #fef2f2; --sp-fg: #b91c1c; --sp-bd: #fecaca; --sp-dot: #ef4444;
+}
+.status-picker.status-refunded {
+  --sp-bg: #f5f3ff; --sp-fg: #6d28d9; --sp-bd: #ddd6fe; --sp-dot: #8b5cf6;
+}
+.status-picker.status-noshow, .status-picker.status-closed {
+  --sp-bg: #f1f5f9; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #64748b;
+}
+@media (max-width: 640px) {
+  /* Popups: fit the phone, scroll inside, buttons stay reachable. */
+  .modal-overlay { padding: 10px; }
+  .modal-content { padding: 20px 16px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
+  .modal-content h2 { font-size: 1.1rem; margin-bottom: 16px; padding-bottom: 12px; overflow-wrap: anywhere; }
+}
+@media (max-width: 640px) {
+  /* Header bars, info strips and footers: rows wrap instead of running off the popup. */
+  .modal-content [style*="display: flex"]:not(button):not(a):not(label):not([style*="flex-direction: column"]) { flex-wrap: wrap; row-gap: 8px; }
+  /* ...except a header bar that ends with its close button: the title block shrinks and wraps instead. */
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)):not(button) { flex-wrap: nowrap; }
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)) > :first-child { min-width: 0; }
+  /* Popups with no padding of their own: their header / body / footer side padding shrinks to 16px. */
+  .modal-content[style*="padding: 0;"] > [style*="padding"] { padding-left: 16px !important; padding-right: 16px !important; }
+  .modal-content[style*="max-height"] { max-height: calc(100dvh - 20px) !important; }
+  /* Fixed two- and three-column field grids stack; four KPI tiles become two by two. */
+  .modal-content .m-stack { grid-template-columns: 1fr !important; }
+  .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
+  .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
+}

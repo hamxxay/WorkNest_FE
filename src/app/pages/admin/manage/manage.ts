@@ -44,6 +44,13 @@ import { ManageAddInquiryModal } from '../manage-inquiry-modals/manage-add-inqui
 import { ManageContactTypeModal } from '../manage-inquiry-modals/manage-contact-type-modal';
 import { ManageItemBranchModal } from '../manage-inquiry-modals/manage-item-branch-modal';
 import { ManageContactFeedbackModal } from '../manage-inquiry-modals/manage-contact-feedback-modal';
+import { ManageAgreementSendModal } from '../manage-agreement-send-modal/manage-agreement-send-modal';
+import { ManageAgreementSignModal } from '../manage-agreement-sign-modal/manage-agreement-sign-modal';
+import { ManageAgreementDetailsModal } from '../manage-agreement-details-modal/manage-agreement-details-modal';
+import { ManageInitialInvoicePreviewModal } from '../manage-invoice-send-modals/manage-initial-invoice-preview-modal';
+import { ManageCustomInvoiceModal } from '../manage-invoice-send-modals/manage-custom-invoice-modal';
+import { ManageQuotationConversionModal } from '../manage-quotation-conversion-modal/manage-quotation-conversion-modal';
+import { ManageQuickCustomerModal } from '../manage-quick-customer-modal/manage-quick-customer-modal';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -68,7 +75,9 @@ interface EntityConfig {
   imports: [CommonModule, FormsModule, DatePipe, WhtInvoiceFields, ManageSpaceDetailsModal, ManagePaymentSummaryModal,
     ManageUserDetailsModal, ManageBookingDetailsModal, ManageInvoiceDetailsModal, ManageComplaintModal,
     ManageRecordPaymentModal, ManageRevertApprovalModal, ManageReassignBookingModal, ManageAddInquiryModal,
-    ManageContactTypeModal, ManageItemBranchModal, ManageContactFeedbackModal],
+    ManageContactTypeModal, ManageItemBranchModal, ManageContactFeedbackModal, ManageAgreementSendModal,
+    ManageAgreementSignModal, ManageAgreementDetailsModal, ManageInitialInvoicePreviewModal, ManageCustomInvoiceModal,
+    ManageQuotationConversionModal, ManageQuickCustomerModal],
   templateUrl: './manage.html',
   // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
   styleUrls: ['../../../styles/form-popup.css', './manage.css']
@@ -638,6 +647,8 @@ export class Manage implements OnInit {
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
   }
+  /** The send-agreement popup's filteredAgreementOfferingTypes (manage-agreement-send-modal), bound to this page. */
+  readonly filteredAgreementOfferingTypesFn = () => this.filteredAgreementOfferingTypes();
 
   loadQuotationTaxRate() {
     const locId = Number(this.selectedQuotationLocationId || 0);
@@ -7616,6 +7627,8 @@ export class Manage implements OnInit {
   initialInvoiceNeedsWhtRate(): boolean {
     return this.initialInvoiceType() === 'wht' && this.initialInvoiceWhTaxId() === null;
   }
+  /** The initial-invoice preview's initialInvoiceNeedsWhtRate (manage-invoice-send-modals), bound to this page. */
+  readonly initialInvoiceNeedsWhtRateFn = () => this.initialInvoiceNeedsWhtRate();
   /** What the API is asked for: undefined = booking's own setting; null = standard; an Id = WHT at that rate. */
   private initialInvoiceWhtArg(): number | null | undefined {
     if (!this.initialInvoiceWhtChosen) return undefined;
@@ -8402,6 +8415,15 @@ export class Manage implements OnInit {
   getQuotationInitialPayable(q: any): number { return pricing.getQuotationInitialPayable(q); }
 
   getQuotationNetTotal(q: any): number { return pricing.getQuotationNetTotal(q); }
+  /** The conversion popup's pricing queries (manage-quotation-conversion-modal), bound to this page. */
+  readonly getQuotationContractMonthsFn = (q: any) => this.getQuotationContractMonths(q);
+  readonly getQuotationBillingMonthsFn = (q: any) => this.getQuotationBillingMonths(q);
+  readonly getQuotationFirstCycleRentFn = (q: any) => this.getQuotationFirstCycleRent(q);
+  readonly getQuotationDiscountAmountFn = (q: any) => this.getQuotationDiscountAmount(q);
+  readonly getQuotationTaxAmountFn = (q: any) => this.getQuotationTaxAmount(q);
+  readonly getQuotationSecurityDepositFn = (q: any) => this.getQuotationSecurityDeposit(q);
+  readonly getQuotationInitialPayableFn = (q: any) => this.getQuotationInitialPayable(q);
+  readonly isMeetingRoomFn = (item: any) => this.isMeetingRoom(item);
 
   readonly showConversionPreviewModal = signal(false);
   selectedConversionQuotation = signal<any>(null);
@@ -8885,6 +8907,11 @@ export class Manage implements OnInit {
   customerCopyOnFile(ag: any): boolean {
     return !!(ag?.signedPdfUploadedAt || ag?.SignedPdfUploadedAt);
   }
+  /** The sign popup's query helpers (manage-agreement-sign-modal), bound to this page. */
+  readonly todayIsoFn = () => this.todayIso();
+  readonly signMinDateFn = (ag: any) => this.signMinDate(ag);
+  readonly signChallanAlreadyExpiredFn = () => this.signChallanAlreadyExpired();
+  readonly customerCopyOnFileFn = (ag: any) => this.customerCopyOnFile(ag);
   openSignAgreement(item: any) {
     this.signAgreementItem.set(item);
     this.signFile.set(null);
@@ -8995,6 +9022,10 @@ export class Manage implements OnInit {
   eSignedBy(ag: any): string {
     return ag?.eSignedBy || ag?.ESignedBy || ag?.esignedBy || '';
   }
+  /** The sign and agreement-details popups' e-signature helpers (manage-agreement-sign-modal,
+   *  manage-agreement-details-modal), bound to this page. */
+  readonly eSignedAtFn = (ag: any) => this.eSignedAt(ag);
+  readonly eSignedByFn = (ag: any) => this.eSignedBy(ag);
 
   onSignedAgreementFileSelected(agreementId: any, event: any) {
     const input = event.target as HTMLInputElement;
@@ -9066,6 +9097,8 @@ export class Manage implements OnInit {
     if (!agreementId) return '#';
     return this.agreementSvc.getSignedPdfDownloadUrl(Number(agreementId));
   }
+  /** The agreement-details popup's getSignedAgreementDownloadUrl (manage-agreement-details-modal), bound to this page. */
+  readonly getSignedAgreementDownloadUrlFn = (agreementId: any) => this.getSignedAgreementDownloadUrl(agreementId);
 
   triggerSignedUpload(agreementId: any) {
     const el = document.getElementById('upload-signed-' + agreementId) as HTMLInputElement;
