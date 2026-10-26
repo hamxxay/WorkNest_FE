@@ -1139,7 +1139,7 @@ export class Manage implements OnInit {
   }
 
   /** Roles tied to location(s), in the order the location hint names them (super admins, CEOs and customers have none). */
-  private static readonly LOCATION_ROLES = ['admin', 'sales_executive', 'sales_manager', 'access_officer'];
+  private static readonly LOCATION_ROLES = ['admin', 'sales_executive', 'sales_manager', 'access_officer', 'network_engineer'];
 
   /** Roles that are tied to location(s): admin, sales executive, sales manager and access officer. */
   isLocationRole(role: any): boolean {

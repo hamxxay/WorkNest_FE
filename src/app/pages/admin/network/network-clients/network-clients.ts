@@ -38,7 +38,7 @@ export class NetworkClients implements OnInit, OnDestroy {
   private slowTimer?: ReturnType<typeof setTimeout>;
 
   /** Only admins can rename clients; sales executives get a read-only view. */
-  readonly canRename = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  readonly canRename = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   data = signal<UnifiClientsResponse | null>(null);
   loadedAt = signal<number | null>(null);

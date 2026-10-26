@@ -10,7 +10,7 @@ import { CustomInvoiceService } from '../../../services/custom-invoice.service';
 import {
   ACCESS_OFFICER_HOME, CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isAccessOfficerUrl, isCeoUrl, isSalesExecutiveUrl,
   isSalesManagerUrl
-} from '../../../guards/admin.guard';
+, NETWORK_ENGINEER_HOME, isNetworkEngineerUrl } from '../../../guards/admin.guard';
 import { roleLabelFor } from '../../../utils/constants';
 
 @Component({
@@ -45,6 +45,8 @@ export class AdminLayout implements OnInit, OnDestroy {
   isSalesManager = false;
   /** Access Officer: only the Access page in the sidebar, no badges or other staff calls (same reason). */
   isAccessOfficer = false;
+  /** Network Engineer: only the Network section in the sidebar, no badges or staff calls. */
+  isNetworkEngineer = false;
   /** CEO / Sales Manager / Access Officer: their one page (logo link, no profile page); null for everyone else. */
   dashboardHome: string | null = null;
 
@@ -145,7 +147,15 @@ export class AdminLayout implements OnInit, OnDestroy {
     this.isCeo = this.auth.isCeoOnly();
     this.isSalesManager = this.auth.isSalesManagerOnly();
     this.isAccessOfficer = this.auth.isAccessOfficerOnly();
-    if (this.isCeo) {
+    this.isNetworkEngineer = this.auth.isNetworkEngineerOnly();
+        if (this.isNetworkEngineer) {
+      this.userRole = 'Network Engineer';
+      this.dashboardHome = NETWORK_ENGINEER_HOME;
+      this.menuItems = this.menuItems.filter(item => item.group === 'Network');
+      if (!isNetworkEngineerUrl(this.router.url)) {
+        this.router.navigate([NETWORK_ENGINEER_HOME]);
+      }
+    } else if (this.isCeo) {
       this.userRole = 'CEO';
       this.dashboardHome = CEO_HOME;
       // Same rule as adminGuard: the CEO dashboard and nothing else.
@@ -294,7 +304,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   private visibleItems(): any[] {
     return this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
       && (!i.customInvoiceOnly || this.customInvoiceAllowed())
-      && (i.group !== 'Network' || this.networkAllowed()));
+      && (i.group !== 'Network' || this.isNetworkEngineer || this.networkAllowed()));
   }
 
   /**

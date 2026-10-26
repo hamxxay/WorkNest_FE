@@ -153,7 +153,7 @@
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">
-        @if (dashboardHome) {
+        @if (dashboardHome && !isNetworkEngineer) {
           <!-- A CEO / Sales Manager / Access Officer has no profile page: the card only shows who is signed in. -->
           <div class="sidebar-profile-link static" [attr.title]="sidebarCollapsed ? getUserName() + ' (' + roleLabel + ')' : null">
             <span class="sidebar-avatar">{{ getInitials() }}</span>

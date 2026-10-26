@@ -584,6 +584,16 @@ export class AuthService {
    * An Access Officer (role "access_officer") only uses the Access page (door access by CNIC) for their own
    * location(s). Only when the user has no other staff role (a CEO / Sales Manager keeps their dashboard).
    */
+    /**
+   * A Network Engineer (role "network_engineer") only uses network management (/admin/network) for their own
+   * location(s). Only when the user has no other staff role.
+   */
+  isNetworkEngineerOnly(): boolean {
+    return this.hasRole('network_engineer')
+      && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive')
+      && !this.hasRole('ceo') && !this.hasRole('sales_manager') && !this.hasRole('access_officer');
+  }
+
   isAccessOfficerOnly(): boolean {
     return this.hasRole('access_officer')
       && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive')
@@ -602,7 +612,7 @@ export class AuthService {
   isLocationBound(): boolean {
     return !this.hasRole('super_admin')
       && (this.hasRole('admin') || this.hasRole('sales_executive') || this.hasRole('sales_manager')
-        || this.hasRole('access_officer'));
+        || this.hasRole('access_officer') || this.hasRole('network_engineer'));
   }
 
   /** The signed-in user's role as the database words it (auth/me), else a label made from the role name. */
@@ -659,7 +669,7 @@ export class AuthService {
   /** Cached user with staff roles removed: used when the API could not confirm the roles. */
   private withoutStaffRoles(cached: UserInfo | null): UserInfo | null {
     if (!cached) return null;
-    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo', 'salesmanager', 'accessofficer'];
+    const staff = ['admin', 'superadmin', 'salesexecutive', 'ceo', 'salesmanager', 'accessofficer', 'networkengineer'];
     const roles = (cached.roles || []).filter(r => !staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
     // The stored role label belonged to a role that is now dropped.
     return roles.length === (cached.roles || []).length ? { ...cached, roles } : { ...cached, roles, roleDisplayName: undefined };

@@ -42,7 +42,7 @@ export class NetworkOverview implements OnInit, OnDestroy {
   private timers: ReturnType<typeof setInterval>[] = [];
   private pollTimer?: ReturnType<typeof setTimeout>;
 
-  readonly isAdmin = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  readonly isAdmin = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   data = signal<UnifiSummary | null>(null);
   wan = signal<UnifiDeviceHistory | null>(null);

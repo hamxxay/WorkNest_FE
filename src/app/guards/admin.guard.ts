@@ -57,6 +57,24 @@ export function isSalesManagerUrl(url: string): boolean {
 }
 
 /** The only admin page an Access Officer may open (door access by CNIC). Shared with accessOfficerGuard and the sidebar. */
+/** The only admin section a Network Engineer may open (network and its children + profile). */
+export const NETWORK_ENGINEER_HOME = '/admin/network';
+
+export const NETWORK_ENGINEER_ROUTES: string[] = [
+  '/admin/network',
+  '/admin/network/clients',
+  '/admin/network/devices',
+  '/admin/network/internet',
+  '/admin/network/wifi',
+  '/admin/profile'
+];
+
+/** True for Network Engineer allowed routes (query/fragment ignored). */
+export function isNetworkEngineerUrl(url: string): boolean {
+  const path = url.split(/[?#]/)[0];
+  return NETWORK_ENGINEER_ROUTES.some(p => path === p || path.startsWith(p + '/'));
+}
+
 export const ACCESS_OFFICER_HOME = '/admin/access';
 
 /** True for the Access page (query/fragment ignored). */
@@ -90,6 +108,11 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
     }
 
     // Same for an Access Officer: the Access page only.
+        // Same for a Network Engineer: network pages and profile only.
+    if (auth.isNetworkEngineerOnly()) {
+      return isNetworkEngineerUrl(state.url) ? true : router.createUrlTree([NETWORK_ENGINEER_HOME]);
+    }
+
     if (auth.isAccessOfficerOnly()) {
       return isAccessOfficerUrl(state.url) ? true : router.createUrlTree([ACCESS_OFFICER_HOME]);
     }
