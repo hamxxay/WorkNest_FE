@@ -1,0 +1,51 @@
+<div class="modal-overlay" (click)="closeContactType.emit()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqTypeTitle"
+    (click)="$event.stopPropagation()">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'type' }" /></span>
+      <div>
+        <h2 id="inqTypeTitle">Inquiry type</h2>
+        <p>{{ inquiryContactLine(ti) }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeContactType.emit()" title="Close" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Where did this inquiry come from?</legend>
+        <div class="inq-choice-grid two">
+          @for (o of inquiryTypeOptions; track o.v) {
+          <label class="inq-choice" [class]="'inq-choice src-' + o.v.toLowerCase()"
+            [class.selected]="contactTypeValue === o.v">
+            <input type="radio" name="inqType" [value]="o.v" [(ngModel)]="contactTypeValue" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: o.v }" /></span>
+            <span class="inq-choice-text"><strong>{{ o.l }}</strong></span>
+          </label>
+          }
+        </div>
+      </fieldset>
+      @if (contactTypeValue === 'Reference') {
+      <div class="inq-field">
+        <label for="inqTypeRef">Referred by <span class="req">*</span></label>
+        <input id="inqTypeRef" class="form-input-admin" type="text" maxlength="200" name="inqRef"
+          [(ngModel)]="contactTypeReference" placeholder="Name of the person who referred them" />
+      </div>
+      }
+      @if (contactTypeError()) {
+      <p class="inq-error" role="alert">{{ contactTypeError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeContactType.emit()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactType.emit()"
+        [disabled]="contactTypeSaving()">
+        {{ contactTypeSaving() ? 'Saving…' : 'Save type' }}
+      </button>
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,92 @@
+.alert-admin{padding:10px 16px;border-radius:8px;font-size:.875rem;margin-bottom:16px}
+.alert-error-admin{background:rgba(239,68,68,.08);color:#dc2626;border:1px solid rgba(239,68,68,.2)}
+.table-wrap{overflow-x:auto}
+.admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.admin-table th{text-align:left;padding:10px 12px;color:#64748b;font-weight:500;font-size:.78rem;border-bottom:2px solid #e2e8f0;background:#f8fafc;white-space:nowrap}
+.admin-table td{padding:12px;border-bottom:1px solid #f1f5f9;color:#0f172a;vertical-align:middle}
+.loading-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px;color:#64748b}
+.spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#0d9488;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-content{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative}
+.modal-content.booking-modal,.modal-content.user-modal{max-width:860px}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:6px}
+.modal-close:hover{color:#0f172a;background:#f1f5f9}
+.modal-content h2{font-size:1.2rem;font-weight:700;color:#0f172a;margin-bottom:20px}
+.user-detail-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.user-line{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8fafc;border-radius:8px;font-size:.85rem}
+.user-line span{color:#64748b}
+.user-line strong{color:#0f172a;font-weight:600}
+.history-section{margin-top:16px}
+.history-section h3{font-size:.95rem;font-weight:600;color:#0f172a;margin-bottom:12px}
+.history-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.history-stats .stat-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px}
+.history-stats .stat-card span{font-size:.72rem;color:#64748b}
+.history-stats .stat-card strong{font-size:1rem;font-weight:700;color:#0f172a}
+.history-empty{color:#94a3b8;font-size:.82rem}
+/* Print */
+@media print {
+  body * { visibility: hidden !important; }
+  .modal-close { display: none !important; }
+}
+/* Status badges for Quotation */
+.status-badge.status-approved,
+.status-badge.status-active {
+  background: #ecfdf5;
+  color: #047857;
+}
+.status-badge.status-inactive,
+.status-badge.status-expired {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.status-badge.status-converted {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.status-badge.status-agreementsent,
+.status-badge.status-sent {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.status-badge.status-signed {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+.modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
+.modal-content h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 22px;padding:0 40px 16px 0;border-bottom:1px solid #f1f5f9}
+.modal-close{top:20px;right:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+@keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (max-width: 1024px) {
+  /* One line per cell (long text keeps its two-line clamp at most 280px wide): the table scrolls sideways. */
+  .table-wrap > .admin-table { width: max-content; min-width: 100%; }
+  .table-wrap > .admin-table :is(th, td) { white-space: nowrap; }
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 640px) {
+  /* Popups: fit the phone, scroll inside, buttons stay reachable. */
+  .modal-overlay { padding: 10px; }
+  .modal-content { padding: 20px 16px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
+  .modal-content h2 { font-size: 1.1rem; margin-bottom: 16px; padding-bottom: 12px; overflow-wrap: anywhere; }
+  .modal-close { top: 12px; right: 12px; width: 40px; height: 40px; }
+  .user-line { flex-wrap: wrap; gap: 4px 12px; }
+  .user-line strong { overflow-wrap: anywhere; text-align: right; margin-left: auto; }
+}
+@media (max-width: 640px) {
+  /* Header bars, info strips and footers: rows wrap instead of running off the popup. */
+  .modal-content [style*="display: flex"]:not(button):not(a):not(label):not([style*="flex-direction: column"]) { flex-wrap: wrap; row-gap: 8px; }
+  /* ...except a header bar that ends with its close button: the title block shrinks and wraps instead. */
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)):not(button) { flex-wrap: nowrap; }
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)) > :first-child { min-width: 0; }
+  /* Popups with no padding of their own: their header / body / footer side padding shrinks to 16px. */
+  .modal-content[style*="padding: 0;"] > [style*="padding"] { padding-left: 16px !important; padding-right: 16px !important; }
+  .modal-content[style*="max-height"] { max-height: calc(100dvh - 20px) !important; }
+  .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
+  .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
+}

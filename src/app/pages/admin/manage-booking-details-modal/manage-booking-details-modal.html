@@ -1,0 +1,223 @@
+<div class="modal-overlay" (click)="closeBookingDetails.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:720px;width:100%;border-radius:12px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px);max-height:min(92dvh,900px)">
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0;font-size:1.15rem;font-weight:700">Booking Details #{{ booking.id || booking.bookingId }}
+        </h3>
+        <span style="font-size:0.78rem;color:#94a3b8">{{ booking.customerName || booking.userEmail || 'Customer' }} — {{
+          booking.spaceName || 'Workspace' }}</span>
+      </div>
+      <button (click)="closeBookingDetails.emit()" title="Close" aria-label="Close"
+        style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <div style="padding:24px;flex:1 1 auto;min-height:0;overflow-y:auto">
+      <!-- Status Badges -->
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#f8fafc;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0">
+        <div>
+          <span
+            style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Booking
+            Status</span>
+          <span class="status-badge" [class]="'status-' + (booking.bookingStatus || 'confirmed').toLowerCase()"
+            style="font-weight:700;font-size:0.85rem">
+            {{ booking.bookingStatus || 'Confirmed' }}
+          </span>
+        </div>
+        <div style="text-align:right">
+          <span
+            style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block">Billing
+            Frequency</span>
+          <span style="font-weight:700;color:#0284c7;font-size:0.95rem">
+            Every {{ booking.billingPeriodMonths || 1 }} Month(s)
+          </span>
+        </div>
+      </div>
+
+      <!-- Grid of Details -->
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <!-- Space Number -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Space
+            Number / Code</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">
+            {{ booking.spaceNumber || booking.contract?.spaceNumber || booking.spaceCode || booking.spaceName || '—' }}
+          </div>
+        </div>
+
+        <!-- Billing Period -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Billing Period</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0284c7">
+            {{ booking.billingPeriod || booking.contract?.billingPeriod || booking.billingPeriodLabel || 'Monthly' }}
+          </div>
+        </div>
+
+        <!-- Contract Period -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Contract Period</div>
+          <div style="font-size:0.88rem;font-weight:600;color:#0f172a">
+            {{ (booking.contractStartDate || booking.contract?.contractStartDate || booking.startOn ||
+            booking.startDateTime) | date:'MMM d, y' }} – {{ (booking.contractEndDate ||
+            booking.contract?.contractEndDate || booking.endOn || booking.endDateTime) | date:'MMM d, y' }}
+          </div>
+        </div>
+
+        <!-- Contract Duration -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Contract Duration</div>
+          <div style="font-size:0.88rem;font-weight:600;color:#0f172a">
+            {{ booking.numberOfMonths || booking.contract?.numberOfMonths || booking.contractDuration || 1 }} Month(s)
+          </div>
+        </div>
+
+        <!-- Monthly Rent -->
+        <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:4px">
+            Monthly Rent</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#0f172a">
+            PKR {{ (booking.monthlyRent ?? booking.MonthlyRent ?? booking.contract?.monthlyRent ?? booking.pricePerMonth
+            ?? 0) | number:'1.0-0' }}
+          </div>
+        </div>
+
+        <!-- Current Cycle Amount -->
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#1e40af;text-transform:uppercase;margin-bottom:4px">
+            Current Cycle Amount</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#0369a1">
+            PKR {{ (booking.currentCycleAmount ?? booking.CurrentCycleAmount ?? booking.contract?.currentCycleAmount ??
+            booking.monthlyRent ?? booking.totalAmount ?? 0) | number:'1.0-0' }}
+          </div>
+        </div>
+
+
+        <!-- Security Deposit (only when the stored deposit > 0) -->
+        @if (bookingDetailsDeposit(booking) > 0) {
+        <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#c2410c;text-transform:uppercase;margin-bottom:4px">
+            Security Deposit (One-time)</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#c2410c">
+            PKR {{ bookingDetailsDeposit(booking) | number:'1.0-0' }}
+          </div>
+          @if (booking.securityDepositMonths > 0) {
+          <div style="font-size:0.75rem;color:#9a3412">{{ booking.securityDepositMonths }} Month(s)</div>
+          }
+        </div>
+        }
+
+        <!-- Balance Left -->
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px">
+            Balance Remaining</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#b45309">
+            PKR {{ (booking.balanceLeft ?? booking.BalanceLeft ?? booking.contract?.balanceLeft ?? booking.balanceAmount
+            ?? booking.BalanceAmount ?? 0) | number:'1.0-0' }}
+          </div>
+        </div>
+
+        <!-- Next Billing Date -->
+        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 14px">
+          <div style="font-size:0.72rem;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:4px">Next
+            Billing Date</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#0284c7">
+            {{ (booking.nextBillingDate || booking.NextBillingDate || booking.nextBillDueDate || booking.NextBillDueDate
+            || booking.contract?.nextBillingDate || booking.dueDate || booking.DueDate) ? ((booking.nextBillingDate ||
+            booking.NextBillingDate || booking.nextBillDueDate || booking.NextBillDueDate ||
+            booking.contract?.nextBillingDate || booking.dueDate || booking.DueDate) | date:'MMM d, y') : 'N/A' }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Security Deposit & Billing Schedule Summary (not shown when the booking has no deposit) -->
+      @if (bookingBillingSummaryData(); as summary) {
+      @if ((summary.securityDepositRequired ?? 0) > 0 || (summary.securityDepositInvoiced ?? 0) > 0 ||
+      (summary.securityDepositPaid ?? 0) > 0) {
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin-bottom:20px">
+        <h4 style="margin:0 0 12px 0;font-size:0.9rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px">
+          Security Deposit Status</h4>
+        <div class="m-2col" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;text-align:center">
+          <div>
+            <span style="font-size:0.7rem;color:#64748b;display:block">Required</span>
+            <strong style="font-size:0.88rem;color:#0f172a">PKR {{ (summary.securityDepositRequired ?? 0) |
+              number:'1.0-0' }}</strong>
+          </div>
+          <div>
+            <span style="font-size:0.7rem;color:#64748b;display:block">Invoiced</span>
+            <strong style="font-size:0.88rem;color:#0284c7">PKR {{ (summary.securityDepositInvoiced ?? 0) |
+              number:'1.0-0' }}</strong>
+          </div>
+          <div>
+            <span style="font-size:0.7rem;color:#64748b;display:block">Paid</span>
+            <strong style="font-size:0.88rem;color:#16a34a">PKR {{ (summary.securityDepositPaid ?? 0) | number:'1.0-0'
+              }}</strong>
+          </div>
+          <div>
+            <span style="font-size:0.7rem;color:#64748b;display:block">Outstanding</span>
+            <strong style="font-size:0.88rem"
+              [style.color]="(summary.securityDepositOutstanding ?? 0) > 0 ? '#dc2626' : '#16a34a'">
+              PKR {{ (summary.securityDepositOutstanding ?? 0) | number:'1.0-0' }}
+            </strong>
+          </div>
+        </div>
+        <div
+          style="margin-top:10px;font-size:0.78rem;color:#475569;background:#fff;padding:6px 10px;border-radius:4px;border:1px solid #e2e8f0">
+          Security Deposit Charged Status: <strong>{{ summary.securityDepositCharged ? 'CHARGED (Will not appear on
+            future invoices)' : 'PENDING FIRST INVOICE' }}</strong>
+        </div>
+      </div>
+      }
+      }
+
+
+      <!-- Next Invoice Date & Automation Info -->
+      <div
+        style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase">Next Invoice
+            Auto-Generation</div>
+          <div style="font-size:0.85rem;color:#15803d;margin-top:2px">
+            Scheduled 5 days before cycle end date
+          </div>
+        </div>
+        <div style="text-align:right">
+          <span style="font-size:0.72rem;color:#166534;display:block">Next Billing Date</span>
+          <strong style="font-size:1.05rem;color:#14532d">
+            {{ (booking.nextBillingDate || booking.billingPeriodEnd) ? ((booking.nextBillingDate ||
+            booking.billingPeriodEnd) | date:'MMM d, y') : 'N/A' }}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;gap:8px">
+        <button class="btn-admin btn-outline-admin" (click)="viewBillingChallan.emit(booking)">
+          View Current Billing Challan
+        </button>
+        <button class="btn-admin" (click)="generateRecurringInvoice.emit(booking)"
+          [disabled]="generatingRecurringInvoiceId() === (booking.id || booking.bookingId)"
+          style="background:#7c3aed;color:#fff;border:none;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+          </svg>
+          {{ generatingRecurringInvoiceId() === (booking.id || booking.bookingId) ? 'Generating...' : 'Generate
+          Recurring Invoice' }}
+        </button>
+        <button class="btn-admin btn-primary-admin"
+          (click)="closeBookingDetails.emit(); openAdminBookingForm.emit(booking)"
+          style="background:#2563eb;color:#fff">
+          Edit Booking
+        </button>
+      </div>
+      <button class="btn-admin btn-outline-admin" (click)="closeBookingDetails.emit()">Close</button>
+    </div>
+  </div>
+</div>

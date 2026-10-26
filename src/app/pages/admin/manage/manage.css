@@ -59,23 +59,9 @@
 .form-input-admin:focus{border-color:#0d9488;background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.08)}
 .checkbox-label{display:flex;align-items:center;gap:8px;font-size:.875rem;color:#475569;cursor:pointer}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
-.user-detail-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
-.user-line{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8fafc;border-radius:8px;font-size:.85rem}
-.user-line span{color:#64748b}
-.user-line strong{color:#0f172a;font-weight:600}
 .history-section{margin-top:16px}
 .history-section h3{font-size:.95rem;font-weight:600;color:#0f172a;margin-bottom:12px}
-.history-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-.history-stats .stat-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px}
-.history-stats .stat-card span{font-size:.72rem;color:#64748b}
-.history-stats .stat-card strong{font-size:1rem;font-weight:700;color:#0f172a}
 .history-list-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.history-list h4{font-size:.85rem;font-weight:600;color:#0f172a;margin-bottom:10px}
-.history-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.82rem}
-.history-item:last-child{border-bottom:none}
-.history-item strong{color:#0f172a;display:block}
-.history-item p{color:#64748b;margin:2px 0 0;font-size:.78rem}
-.history-empty{color:#94a3b8;font-size:.82rem}
 .booking-calendar-block{margin-bottom:16px;border:1px solid #e2e8f0;border-radius:10px;padding:14px}
 .booking-calendar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .booking-calendar-head h4{font-size:.9rem;font-weight:600;color:#0f172a}
@@ -605,18 +591,6 @@
 .status-picker.role-pick-sales_manager { --sp-bg: #eef2ff; --sp-fg: #4338ca; --sp-bd: #c7d2fe; --sp-dot: #6366f1; }
 .status-picker.role-pick-access_officer { --sp-bg: #f0f9ff; --sp-fg: #0369a1; --sp-bd: #bae6fd; --sp-dot: #0ea5e9; }
 
-/* ===================== Tour inquiry popups (Add inquiry, Inquiry type, Feedback) =====================
-   The popup layout (.inq-modal, .inq-head, .inq-choice ...) is shared: src/app/styles/form-popup.css.
-   One colour per inquiry Type (also on the list pill) and per feedback outcome:
-   Website blue, WhatsApp green, Walk-In orange, Reference violet; not interested rose, future prospect amber,
-   converted teal. */
-.src-website { --c: #1d4ed8; --c-soft: #eff6ff; }
-.src-whatsapp { --c: #047857; --c-soft: #ecfdf5; }
-.src-walkin { --c: #c2410c; --c-soft: #fff7ed; }
-.src-reference { --c: #6d28d9; --c-soft: #f5f3ff; }
-.out-not_interested { --c: #be123c; --c-soft: #fff1f2; }
-.out-future_prospect { --c: #b45309; --c-soft: #fffbeb; }
-.out-converted { --c: #0f766e; --c-soft: #f0fdfa; }
 
 /* ===================== Responsive: phones, tablets, big screens =====================
    Desktop keeps its look; below 1025px tables scroll inside their card instead of squeezing every column,
@@ -673,8 +647,6 @@
   .modal-content .form-input-admin { font-size: 16px; min-height: 44px; }
   .modal-content textarea.form-input-admin { min-height: 84px; }
   .history-list-wrap { grid-template-columns: 1fr; }
-  .user-line { flex-wrap: wrap; gap: 4px 12px; }
-  .user-line strong { overflow-wrap: anywhere; text-align: right; margin-left: auto; }
   .customer-option { flex-wrap: wrap; }
   .customer-option strong { min-width: 0; }
   .type-selector-pills { flex-wrap: wrap; }
@@ -701,7 +673,6 @@
   .modal-content[style*="max-height"] { max-height: calc(100dvh - 20px) !important; }
   /* Fixed two- and three-column field grids stack; four KPI tiles become two by two. */
   .modal-content .m-stack { grid-template-columns: 1fr !important; }
-  .modal-content .m-2col { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
   .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
 }

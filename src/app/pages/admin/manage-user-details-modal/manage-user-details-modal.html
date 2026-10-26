@@ -1,0 +1,100 @@
+<div class="modal-overlay" (click)="closeUserModal.emit()">
+  <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closeUserModal.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>User Details</h2>
+    @if (userDetailsLoading()) {
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+    } @else {
+    @if (userDetailsError()) { <div class="alert-admin alert-error-admin">{{ userDetailsError() }}</div> }
+    @if (selectedUser(); as user) {
+    <div class="user-detail-grid">
+      <div class="user-line"><span>Name</span><strong>{{ userDisplayName() }}</strong></div>
+      <div class="user-line"><span>Phone</span><strong>{{ user.phoneNumber || 'N/A' }}</strong></div>
+      <div class="user-line"><span>Active</span><strong>{{ (user.isActive ?? user.status == 1) ? 'Yes' : 'No'
+          }}</strong></div>
+      <div class="user-line"><span>Created</span><strong>{{ (user.createdAt || user.createdOn) ? ((user.createdAt ||
+          user.createdOn) | date:'medium') : 'N/A' }}</strong></div>
+    </div>
+    }
+    @if (userHistory(); as history) {
+    <div class="history-section">
+      <div class="history-stats">
+        <div class="stat-card"><span>Total Bookings</span><strong>{{ history.stats?.totalBookings ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (history.stats?.totalPaidAmount ?? 0) |
+            number:'1.0-0' }}</strong></div>
+        <div class="stat-card"><span>Cancelled</span><strong>{{ history.stats?.cancelledBookings ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Failed Payments</span><strong>{{ history.stats?.failedPayments ?? 0 }}</strong>
+        </div>
+      </div>
+      <h4>All Bookings ({{ history.recentBookings?.length ?? 0 }})</h4>
+      @if (history.recentBookings?.length) {
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Space</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>{{ amountLabels['Booking.totalAmount'] || 'Amount' }}</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (b of history.recentBookings; track b.id) {
+            <tr>
+              <td>{{ b.spaceName || 'N/A' }}</td>
+              <td>{{ b.startDateTime | date:'mediumDate' }}</td>
+              <td>{{ b.endDateTime | date:'mediumDate' }}</td>
+              <td>PKR {{ (b.totalAmount ?? 0) | number:'1.0-0' }}</td>
+              <td><span class="status-badge" [class]="'status-' + (b.bookingStatus || '').toLowerCase()">{{
+                  b.bookingStatus }}</span></td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      } @else {
+      <p class="history-empty">No bookings found.</p>
+      }
+      <h4 style="margin-top:16px">All Payments ({{ history.recentPayments?.length ?? 0 }})</h4>
+      @if (history.recentPayments?.length) {
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>{{ amountLabels['Payment.amount'] || 'Amount' }}</th>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Paid At</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of history.recentPayments; track p.id) {
+            <tr>
+              <td>PKR {{ (p.amount ?? 0) | number:'1.0-0' }}</td>
+              <td>{{ p.paymentMethod }}</td>
+              <td><span class="status-badge" [class]="'status-' + (p.paymentStatus || '').toLowerCase()">{{
+                  p.paymentStatus }}</span></td>
+              <td>{{ p.paidAt ? (p.paidAt | date:'mediumDate') : '—' }}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      } @else {
+      <p class="history-empty">No payments found.</p>
+      }
+    </div>
+    }
+    }
+  </div>
+</div>

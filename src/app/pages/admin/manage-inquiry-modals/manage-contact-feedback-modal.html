@@ -1,0 +1,84 @@
+<div class="modal-overlay" (click)="closeContactFeedback.emit()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqFbTitle"
+    (click)="$event.stopPropagation()">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'feedback' }" /></span>
+      <div>
+        <h2 id="inqFbTitle">Inquiry feedback</h2>
+        <p>{{ inquiryContactLine(fi) }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeContactFeedback.emit()" title="Close" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>What happened with this inquiry?</legend>
+        <div class="inq-choice-grid">
+          <label class="inq-choice out-not_interested" [class.selected]="contactFeedbackOutcome === 'not_interested'">
+            <input type="radio" name="fbOutcome" value="not_interested" [(ngModel)]="contactFeedbackOutcome" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'not_interested' }" /></span>
+            <span class="inq-choice-text"><strong>Not interested</strong><small>Give the reason. The inquiry is
+                closed.</small></span>
+          </label>
+          @if (contactFeedbackOutcome === 'not_interested') {
+          <div class="inq-choice-extra">
+            <textarea class="form-input-admin" rows="3" maxlength="1000" [(ngModel)]="contactFeedbackReason"
+              name="fbReason" placeholder="Reason, e.g. budget or chose another provider"
+              aria-label="Reason"></textarea>
+          </div>
+          }
+
+          <label class="inq-choice out-future_prospect" [class.selected]="contactFeedbackOutcome === 'future_prospect'">
+            <input type="radio" name="fbOutcome" value="future_prospect" [(ngModel)]="contactFeedbackOutcome" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'future_prospect' }" /></span>
+            <span class="inq-choice-text"><strong>Future prospect</strong><small>Pick a date. You will be reminded on
+                that day.</small></span>
+          </label>
+          @if (contactFeedbackOutcome === 'future_prospect') {
+          <div class="inq-choice-extra">
+            <label class="inq-mini-label" for="fbDate">Follow up on</label>
+            <input id="fbDate" class="form-input-admin" type="date" [min]="today" [(ngModel)]="contactFeedbackDate"
+              name="fbDate" />
+            <textarea class="form-input-admin" rows="2" maxlength="1000" [(ngModel)]="contactFeedbackReason"
+              name="fbNote" placeholder="Note (optional)" aria-label="Note"></textarea>
+          </div>
+          }
+
+          <label class="inq-choice out-converted" [class.selected]="contactFeedbackOutcome === 'converted'">
+            <input type="radio" name="fbOutcome" value="converted" [(ngModel)]="contactFeedbackOutcome" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'converted' }" /></span>
+            <span class="inq-choice-text"><strong>Convert to quotation</strong><small>Opens Create Quotation for this
+                customer. The inquiry is marked converted once the quotation is saved.</small></span>
+          </label>
+          @if (contactFeedbackOutcome === 'converted') {
+          <!-- The quotation's customer is found / created by email, so the email is needed here. -->
+          <div class="inq-choice-extra">
+            <label class="inq-mini-label" for="fbEmail">Customer email *</label>
+            <input id="fbEmail" class="form-input-admin" type="email" maxlength="200" autocomplete="off"
+              [(ngModel)]="contactFeedbackEmail" name="fbEmail" placeholder="name@example.com" />
+          </div>
+          }
+        </div>
+      </fieldset>
+
+      @if (contactFeedbackError()) {
+      <p class="inq-error" role="alert">{{ contactFeedbackError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeContactFeedback.emit()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveContactFeedback.emit()"
+        [disabled]="contactFeedbackSaving()">
+        {{ contactFeedbackOutcome === 'converted' ? 'Create quotation' : (contactFeedbackSaving() ? 'Saving…' : 'Save
+        feedback') }}
+      </button>
+    </footer>
+  </div>
+</div>
