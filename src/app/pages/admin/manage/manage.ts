@@ -54,6 +54,7 @@ import { ManageQuickCustomerModal } from '../manage-quick-customer-modal/manage-
 import { ManageQuotationPreviewModal } from '../manage-quotation-preview-modal/manage-quotation-preview-modal';
 import { ManageBookingChallanModal } from '../manage-booking-challan-modal/manage-booking-challan-modal';
 import { ManageQuotationFormModal } from '../manage-quotation-form-modal/manage-quotation-form-modal';
+import { ManageBookingFormModal } from '../manage-booking-form-modal/manage-booking-form-modal';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -75,13 +76,13 @@ interface EntityConfig {
 
 @Component({
   selector: 'app-manage',
-  imports: [CommonModule, FormsModule, DatePipe, WhtInvoiceFields, ManageSpaceDetailsModal, ManagePaymentSummaryModal,
+  imports: [CommonModule, FormsModule, DatePipe, ManageSpaceDetailsModal, ManagePaymentSummaryModal,
     ManageUserDetailsModal, ManageBookingDetailsModal, ManageInvoiceDetailsModal, ManageComplaintModal,
     ManageRecordPaymentModal, ManageRevertApprovalModal, ManageReassignBookingModal, ManageAddInquiryModal,
     ManageContactTypeModal, ManageItemBranchModal, ManageContactFeedbackModal, ManageAgreementSendModal,
     ManageAgreementSignModal, ManageAgreementDetailsModal, ManageInitialInvoicePreviewModal, ManageCustomInvoiceModal,
     ManageQuotationConversionModal, ManageQuickCustomerModal, ManageQuotationPreviewModal, ManageBookingChallanModal,
-    ManageQuotationFormModal],
+    ManageQuotationFormModal, ManageBookingFormModal],
   templateUrl: './manage.html',
   // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
   styleUrls: ['../../../styles/form-popup.css', './manage.css']
@@ -279,6 +280,8 @@ export class Manage implements OnInit {
   get bookingDepositMonths(): number {
     return (this.isAdminPrivateRoom || this.isAdminSharedSpace) ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
   }
+  /** The booking form's bookingDepositMonths (manage-booking-form-modal), read lazily through this. */
+  readonly bookingDepositMonthsFn = () => this.bookingDepositMonths;
 
   /**
    * Months in the booking request: always on create; on edit only when changed (left out = unchanged), so saving
@@ -318,6 +321,8 @@ export class Manage implements OnInit {
     const floorPerSeat = this.bookingMinPerSeatBasePrice * (1 - cap / 100);
     return Math.floor(((perSeat - floorPerSeat) / perSeat) * 10000) / 100;
   }
+  /** The booking form's bookingDynamicDiscountCap (manage-booking-form-modal), read lazily through this. */
+  readonly bookingDynamicDiscountCapFn = () => this.bookingDynamicDiscountCap;
 
   /** Offering type's discount cap at the standard rate. */
   get bookingBaseDiscountCap(): number {
@@ -342,6 +347,8 @@ export class Manage implements OnInit {
     const base = this.isAdminMeetingRoom ? this.bookingSubtotal : this.bookingMonthlyRent;
     return parseFloat(((base * this.bookingDynamicDiscountCap) / 100).toFixed(2));
   }
+  /** The booking form's bookingMaxAllowedDiscountFixed (manage-booking-form-modal), read lazily through this. */
+  readonly bookingMaxAllowedDiscountFixedFn = () => this.bookingMaxAllowedDiscountFixed;
 
   get bookingOfferingTypeName(): string {
     const otId = Number(this.bookingOfferingTypeId || 0);
@@ -446,6 +453,8 @@ export class Manage implements OnInit {
     return Manage.depositAmount(this.bookingDepositMonths, rent,
       Manage.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
   }
+  /** The booking form's effectiveSecurityDeposit (manage-booking-form-modal), read lazily through this. */
+  readonly effectiveSecurityDepositFn = () => this.effectiveSecurityDeposit;
 
   get bookingMonthlyRent(): number {
     if (this.isAdminMeetingRoom) return this.bookingSubtotal;
@@ -461,11 +470,15 @@ export class Manage implements OnInit {
     const months = Number(this.adminMonths || 1);
     return parseFloat(((this.bookingSubtotal || 0) / months).toFixed(2));
   }
+  /** The booking form's bookingMonthlyRent (manage-booking-form-modal), read lazily through this. */
+  readonly bookingMonthlyRentFn = () => this.bookingMonthlyRent;
 
   get bookingBillingAmount(): number {
     if (this.isAdminMeetingRoom) return this.bookingSubtotal;
     return Math.max(0, parseFloat((this.bookingBillingPeriodMonths * this.bookingMonthlyRent).toFixed(2)));
   }
+  /** The booking form's bookingBillingAmount (manage-booking-form-modal), read lazily through this. */
+  readonly bookingBillingAmountFn = () => this.bookingBillingAmount;
 
   /** Seats the support charge is billed on: the chosen capacity, else the space's own capacity (as the invoice does). */
   get bookingSupportSeats(): number {
@@ -484,6 +497,8 @@ export class Manage implements OnInit {
     const supportCharge = 2000 * this.bookingSupportSeats * Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
+  /** The booking form's bookingTaxAmount (manage-booking-form-modal), read lazily through this. */
+  readonly bookingTaxAmountFn = () => this.bookingTaxAmount;
 
   get bookingFirstInvoiceDiscount(): number {
     if (this.isAdminMeetingRoom) return this.bookingDiscountAmount;
@@ -494,11 +509,15 @@ export class Manage implements OnInit {
     }
     return parseFloat(Math.min(this.bookingBillingAmount, Math.max(0, val * billingM)).toFixed(2));
   }
+  /** The booking form's bookingFirstInvoiceDiscount (manage-booking-form-modal), read lazily through this. */
+  readonly bookingFirstInvoiceDiscountFn = () => this.bookingFirstInvoiceDiscount;
 
   get bookingFirstInvoiceTotal(): number {
     const subtotal = this.bookingBillingAmount + this.bookingTaxAmount + this.effectiveSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.bookingFirstInvoiceDiscount).toFixed(2));
   }
+  /** The booking form's bookingFirstInvoiceTotal (manage-booking-form-modal), read lazily through this. */
+  readonly bookingFirstInvoiceTotalFn = () => this.bookingFirstInvoiceTotal;
 
   readonly accountOptions = signal<{ v: number; l: string }[]>([]);
   /** Space categories (Private Office, Meeting Room, ...) for the Space Types form: every type needs one. */
@@ -645,6 +664,8 @@ export class Manage implements OnInit {
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
   }
+  /** The booking form's filteredBookingOfferingTypes (manage-booking-form-modal), bound to this page. */
+  readonly filteredBookingOfferingTypesFn = () => this.filteredBookingOfferingTypes();
 
   filteredAgreementOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
     const locId = this.sendAgreementData?.locationId ? Number(this.sendAgreementData.locationId) : null;
@@ -2566,6 +2587,8 @@ export class Manage implements OnInit {
       default: return false;
     }
   }
+  /** The booking form's isCustomerFieldEmpty (manage-booking-form-modal), bound to this page. */
+  readonly isCustomerFieldEmptyFn = (field: string) => this.isCustomerFieldEmpty(field);
 
   private getCustomerUserId(u: any): string {
     // WN_Customers has no WN_Users link - use customerEmail to resolve at booking time
@@ -2576,6 +2599,8 @@ export class Manage implements OnInit {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
+  /** The booking form's isAdminMeetingRoom (manage-booking-form-modal), read lazily through this. */
+  readonly isAdminMeetingRoomFn = () => this.isAdminMeetingRoom;
 
   get isAdminMeetingRoomDayMode(): boolean {
     return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day';
@@ -2589,11 +2614,15 @@ export class Manage implements OnInit {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'private' || s.includes('private');
   }
+  /** The booking form's isAdminPrivateRoom (manage-booking-form-modal), read lazily through this. */
+  readonly isAdminPrivateRoomFn = () => this.isAdminPrivateRoom;
 
   get isAdminSharedSpace(): boolean {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'shared' || s.includes('shared') || s.includes('desk') || s.includes('coworking');
   }
+  /** The booking form's isAdminSharedSpace (manage-booking-form-modal), read lazily through this. */
+  readonly isAdminSharedSpaceFn = () => this.isAdminSharedSpace;
 
   get adminEndDateDisplay(): string {
     if (!this.bookingFormData.endDateTime) return '';
@@ -2601,6 +2630,8 @@ export class Manage implements OnInit {
     if (isNaN(d.getTime())) return '';
     return localDateIso(d);
   }
+  /** The booking form's adminEndDateDisplay (manage-booking-form-modal), read lazily through this. */
+  readonly adminEndDateDisplayFn = () => this.adminEndDateDisplay;
 
   generateAdminMeetingSlots() {
     if (!this.adminMeetingDate) { this.adminMeetingSlots.set([]); return; }
@@ -2631,6 +2662,8 @@ export class Manage implements OnInit {
   isAdminSlotSelected(slot: { start: string; isLocked?: boolean }): boolean {
     return this.adminSelectedSlots.has(slot.start);
   }
+  /** The booking form's isAdminSlotSelected (manage-booking-form-modal), bound to this page. */
+  readonly isAdminSlotSelectedFn = (slot: { start: string; isLocked?: boolean }) => this.isAdminSlotSelected(slot);
 
   private applyAdminSlotsToDates() {
     if (!this.adminMeetingDate || !this.adminSelectedSlots.size) {

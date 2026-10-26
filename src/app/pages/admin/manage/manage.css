@@ -59,8 +59,6 @@
 .form-input-admin:focus{border-color:#0d9488;background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.08)}
 .checkbox-label{display:flex;align-items:center;gap:8px;font-size:.875rem;color:#475569;cursor:pointer}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
-.history-section{margin-top:16px}
-.history-section h3{font-size:.95rem;font-weight:600;color:#0f172a;margin-bottom:12px}
 .history-list-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .booking-calendar-block{margin-bottom:16px;border:1px solid #e2e8f0;border-radius:10px;padding:14px}
 .booking-calendar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -83,16 +81,7 @@
 .duplicate-row td:first-child { border-left: 3px solid #ef4444; }
 
 .form-row-admin{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.form-section-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0d9488;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
 
-.customer-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:100;max-height:220px;overflow-y:auto}
-.customer-option{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f1f5f9}
-.customer-option:last-child{border-bottom:none}
-.customer-option:hover{background:#f8fafc}
-.customer-option strong{color:#0f172a;min-width:120px}
-.customer-option span{color:#64748b;font-size:.8rem}
-.cust-code{margin-left:auto;background:rgba(13,148,136,.1);color:#0d9488;padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
-.field-required-badge{display:inline-block;font-size:.7rem;font-weight:600;color:#d97706;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}
 
 
 
@@ -309,38 +298,9 @@
 .duplicate-row td { background: rgba(239,68,68,.06) !important; }
 .duplicate-row td:first-child { border-left: 3px solid #ef4444; }
 
-/* ── Admin Meeting Room Slot Grid ─────────────────────── */
-.admin-slot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 7px;
-  margin-top: 6px;
-}
 
-.admin-slot-btn {
-  padding: 7px 4px;
-  border-radius: 7px;
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
-  color: #475569;
-  font-size: .78rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color .15s, background .15s, color .15s;
-  text-align: center;
-}
 
-.admin-slot-btn:hover {
-  border-color: #0d9488;
-  color: #0d9488;
-}
 
-.admin-slot-btn.admin-slot-selected {
-  background: #0d9488;
-  border-color: #0d9488;
-  color: #fff;
-  font-weight: 600;
-}
 
 .admin-slot-btn.slot-locked {
   background: #fef2f2;
@@ -461,12 +421,7 @@
 @keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 /* Large forms (Create Booking / Create Quotation): a centred sheet instead of full screen */
-/* No bottom padding here: a sticky footer stops at the scroller's padding edge, which left a gap under it */
-.modal-overlay.sheet-overlay{align-items:flex-start;padding:40px 20px 0;overflow-y:auto}
-.modal-content.sheet-modal{max-width:920px;max-height:none;overflow:visible;padding:32px 36px 0;border-radius:16px;margin:0 auto 40px}
 
-.form-section-label{display:flex;align-items:center;gap:8px;font-size:.72rem;letter-spacing:.08em;color:#0f766e;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid #f1f5f9}
-.form-section-label::before{content:'';width:4px;height:14px;border-radius:2px;background:#0d9488}
 .form-row-admin{gap:16px}
 .modal-content .form-group-admin{margin-bottom:16px}
 .modal-content .form-group-admin label{font-size:.8rem;font-weight:600;color:#334155;margin-bottom:6px}
@@ -479,19 +434,14 @@
 .modal-content .form-input-admin:focus{border-color:#0d9488;box-shadow:0 0 0 4px rgba(13,148,136,.12)}
 .modal-content .form-input-admin:disabled,.modal-content .form-input-admin[readonly]{background:#f8fafc;color:#64748b}
 .modal-content .form-input-admin::placeholder{color:#94a3b8}
-.has-error .form-input-admin{border-color:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.1)}
 
 /* Buttons stay visible at the bottom of long forms */
 .modal-actions{position:sticky;bottom:0;z-index:2;background:#fff;margin:24px -28px -28px;padding:16px 28px;border-top:1px solid #f1f5f9;border-radius:0 0 16px 16px}
-.sheet-modal .modal-actions{margin:28px -36px 0;padding:16px 36px}
 .modal-actions .btn-admin{height:40px;padding:0 20px;border-radius:10px;font-weight:600}
 .modal-actions .btn-primary-admin{box-shadow:0 1px 2px rgba(13,148,136,.3)}
 
 @media (max-width:720px){
   .form-row-admin{grid-template-columns:1fr}
-  .modal-overlay.sheet-overlay{padding:0}
-  .modal-content.sheet-modal{border-radius:0;padding:24px 16px 0;min-height:100vh;margin:0}
-  .sheet-modal .modal-actions{margin:24px -16px 0;padding:14px 16px;border-radius:0}
 }
 
 /* Users form: locations an Admin / Sales Executive may work in */
