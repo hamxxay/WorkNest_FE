@@ -1302,6 +1302,13 @@ export class Manage implements OnInit {
 
   ngOnInit() {
     this.loadOfferingTypes();
+    // Tour Inquiries sub-tab from the URL when it changes without a new entity (sidebar link, back / forward).
+    this.route.queryParamMap.subscribe(() => {
+      // The snapshot is already the new route here: leaving for another entity is handled by route.data below.
+      if (this.entity !== 'contacts' || this.route.snapshot.data['entity'] !== 'contacts') return;
+      const cat = this.categoryFromUrl();
+      if (cat !== this.contactCategory) this.applyContactCategory(cat);
+    });
     // Labels are optional; if they fail to load the page must still load its data.
     this.amountFieldSvc.getLabelMap().pipe(catchError(() => of({} as Record<string, string>))).subscribe(map => {
       this.amountLabels = map;
@@ -1319,6 +1326,7 @@ export class Manage implements OnInit {
         }
         this.entity = newEntity;
         if (this.entity === 'invoices') this.applyListPeriodParam();
+        if (this.entity === 'contacts') { this.contactCategory = this.categoryFromUrl(); this.loadContactCategoryCounts(); }
         this.config.set(this.buildConfig(this.entity));
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
@@ -3383,6 +3391,7 @@ export class Manage implements OnInit {
               isNew: c.isNew ?? c.IsNew ?? null,
               inquiryType: c.inquiryType ?? c.InquiryType ?? null,
               referenceName: c.referenceName ?? c.ReferenceName ?? null,
+              inquiryCategory: String(c.inquiryCategory ?? c.InquiryCategory ?? 'tour').toLowerCase(),
               locationId: Number(c.locationId ?? c.LocationId) || null,
               locationName: String(c.locationName ?? c.LocationName ?? '').trim() || null
             };
@@ -5528,7 +5537,7 @@ export class Manage implements OnInit {
           inquiryType: d.inquiryType === 'Reference' ? 'Reference' : 'WalkIn',
           referenceName: d.inquiryType === 'Reference' ? (d.referenceName || '').trim() || null : null
         }),
-        getFn: (p, l, s) => this.admin.getContacts(p, l, s, this.contactTypeFilter || undefined, Number(this.branchFilter) || null),
+        getFn: (p, l, s) => this.admin.getContacts(p, l, s, this.contactTypeFilter || undefined, Number(this.branchFilter) || null, this.contactCategory),
         statusFn: (ref: InquiryRef, status) => this.admin.updateContactStatus(ref, status),
         statusOptions: ['New', 'InProgress', 'Resolved'],
         deleteFn: (ref: InquiryRef) => this.admin.deleteContact(ref),
@@ -5829,6 +5838,56 @@ export class Manage implements OnInit {
   private myDisplayName(): string {
     const u: any = this.auth.user();
     return (u?.displayName || u?.name || u?.email || '').trim();
+  }
+
+  // ---------- Tour Inquiries sub-tabs: Tour Inquiries | Simple Inquiries ----------
+  /** 'tour' = tour inquiries; 'general' = Simple Inquiries (WhatsApp free text). In the URL as ?category=general. */
+  contactCategory: 'tour' | 'general' = 'tour';
+  readonly contactCategoryTabs = [
+    { key: 'tour' as const, label: 'Tour Inquiries' }, { key: 'general' as const, label: 'Simple Inquiries' },
+  ];
+  /** New inquiries per sub-tab, from api/admin/nav-badges ('/admin/contacts', '/admin/contacts?category=general'). */
+  readonly contactCategoryCounts = signal<{ tour: number; general: number }>({ tour: 0, general: 0 });
+
+  private categoryFromUrl(): 'tour' | 'general' {
+    return this.route.snapshot.queryParamMap.get('category') === 'general' ? 'general' : 'tour';
+  }
+
+  selectContactCategory(cat: 'tour' | 'general') {
+    if (cat === this.contactCategory) return;
+    this.router.navigate([], {
+      relativeTo: this.route, queryParams: { category: cat === 'general' ? 'general' : null },
+      queryParamsHandling: 'merge', replaceUrl: true
+    });
+    this.applyContactCategory(cat);
+  }
+
+  /** Left / Right / Home / End move between the two sub-tabs (and select them). */
+  onContactCategoryKey(ev: KeyboardEvent) {
+    const next = ev.key === 'ArrowLeft' || ev.key === 'Home' ? 'tour'
+      : ev.key === 'ArrowRight' || ev.key === 'End' ? 'general' : null;
+    if (!next) return;
+    ev.preventDefault();
+    this.selectContactCategory(next);
+    document.getElementById(`inq-tab-${next}`)?.focus();
+  }
+
+  private applyContactCategory(cat: 'tour' | 'general') {
+    this.contactCategory = cat;
+    this.page.set(1);
+    this.load();
+    this.loadContactCategoryCounts();
+  }
+
+  /** Badge counts on the sub-tabs; a hint only, so errors keep the last values. */
+  private loadContactCategoryCounts() {
+    this.admin.getNavBadges().subscribe({
+      next: res => {
+        const n = (v: any) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.floor(x) : 0; };
+        this.contactCategoryCounts.set({ tour: n(res?.['/admin/contacts']), general: n(res?.['/admin/contacts?category=general']) });
+      },
+      error: () => { }
+    });
   }
 
   onContactTypeFilter(value: string) {

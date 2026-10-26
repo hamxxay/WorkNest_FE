@@ -400,13 +400,15 @@ export class AdminService {
 
   // Contact Messages
   /** type: Website | WhatsApp | WalkIn | Reference (empty = all). locationId: one branch (empty = every branch the user sees). */
-  getContacts(page?: number, limit?: number, search?: string, type?: string, locationId?: number | null): Observable<ApiResponse<Contact[]>> {
+  /** category: 'tour' (default on the API when omitted) or 'general' (Simple Inquiries: WhatsApp free text). */
+  getContacts(page?: number, limit?: number, search?: string, type?: string, locationId?: number | null, category?: 'tour' | 'general'): Observable<ApiResponse<Contact[]>> {
       const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (type) params.set('type', type);
     if (locationId) params.set('locationId', String(locationId));
+    if (category) params.set('category', category);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }

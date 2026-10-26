@@ -718,3 +718,17 @@
 .admin-table td.col-key-invoiceNumber .cell-text { display: inline; -webkit-line-clamp: unset; max-width: none; overflow: visible; overflow-wrap: normal; }
 .admin-table .cell-sub { display: block; margin-top: 3px; font-size: .74rem; font-weight: 500; color: #64748b; white-space: nowrap; }
 .admin-table .cell-sub-warn { color: #b45309; font-weight: 600; }
+
+/* Tour Inquiries sub-tabs (same look as the customer detail page's tab strip). */
+.inq-tabs { display: flex; gap: 4px; margin: -8px -20px 16px; padding: 0 14px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; }
+.inq-tab { position: relative; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; border: none; background: none; padding: 12px 12px 13px; font-family: inherit; font-size: .88rem; font-weight: 600; color: #64748b; cursor: pointer; border-radius: 8px 8px 0 0; }
+.inq-tab:hover { color: #0f172a; background: #f8fafc; }
+.inq-tab:focus-visible { outline: 2px solid #0d9488; outline-offset: -2px; }
+.inq-tab.active { color: #0f766e; }
+.inq-tab.active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: #0d9488; }
+.inq-tab-count { font-size: .7rem; font-weight: 700; min-width: 20px; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; text-align: center; }
+.inq-tab.active .inq-tab-count { background: #ccfbf1; color: #0f766e; }
+@media (max-width: 640px) {
+  .inq-tabs { margin: -4px -14px 14px; padding: 0 8px; }
+  .inq-tab { min-height: 44px; padding: 12px 10px 13px; }
+}
