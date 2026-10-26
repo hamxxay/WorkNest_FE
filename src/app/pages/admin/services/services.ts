@@ -48,7 +48,7 @@ const OUTBOX_TABS: { status: OutboxStatus | null; label: string; count: (c: Outb
   imports: [DatePipe],
   templateUrl: './services.html',
   // The shared admin page look (page padding, header, cards, buttons) and the shared popup look come first.
-  styleUrls: ['../manage/manage.css', '../../../styles/form-popup.css', './services.css'],
+  styleUrls: ['../manage-base/manage-list.css', '../../../styles/form-popup.css', './services.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ServicesPage implements OnInit, OnDestroy {

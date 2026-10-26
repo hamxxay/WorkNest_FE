@@ -11,13 +11,12 @@ import { AmountFieldService } from '../../../services/amount-field.service';
 import { ASSIGNABLE_ROLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
 import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
-import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService, AgreementESignature } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
 import { firstValueFrom, Observable, of, timeout } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
-import { localDateIso, localDateTimeIso, pakistanDateIso } from '../../../utils/dates';
+import { localDateIso, pakistanDateIso } from '../../../utils/dates';
 import { rangeLabel } from '../ceo/period-range';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
@@ -28,7 +27,7 @@ import {
 } from '../../../utils/list-filters';
 import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx-table';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
-import * as pricing from '../manage/utils/manage-pricing.utils';
+import * as pricing from './utils/manage-pricing.utils';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -48,11 +47,10 @@ interface EntityConfig {
   statusOptions?: string[];
 }
 
-/** Everything the Manage page does (lists, filters, export, row actions, every entity popup), moved here verbatim
- * from Manage so per-entity pages can extend it. Manage itself is only its @Component decorator. */
+/** Everything the Manage list pages do (lists, filters, export, row actions, every entity popup), moved here verbatim
+ * from Manage so per-entity pages can extend it. Each page (customers-page, bookings-page, ...) is only its @Component decorator. */
 @Directive()
 export abstract class ManageBase implements OnInit {
-  billingPeriods: any[] = [];
   entity = '';
   readonly config = signal<EntityConfig>({ title: '', columns: [], getFn: () => of({ data: [], total: 0 }) });
   /** The list's columns on screen (the export uses every column of the config). */
@@ -158,12 +156,6 @@ export abstract class ManageBase implements OnInit {
   readonly reassignError = signal('');
   selectedNewSpace = '';
 
-  bookingCalendarLoading = signal(false);
-  readonly bookingMonthCells = signal<any[]>([]);
-  readonly bookingMonthTitle = signal('');
-  private bookingCalendarDate = new Date();
-  weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
   readonly locationOptions = signal<{ v: any; l: string }[]>([]);
   /**
    * Booking / Quotation "Space Type": one option per category (value 'private' / 'meeting' / 'shared'), from every
@@ -214,7 +206,6 @@ export abstract class ManageBase implements OnInit {
   bookingOfferingTypeId: number = 1;
   bookingOfferingType = '24/7';
   readonly bookingDiscountError = signal('');
-  bookingChallanMode: 'initial' | 'full' = 'initial';
   bookingSubtotal = 0;
   bookingDiscountAmount = 0;
   bookingFloorId: number | null = null;
@@ -231,8 +222,6 @@ export abstract class ManageBase implements OnInit {
   ];
 
   private static clampDepositMonths(value: unknown): number { return pricing.clampDepositMonths(value); }
-
-  private static round2(value: number): number { return pricing.round2(value); }
 
   private static depositAmount(months: number, monthlyRent: number, discountPct: number): number { return pricing.depositAmount(months, monthlyRent, discountPct); }
 
@@ -504,8 +493,6 @@ export abstract class ManageBase implements OnInit {
   readonly customerSearchResults = signal<any[]>([]);
   customerSearchTimer: any;
   selectedCustomer: any = null;
-  // When opening customer-create from booking flow, set this to true so save() can inject created customer
-  creatingCustomerFromBooking = false;
 
   // - Country Codes & Dropdowns -
   countryCodeOptions: { v: string; l: string }[] = [
@@ -558,7 +545,6 @@ export abstract class ManageBase implements OnInit {
   readonly quickCustomerError = signal('');
 
   // - Admin Booking Receipt -
-  readonly showReceiptModal = signal(false);
   adminBookingReceipt = signal<any>(null);
   readonly showChallanModal = signal(false);
   challanData = signal<any>(null);
@@ -866,11 +852,6 @@ export abstract class ManageBase implements OnInit {
   }
   /** The quotation form's quotationMaxAllowedDiscountFixed (manage-quotation-form-modal), read lazily through this. */
   readonly quotationMaxAllowedDiscountFixedFn = () => this.quotationMaxAllowedDiscountFixed;
-
-  get maxAllowedDiscountValue(): number {
-    if (this.quotationDiscountType === 'Percentage') return this.quotationDynamicDiscountCap;
-    return this.quotationMaxAllowedDiscountFixed;
-  }
 
   get quotationOfferingTypeName(): string {
     const otId = Number(this.quotationOfferingTypeId || 0);
@@ -1319,10 +1300,6 @@ export abstract class ManageBase implements OnInit {
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
         if (this.entity === 'bookings') this.loadSpacesForDropdown();
-        if (this.entity === 'spaceconfig') {
-          this.loadSpaceDropdowns();
-          this.loadSpaceConfig();
-        }
         if (this.entity === 'customers' || this.entity === 'users') {
           this.loadCityOptions();
           if (this.entity === 'users') { this.loadLocationOptions(); this.loadRoles(); }
@@ -1344,29 +1321,6 @@ export abstract class ManageBase implements OnInit {
   }
 
   spaceConfigItems = signal<any[]>([]);
-  spaceConfigSaving = signal(false);
-  readonly spaceConfigError = signal('');
-  readonly spaceConfigSuccess = signal('');
-  editingConfig: any = null;
-  configFormData: any = {};
-  readonly showConfigModal = signal(false);
-  vacantSpaces = signal<any[]>([]);
-  vacantLoading = signal(false);
-  vacantBranchId: any = null;
-  readonly vacantBranchOptions = signal<{ id: any; name: string }[]>([]);
-  readonly generateError = signal('');
-  readonly generateSuccess = signal('');
-
-  private loadSpaceConfig() {
-    this.admin.getSpaceConfig().subscribe({
-      next: (res: any) => {
-        this.spaceConfigItems.set(res?.data ?? []);
-        this.loadSpaceInventoryForConfig();
-      },
-      error: this.apiError('Failed to load space config.')
-    });
-    this.loadVacantSpaces();
-  }
 
   private loadSpaceInventoryForConfig() {
     if (this.allSpaces().length) {
@@ -1380,212 +1334,6 @@ export abstract class ManageBase implements OnInit {
     });
   }
 
-  private loadVacantSpaces() {
-    this.vacantLoading.set(true);
-    this.admin.getVacantSpaces(this.vacantBranchId ?? undefined).subscribe({
-      next: (res: any) => {
-        const vacant = (res?.data ?? []).sort((a: any, b: any) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
-        this.vacantSpaces.set(vacant);
-        this.vacantLoading.set(false);
-      },
-      error: () => this.vacantLoading.set(false)
-    });
-  }
-
-  get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
-    const grouped = new Map<string, any[]>();
-    for (const s of this.vacantSpaces()) {
-      const code = parseInt(s.code, 10);
-      const key = code >= 3200 ? 'Meeting' : code >= 3100 ? 'Private' : code >= 3000 ? 'Shared' : (s.spaceTypeName || 'Other');
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(s);
-    }
-    return Array.from(grouped.entries()).map(([type, spaces]) => ({ type, spaces }));
-  }
-
-  actualSpaceCount(cfg: any): number {
-    if (!cfg) return 0;
-    const category = (cfg.spaceCategory || '').toLowerCase();
-    const prefix = String(cfg.codePrefix || '').trim();
-    const matches = this.allSpaces().filter((s: any) => {
-      const code = String(s.code ?? '');
-      const typeName = String(s.spaceTypeName ?? '').toLowerCase();
-      if (prefix && code.startsWith(prefix)) {
-        return true;
-      }
-      return !!(category && (typeName.includes(category) || category.includes(typeName)));
-    });
-    return matches.length || Number(cfg.totalSpaces ?? 0);
-  }
-
-  openEditConfig(cfg: any) {
-    this.editingConfig = cfg;
-    this.configFormData = {
-      totalSpaces: cfg.totalSpaces,
-      defaultCapacities: cfg.defaultCapacities,
-      openingTime: cfg.openingTime,
-      closingTime: cfg.closingTime,
-      securityDeposit: cfg.securityDeposit ?? null,
-      pricePerHour: cfg.pricePerHour ?? null,
-      pricePerDay: cfg.pricePerDay ?? null,
-      pricePerMonth: cfg.pricePerMonth ?? null,
-    };
-    this.spaceConfigError.set('');
-    this.spaceConfigSuccess.set('');
-    this.showConfigModal.set(true);
-  }
-
-  cancelEditConfig() {
-    this.requestDiscardableClose(this.isConfigFormDirty(), () => {
-      this.editingConfig = null;
-      this.showConfigModal.set(false);
-    });
-  }
-
-  saveConfig() {
-    if (!this.editingConfig) return;
-    this.spaceConfigSaving.set(true);
-    this.admin.updateSpaceConfig(this.editingConfig.spaceCategory, this.configFormData).subscribe({
-      next: () => {
-        this.spaceConfigSuccess.set('Configuration saved.');
-        this.spaceConfigSaving.set(false);
-        this.editingConfig = null;
-        this.showConfigModal.set(false);
-        this.loadSpaceConfig();
-        setTimeout(() => this.spaceConfigSuccess.set(''), 3000);
-      },
-      error: (e: any) => {
-        this.spaceConfigError.set(e?.error?.detail || 'Failed to save config.');
-        this.spaceConfigSaving.set(false);
-      }
-    });
-  }
-
-  onVacantBranchChange() {
-    this.loadVacantSpaces();
-  }
-
-  // - Add / Remove Single Space -
-  readonly showAddSpaceModal = signal(false);
-  addSpaceTypeId = '';
-  addSpaceLocationId = '';
-  addSpacePreviewCode = '';
-  addSpaceSaving = signal(false);
-  readonly addSpaceError = signal('');
-
-  openAddSpaceModal() {
-    this.addSpaceTypeId = '';
-    this.addSpaceLocationId = this.userLocationId ? String(this.userLocationId) : '';
-    this.addSpacePreviewCode = '';
-    this.addSpaceError.set('');
-    this.generateError.set('');
-    this.generateSuccess.set('');
-    this.showAddSpaceModal.set(true);
-  }
-
-  closeAddSpaceModal() {
-    this.requestDiscardableClose(this.isAddSpaceFormDirty(), () => {
-      this.showAddSpaceModal.set(false);
-      this.addSpaceTypeId = '';
-      this.addSpacePreviewCode = '';
-    });
-  }
-
-  onAddSpaceSelectionChange() {
-    this.addSpacePreviewCode = '';
-    // Space types belong to a location: a type the chosen location doesn't have is cleared.
-    if (this.spaceTypeGoneAt(this.spaceTypeIdOptionsAt(this.addSpaceLocationId), this.addSpaceTypeId)) {
-      this.addSpaceTypeId = '';
-    }
-    if (!this.addSpaceTypeId || !this.addSpaceLocationId) return;
-    // Find the config for the selected space type to get codePrefix
-    const typeName = this.spaceTypeIdOptionsAt(this.addSpaceLocationId).find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
-    const cfg = this.spaceConfigItems().find((c: any) =>
-      typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
-      (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
-    );
-    const prefix = cfg?.codePrefix ? parseInt(cfg.codePrefix, 10) : 0;
-    // Count existing spaces of this type at this location
-    const existing = this.vacantSpaces().filter((s: any) =>
-      (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
-        String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
-      (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
-    );
-    // Also count from allSpaces for a more accurate next code
-    const allOfType = this.allSpaces().filter((s: any) =>
-      (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
-        String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
-      (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
-    );
-    const count = Math.max(existing.length, allOfType.length);
-    this.addSpacePreviewCode = prefix ? String(prefix + count + 1) : '';
-  }
-
-  submitAddSpace() {
-    if (!this.addSpaceTypeId || !this.addSpaceLocationId) {
-      this.addSpaceError.set('Space type and location are required.');
-      return;
-    }
-    const typeName = this.spaceTypeIdOptionsAt(this.addSpaceLocationId).find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
-    const locName = this.locationOptions().find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
-    const cfg = this.spaceConfigItems().find((c: any) =>
-      typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
-      (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
-    );
-    const payload: Partial<any> = {
-      name: `${typeName} ${this.addSpacePreviewCode || ''}`.trim(),
-      code: this.addSpacePreviewCode || undefined,
-      locationId: Number(this.addSpaceLocationId) || this.addSpaceLocationId,
-      spaceTypeId: Number(this.addSpaceTypeId) || this.addSpaceTypeId,
-      pricePerHour: cfg?.pricePerHour ?? 0,
-      pricePerDay: cfg?.pricePerDay ?? 0,
-      status: 'Available',
-    };
-    this.addSpaceSaving.set(true);
-    this.addSpaceError.set('');
-    this.admin.createSpace(payload).subscribe({
-      next: () => {
-        this.addSpaceSaving.set(false);
-        this.showAddSpaceModal.set(false);
-        this.generateSuccess.set(`Space "${payload['name']}" added at ${locName}.`);
-        setTimeout(() => this.generateSuccess.set(''), 4000);
-        this.loadVacantSpaces();
-        if (this.allSpaces().length) this.loadSpacesForDropdown();
-      },
-      error: (e: any) => {
-        this.addSpaceSaving.set(false);
-        this.addSpaceError.set(e?.error?.message ?? 'Failed to add space.');
-      }
-    });
-  }
-
-  removeSpace(space: any) {
-    if (!confirm(`Remove space "${space.name} (${space.code})"? This cannot be undone.`)) return;
-    const id = space.idGuid ?? space.idGUID ?? space.id;
-    this.admin.deleteSpace(id).subscribe({
-      next: () => {
-        this.generateSuccess.set(`Space "${space.name}" removed.`);
-        setTimeout(() => this.generateSuccess.set(''), 4000);
-        this.loadVacantSpaces();
-      },
-      error: (e: any) => {
-        this.generateError.set(e?.error?.message ?? 'Failed to remove space.');
-      }
-    });
-  }
-
-  private refreshVacantBranchOptions() {
-    const options = new Map<any, string>();
-    for (const opt of this.locationOptions()) {
-      const branchId = (opt as any).branchId;
-      const branchName = (opt as any).branchName ?? '';
-      if (branchId != null && !options.has(branchId)) {
-        options.set(branchId, branchName || String(branchId));
-      }
-    }
-    this.vacantBranchOptions.set(Array.from(options.entries()).map(([id, name]) => ({ id, name })));
-  }
-
   private loadSpaceDropdowns() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
@@ -1595,7 +1343,6 @@ export abstract class ManageBase implements OnInit {
           if (l.branchId) { opt.branchId = l.branchId; opt.branchName = l.branchName ?? l.branchCode; }
           return opt;
         }));
-        this.refreshVacantBranchOptions();
         this.config.set(this.buildConfig('spaces'));
       },
       error: this.apiError('Failed to load locations.')
@@ -1669,13 +1416,6 @@ export abstract class ManageBase implements OnInit {
       },
       error: this.apiError('Failed to load locations.')
     });
-  }
-
-  getBoundLocationName(locationId?: any): string {
-    const targetId = locationId ?? this.formData['locationId'] ?? this.auth.user()?.locationId;
-    if (!targetId) return 'Assigned Location';
-    const opt = this.locationOptions().find(l => String(l.v) === String(targetId));
-    return opt ? opt.l : `Location #${targetId}`;
   }
 
   private loadCityOptions() {
@@ -2554,25 +2294,12 @@ export abstract class ManageBase implements OnInit {
   /** The booking form's isCustomerFieldEmpty (manage-booking-form-modal), bound to this page. */
   readonly isCustomerFieldEmptyFn = (field: string) => this.isCustomerFieldEmpty(field);
 
-  private getCustomerUserId(u: any): string {
-    // WN_Customers has no WN_Users link - use customerEmail to resolve at booking time
-    return u.idGUID ?? u.idGuid ?? String(u.id ?? '');
-  }
-
   get isAdminMeetingRoom(): boolean {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
   /** The booking form's isAdminMeetingRoom (manage-booking-form-modal), read lazily through this. */
   readonly isAdminMeetingRoomFn = () => this.isAdminMeetingRoom;
-
-  get isAdminMeetingRoomDayMode(): boolean {
-    return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day';
-  }
-
-  get isAdminMeetingRoomSlotMode(): boolean {
-    return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot';
-  }
 
   get isAdminPrivateRoom(): boolean {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
@@ -2639,17 +2366,6 @@ export abstract class ManageBase implements OnInit {
     const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
     this.bookingFormData.startDateTime = `${this.adminMeetingDate}T${sorted[0]}:00`;
     this.bookingFormData.endDateTime = `${this.adminMeetingDate}T${String(lastHour).padStart(2, '0')}:00:00`;
-  }
-
-  onAdminMeetingModeChange() {
-    this.adminMeetingDate = '';
-    this.adminMeetingDayEnd = '';
-    this.adminMeetingSlots.set([]);
-    this.adminSelectedSlots = new Set();
-    this.adminStartDate = '';
-    this.bookingFormData.startDateTime = '';
-    this.bookingFormData.endDateTime = '';
-    this.recalcAmount();
   }
 
   onAdminMeetingDayChange() {
@@ -3874,7 +3590,6 @@ export abstract class ManageBase implements OnInit {
       this.formData.locationId = choices.length === 1 ? Number(choices[0].v)
         : (!choices.length && mine.length === 1 ? mine[0] : '');
     }
-    if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
     if (this.entity === 'users') {
       this.formData.role = 'general';
@@ -3985,27 +3700,6 @@ export abstract class ManageBase implements OnInit {
       });
     }
     return Object.values(this.formData).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== false);
-  }
-
-  isConfigFormDirty(): boolean {
-    if (!this.configFormData) return false;
-    if (this.editingConfig) {
-      return Object.keys(this.configFormData).some(k => {
-        const val = this.configFormData[k];
-        const orig = (this.editingConfig as any)[k];
-        if (val === orig) return false;
-        if ((val === '' || val === null || val === undefined) && (orig === '' || orig === null || orig === undefined)) return false;
-        return String(val) !== String(orig);
-      });
-    }
-    return Object.values(this.configFormData).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== false);
-  }
-
-  isAddSpaceFormDirty(): boolean {
-    return Boolean(
-      (this.addSpaceTypeId && this.addSpaceTypeId.trim()) ||
-      (this.addSpacePreviewCode && this.addSpacePreviewCode.trim())
-    );
   }
 
   isReassignFormDirty(): boolean {
@@ -4341,24 +4035,8 @@ export abstract class ManageBase implements OnInit {
 
       if (locId) this.loadFloorsForLocation(Number(locId));
     }
-    if (this.entity === 'bookings') {
-      this.formData['startDateTime'] = this.toDatetimeLocal(item.startDateTime);
-      this.formData['endDateTime'] = this.toDatetimeLocal(item.endDateTime);
-      if (!this.formData['spaceId'] && item.spaceGuid) {
-        this.formData['spaceId'] = item.spaceGuid;
-      }
-    }
     this.error.set('');
     this.showModal.set(true);
-  }
-
-  private toDatetimeLocal(val: any): string {
-    if (!val) return '';
-    try {
-      const d = new Date(val);
-      if (isNaN(d.getTime())) return val;
-      return localDateTimeIso(d);
-    } catch { return val; }
   }
 
   closeModal() {
@@ -4739,19 +4417,6 @@ export abstract class ManageBase implements OnInit {
         this.success.set(this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.'));
         setTimeout(() => this.success.set(''), 3000);
 
-        if (this.creatingCustomerFromBooking) {
-          try {
-            const created = res?.data ?? res;
-            if (created) {
-              this.selectCustomer(created);
-            }
-          } catch (e) {
-            // ignore
-          }
-          this.config.set(this.buildConfig(this.entity));
-          this.creatingCustomerFromBooking = false;
-        }
-
         this.load();
       },
       error: (e: any) => {
@@ -4846,19 +4511,12 @@ export abstract class ManageBase implements OnInit {
       'resolved': 3, '3': 3,
       'closed': 4, '4': 4
     };
-    const membershipStatusMap: Record<string, number> = {
-      'active': 1, '1': 1,
-      'inactive': 2, '2': 2,
-      'suspended': 3, '3': 3,
-      'expired': 4, '4': 4
-    };
 
     const complaintStatusMap: Record<string, number> = { 'open': 1, 'in progress': 2, 'resolved': 3, 'closed': 4 };
     const targetMap = this.entity === 'bookings' ? bookingStatusMap :
       this.entity === 'payments' ? paymentStatusMap :
         this.entity === 'complaints' ? complaintStatusMap :
-          this.entity === 'contacts' ? contactStatusMap :
-            this.entity === 'memberships' ? membershipStatusMap : bookingStatusMap;
+          this.entity === 'contacts' ? contactStatusMap : bookingStatusMap;
 
     const sStr = String(status).trim().toLowerCase();
     const statusId = targetMap[sStr] ?? (isNaN(Number(status)) ? 1 : Number(status));
@@ -4971,7 +4629,6 @@ export abstract class ManageBase implements OnInit {
   }
 
   openBookingUser(item: any) { this.openUserModal(item.userEmail ?? item.userPublicId ?? item.userId); }
-  openUserFromUsers(item: any) { this.openUserModal(item.idGuid); }
 
   private openUserModal(idOrEmail: any) {
     this.showUserModal.set(true);
@@ -5112,55 +4769,6 @@ export abstract class ManageBase implements OnInit {
     });
   }
 
-  private initBookingCalendar() { this.bookingCalendarDate = new Date(); this.buildBookingCalendar(); }
-  prevBookingMonth() { this.bookingCalendarDate.setMonth(this.bookingCalendarDate.getMonth() - 1); this.buildBookingCalendar(); }
-  nextBookingMonth() { this.bookingCalendarDate.setMonth(this.bookingCalendarDate.getMonth() + 1); this.buildBookingCalendar(); }
-
-  private buildBookingCalendar() {
-    const d = this.bookingCalendarDate;
-    this.bookingMonthTitle.set(d.toLocaleString('default', { month: 'long', year: 'numeric' }));
-    const year = d.getFullYear(), month = d.getMonth() + 1;
-    const first = new Date(year, month - 1, 1).getDay();
-    const days = new Date(year, month, 0).getDate();
-    const spaceId = this.formData['spaceId'];
-    this.bookingMonthCells.set([]);
-    const fill = (bookedDates: string[]) => {
-      const cells: any[] = [];
-      for (let i = 0; i < first; i++) cells.push({ placeholder: true });
-      for (let d = 1; d <= days; d++) {
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        cells.push({ day: d, date: dateStr, isBooked: bookedDates.includes(dateStr) });
-      }
-      this.bookingMonthCells.set(cells);
-    };
-    if (spaceId) {
-      this.bookingCalendarLoading.set(true);
-      this.admin.getBookingCalendar(spaceId, year, month).subscribe({
-        next: (res: any) => { fill(res?.data?.bookedDates ?? []); this.bookingCalendarLoading.set(false); },
-        error: () => { fill([]); this.bookingCalendarLoading.set(false); }
-      });
-    } else { fill([]); }
-  }
-
-  pickBookingDate(day: any) {
-    if (!day.date || day.isBooked) return;
-    if (!this.formData['startDateTime']) {
-      this.formData['startDateTime'] = day.date;
-    } else if (!this.formData['endDateTime'] && day.date >= this.formData['startDateTime']) {
-      this.formData['endDateTime'] = day.date;
-    } else {
-      this.formData['startDateTime'] = day.date;
-      this.formData['endDateTime'] = '';
-    }
-  }
-
-  isBookingInRange(date: string): boolean {
-    const s = this.formData['startDateTime'], e = this.formData['endDateTime'];
-    return s && e && date > s && date < e;
-  }
-
-  isBookingPast(date: string): boolean { return !!date && date < localDateIso(); }
-
   loadFloorsForLocation(locationId: number) {
     this.floorOptions.set([]);
     if (!locationId) return;
@@ -5197,7 +4805,6 @@ export abstract class ManageBase implements OnInit {
         this.formData['locationIds'] = [only];
       }
     }
-    if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar();
     if (key === 'locationId' && this.entity === 'spaces') {
       this.loadFloorsForLocation(this.formData['locationId']);
       // Space types belong to a location: a type the new location doesn't have is cleared.
@@ -7284,15 +6891,6 @@ export abstract class ManageBase implements OnInit {
     });
   }
 
-  emailQuotation(item: any) {
-    if (!this.selectedQuotation() || this.selectedQuotation().id !== item.id) {
-      this.previewQuotation(item);
-      setTimeout(() => this.sendQuotationEmailNow(), 500);
-      return;
-    }
-    this.sendQuotationEmailNow();
-  }
-
   sendQuotationEmailNow() {
     const q = this.selectedQuotation();
     if (!q || this.sendingQuotationEmail()) return;
@@ -7353,12 +6951,6 @@ export abstract class ManageBase implements OnInit {
   }
   /** The quotation preview's isQuotationAccepted (manage-quotation-preview-modal), bound to this page. */
   readonly isQuotationAcceptedFn = (item: any) => this.isQuotationAccepted(item);
-
-  isQuotationSigned(item: any): boolean {
-    if (!item) return false;
-    const st = (item.status || item.Status || '').toString().trim().toLowerCase();
-    return st === 'signed' || st === 'agreementsigned';
-  }
 
   convertQuotationToBooking(item: any) {
     if (!item) return;
@@ -8017,11 +7609,6 @@ export abstract class ManageBase implements OnInit {
     });
   }
 
-  closeQuickUploadModal() {
-    this.showQuickUploadModal.set(false);
-    this.quickUploadAgreementId = null;
-  }
-
   onCustomInvoiceMonthsChange() {
     const selectedMonths = Number(this.customInvoiceSelectedMonths) || 1;
     if (this.customInvoiceCurrentItem) {
@@ -8404,27 +7991,17 @@ export abstract class ManageBase implements OnInit {
 
 
 
-  getChallanContractMonths(c: any): number { return pricing.getChallanContractMonths(c); }
-
   getChallanBillingMonths(c: any): number { return pricing.getChallanBillingMonths(c); }
 
   getChallanSecurityMonths(c: any): number { return pricing.getChallanSecurityMonths(c); }
 
   getChallanMonthlyRent(c: any): number { return pricing.getChallanMonthlyRent(c); }
 
-  getChallanTotalContract(c: any): number { return pricing.getChallanTotalContract(c); }
-
   getChallanFirstCycleRent(c: any): number { return pricing.getChallanFirstCycleRent(c); }
 
   getChallanSecurityDeposit(c: any): number { return pricing.getChallanSecurityDeposit(c); }
 
-  getChallanSupportCharges(c: any): number { return pricing.getChallanSupportCharges(c); }
-
-  getChallanCapacity(c: any): number { return pricing.getChallanCapacity(c); }
-
   getChallanTaxAmount(c: any): number { return pricing.getChallanTaxAmount(c); }
-
-  getChallanContractTaxAmount(c: any): number { return pricing.getChallanContractTaxAmount(c); }
 
   getChallanFirstCycleDiscount(c: any): number { return pricing.getChallanFirstCycleDiscount(c); }
 
@@ -8448,8 +8025,6 @@ export abstract class ManageBase implements OnInit {
 
   getQuotationMonthlyRent(q: any): number { return pricing.getQuotationMonthlyRent(q); }
 
-  getQuotationTotalContract(q: any): number { return pricing.getQuotationTotalContract(q); }
-
   getQuotationFirstCycleRent(q: any): number { return pricing.getQuotationFirstCycleRent(q); }
 
   getQuotationSecurityDeposit(q: any): number { return pricing.getQuotationSecurityDeposit(q); }
@@ -8457,8 +8032,6 @@ export abstract class ManageBase implements OnInit {
   getQuotationSupportCharges(q: any): number { return pricing.getQuotationSupportCharges(q); }
 
   getQuotationTaxAmount(q: any): number { return pricing.getQuotationTaxAmount(q); }
-
-  getQuotationContractTaxAmount(q: any): number { return pricing.getQuotationContractTaxAmount(q); }
 
   getQuotationDiscountAmount(q: any): number { return pricing.getQuotationDiscountAmount(q); }
 
@@ -8471,7 +8044,6 @@ export abstract class ManageBase implements OnInit {
 
   getQuotationInitialPayable(q: any): number { return pricing.getQuotationInitialPayable(q); }
 
-  getQuotationNetTotal(q: any): number { return pricing.getQuotationNetTotal(q); }
   /** The conversion popup's pricing queries (manage-quotation-conversion-modal), bound to this page. */
   readonly getQuotationContractMonthsFn = (q: any) => this.getQuotationContractMonths(q);
   readonly getQuotationBillingMonthsFn = (q: any) => this.getQuotationBillingMonths(q);
@@ -8540,8 +8112,6 @@ export abstract class ManageBase implements OnInit {
       }
     });
   }
-
-  getSpaceType(item: any): string { return pricing.getSpaceType(item); }
 
   isMeetingRoom(item: any): boolean { return pricing.isMeetingRoom(item); }
 
@@ -9034,18 +8604,6 @@ export abstract class ManageBase implements OnInit {
     });
   }
 
-  markAgreementSigned(agreementId: any) {
-    if (!agreementId) return;
-    const obs = this.agreementSvc ? this.agreementSvc.markAgreementSigned(Number(agreementId)) : this.admin.markAgreementSigned(agreementId);
-    obs.subscribe({
-      next: () => {
-        this.showSuccess('Agreement marked as signed!');
-        this.load();
-      },
-      error: (err: any) => this.showError(err?.error?.message || 'Failed to mark agreement signed.')
-    });
-  }
-
   readonly showAgreementDetailsModal = signal(false);
   selectedAgreementDetails = signal<any>(null);
   uploadingSignedAgreementId = signal<number | null>(null);
@@ -9157,11 +8715,6 @@ export abstract class ManageBase implements OnInit {
   /** The agreement-details popup's getSignedAgreementDownloadUrl (manage-agreement-details-modal), bound to this page. */
   readonly getSignedAgreementDownloadUrlFn = (agreementId: any) => this.getSignedAgreementDownloadUrl(agreementId);
 
-  triggerSignedUpload(agreementId: any) {
-    const el = document.getElementById('upload-signed-' + agreementId) as HTMLInputElement;
-    if (el) el.click();
-  }
-
   deleteSignedAgreementPdf(agreementId: any) {
     if (!agreementId) return;
     if (!confirm('Are you sure you want to delete this uploaded signed copy?')) return;
@@ -9186,14 +8739,6 @@ export abstract class ManageBase implements OnInit {
         this.showError(errMsg);
       }
     });
-  }
-
-  readonly showQuickUploadModal = signal(false);
-  quickUploadAgreementId: number | null = null;
-
-  openQuickUploadModal(item?: any) {
-    this.quickUploadAgreementId = item ? (item.id || item.agreementId) : (this.filtered.length > 0 ? (this.filtered[0].id || this.filtered[0].agreementId) : null);
-    this.showQuickUploadModal.set(true);
   }
 
 }

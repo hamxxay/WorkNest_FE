@@ -36,7 +36,7 @@ const OPERATION_LABELS: Record<string, string> = { I: 'Created', U: 'Updated', D
   templateUrl: './audit-log.html',
   // The shared admin page look (page padding, header, cards, table, buttons, modals) lives in the Manage page
   // stylesheet; this page's own styles come after it.
-  styleUrls: ['../manage/manage.css', './audit-log.css']
+  styleUrls: ['../manage-base/manage-list.css', './audit-log.css']
 })
 export class AuditLogComponent implements OnInit {
   private auditService = inject(AuditLogService);

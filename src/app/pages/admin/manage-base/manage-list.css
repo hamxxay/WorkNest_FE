@@ -60,23 +60,8 @@
 .checkbox-label{display:flex;align-items:center;gap:8px;font-size:.875rem;color:#475569;cursor:pointer}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 .history-list-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.booking-calendar-block{margin-bottom:16px;border:1px solid #e2e8f0;border-radius:10px;padding:14px}
-.booking-calendar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.booking-calendar-head h4{font-size:.9rem;font-weight:600;color:#0f172a}
-.booking-calendar-nav{display:flex;align-items:center;gap:10px;font-size:.82rem}
-.calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
-.weekday{text-align:center;font-size:.72rem;font-weight:600;color:#94a3b8;padding:4px 0}
-.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.day-cell{border:none;border-radius:6px;padding:6px 2px;cursor:pointer;font-size:.78rem;text-align:center;background:#f0fdf4;color:#0f172a;min-height:36px}
-.day-cell.placeholder{background:transparent;cursor:default}
-.day-cell.booked{background:rgba(239,68,68,.1);color:#dc2626;cursor:not-allowed}
-.day-cell.selected{background:#0d9488;color:#fff}
-.day-cell.in-range{background:rgba(13,148,136,.12)}
-.day-cell:disabled{opacity:.4;cursor:not-allowed}
-.calendar-hint{font-size:.75rem;color:#94a3b8;margin-top:8px}
 /* Under a Space Type dropdown filtered by its form's location: "Choose a location first" / none at this location. */
 .space-type-hint{display:block;font-size:.75rem;color:#64748b;margin-top:2px}
-.calendar-loading{text-align:center;color:#94a3b8;padding:20px;font-size:.85rem}
 .duplicate-row td { background: rgba(239,68,68,.06) !important; }
 .duplicate-row td:first-child { border-left: 3px solid #ef4444; }
 
@@ -282,15 +267,6 @@
 /* Print */
 @media print {
   body * { visibility: hidden !important; }
-  #admin-receipt-printable,
-  #admin-receipt-printable * { visibility: visible !important; }
-  #admin-receipt-printable {
-    position: fixed !important;
-    inset: 0 !important;
-    max-width: 100% !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-  }
   .receipt-actions { display: none !important; }
   .modal-close { display: none !important; }
 }
@@ -350,20 +326,6 @@
   color: #047857;
   border: 1px solid #a7f3d0;
   font-weight: 700;
-}
-
-/* Print rule for Quotation Preview */
-@media print {
-  #quotation-printable,
-  #quotation-printable * { visibility: visible !important; }
-  #quotation-printable {
-    position: fixed !important;
-    inset: 0 !important;
-    max-width: 100% !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-  }
 }
 
 .actions-cell {
@@ -614,12 +576,6 @@
   .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
   .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
 }
-@media (max-width: 640px) {
-  /* Quotation preview document: less padding so the paper fits the phone (print keeps its own layout). */
-  #quotation-printable { padding: 14px !important; }
-  #quotation-printable h1 { font-size: 1.4rem !important; }
-}
-
 /* Invoices list: fits the page (tighter cells; Issued / Due and Status / Approval share a column); the invoice number
    is never wrapped or cut. */
 .admin-table.compact-list th, .admin-table.compact-list td { padding-left: 8px; padding-right: 8px; }

@@ -20,6 +20,6 @@ import { ManageBase } from '../manage-base/manage-base';
     ManageBookingChallanModal, ManageBookingFormModal],
   templateUrl: './bookings-page.html',
   // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
-  styleUrls: ['../../../styles/form-popup.css', '../manage/manage.css']
+  styleUrls: ['../../../styles/form-popup.css', '../manage-base/manage-list.css']
 })
 export class BookingsPage extends ManageBase {}
