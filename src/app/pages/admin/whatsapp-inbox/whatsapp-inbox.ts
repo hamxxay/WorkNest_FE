@@ -26,6 +26,14 @@ export class WhatsAppInbox implements OnInit {
    * executives read the conversations. */
   readonly canSend = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
 
+  /** wa.me link to the contact, for staff who can't send from the inbox (opens WhatsApp Web or the app); '' without a
+   * usable number. Pakistani numbers stored as 03xx… become 923xx…. */
+  whatsAppUrl(c: WaConversation): string {
+    let digits = String(c?.phoneNumber ?? '').replace(/\D/g, '');
+    if (/^0\d{10}$/.test(digits)) digits = '92' + digits.slice(1);
+    return /^\d{8,15}$/.test(digits) ? `https://wa.me/${digits}` : '';
+  }
+
   conversations = signal<WaConversation[]>([]);
   loadingList = signal(false);
   search = '';

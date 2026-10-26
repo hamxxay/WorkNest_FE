@@ -2,18 +2,20 @@ import {
   Component, DestroyRef, ElementRef, HostListener, afterRenderEffect, computed, effect, inject, input, signal, untracked, viewChild
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import type { DashError, DashRange } from '../../../../services/dashboard-api';
 import {
-  NetDashboard, NetHistoryPoint, NetSpeedtest, NetSpeedtestError, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService,
+  NetDashboard, NetGwnSection, NetHistoryPoint, NetSpeedtest, NetSpeedtestError, NetTopClient, NetTrafficPoint, NetWan, NetworkDashboardService,
   NetworkSource
 } from '../../../../services/network-dashboard.service';
 import { bytesText, linkText, mbpsText, pairText, stampText, whenText } from './net-format';
 import {
   Chart, ChartKeyNav, DashKpi, GRID, LEGEND, TEAL, TEAL_DARK, TOOLTIP, applyChartDefaults, count, pct
 } from '../ceo-shared';
+import { AuthService } from '../../../../services/auth.service';
 
-type ChartKey = 'clients' | 'types' | 'latency';
+type ChartKey = 'clients' | 'types' | 'latency' | 'gwnClients' | 'gwnBandwidth';
 type HistoryRange = 'day' | 'week';
 
 /** Same series colours as the Network pages: Wi-Fi teal, wired indigo, guest light teal. */
@@ -89,6 +91,14 @@ function sparkOf(points: NetTrafficPoint[]): { down: string; up: string; area: s
   return { down: path('down'), up: path('up'), area: area.trim(), peak: `${mbpsText(peakDown)} down, ${mbpsText(peakUp)} up` };
 }
 
+/** Bits per second -> Mbps (null stays null). */
+function bpsToMbps(v: number | null | undefined): number | null {
+  return v === null || v === undefined || !Number.isFinite(v) ? null : v / 1e6;
+}
+
+/** A GWN device this warm or warmer is flagged (degrees C). */
+const GWN_HOT_C = 70;
+
 /** While the API is still reading the network (line speeds, client types, top data users): reload after this long (ms). */
 const PENDING_RETRY_MS = 60_000;
 /** At most this many reloads in a row for that (the server keeps the reads warm, so one is normally enough). */
@@ -124,13 +134,14 @@ function timeOf(iso: string | null | undefined): string {
 @Component({
   selector: 'app-dash-network',
   standalone: true,
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, RouterLink],
   templateUrl: './dash-network.html',
   styleUrls: ['../ceo-dashboard.css', './dash-network.css']
 })
 export class DashNetworkSection {
   private net = inject(NetworkDashboardService);
   private host = inject(ElementRef<HTMLElement>);
+  private auth = inject(AuthService);
 
   /** Which dashboard: the CEO's (api/ceo/network) or the Sales Manager's (api/sales-manager/network). */
   source = input.required<NetworkSource>();
@@ -174,6 +185,8 @@ export class DashNetworkSection {
   private clientsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('clientsCanvas');
   private typesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('typesCanvas');
   private latencyCanvas = viewChild<ElementRef<HTMLCanvasElement>>('latencyCanvas');
+  private gwnClientsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('gwnClientsCanvas');
+  private gwnBandwidthCanvas = viewChild<ElementRef<HTMLCanvasElement>>('gwnBandwidthCanvas');
   private topPanel = viewChild<ElementRef<HTMLElement>>('topPanel');
   private topHeading = viewChild<ElementRef<HTMLElement>>('topHeading');
 
@@ -258,7 +271,8 @@ export class DashNetworkSection {
 
   /** The line under the section title: what it shows, the site(s) and when the network was read. */
   titleLine = computed(() =>
-    ['Wi-Fi and wired clients, network devices and internet', this.scopeText(), this.updatedText()].filter(Boolean).join(' · '));
+    ['Wi-Fi and wired clients, network devices and internet', this.scopeText(), this.gwn() ? `Grandstream ${this.gwnPlace()}` : '', this.updatedText()]
+      .filter(Boolean).join(' · '));
 
   /** Each site with the WorkNest locations it serves ("WorkNest I-8: I-8"). */
   siteLines = computed(() => {
@@ -646,6 +660,170 @@ export class DashNetworkSection {
   /** A critical issue among them (the panel's icon turns red). */
   hasCritical = computed(() => this.alerts().some(a => a.level === 'critical'));
 
+  // ---------- Grandstream GWN (F-7) ----------
+
+  /** The Grandstream part of the answer: null when no GWN network serves the location (I-8) or the API has none yet. */
+  gwn = computed<NetGwnSection | null>(() => this.data()?.gwn ?? null);
+  /** Grandstream figures to show (the network answered). */
+  gwnShown = computed(() => !!this.gwn()?.available);
+  /** Both networks are on screen (All locations): each block gets its own title. */
+  bothShown = computed(() => this.shown() && !!this.gwn());
+  /** "I-8" (the locations the UniFi sites serve), else the site names: the UniFi block's title when both show. */
+  unifiPlace = computed(() => {
+    const names = new Map(this.locations().map(l => [l.locationId, l.name]));
+    const sites = this.data()?.sites ?? [];
+    const places = [...new Set(sites.filter(x => !x.everyLocation).flatMap(x => x.locationIds).map(id => names.get(id)).filter((x): x is string => !!x))];
+    return places.length ? places.join(', ') : sites.map(x => x.name).join(', ');
+  });
+  /** The UniFi empty states give way when the Grandstream block is on screen (F-7 has no UniFi site). */
+  unifiQuiet = computed(() => !!this.gwn() && !this.shown());
+
+  /** "F-7" (the locations of the GWN networks), else the network names. */
+  gwnPlace = computed(() => {
+    const g = this.gwn();
+    if (!g) return '';
+    const names = new Map(this.locations().map(l => [l.locationId, l.name]));
+    const places = [...new Set(g.networks.flatMap(n => n.locationIds).map(id => names.get(id)).filter((x): x is string => !!x))];
+    if (places.length) return places.join(', ');
+    const nets = g.networks.map(n => n.name).filter(Boolean);
+    return nets.length ? nets.join(', ') : 'F-7';
+  });
+  gwnTitle = computed(() => `Grandstream · ${this.gwnPlace()}`);
+  /** "GWN network WorkNest F-7 Third Floor · updated 2 min ago" under the block title. */
+  gwnSub = computed(() => {
+    const g = this.gwn();
+    if (!g) return '';
+    this.nowTick();
+    const nets = g.networks.map(n => n.name).filter(Boolean);
+    return [
+      nets.length === 1 ? `GWN network ${nets[0]}` : nets.length ? `${nets.length} GWN networks` : 'GWN Cloud',
+      this.agoText(g.updatedAt)
+    ].filter(Boolean).join(' · ');
+  });
+
+  /** The Grandstream pages (/admin/network/gwn): only for those who may open the Network pages (not CEO- or Sales-Manager-only). */
+  canOpenGwn = computed(() => !this.auth.isCeoOnly() && !this.auth.isSalesManagerOnly());
+
+  gwnKpis = computed<DashKpi[]>(() => {
+    const g = this.gwn();
+    if (!g || !g.available) return [];
+    const c = g.clients;
+    const dv = g.devices;
+    const u = g.usageToday;
+    const t = g.trafficNow;
+    const temps = (dv?.list ?? []).map(d => d.temperature).filter((v): v is number => v !== null);
+    const warmest = temps.length ? Math.max(...temps) : null;
+    const down = bpsToMbps(t?.downloadBps), up = bpsToMbps(t?.uploadBps);
+    return [
+      {
+        key: 'gwn-clients', label: 'Clients now', value: c ? count(c.total) : '-',
+        sub: !c ? 'Not reported' : [
+          `${count(c.band24)} on 2.4 GHz · ${count(c.band5)} on 5 GHz · ${count(c.wired)} wired`,
+          c.weak ? `${count(c.weak)} weak signal` : ''
+        ].filter(Boolean).join(' · '),
+        tone: c && c.weak ? 'warn' : 'neutral',
+        action: () => this.focusEl('gwn-panel-clients'), actionLabel: 'Show Grandstream clients over 24 hours'
+      },
+      {
+        key: 'gwn-devices', label: 'Devices online',
+        value: dv && dv.total ? `${count(dv.online)} of ${count(dv.total)}` : '-',
+        sub: [
+          !dv || !dv.total ? 'No devices reported' : dv.offline ? `${count(dv.offline)} offline` : 'All online',
+          warmest !== null ? `warmest ${Math.round(warmest)} °C` : ''
+        ].filter(Boolean).join(' · '),
+        tone: !dv || !dv.total ? 'neutral' : dv.offline ? 'danger' : warmest !== null && warmest >= GWN_HOT_C ? 'warn' : 'ok',
+        action: () => this.focusEl('gwn-panel-devices'), actionLabel: 'Show the Grandstream devices'
+      },
+      {
+        key: 'gwn-usage', label: 'Data used today', value: u ? bytesText(u.total) : '-',
+        sub: u ? `${bytesText(u.download)} down · ${bytesText(u.upload)} up` : 'Not reported', tone: 'neutral'
+      },
+      {
+        key: 'gwn-traffic', label: 'Traffic now', value: mbpsText(down),
+        sub: down === null && up === null ? 'Not reported' : `download · ${mbpsText(up)} upload`, tone: 'neutral',
+        action: () => this.focusEl('gwn-panel-bandwidth'), actionLabel: 'Show Grandstream bandwidth over 24 hours'
+      }
+    ];
+  });
+
+  gwnClientsEmpty = computed(() => !(this.gwn()?.clientHistory.counts ?? []).some(v => v !== null));
+  gwnClientStats = computed(() => {
+    const h = this.gwn()?.clientHistory;
+    if (!h) return null;
+    const pts = h.counts.map((v, i) => ({ v, t: h.times[i] })).filter((p): p is { v: number; t: string } => p.v !== null);
+    if (!pts.length) return null;
+    const peak = pts.reduce((a, p) => (p.v > a.v ? p : a), pts[0]);
+    return { avg: Math.round(pts.reduce((a, p) => a + p.v, 0) / pts.length), peak: peak.v, peakAt: stepTitle(peak.t) };
+  });
+  gwnClientsAria = computed(() => {
+    const s = this.gwnClientStats();
+    return s ? `Grandstream clients over the last 24 hours: average ${s.avg}, most ${s.peak} on ${s.peakAt}. Use the arrow keys to read each step.`
+      : 'Grandstream clients over the last 24 hours: no samples yet.';
+  });
+  readonly gwnClientsNav = new ChartKeyNav({
+    charts: () => [this.charts.get('gwnClients')],
+    count: () => this.gwn()?.clientHistory.times.length ?? 0,
+    describe: i => {
+      const h = this.gwn()?.clientHistory;
+      const t = h?.times[i];
+      if (!h || !t) return '';
+      const v = h.counts[i];
+      return v === null ? `${stepTitle(t)}: no sample.` : `${stepTitle(t)}: ${count(v)} clients.`;
+    },
+    pick: () => { /* a step has nothing to open */ },
+    announce: t => this.chartAnnounce.set(t)
+  });
+
+  gwnBandwidthEmpty = computed(() => {
+    const b = this.gwn()?.bandwidth;
+    return !b || !(b.downloadBps.some(v => v !== null) || b.uploadBps.some(v => v !== null));
+  });
+  gwnBandwidthStats = computed(() => {
+    const b = this.gwn()?.bandwidth;
+    if (!b || this.gwnBandwidthEmpty()) return null;
+    const peak = (a: (number | null)[]) => Math.max(0, ...a.filter((v): v is number => v !== null));
+    return { down: mbpsText(bpsToMbps(peak(b.downloadBps))), up: mbpsText(bpsToMbps(peak(b.uploadBps))) };
+  });
+  gwnBandwidthAria = computed(() => {
+    const s = this.gwnBandwidthStats();
+    return s ? `Grandstream bandwidth over the last 24 hours: peak ${s.down} download, ${s.up} upload.` : 'Grandstream bandwidth over the last 24 hours: no samples yet.';
+  });
+
+  /** The devices, offline first, then by name; temperature written out. */
+  gwnDevices = computed(() => [...(this.gwn()?.devices?.list ?? [])]
+    .sort((a, b) => Number(a.online) - Number(b.online) || a.name.localeCompare(b.name))
+    .map(d => ({
+      d,
+      temp: d.temperature !== null ? `${Math.round(d.temperature)} °C` : d.temperatureText || '-',
+      hot: d.temperature !== null && d.temperature >= GWN_HOT_C
+    })));
+
+  gwnTopRows = computed(() => {
+    const list = this.gwn()?.topClients ?? [];
+    const max = Math.max(0, ...list.map(c => c.total)) || 1;
+    return list.map((c, i) => ({
+      c, rank: i + 1, key: `${c.mac}|${i}`, share: Math.max(2, (c.total / max) * 100),
+      total: bytesText(c.total), down: bytesText(c.download), up: bytesText(c.upload)
+    }));
+  });
+
+  gwnAlerts = computed(() => this.gwn()?.alerts ?? []);
+  gwnHasCritical = computed(() => this.gwnAlerts().some(a => a.level === 'critical'));
+  /** "Critical", "Warning", "Info" for the pill. */
+  levelLabel(level: string): string {
+    return level ? level.charAt(0).toUpperCase() + level.slice(1) : 'Warning';
+  }
+
+  /** "updated 2 min ago" from an ISO time; "" when unknown. */
+  private agoText(at: string | null | undefined): string {
+    if (!at) return '';
+    const t = new Date(at).getTime();
+    if (isNaN(t)) return '';
+    const mins = Math.floor((Date.now() - t) / 60000);
+    return mins < 1 ? 'updated just now' : mins === 1 ? 'updated 1 min ago' : mins < 60 ? `updated ${mins} min ago`
+      : `updated ${new Date(t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+  }
+
   // ---------- helpers ----------
 
   focusEl(id: string) {
@@ -687,8 +865,16 @@ export class DashNetworkSection {
     const pts = this.history();
     const range = this.historyRange();
     const types = this.types();
-    if (!d || !this.shown()) { this.destroyCharts(); return; }
+    const gwnClientsCanvas = this.gwnClientsCanvas();
+    const gwnBandwidthCanvas = this.gwnBandwidthCanvas();
+    const g = this.gwn();
+    if (!d) { this.destroyCharts(); return; }
     applyChartDefaults();
+    this.renderGwnCharts(g && g.available ? g : null, gwnClientsCanvas, gwnBandwidthCanvas);
+    if (!this.shown()) {
+      (['clients', 'types', 'latency'] as ChartKey[]).forEach(k => { this.charts.get(k)?.destroy(); this.charts.delete(k); });
+      return;
+    }
 
     // 1. Clients over time: Wi-Fi / wired / guest stacked (average in each step), and the most at once as a dashed line.
     const area = (label: string, field: 'wifi' | 'wired' | 'guest', color: string, fill: string | boolean) => ({
@@ -799,6 +985,71 @@ export class DashNetworkSection {
           x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 14 } },
           y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { padding: 8, callback: (v: any) => `${v} ms` } }
         }
+      }
+    });
+  }
+
+  /** The Grandstream charts: clients and bandwidth over the last 24 hours (the UniFi charts' look). */
+  private renderGwnCharts(
+    g: NetGwnSection | null, clientsCanvas: ElementRef<HTMLCanvasElement> | undefined, bandwidthCanvas: ElementRef<HTMLCanvasElement> | undefined
+  ) {
+    const xScale = { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 14 } };
+    const h = g?.clientHistory;
+    this.upsert('gwnClients', g && h && !this.gwnClientsEmpty() ? clientsCanvas : undefined, {
+      type: 'line',
+      data: {
+        labels: (h?.times ?? []).map(t => stepLabel(t, 'day')),
+        datasets: [{
+          label: 'Clients', data: h?.counts ?? [], borderColor: WIFI, backgroundColor: WIFI + '33', fill: 'origin',
+          borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 8, spanGaps: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...TOOLTIP,
+            callbacks: {
+              title: (items: any[]) => stepTitle(h?.times[items[0]?.dataIndex] ?? ''),
+              label: (c: any) => c.parsed.y === null ? '' : ` Clients: ${count(c.parsed.y)}`
+            }
+          }
+        },
+        scales: { x: xScale, y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8 } } }
+      }
+    });
+
+    const b = g?.bandwidth;
+    const mbps = (a: (number | null)[] | undefined) => (a ?? []).map(v => bpsToMbps(v));
+    this.upsert('gwnBandwidth', g && b && !this.gwnBandwidthEmpty() ? bandwidthCanvas : undefined, {
+      type: 'line',
+      data: {
+        labels: (b?.times ?? []).map(t => stepLabel(t, 'day')),
+        datasets: [
+          {
+            label: 'Download', data: mbps(b?.downloadBps), borderColor: WIFI, backgroundColor: WIFI + '22', fill: 'origin',
+            borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 8, spanGaps: false
+          },
+          {
+            label: 'Upload', data: mbps(b?.uploadBps), borderColor: WIRED, backgroundColor: WIRED, fill: false,
+            borderWidth: 1.5, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 8, spanGaps: false
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: LEGEND,
+          tooltip: {
+            ...TOOLTIP,
+            callbacks: {
+              title: (items: any[]) => stepTitle(b?.times[items[0]?.dataIndex] ?? ''),
+              label: (c: any) => c.parsed.y === null ? '' : ` ${c.dataset.label}: ${mbpsText(c.parsed.y)}`
+            }
+          }
+        },
+        scales: { x: xScale, y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { padding: 8, callback: (v: any) => `${v} Mbps` } } }
       }
     });
   }

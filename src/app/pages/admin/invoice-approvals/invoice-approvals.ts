@@ -176,7 +176,7 @@ export class InvoiceApprovalsComponent implements OnInit {
 
   approveCurrentInvoice(): void {
     const inv = this.selectedInvoice();
-    if (!inv || !this.isAdmin() || !this.viewSuccess() || this.approving()) return;
+    if (!inv || this.isSuperAdmin() || !(this.isAdmin() || this.isSalesExecutive()) || !this.viewSuccess() || this.approving()) return;
 
     const invoiceId = inv.id || inv.Id;
     this.approving.set(true);

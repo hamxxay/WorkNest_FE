@@ -1,0 +1,25 @@
+/* Grandstream Wi-Fi page: SSID card details (cards themselves come from ../gwn-shared/gwn.css). */
+.ssid-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ssid-num small { font-size: 0.8rem; }
+
+.band-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #f1f5f9; margin-top: 12px; gap: 2px; }
+.band-bar span { display: block; height: 100%; }
+.b24 { background: #0d9488; }
+.b5 { background: #6366f1; }
+.b6 { background: #f59e0b; }
+.band-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 0.76rem; color: #64748b; }
+.band-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.band-legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.band-legend b { color: #0f172a; font-weight: 700; }
+
+.ssid-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin: 14px 0 0; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+.ssid-facts div { min-width: 0; }
+.ssid-facts dt { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+.ssid-facts dd { margin: 2px 0 0; font-size: 0.84rem; font-weight: 600; color: #0f172a; overflow-wrap: anywhere; }
+.ssid-facts dd.warn-text { color: #b45309; }
+.ssid.off .ssid-num, .ssid.off .ssid-facts dd { color: #64748b; }
+
+@media (max-width: 640px) {
+  .ssid { padding: 16px; }
+  .ssid-facts { gap: 8px 12px; }
+}

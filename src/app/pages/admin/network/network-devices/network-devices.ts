@@ -5,13 +5,14 @@ import { forkJoin } from 'rxjs';
 import { UnifiService } from '../../../../services/unifi.service';
 import { UnifiDevice, UnifiSummary, UnifiTopology } from '../../../../models/unifi.model';
 import { ExportKind, NET_SHARED, ago, dur, errMsg, exportCard, exportPagePdf, fmt, normMac, sum, typeIcon } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 type StatusFilter = '' | 'online' | 'offline' | 'update';
 
 @Component({
   selector: 'app-network-devices',
   standalone: true,
-  imports: [FormsModule, RouterLink, ...NET_SHARED],
+  imports: [FormsModule, RouterLink, ...NET_SHARED, NetworkSwitch],
   templateUrl: './network-devices.html',
   styleUrls: ['../network-shared.css']
 })

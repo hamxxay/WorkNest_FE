@@ -8134,6 +8134,81 @@ export class Manage implements OnInit {
     });
   }
 
+  // Revert approval (super admin): Approved -> Pending Approval
+  readonly revertApprovalInvoice = signal<any>(null);
+  readonly revertApprovalReason = signal('');
+  readonly revertApprovalSaving = signal(false);
+  readonly revertApprovalError = signal('');
+
+  /** Approved (null counts as approved), not paid / part-paid / cancelled / deleted, and the user is a super admin. */
+  canRevertInvoiceApproval(inv: any): boolean {
+    if (!this.isSuperAdmin || !inv) return false;
+    if ((inv.approvalStatus ?? inv.ApprovalStatus) === 'PendingApproval') return false;
+    if (inv.isDeleted || inv.IsDeleted || Number(inv.statusId ?? inv.StatusId) === 40) return false;
+    // Already on 1Bill/EzPay (OneBillStatus 1 = being sent, 2 = created). Detail has oneBillNumber; the list may not.
+    const oneBillStatus = Number(inv.oneBillStatus ?? inv.OneBillStatus ?? 0);
+    if (oneBillStatus === 1 || oneBillStatus === 2) return false;
+    if (inv.oneBillNumber || inv.OneBillNumber || inv.ezPayInvoiceId || inv.EzPayInvoiceId) return false;
+    const status = String(this.getCellValue(inv, { key: 'statusLabel', label: 'Status' }) || '').toLowerCase();
+    if (status === 'paid' || status === 'partial' || status === 'cancelled' || status === 'deleted') return false;
+    const paid = Number(inv.paidTotal ?? inv.PaidTotal ?? inv.amountPaid ?? inv.AmountPaid ?? 0);
+    return !(paid > 0);
+  }
+
+  openRevertApproval(inv: any) {
+    if (!this.canRevertInvoiceApproval(inv)) return;
+    this.revertApprovalReason.set('');
+    this.revertApprovalError.set('');
+    this.revertApprovalSaving.set(false);
+    this.revertApprovalInvoice.set(inv);
+  }
+
+  closeRevertApproval() {
+    if (this.revertApprovalSaving()) return;
+    this.revertApprovalInvoice.set(null);
+  }
+
+  submitRevertApproval() {
+    const inv = this.revertApprovalInvoice();
+    const id = inv?.id ?? inv?.Id;
+    const reason = this.revertApprovalReason().trim();
+    if (!id || !reason || reason.length > 500 || this.revertApprovalSaving()) return;
+    this.revertApprovalSaving.set(true);
+    this.revertApprovalError.set('');
+    this.admin.revertInvoiceApproval(id, reason).subscribe({
+      next: (res: any) => {
+        this.revertApprovalSaving.set(false);
+        if (res && res.isSuccessful === false) {
+          this.revertApprovalError.set(res?.message || 'Could not move the invoice back to Pending Approval.');
+          return;
+        }
+        const num = res?.data?.invoiceNumber || inv.invoiceNumber || inv.InvoiceNumber || ('INV-' + id);
+        this.revertApprovalInvoice.set(null);
+        this.showSuccess(`${num} moved back to Pending Approval`);
+        inv.approvalStatus = 'PendingApproval';
+        if ('ApprovalStatus' in inv) inv.ApprovalStatus = 'PendingApproval';
+        this.load();
+        const open = this.selectedInvoiceDetails();
+        if (this.showInvoiceDetailsModal() && open && (open.id ?? open.Id) === id) {
+          // The detail response may not carry approvalStatus, so the merge would keep the old value.
+          const pending = { approvalStatus: 'PendingApproval', ...('ApprovalStatus' in open ? { ApprovalStatus: 'PendingApproval' } : {}) };
+          this.selectedInvoiceDetails.set({ ...open, ...pending });
+          this.admin.getInvoiceDetails(id).subscribe({
+            next: (r: any) => {
+              const cur = this.selectedInvoiceDetails();
+              if (cur && (cur.id ?? cur.Id) === id) this.selectedInvoiceDetails.set({ ...cur, ...(r?.data ?? r), ...pending });
+            }
+          });
+        }
+      },
+      error: (err: any) => {
+        this.revertApprovalSaving.set(false);
+        this.revertApprovalError.set(err?.error?.message || err?.error?.ErrorMessage || err?.message
+          || 'Could not move the invoice back to Pending Approval.');
+      }
+    });
+  }
+
   // Record Manual Payment
   openRecordPaymentModal(invoice: any) {
     this.recordPaymentFormData = {

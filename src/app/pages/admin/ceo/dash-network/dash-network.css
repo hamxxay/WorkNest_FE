@@ -240,3 +240,30 @@
   .nt-row { gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .nt-drawer, .nt-backdrop, .nt-row { animation: none; transition: none; } }
+
+/* ---------- UniFi / Grandstream blocks: a small titled head over each network's figures ---------- */
+.net-block-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 14px; }
+.net-block-head > div { flex: 1 1 220px; min-width: 0; }
+.net-block-head h3 { font-size: 1rem; font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; color: var(--nw-ink); }
+.net-block-head .panel-sub { overflow-wrap: anywhere; }
+.net-block-badge {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--ceo-accent-soft, #f0fdfa); color: var(--nw-accent-strong); font-size: 0.8rem; font-weight: 700;
+}
+.net-block-badge.gwn { background: #eef2ff; color: #4338ca; }
+.gwn-open { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8125rem; white-space: nowrap; text-decoration: none; }
+.gwn-open:focus-visible { outline: 2px solid var(--nw-focus); outline-offset: 2px; border-radius: 6px; }
+.gwn-block.gwn-after { margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--nw-line); }
+.gwn-quiet-note { margin: 0 0 16px; }
+/* devices mini-table: name with the model under it */
+.gwn-devices .gd-name { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.gwn-devices .gd-model { display: block; margin-top: 1px; font-size: 0.72rem; font-weight: 500; color: var(--nw-muted); }
+.gwn-devices .pill.on { background: var(--ceo-good-soft, #d1fae5); color: var(--nw-good); }
+/* top data users without details to open: the same row, nothing to click */
+.nt-row.static { grid-template-columns: 22px minmax(0, 1fr) auto; cursor: default; margin: 0; width: 100%; padding: 10px 0; }
+.nt-row.static:hover { background: none; }
+.nt-row.static:hover .nt-name { color: var(--nw-ink); text-decoration: none; }
+@media (max-width: 640px) {
+  .gwn-block.gwn-after { padding-top: 18px; }
+  .gwn-devices .gd-name { max-width: 150px; }
+}

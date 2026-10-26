@@ -7,7 +7,7 @@ import {
 } from './dashboard-api';
 
 // ============================================================
-// Network (UniFi) section of the CEO and Sales Manager dashboards: GET api/ceo/network and
+// Network (UniFi, and Grandstream GWN in `gwn`) section of the CEO and Sales Manager dashboards: GET api/ceo/network and
 // GET api/sales-manager/network (same shape). Read-only, except that the CEO can run a speed test on a line
 // (api/ceo/network/speedtest). The API decides which UniFi sites the caller sees (a Sales
 // Manager only those of their locations). UniFi not set up or not reachable: available = false and a plain message.
@@ -84,6 +84,45 @@ export interface NetTopClient {
   connection: string;
 }
 
+// ---------- Grandstream GWN (F-7): the optional `gwn` part of the same answer ----------
+
+/** A GWN network the caller may see, with the WorkNest locations it serves. */
+export interface NetGwnNetwork { id: number; name: string; locationIds: number[]; }
+/** Clients connected now: by band, wired, weak signal (RSSI under -75); deviceReported = the count the devices report. */
+export interface NetGwnClients { total: number; band24: number; band5: number; wired: number; weak: number; deviceReported: number; }
+/** One GWN device (access point / router). temperature: degrees C, null = not reported; temperatureText = as GWN wrote it. */
+export interface NetGwnDevice {
+  mac: string; name: string; model: string; online: boolean; status: string; clients: number;
+  temperature: number | null; temperatureText: string;
+}
+export interface NetGwnDevices { total: number; online: number; offline: number; list: NetGwnDevice[]; }
+/** Bytes since the network's local midnight. */
+export interface NetGwnUsage { download: number; upload: number; total: number; }
+/** Bits per second right now. */
+export interface NetGwnTraffic { downloadBps: number | null; uploadBps: number | null; }
+/** Last 24 hours: one count per step (null = no sample). */
+export interface NetGwnClientHistory { times: string[]; counts: (number | null)[]; }
+/** Last 24 hours: bits per second per step (null = no sample). */
+export interface NetGwnBandwidth { times: string[]; downloadBps: (number | null)[]; uploadBps: (number | null)[]; }
+/** One of the top 5 clients by data today (bytes). */
+export interface NetGwnTopClient { mac: string; name: string; download: number; upload: number; total: number; }
+export interface NetGwnAlert { level: string; text: string; }
+
+export interface NetGwnSection {
+  available: boolean;
+  message: string | null;
+  updatedAt: string | null;
+  networks: NetGwnNetwork[];
+  clients: NetGwnClients | null;
+  devices: NetGwnDevices | null;
+  usageToday: NetGwnUsage | null;
+  trafficNow: NetGwnTraffic | null;
+  clientHistory: NetGwnClientHistory;
+  bandwidth: NetGwnBandwidth;
+  topClients: NetGwnTopClient[];
+  alerts: NetGwnAlert[];
+}
+
 export interface NetDashboard {
   available: boolean;
   message: string | null;
@@ -104,6 +143,8 @@ export interface NetDashboard {
   topClientsRangeDays: number | null;
   /** Why topClients is null (another console's site, still loading, could not be read). */
   topClientsMessage: string | null;
+  /** The Grandstream (GWN) network of the location (F-7), or of every location for All; null = none serves it (I-8). */
+  gwn: NetGwnSection | null;
 }
 
 /** A speed test started from the CEO dashboard (POST api/ceo/network/speedtest): the line and its port. */
@@ -128,6 +169,62 @@ const NETWORK_WORDING: DashErrorWording = {
   name: 'network figures',
   dbMessage: 'The network figures need a database update. Ask the WorkNest team to run the latest database script, then refresh this page.'
 };
+
+/** "52", "52.5 C", "52℃" -> 52.5; null when there is no number. */
+function celsius(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const m = /-?\d+(?:\.\d+)?/.exec(str(v));
+  return m ? Number(m[0]) : null;
+}
+
+/** The optional `gwn` part (an API without it, or a location no GWN network serves: null). */
+export function toNetGwnSection(raw: unknown): NetGwnSection | null {
+  const g = obj(raw);
+  if (!g) return null;
+  const c = obj(g.clients);
+  const dv = obj(g.devices);
+  const u = obj(g.usageToday);
+  const tn = obj(g.trafficNow);
+  const ch = obj(g.clientHistory);
+  const bw = obj(g.bandwidth);
+  const series = (v: unknown, len: number): (number | null)[] => {
+    const a = Array.isArray(v) ? v : [];
+    return Array.from({ length: len }, (_, i) => { const n = numOrNull(a[i]); return n !== null && Number.isFinite(n) && n >= 0 ? n : null; });
+  };
+  const chTimes = Array.isArray(ch?.times) ? (ch.times as unknown[]).map(str) : [];
+  const bwTimes = Array.isArray(bw?.times) ? (bw.times as unknown[]).map(str) : [];
+  const nonNeg = (v: unknown) => Math.max(0, num(v));
+  return {
+    available: g.available !== false,
+    message: strOrNull(g.message),
+    updatedAt: strOrNull(g.updatedAt),
+    networks: arr(g.networks, (n: any): NetGwnNetwork => ({ id: num(n.id), name: str(n.name), locationIds: arr(n.locationIds, num) })),
+    clients: c && {
+      total: nonNeg(c.total), band24: nonNeg(c.band24), band5: nonNeg(c.band5), wired: nonNeg(c.wired), weak: nonNeg(c.weak),
+      deviceReported: nonNeg(c.deviceReported)
+    },
+    devices: dv && {
+      total: nonNeg(dv.total), online: nonNeg(dv.online), offline: nonNeg(dv.offline),
+      list: arr(dv.list, (d: any): NetGwnDevice => {
+        const status = str(d.status).toLowerCase();
+        return {
+          mac: str(d.mac), name: str(d.name) || str(d.mac) || 'Unnamed device', model: str(d.model),
+          online: status === 'online' || d.status === 1 || d.status === true, status: status || 'unknown',
+          clients: nonNeg(d.clients), temperature: celsius(d.temperature), temperatureText: str(d.temperature)
+        };
+      })
+    },
+    usageToday: u && { download: nonNeg(u.download), upload: nonNeg(u.upload), total: nonNeg(u.total) || nonNeg(u.download) + nonNeg(u.upload) },
+    trafficNow: tn && { downloadBps: numOrNull(tn.downloadBps), uploadBps: numOrNull(tn.uploadBps) },
+    clientHistory: { times: chTimes, counts: series(ch?.counts, chTimes.length) },
+    bandwidth: { times: bwTimes, downloadBps: series(bw?.downloadBps, bwTimes.length), uploadBps: series(bw?.uploadBps, bwTimes.length) },
+    topClients: arr(g.topClients, (t: any): NetGwnTopClient => {
+      const down = nonNeg(t.download), up = nonNeg(t.upload);
+      return { mac: str(t.mac), name: str(t.name) || str(t.mac) || 'Unknown device', download: down, upload: up, total: nonNeg(t.total) || down + up };
+    }).slice(0, 5),
+    alerts: arr(g.alerts, (a: any): NetGwnAlert => ({ level: str(a.level).toLowerCase() || 'warning', text: str(a.text) })).filter(a => !!a.text)
+  };
+}
 
 function toNetDashboard(raw: unknown): NetDashboard {
   const d = obj(raw) ?? {};
@@ -208,7 +305,8 @@ function toNetDashboard(raw: unknown): NetDashboard {
       : null,
     topClientsRangeLabel: strOrNull(d.topClientsRangeLabel),
     topClientsRangeDays: numOrNull(d.topClientsRangeDays),
-    topClientsMessage: strOrNull(d.topClientsMessage)
+    topClientsMessage: strOrNull(d.topClientsMessage),
+    gwn: toNetGwnSection(d.gwn)
   };
 }
 

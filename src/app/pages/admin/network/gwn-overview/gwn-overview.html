@@ -1,0 +1,245 @@
+<div class="net-page" #page>
+  <app-network-switch />
+  <div class="dash-header">
+    <div>
+      <h1>Network Overview</h1>
+      <p class="dash-meta"><span>{{ subtitle() }}</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()?.available"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Load fresh data" aria-label="Refresh network data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error" role="alert"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (unavailable(); as msg) {
+    <section class="gwn-off">
+      <div class="gwn-off-icon"><net-icon name="wifi" [size]="22" /></div>
+      <h3>Grandstream is not available</h3>
+      <p>{{ msg }}</p>
+    </section>
+  } @else {
+    <!-- Health -->
+    @if (health(); as h) {
+      <section class="health" [class]="h.worst">
+        <div class="health-head">
+          <div class="health-icon"><net-icon [name]="h.worst === 'ok' ? 'check' : 'alert'" [size]="20" /></div>
+          <div><div class="health-title">{{ h.title }}</div><div class="muted small">{{ h.sub }}</div></div>
+        </div>
+        @if (h.list.length) {
+          <div class="health-list">
+            @for (a of h.list; track $index) {
+              <div class="alert-row" [class]="'lvl-' + a.level">
+                <span class="badge">{{ a.level }}</span>
+                <span class="alert-text">{{ a.text }}</span>
+                <span class="where">{{ a.where }}</span>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    } @else if (loading()) {
+      <section class="health"><div class="sk" style="height:44px"></div></section>
+    }
+
+    <div class="section-head">
+      <h3 class="section-title">Key metrics</h3>
+      <div class="panel-tools no-print">
+        <div class="seg" role="group" aria-label="Time range">
+          @for (r of ranges; track r.key) { <button [class.active]="range() === r.key" (click)="setRange(r.key)">{{ r.label }}</button> }
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI tiles -->
+    <section class="kpi-grid">
+      @if (tiles(); as t) {
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Clients</span>
+          <span class="kpi-value">{{ fmt(t.total) }}</span>
+          <div class="meter"><span [style.width.%]="t.p24" style="background:#0d9488"></span><span [style.width.%]="t.p5" style="background:#6366f1"></span><span [style.width.%]="t.p6" style="background:#f59e0b"></span><span [style.width.%]="t.pWired" style="background:#99f6e4"></span></div>
+          <div class="legend-row">
+            <span><span class="dot" style="background:#0d9488"></span>2.4G<b>{{ fmt(t.b24) }}</b></span>
+            <span><span class="dot" style="background:#6366f1"></span>5G<b>{{ fmt(t.b5) }}</b></span>
+            @if (t.b6) { <span><span class="dot" style="background:#f59e0b"></span>6G<b>{{ fmt(t.b6) }}</b></span> }
+            @if (t.wired) { <span><span class="dot" style="background:#99f6e4"></span>Wired<b>{{ fmt(t.wired) }}</b></span> }
+          </div>
+          <net-sparkline [points]="t.clientSpark" [format]="clientFmt" />
+        </div>
+        <div class="kpi-card" [class.tone-ok]="t.devices === t.online" [class.tone-danger]="t.devices !== t.online">
+          <span class="kpi-label">Grandstream devices</span>
+          <span class="kpi-value">{{ fmt(t.online) }}<small>/ {{ fmt(t.devices) }}</small></span>
+          <div class="kpi-foot">
+            @if (t.devices - t.online) { <span class="trend bad">{{ t.devices - t.online }} offline</span> } @else { <span class="trend good">All online</span> }
+            @if (t.updates) { <span class="kpi-sub">{{ t.updates }} update{{ t.updates > 1 ? 's' : '' }}</span> }
+          </div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Traffic now</span>
+          <span class="kpi-value">{{ t.down.value }}<small>{{ t.down.unit }} down</small></span>
+          <div class="kpi-foot"><span class="kpi-sub">Up <b>{{ t.up }}</b></span></div>
+          <net-sparkline [points]="t.trafficSpark" color="#6366f1" [format]="mbpsFmt" />
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Data today</span>
+          <span class="kpi-value">{{ bytes(t.usage.total) }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">Down <b>{{ bytes(t.usage.download) }}</b> · Up <b>{{ bytes(t.usage.upload) }}</b></span></div>
+        </div>
+        <div class="kpi-card" [class.tone-ok]="!t.weak" [class.tone-warn]="t.weak">
+          <span class="kpi-label">Weak signal</span>
+          <span class="kpi-value">{{ fmt(t.weak) }}</span>
+          <div class="kpi-foot">@if (t.weak) { <span class="trend warn">Below -75 dBm</span> } @else { <span class="trend good">All clients have good signal</span> }</div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Wi-Fi networks</span>
+          <span class="kpi-value">{{ fmt(t.ssidsOn) }}<small>/ {{ fmt(t.ssids) }} on</small></span>
+          <div class="kpi-foot"><a class="link-btn" routerLink="/admin/network/gwn/wifi">Open Wi-Fi</a></div>
+        </div>
+      } @else if (loading()) {
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+      }
+    </section>
+
+    @if (statsError()) { <div class="ov-error"><net-icon name="alert" [size]="16" />Charts: {{ statsError() }}</div> }
+
+    <section class="ins-grid">
+      <article class="dash-panel span-8">
+        <div class="panel-head">
+          <div><h3>Traffic</h3><p class="panel-sub">All Grandstream devices · Mbps · {{ rangeName() }}</p></div>
+          <div class="panel-tools">
+            @if (trafficStats(); as s) {
+              <div class="head-stats">
+                <div><span>Downloaded</span><strong>{{ bytes(s.down) }}</strong></div>
+                <div><span>Uploaded</span><strong>{{ bytes(s.up) }}</strong></div>
+                <div><span>Peak down</span><strong>{{ bitRate(s.peak) }}</strong></div>
+              </div>
+            }
+            <net-export [chart]="true" label="Traffic" (picked)="exportChart($event, 'traffic', cTraffic)" />
+          </div>
+        </div>
+        <div class="chart-box h-lg">
+          @if (!bandwidth()) { <div class="sk chart-sk"></div> }
+          @else if (!bandwidth()!.times.length) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="activity" [size]="18" /></span><strong>No data yet</strong><span>No traffic recorded for this period.</span></div> }
+          <canvas #cTraffic role="img" aria-label="Line chart of download and upload traffic"></canvas>
+        </div>
+      </article>
+      <article class="dash-panel span-4">
+        <div class="panel-head">
+          <div><h3>Clients over time</h3><p class="panel-sub">{{ rangeName() }}</p></div>
+          <div class="panel-tools">
+            @if (clientStats(); as s) {
+              <div class="head-stats">
+                <div><span>Average</span><strong>{{ fmt(s.avg) }}</strong></div>
+                <div><span>Peak</span><strong>{{ fmt(s.peak) }}</strong></div>
+              </div>
+            }
+            <net-export [chart]="true" label="Clients over time" (picked)="exportChart($event, 'clients over time', cClients)" />
+          </div>
+        </div>
+        <div class="chart-box h-lg">
+          @if (!counts()) { <div class="sk chart-sk"></div> }
+          @else if (!counts()!.times.length) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="users" [size]="18" /></span><strong>No data yet</strong><span>No client history for this period.</span></div> }
+          <canvas #cClients role="img" aria-label="Line chart of connected clients over time"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <section class="dash-panel">
+      <div class="panel-head">
+        <div><h3>Devices</h3><p class="panel-sub">{{ data() ? devices().length + ' Grandstream devices' : 'Loading…' }}</p></div>
+        <div class="panel-tools">
+          <a class="link-btn no-print" routerLink="/admin/network/gwn/devices">All devices</a>
+          <net-export [table]="true" label="Devices" (picked)="exportDevices($event)" />
+        </div>
+      </div>
+      <div class="table-container">
+        <table class="clean-table" #devTable>
+          <thead><tr><th>Device</th><th>Status</th><th>Type</th><th class="num">Clients</th><th>IP address</th><th class="num">Today</th><th>Firmware</th><th class="num">Uptime</th></tr></thead>
+          <tbody>
+            @if (data()) {
+              @for (d of devices(); track d.mac) {
+                <tr>
+                  <td><div class="dev"><span class="dev-icon"><net-icon [name]="gwnTypeIcon(d.type)" [size]="16" /></span>
+                    <div><div class="dev-name"><a [routerLink]="['/admin/network/gwn/device', d.mac]">{{ d.name }}</a></div><div class="muted small">{{ d.model }}</div></div></div></td>
+                  <td><span class="badge" [class.badge-ok]="d.status === 'online'" [class.badge-bad]="d.status !== 'online'">{{ d.status }}</span></td>
+                  <td>{{ d.type || '–' }}</td>
+                  <td class="num">{{ fmt(d.clients) }}</td>
+                  <td class="mono">{{ d.ip || '–' }}</td>
+                  <td class="num">{{ bytes(d.today?.total) }}</td>
+                  <td>{{ d.firmware || '–' }}@if (hasUpdate(d)) { <span class="tag" title="Update available">Update {{ d.latestFirmware }}</span> }</td>
+                  <td class="num">{{ uptime(d) }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="8" class="empty-state">No Grandstream devices on this network.</td></tr>
+              }
+            } @else if (loading()) {
+              @for (r of [1, 2, 3]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8]; track c) { <td><div class="sk sk-line"></div></td> }</tr> }
+            } @else {
+              <tr><td colspan="8" class="empty-state">Device data is unavailable right now.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="ins-grid">
+      <article class="dash-panel span-4">
+        <div class="panel-head"><div><h3>Top data users</h3><p class="panel-sub">Connected now · data this session</p></div></div>
+        <ng-container *ngTemplateOutlet="topList; context: { $implicit: tops()?.data, empty: 'No clients connected.' }" />
+        <div class="foot"><a class="link-btn" routerLink="/admin/network/gwn/clients">All clients</a></div>
+      </article>
+      <article class="dash-panel span-4">
+        <div class="panel-head"><div><h3>Busiest access points</h3><p class="panel-sub">Wi-Fi clients right now</p></div></div>
+        <ng-container *ngTemplateOutlet="topList; context: { $implicit: tops()?.aps, empty: 'No Wi-Fi clients right now.' }" />
+      </article>
+      <article class="dash-panel span-4">
+        <div class="panel-head"><div><h3>Weakest signal</h3><p class="panel-sub">Wi-Fi clients below -70 dBm</p></div></div>
+        <ng-container *ngTemplateOutlet="topList; context: { $implicit: tops()?.weak, empty: 'Every Wi-Fi client has a good signal.' }" />
+      </article>
+    </section>
+
+    <section class="dash-panel">
+      <div class="panel-head">
+        <div><h3>Wi-Fi networks</h3><p class="panel-sub">SSIDs on this network and their clients</p></div>
+        <a class="link-btn no-print" routerLink="/admin/network/gwn/wifi">Open Wi-Fi</a>
+      </div>
+      <ul class="toplist">
+        @for (s of ssids(); track s.id) {
+          <li>
+            <span class="rank"><span class="dot" [class.good]="s.enabled" [class.mute]="!s.enabled"></span></span>
+            <span class="t-icon"><net-icon name="wifi" [size]="15" /></span>
+            <div class="t-main"><div class="t-name">{{ s.name }}</div><div class="t-sub">{{ s.enabled ? (s.security || 'Open') : 'Turned off' }}{{ s.vlan != null ? ' · VLAN ' + s.vlan : '' }}{{ s.portal ? ' · Captive portal' : '' }}</div></div>
+            <span class="t-val">{{ fmt(s.clients) }} <span class="muted small">clients</span></span>
+          </li>
+        } @empty {
+          <li class="t-empty">{{ data() ? 'No Wi-Fi networks found.' : 'Loading…' }}</li>
+        }
+      </ul>
+    </section>
+  }
+</div>
+
+<ng-template #topList let-items let-empty="empty">
+  <ul class="toplist">
+    @if (items) {
+      @for (it of items; track $index; let i = $index) {
+        <li>
+          <span class="rank">{{ i + 1 }}</span>
+          <span class="t-icon" [style.color]="it.color || null"><net-icon [name]="it.icon" [size]="15" /></span>
+          <div class="t-main">
+            <div class="t-name">@if (it.link) { <a [routerLink]="it.link">{{ it.name }}</a> } @else { {{ it.name }} }</div>
+            <div class="t-sub">{{ it.sub }}</div>
+          </div>
+          <span class="t-val" [style.color]="it.color || null">{{ it.value }}</span>
+          <div class="t-bar"><span [style.width.%]="it.frac * 100" [style.background]="it.color || null"></span></div>
+        </li>
+      } @empty {
+        <li class="t-empty">{{ empty }}</li>
+      }
+    } @else {
+      <li class="t-empty"><div class="sk sk-line"></div><div class="sk sk-line" style="width:70%"></div></li>
+    }
+  </ul>
+</ng-template>
