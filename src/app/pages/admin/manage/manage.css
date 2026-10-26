@@ -94,17 +94,7 @@
 .cust-code{margin-left:auto;background:rgba(13,148,136,.1);color:#0d9488;padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
 .field-required-badge{display:inline-block;font-size:.7rem;font-weight:600;color:#d97706;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}
 
-/* ── Admin Booking Receipt ─────────────────────────────── */
-.receipt-overlay { align-items: center; }
 
-.receipt-modal {
-  max-width: 480px;
-  padding: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  border: none;
-  box-shadow: 0 24px 64px rgba(0,0,0,.18);
-}
 
 /* Hero */
 .receipt-hero {
@@ -660,8 +650,6 @@
   .receipt-row span { flex-shrink: 1; }
 }
 
-/* Popups laid out with inline styles (challan, invoice, quotation, agreement and billing popups). */
-.m-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 @media (max-width: 640px) {
   /* Header bars, info strips and footers: rows wrap instead of running off the popup. */
   .modal-content [style*="display: flex"]:not(button):not(a):not(label):not([style*="flex-direction: column"]) { flex-wrap: wrap; row-gap: 8px; }

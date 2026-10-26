@@ -51,6 +51,8 @@ import { ManageInitialInvoicePreviewModal } from '../manage-invoice-send-modals/
 import { ManageCustomInvoiceModal } from '../manage-invoice-send-modals/manage-custom-invoice-modal';
 import { ManageQuotationConversionModal } from '../manage-quotation-conversion-modal/manage-quotation-conversion-modal';
 import { ManageQuickCustomerModal } from '../manage-quick-customer-modal/manage-quick-customer-modal';
+import { ManageQuotationPreviewModal } from '../manage-quotation-preview-modal/manage-quotation-preview-modal';
+import { ManageBookingChallanModal } from '../manage-booking-challan-modal/manage-booking-challan-modal';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -77,7 +79,7 @@ interface EntityConfig {
     ManageRecordPaymentModal, ManageRevertApprovalModal, ManageReassignBookingModal, ManageAddInquiryModal,
     ManageContactTypeModal, ManageItemBranchModal, ManageContactFeedbackModal, ManageAgreementSendModal,
     ManageAgreementSignModal, ManageAgreementDetailsModal, ManageInitialInvoicePreviewModal, ManageCustomInvoiceModal,
-    ManageQuotationConversionModal, ManageQuickCustomerModal],
+    ManageQuotationConversionModal, ManageQuickCustomerModal, ManageQuotationPreviewModal, ManageBookingChallanModal],
   templateUrl: './manage.html',
   // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
   styleUrls: ['../../../styles/form-popup.css', './manage.css']
@@ -3808,6 +3810,8 @@ export class Manage implements OnInit {
     const dd = String(dateObj.getDate()).padStart(2, '0');
     return `WN-${yyyy}${mm}${dd}-${String(bId).padStart(6, '0')}`;
   }
+  /** The challan popup's formatChallanDisplay (manage-booking-challan-modal), bound to this page. */
+  readonly formatChallanDisplayFn = (c: any) => this.formatChallanDisplay(c);
 
 
   openCreate() {
@@ -7310,6 +7314,8 @@ export class Manage implements OnInit {
     const st = (item.status || item.Status || '').toString().trim().toLowerCase();
     return st === 'accepted' || st === 'signed' || st === 'agreementsigned' || st === 'active' || st === 'sent' || st === 'agreementsent' || item.isAccepted === true || item.IsAccepted === true;
   }
+  /** The quotation preview's isQuotationAccepted (manage-quotation-preview-modal), bound to this page. */
+  readonly isQuotationAcceptedFn = (item: any) => this.isQuotationAccepted(item);
 
   isQuotationSigned(item: any): boolean {
     if (!item) return false;
@@ -8387,6 +8393,15 @@ export class Manage implements OnInit {
 
 
   getChallanInitialPayable(c: any): number { return pricing.getChallanInitialPayable(c); }
+  /** The challan popup's pricing queries (manage-booking-challan-modal), bound to this page. */
+  readonly getChallanBillingMonthsFn = (c: any) => this.getChallanBillingMonths(c);
+  readonly getChallanSecurityMonthsFn = (c: any) => this.getChallanSecurityMonths(c);
+  readonly getChallanMonthlyRentFn = (c: any) => this.getChallanMonthlyRent(c);
+  readonly getChallanFirstCycleRentFn = (c: any) => this.getChallanFirstCycleRent(c);
+  readonly getChallanSecurityDepositFn = (c: any) => this.getChallanSecurityDeposit(c);
+  readonly getChallanTaxAmountFn = (c: any) => this.getChallanTaxAmount(c);
+  readonly getChallanFirstCycleDiscountFn = (c: any) => this.getChallanFirstCycleDiscount(c);
+  readonly getChallanInitialPayableFn = (c: any) => this.getChallanInitialPayable(c);
 
   getQuotationContractMonths(q: any): number { return pricing.getQuotationContractMonths(q); }
 
@@ -8411,6 +8426,11 @@ export class Manage implements OnInit {
   getQuotationDiscountAmount(q: any): number { return pricing.getQuotationDiscountAmount(q); }
 
   getQuotationDiscountPercentage(q: any): number { return pricing.getQuotationDiscountPercentage(q); }
+  /** The quotation preview's other pricing queries (manage-quotation-preview-modal), bound to this page. */
+  readonly getQuotationSecurityMonthsFn = (q: any) => this.getQuotationSecurityMonths(q);
+  readonly getQuotationMonthlyRentFn = (q: any) => this.getQuotationMonthlyRent(q);
+  readonly getQuotationSupportChargesFn = (q: any) => this.getQuotationSupportCharges(q);
+  readonly getQuotationDiscountPercentageFn = (q: any) => this.getQuotationDiscountPercentage(q);
 
   getQuotationInitialPayable(q: any): number { return pricing.getQuotationInitialPayable(q); }
 

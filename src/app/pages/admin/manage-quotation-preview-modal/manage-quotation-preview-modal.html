@@ -1,0 +1,365 @@
+<div class="modal-overlay" (click)="closeQuotationPreviewModal.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:840px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,900px)">
+    <!-- Modal Header -->
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <h3 style="margin:0;font-size:1.2rem;font-weight:700">{{ q.quotationNumber || 'WN-Q-001' }}</h3>
+          <span
+            style="background:#334155;color:#f8fafc;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
+            Version {{ q.versionNumber || 1 }}
+          </span>
+          <span class="status-badge" [class]="'status-' + (q.status || 'draft').toLowerCase()"
+            style="font-size:0.75rem;padding:2px 8px">
+            {{ q.status || 'Draft' }}
+          </span>
+        </div>
+        <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">
+          Customer: {{ q.customerName || q.customerEmail || 'N/A' }} • Space: {{ q.spaceName || 'N/A' }}
+        </div>
+      </div>
+      <button (click)="closeQuotationPreviewModal.emit()" title="Close" aria-label="Close"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <!-- Toolbar Actions -->
+    <div
+      style="background:#f8fafc;padding:10px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;flex-shrink:0">
+      <div style="display:flex;gap:8px">
+        <button class="btn-admin btn-outline-admin" (click)="downloadQuotationPdf.emit()" title="Download PDF">
+          Download PDF
+        </button>
+        <button class="btn-admin btn-outline-admin" (click)="sendQuotationEmailNow.emit()"
+          [disabled]="sendingQuotationEmail()" title="Email Quotation to Customer">
+          {{ sendingQuotationEmail() ? 'Sending…' : 'Email Customer' }}
+        </button>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        @if ((q.status || 'Draft') === 'Draft') {
+        <button class="btn-admin btn-primary-admin" (click)="sendQuotationVersionToCustomer.emit(q)"
+          [disabled]="sendingQuotationId() !== null" style="background:#2563eb;color:#fff">
+          {{ sendingQuotationId() !== null ? 'Sending…' : 'Send Quotation' }}
+        </button>
+        }
+        @if ((q.status || '').toLowerCase() === 'declined') {
+        <button class="btn-admin btn-primary-admin" (click)="createNextVersion.emit(q)"
+          style="background:#7c3aed;color:#fff">
+          Create Version {{ (q.versionNumber || 1) + 1 }}
+        </button>
+        }
+        @if (isQuotationAccepted(q)) {
+        <button class="btn-admin btn-primary-admin" (click)="openSendAgreement.emit(q)"
+          style="background:#0284c7;color:#fff">
+          Send Agreement
+        </button>
+        <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking.emit(q)"
+          style="background:#16a34a;color:#fff">
+          Convert to Booking
+        </button>
+        }
+      </div>
+    </div>
+
+    @if (quotationEmailSent()) {
+    <div style="padding:8px 24px;background:#f0fdf4;color:#166534;font-size:0.82rem;font-weight:600">
+      {{ quotationEmailSent() }}
+    </div>
+    }
+
+    <!-- Modal Content Body -->
+    <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
+
+      <!-- Version History Section -->
+      @if (quotationVersions().length > 0) {
+      <div style="margin-bottom:24px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:16px">
+        <h4
+          style="margin:0 0 12px 0;font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;justify-content:space-between">
+          <span>Quotation Version History</span>
+          <span style="font-size:0.75rem;color:#64748b;font-weight:normal">{{ quotationVersions().length }} version(s)
+            recorded</span>
+        </h4>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          @for (v of quotationVersions(); track v.id || v.versionNumber || $index) {
+          <div
+            style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px"
+            [style.border-left]="v.versionNumber === q.versionNumber ? '4px solid #2563eb' : '1px solid #e2e8f0'">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <strong style="font-size:0.9rem;color:#0f172a">Version {{ v.versionNumber || ($index + 1) }}</strong>
+                <span class="status-badge" [class]="'status-' + (v.status || 'draft').toLowerCase()"
+                  style="font-size:0.7rem;padding:1px 6px">
+                  {{ v.status || 'Draft' }}
+                </span>
+                <span style="font-size:0.78rem;color:#64748b">• PKR {{ (v.totalAmount || v.TotalAmount || 0) |
+                  number:'1.0-0' }}</span>
+              </div>
+              <div style="font-size:0.78rem;color:#64748b;margin-top:2px">
+                Contract: {{ getQuotationContractMonths(v) }} Mos • Created: {{ (v.createdAt ||
+                v.createdDate) | date:'mediumDate' }}
+              </div>
+              @if (v.customerNote || v.note) {
+              <div
+                style="margin-top:6px;font-size:0.8rem;background:#fef2f2;color:#991b1b;padding:6px 10px;border-radius:6px;border:1px solid #fecaca;font-style:italic">
+                Customer Response: "{{ v.customerNote || v.note }}"
+              </div>
+              }
+            </div>
+
+            <div style="display:flex;gap:6px">
+              <button class="btn-admin btn-outline-admin" (click)="downloadQuotationPdf.emit(v)"
+                style="font-size:0.75rem;padding:4px 8px;display:flex;align-items:center;gap:4px"
+                title="Download PDF for Version {{ v.versionNumber || ($index + 1) }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                PDF
+              </button>
+              @if ((v.status || '').toLowerCase() === 'declined') {
+              <button class="btn-admin btn-outline-admin" (click)="createNextVersion.emit(v)"
+                style="font-size:0.75rem;padding:4px 10px;color:#7c3aed;border-color:#ddd6fe">
+                Create v{{ (v.versionNumber || 1) + 1 }}
+              </button>
+              }
+              @if (isQuotationAccepted(v)) {
+              <button class="btn-admin btn-primary-admin" (click)="openSendAgreement.emit(v)"
+                style="font-size:0.75rem;padding:4px 10px;background:#0284c7;color:#fff;border:none">
+                Send Agreement
+              </button>
+              <button class="btn-admin btn-primary-admin" (click)="convertQuotationToBooking.emit(v)"
+                style="font-size:0.75rem;padding:4px 10px;background:#16a34a;color:#fff;border:none">
+                Convert to Booking
+              </button>
+              }
+            </div>
+          </div>
+          }
+
+        </div>
+      </div>
+      }
+
+      <!-- Printable Quotation Container -->
+      <div id="quotation-printable"
+        style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:32px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05)">
+        <!-- Document Header -->
+        <div
+          style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:18px;margin-bottom:24px">
+          <div>
+            <h1 style="margin:0;font-size:1.8rem;font-weight:800;color:#0f172a;letter-spacing:-0.5px">WORKNEST</h1>
+            <p style="margin:2px 0 0 0;font-size:0.82rem;color:#64748b">Premium Workspace & Co-Working Solutions</p>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.25rem;font-weight:800;color:#2563eb">{{ q.quotationNumber || 'WN-Q-001' }}</div>
+            <div style="font-size:0.9rem;font-weight:700;color:#475569;margin-top:2px">Quotation Version {{
+              q.versionNumber || 1 }}</div>
+            <div style="font-size:0.78rem;color:#64748b;margin-top:4px">Date: {{ (q.createdAt || q.quotationDate ||
+              q.createdDate) | date:'mediumDate' }}</div>
+            <div style="font-size:0.78rem;color:#dc2626;font-weight:600" *ngIf="q.validUntil">Valid Until: {{
+              q.validUntil | date:'mediumDate' }}</div>
+          </div>
+        </div>
+
+        <!-- Customer & Space Grid -->
+        <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+          <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
+            <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
+              Customer Details</div>
+            <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.customerName || 'Customer' }}</div>
+            <div style="font-size:0.85rem;color:#475569">{{ q.customerEmail || '-' }}</div>
+            <div style="font-size:0.85rem;color:#475569" *ngIf="q.customerPhone">{{ q.customerPhone }}</div>
+          </div>
+
+          <div style="background:#f8fafc;padding:16px;border-radius:8px;border:1px solid #f1f5f9">
+            <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">
+              Workspace Details</div>
+            <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ q.spaceName || 'Workspace' }}</div>
+            <div style="font-size:0.85rem;color:#475569">{{ q.spaceTypeName || 'Office' }} • {{ q.locationName || 'Main
+              Branch' }}</div>
+            <div style="font-size:0.85rem;color:#475569" *ngIf="q.capacity">Capacity: {{ q.capacity }} Person(s)</div>
+          </div>
+        </div>
+
+        <!-- Contract & Billing Summary Cards -->
+        <div
+          style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px">
+          @if (isMeetingRoom(q)) {
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Booking Rent</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (q.subtotalAmount || 0) | number:'1.0-0'
+              }}</div>
+            <div style="font-size:0.72rem;color:#64748b">Base Booking Amount</div>
+          </div>
+          <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
+            <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">Total Payable</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getQuotationInitialPayable(q) |
+              number:'1.0-0' }}</div>
+            <div style="font-size:0.72rem;color:#1e40af">Rent + Tax</div>
+          </div>
+          } @else {
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getQuotationMonthlyRent(q) |
+              number:'1.0-0' }}</div>
+            <div style="font-size:0.72rem;color:#64748b">per month</div>
+          </div>
+          @if (getQuotationSecurityDeposit(q) > 0) {
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">Security Deposit</div>
+            <div style="font-size:1.05rem;font-weight:800;color:#d97706">PKR {{ getQuotationSecurityDeposit(q) |
+              number:'1.0-0' }}</div>
+            <div style="font-size:0.72rem;color:#64748b">Refundable</div>
+          </div>
+          }
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase">User will be billed
+            </div>
+            <div style="font-size:1.05rem;font-weight:800;color:#0284c7">Every {{ getQuotationBillingMonths(q) }} Mo
+            </div>
+            <div style="font-size:0.72rem;color:#64748b">Advance Rent Period</div>
+          </div>
+          <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
+            <div style="font-size:0.7rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent
+            </div>
+            <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getQuotationFirstCycleRent(q) |
+              number:'1.0-0' }}</div>
+            <div style="font-size:0.72rem;color:#1e40af">First {{ getQuotationBillingMonths(q) }} Months Rent</div>
+          </div>
+          }
+        </div>
+
+        <!-- Financial Breakdown Table -->
+        <div class="m-table-scroll">
+          <table
+            style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="background:#0f172a;color:#fff">
+                <th style="padding:10px 14px;text-align:left">Itemized Commercial Description</th>
+                <th style="padding:10px 14px;text-align:center">Billing Basis</th>
+                <th style="padding:10px 14px;text-align:right">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (isMeetingRoom(q)) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+                <td style="padding:12px 14px">
+                  <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
+                  <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                  Per Booking Slot
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                  PKR {{ (q.subtotalAmount || 0) | number:'1.0-0' }}
+                </td>
+              </tr>
+              } @else {
+              <!-- 1st Advance Rent Period -->
+              <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+                <td style="padding:12px 14px">
+                  <strong style="color:#0f172a">1st Advance Rent Period ({{ getQuotationBillingMonths(q) }}
+                    Month(s))</strong>
+                  <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle (inclusive of support
+                    services)</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                  {{ getQuotationBillingMonths(q) }} Mo × PKR {{ getQuotationMonthlyRent(q) | number:'1.0-0' }}
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                  PKR {{ getQuotationFirstCycleRent(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+
+              <!-- Special Discount if any -->
+              @if (getQuotationDiscountAmount(q) > 0) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+                <td style="padding:12px 14px;color:#16a34a">
+                  <strong>Special Discount Applied ({{ getQuotationDiscountPercentage(q) }}%)</strong>
+                  <div style="font-size:0.78rem;color:#16a34a">Discount applied to advance rent</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+                  Rent Discount Offset
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
+                  - PKR {{ getQuotationDiscountAmount(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+              }
+
+              <!-- Provincial Sales Tax (PST - 16%) -->
+              @if (getQuotationTaxAmount(q) > 0) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+                <td style="padding:12px 14px">
+                  <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+                  <div style="font-size:0.78rem;color:#166534">16% PST on support services portion (PKR 2,000/seat/mo,
+                    itemized on Sales Tax Invoice)</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+                  16% on PKR {{ getQuotationSupportCharges(q) | number:'1.0-0' }} Support Portion
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+                  + PKR {{ getQuotationTaxAmount(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+              }
+
+              <!-- Security Deposit (Refundable) -->
+              @if (getQuotationSecurityDeposit(q) > 0) {
+              <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
+                <td style="padding:12px 14px">
+                  <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
+                  <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination (mirrors {{
+                    getQuotationDiscountPercentage(q) }}% discount)</div>
+                </td>
+                <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                  @if (getQuotationSecurityMonths(q) > 0) { {{ getQuotationSecurityMonths(q) }} Month(s) Equivalent }
+                  @else { Refundable }
+                </td>
+                <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
+                  PKR {{ getQuotationSecurityDeposit(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+              }
+              }
+            </tbody>
+            <tfoot>
+              <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+                <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
+                  TOTAL INITIAL PAYABLE AMOUNT (1ST BILLING CYCLE)
+                </td>
+                <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
+                  PKR {{ getQuotationInitialPayable(q) | number:'1.0-0' }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Terms Footer -->
+        <div style="border-top:1px dashed #cbd5e1;padding-top:16px;font-size:0.78rem;color:#64748b;line-height:1.5">
+          <strong>Terms & Conditions:</strong>
+          <ol style="margin:4px 0 0 16px;padding:0">
+            <li>The price is exclusive of all taxes.</li>
+            <li>Worknest will charge Provincial Sales Tax on services.</li>
+            <li>Quotation validity is subject to space availability at the time of customer acceptance.</li>
+            @if (getQuotationSecurityDeposit(q) > 0) {
+            <li>Security deposit is fully refundable upon completion of contract period.</li>
+            }
+            <li>All utility charges, high-speed Wi-Fi, and cleaning are included unless specified otherwise.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+      <button class="btn-admin btn-outline-admin" (click)="closeQuotationPreviewModal.emit()">Close Preview</button>
+    </div>
+  </div>
+</div>
