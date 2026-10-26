@@ -1371,411 +1371,53 @@
 }
 
 @if (showQuotationForm()) {
-<div class="modal-overlay sheet-overlay" (click)="closeAdminQuotationForm()">
-  <div class="modal-content booking-modal sheet-modal" (click)="$event.stopPropagation()">
-    <button class="modal-close" (click)="closeAdminQuotationForm()" title="Close" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18" />
-        <path d="m6 6 12 12" />
-      </svg>
-    </button>
-    <h2>Create Quotation</h2>
-    @if (quotationSuccessMessage()) {
-    <div class="alert-admin alert-success-admin"
-      style="background:#dcfce7;color:#15803d;padding:10px 14px;border-radius:6px;margin-bottom:1rem;border:1px solid #bbf7d0;font-weight:600">
-      {{ quotationSuccessMessage() }}
-    </div>
-    }
-    @if (quotationFormError()) {
-    <div class="alert-admin alert-error-admin">{{ quotationFormError() }}</div>
-    }
-    <form (ngSubmit)="submitAdminQuotation(false)">
-
-      <p class="form-section-label">Customer</p>
-      <div class="form-group-admin" data-field="customer" [class.has-error]="quotationFormErrorField === 'customer'"
-        style="position:relative">
-        <label>Search Customer *</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="form-input-admin" type="text" [(ngModel)]="customerSearchQuery" name="quotationCustomerSearch"
-            placeholder="Type name or email..." (input)="onCustomerSearch()" (click)="onCustomerSearch()"
-            (focus)="onCustomerSearch()" autocomplete="off" />
-          <button type="button" class="btn-admin btn-outline-admin" (click)="openCreateCustomerFromBooking()"
-            title="Create Customer" style="white-space:nowrap;padding:6px 10px;font-size:.85rem">Create
-            Customer</button>
-        </div>
-        @if (customerSearchResults().length) {
-        <div class="customer-dropdown">
-          @for (u of customerSearchResults(); track u.id) {
-          <div class="customer-option" (click)="selectCustomer(u)">
-            <strong>{{ (u.fullName) || ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.name || u.email
-              }}</strong>
-            <span>{{ u.email }}</span>
-            @if (u.customerCode || u.code) {
-            <span class="cust-code">{{ u.customerCode || u.code }}</span>
-            }
-          </div>
-          }
-        </div>
-        }
-      </div>
-      @if (selectedCustomer) {
-      <div class="form-row-admin">
-        <div class="form-group-admin">
-          <label>Name</label>
-          <input class="form-input-admin" [ngModel]="quotationFormData.customerName" name="qCustomerName" readonly
-            style="background:#f1f5f9;color:#64748b" />
-        </div>
-        <div class="form-group-admin">
-          <label>Email</label>
-          <input class="form-input-admin" [ngModel]="quotationFormData.customerEmail" name="qCustomerEmail" readonly
-            style="background:#f1f5f9;color:#64748b" />
-        </div>
-      </div>
-      }
-
-      <p class="form-section-label" style="margin-top:1.25rem">Space Selection</p>
-      <div class="form-row-admin">
-        <div class="form-group-admin">
-          <label>Location</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationLocationId" name="qLocationId"
-            [disabled]="locationLocked" (change)="onQuotationLocationChange()">
-            @for (loc of locationOptions(); track loc.v) {
-            <option [value]="loc.v">{{ loc.l }}</option>
-            }
-          </select>
-        </div>
-        <!-- Offering types (shifts) don't apply to meeting rooms, which are booked by the hour or day. -->
-        @if (!isQuotationMeetingRoom) {
-        <div class="form-group-admin">
-          <label>Offering Type *</label>
-          <select class="form-input-admin" [(ngModel)]="quotationOfferingTypeId" name="qOfferingType"
-            (change)="onQuotationOfferingTypeChange()" (ngModelChange)="validateQuotationDiscount()">
-            @for (ot of filteredQuotationOfferingTypes(); track ot.id) {
-            <option [value]="ot.id">{{ ot.description }}</option>
-            }
-          </select>
-        </div>
-        }
-        <div class="form-group-admin" data-field="spaceType"
-          [class.has-error]="quotationFormErrorField === 'spaceType'">
-          <label>Space Type *</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationSpaceTypeId" name="qSpaceTypeId" required
-            (change)="onQuotationSpaceTypeChange()">
-            <option value="">Select Space Type...</option>
-            @for (st of spaceTypeOptionsAt(selectedQuotationLocationId); track st.v) {
-            <option [value]="st.v">{{ st.l }}</option>
-            }
-          </select>
-          @if (spaceTypeHintAt(selectedQuotationLocationId, spaceTypeOptionsAt(selectedQuotationLocationId).length); as
-          hint) {
-          <small class="space-type-hint">{{ hint }}</small>
-          }
-        </div>
-        @if (isQuotationPrivateRoom) {
-        <div class="form-group-admin" data-field="capacity" [class.has-error]="quotationFormErrorField === 'capacity'">
-          <label>Capacity *</label>
-          <select class="form-input-admin" [(ngModel)]="selectedQuotationCapacity" name="qCapacity" required
-            (change)="onQuotationCapacityChange()">
-            <option value="">Select Capacity...</option>
-            @for (cap of availableQuotationCapacities; track cap) {
-            <option [value]="cap">{{ cap }} person{{ cap > 1 ? 's' : '' }}</option>
-            }
-          </select>
-        </div>
-        }
-        <div class="form-group-admin" data-field="space" [class.has-error]="quotationFormErrorField === 'space'">
-          <label>{{ isQuotationPrivateRoom ? 'Office No.' : (isQuotationMeetingRoom ? 'Space' : 'Space No.') }}
-            *</label>
-          <select class="form-input-admin" [(ngModel)]="quotationFormData.spaceId" name="qSpaceId" required
-            (change)="onQuotationSpaceSelected()">
-            @if (!selectedQuotationSpaceTypeId) {
-            <option value="">Select Space Type first...</option>
-            } @else if (isQuotationPrivateRoom && !selectedQuotationCapacity) {
-            <option value="">Select Capacity first...</option>
-            } @else if (filteredQuotationSpaceOptions.length === 0) {
-            <option value="">No available spaces found</option>
-            } @else {
-            <option value="">Select Space...</option>
-            @for (sp of filteredQuotationSpaceOptions; track sp.v) {
-            <option [value]="sp.v">{{ sp.l }}</option>
-            }
-            }
-          </select>
-        </div>
-        <div class="form-group-admin" data-field="basePrice"
-          [class.has-error]="quotationFormErrorField === 'basePrice' || !!quotationBasePriceError()">
-          <label>Base Price (per seat) *
-            @if (quotationMinPerSeatBasePrice > 0) {
-            <small style="color:#64748b;font-weight:500">(Min: PKR {{ quotationMinPerSeatBasePrice | number:'1.0-0'
-              }})</small>
-            }
-          </label>
-          <input class="form-input-admin" [class.is-invalid]="quotationBasePriceError()" type="number"
-            [min]="quotationMinPerSeatBasePrice || 0" [(ngModel)]="quotationPerSeatBasePrice" name="qPerSeatPrice"
-            (ngModelChange)="onQuotationBasePriceChange()" (input)="onQuotationBasePriceChange()" placeholder="0"
-            [style.border-color]="quotationBasePriceError() ? '#ef4444' : null" required />
-          @if (quotationBasePriceError()) {
-          <div
-            style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span>{{ quotationBasePriceError() }}</span>
-          </div>
-          }
-        </div>
-        <div class="form-group-admin">
-          <label>Capacity (Seats)</label>
-          <input class="form-input-admin" type="number" [ngModel]="quotationCapacity" name="qCapacityReadonly" readonly
-            style="background:#f1f5f9;color:#64748b" />
-        </div>
-        @if (quotationFloorOptions().length) {
-        <div class="form-group-admin">
-          <label>Floor</label>
-          <select class="form-input-admin" [(ngModel)]="quotationFloorId" name="qFloorId">
-            <option [ngValue]="null">Select Floor (optional)...</option>
-            @for (f of quotationFloorOptions(); track f.v) {
-            <option [ngValue]="f.v">{{ f.l }}</option>
-            }
-          </select>
-        </div>
-        }
-      </div>
-
-      <p class="form-section-label" style="margin-top:1.25rem">Quotation Period</p>
-      @if (isQuotationMeetingRoom) {
-      <div class="form-group-admin">
-        <label>Booking Type *</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" class="btn-admin" [class.btn-primary-admin]="quotationMeetingRoomMode==='slot'"
-            [class.btn-outline-admin]="quotationMeetingRoomMode!=='slot'"
-            (click)="quotationMeetingRoomMode='slot'; onQuotationMeetingModeChange()">By Slot (Hourly)</button>
-          <button type="button" class="btn-admin" [class.btn-primary-admin]="quotationMeetingRoomMode==='day'"
-            [class.btn-outline-admin]="quotationMeetingRoomMode!=='day'"
-            (click)="quotationMeetingRoomMode='day'; onQuotationMeetingModeChange()">Full Day / Multi-Day</button>
-        </div>
-      </div>
-      @if (quotationMeetingRoomMode === 'slot') {
-      <div class="form-group-admin" data-field="startDate" [class.has-error]="quotationFormErrorField === 'startDate'">
-        <label>Date *</label>
-        <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" required
-          (change)="generateQuotationMeetingSlots()" />
-      </div>
-      <div class="form-group-admin" data-field="slots" [class.has-error]="quotationFormErrorField === 'slots'">
-        <label>Select Time Slots * <span style="font-weight:400;color:#94a3b8;font-size:.78rem">({{
-            quotationSelectedSlots.size }} selected)</span></label>
-        @if (!quotationStartDate) {
-        <p style="font-size:.82rem;color:#94a3b8">Pick a date to see available slots.</p>
-        } @else if (quotationMeetingSlots().length === 0) {
-        <p style="font-size:.82rem;color:#94a3b8">No slots available.</p>
-        } @else {
-        <div class="admin-slot-grid">
-          @for (slot of quotationMeetingSlots(); track slot.start) {
-          <button type="button" class="admin-slot-btn" [class.admin-slot-selected]="isQuotationSlotSelected(slot)"
-            (click)="toggleQuotationSlot(slot)">
-            {{ slot.label }}
-          </button>
-          }
-        </div>
-        }
-      </div>
-      } @else {
-      <div class="form-row-admin">
-        <div class="form-group-admin" data-field="startDate"
-          [class.has-error]="quotationFormErrorField === 'startDate'">
-          <label>Start Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qMeetingDayStart" required
-            (change)="recalcQuotationAmount()" />
-        </div>
-        <div class="form-group-admin">
-          <label>End Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationMeetingDayEnd" name="qMeetingDayEnd"
-            [min]="quotationStartDate" required (change)="recalcQuotationAmount()" />
-        </div>
-      </div>
-      }
-      } @else {
-      <div class="form-row-admin">
-        <div class="form-group-admin" data-field="startDate"
-          [class.has-error]="quotationFormErrorField === 'startDate'">
-          <label>Date *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationStartDate" name="qStartDate" required
-            (change)="onQuotationMonthPeriodChange()" />
-        </div>
-        <div class="form-group-admin">
-          <label>Number of Months * <small style="color:#94a3b8">(min 1)</small></label>
-          <input class="form-input-admin" type="number" min="1" step="1" [(ngModel)]="quotationMonths" name="qMonths"
-            required (change)="onQuotationMonthPeriodChange()" />
-        </div>
-      </div>
-      @if (quotationStartDate && quotationEndDateDisplay) {
-      <div
-        style="font-size:.82rem;color:#64748b;margin-bottom:0.75rem;background:#f8fafc;padding:6px 12px;border-radius:6px;border:1px solid #e2e8f0">
-        Period: <strong>{{ quotationStartDate }}</strong> to <strong>{{ quotationEndDateDisplay }}</strong> ({{
-        quotationMonths }} month{{ quotationMonths > 1 ? 's' : '' }})
-      </div>
-      }
-      }
-
-      <p class="form-section-label" style="margin-top:1.25rem">Discount & Security Deposit</p>
-      <div class="form-row-admin">
-        <div class="form-group-admin">
-          <label>Discount Type</label>
-          <select class="form-input-admin" [(ngModel)]="quotationDiscountType" name="qDiscountType"
-            (ngModelChange)="onDiscountTypeChange()">
-            <option value="Percentage">Percentage (%)</option>
-            <option value="Amount">Fixed Amount (PKR)</option>
-          </select>
-        </div>
-        <div class="form-group-admin" data-field="discount"
-          [class.has-error]="quotationFormErrorField === 'discount' || !!quotationDiscountError()">
-          <label>Discount Value
-            @if (quotationDiscountType === 'Percentage') {
-            <small style="color:#64748b;font-weight:500">(Max cap: {{ quotationDynamicDiscountCap }}%@if
-              (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{ quotationFloorPerSeat |
-              number:'1.0-0' }}/seat})</small>
-            } @else {
-            <small style="color:#64748b;font-weight:500">(Max cap: PKR {{ quotationMaxAllowedDiscountFixed |
-              number:'1.0-0' }}@if (!isQuotationMeetingRoom && quotationFloorPerSeat > 0) {, min PKR {{
-              quotationFloorPerSeat | number:'1.0-0' }}/seat})</small>
-            }
-          </label>
-          <input class="form-input-admin" [class.is-invalid]="quotationDiscountError()" type="number" min="0"
-            [max]="quotationDiscountType === 'Percentage' ? quotationDynamicDiscountCap : quotationMaxAllowedDiscountFixed"
-            step="1" [(ngModel)]="quotationDiscountValue" name="qDiscountValue"
-            (ngModelChange)="onQuotationDiscountChange()" placeholder="0"
-            [style.border-color]="quotationDiscountError() ? '#ef4444' : null" />
-          @if (quotationDiscountError()) {
-          <div
-            style="color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500;display:flex;align-items:center;gap:4px">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span>{{ quotationDiscountError() }}</span>
-          </div>
-          }
-        </div>
-      </div>
-
-      @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
-      <div class="form-row-admin">
-        <div class="form-group-admin">
-          <label>Advance Rent period *</label>
-          <select class="form-input-admin" [(ngModel)]="quotationBillingPeriodMonths" name="qBillingPeriod" required
-            (change)="recalcQuotationAmount()">
-            @for (bp of billingPeriodOptions; track bp.v) {
-            <option [value]="bp.v">{{ bp.l }}</option>
-            }
-          </select>
-          <small style="color:#64748b;font-size:0.75rem">How often invoices are generated.</small>
-        </div>
-        <div class="form-group-admin" data-field="securityDepositMonths">
-          <label for="qSecMonths">Security Deposit (Months)</label>
-          @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
-          <select id="qSecMonths" class="form-input-admin" [(ngModel)]="quotationSecurityDepositMonths"
-            name="qSecMonths" (ngModelChange)="recalcQuotationAmount()" aria-describedby="qSecMonthsHint">
-            @for (o of securityDepositMonthOptions; track o.v) {
-            <option [ngValue]="o.v">{{ o.l }}</option>
-            }
-          </select>
-          <small id="qSecMonthsHint"
-            style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">
-            @if (effectiveQuotationSecurityDeposit > 0) {
-            Deposit: <strong style="color:#0f172a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.0-2' }}</strong>
-            ({{ quotationDepositMonths }} x monthly rent, less the rent discount)
-            } @else if (quotationDepositMonths > 0) {
-            Deposit = {{ quotationDepositMonths }} x monthly rent, less the rent discount.
-            } @else {
-            No security deposit.
-            }
-          </small>
-          } @else {
-          <select id="qSecMonths" class="form-input-admin" disabled aria-describedby="qSecMonthsHint">
-            <option selected>No deposit</option>
-          </select>
-          <small id="qSecMonthsHint"
-            style="display:block;margin-top:4px;line-height:1.4;color:#64748b;font-size:0.75rem">Meeting rooms have no
-            security deposit</small>
-          }
-        </div>
-      </div>
-      }
-
-      <div class="form-row-admin">
-        <div class="form-group-admin">
-          <label>Valid Until *</label>
-          <input class="form-input-admin" type="date" [(ngModel)]="quotationValidUntil" name="qValidUntil" required />
-        </div>
-        <div class="form-group-admin">
-          <label>Remarks</label>
-          <input class="form-input-admin" type="text" [(ngModel)]="quotationRemarks" name="qRemarks"
-            placeholder="Optional remarks" />
-        </div>
-      </div>
-
-      @if (quotationSubtotal > 0) {
-      <div class="history-section"
-        style="margin-top:1rem;margin-bottom:1.25rem;background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
-        <div style="background:#eff6ff;padding:10px 12px;border-radius:6px;margin:8px 0;border:1px solid #bfdbfe">
-          <div style="font-weight:600;color:#1e40af;font-size:0.85rem;margin-bottom:6px">INITIAL PAYMENT REQUIRED</div>
-
-          @if (isQuotationPrivateRoom || isQuotationSharedSpace) {
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#3b82f6">Advance Rent ({{ quotationBillingPeriodMonths }} Month(s)):</span>
-            <strong style="color:#1e3a8a">PKR {{ quotationBillingAmount | number:'1.0-0' }}</strong>
-          </div>
-          } @else {
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#3b82f6">Booking Rent:</span>
-            <strong style="color:#1e3a8a">PKR {{ quotationSubtotal | number:'1.0-0' }}</strong>
-          </div>
-          }
-
-          @if (quotationFirstInvoiceDiscount > 0) {
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#ef4444">Discount:</span>
-            <strong style="color:#ef4444">- PKR {{ quotationFirstInvoiceDiscount | number:'1.0-0' }}</strong>
-          </div>
-          }
-
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#0284c7">Sales Tax / PST (16% on Support Services):</span>
-            <strong style="color:#0284c7">PKR {{ quotationTaxAmount | number:'1.0-0' }}</strong>
-          </div>
-
-          @if (effectiveQuotationSecurityDeposit > 0) {
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px">
-            <span style="color:#3b82f6">Security Deposit ({{ quotationDepositMonths }} Month(s)):</span>
-            <strong style="color:#1e3a8a">PKR {{ effectiveQuotationSecurityDeposit | number:'1.0-0' }}</strong>
-          </div>
-          }
-          <hr style="border:0;border-top:1px solid #bfdbfe;margin:4px 0" />
-          <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:700">
-            <span style="color:#1e3a8a">FIRST INVOICE TOTAL:</span>
-            <strong style="color:#15803d;font-size:1.05rem">PKR {{ quotationFirstInvoiceTotal | number:'1.0-0'
-              }}</strong>
-          </div>
-        </div>
-      </div>
-      }
-
-      <div class="modal-actions">
-        <button type="button" class="btn-admin btn-outline-admin" (click)="closeAdminQuotationForm()">Cancel</button>
-        <button type="submit" class="btn-admin btn-primary-admin"
-          [disabled]="quotationFormSaving() || !selectedCustomer || !!quotationDiscountError()">
-          {{ quotationFormSaving() ? 'Saving...' : 'Save and Quote' }}
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+<app-manage-quotation-form-modal [quotationFormErrorField]="quotationFormErrorField"
+  [selectedCustomer]="selectedCustomer" [quotationFormData]="quotationFormData"
+  [quotationMinPerSeatBasePrice]="quotationMinPerSeatBasePrice" [quotationCapacity]="quotationCapacity"
+  [quotationSelectedSlots]="quotationSelectedSlots" [quotationEndDateDisplay]="quotationEndDateDisplay"
+  [quotationSubtotal]="quotationSubtotal" [quotationSuccessMessage]="quotationSuccessMessage"
+  [quotationFormError]="quotationFormError" [customerSearchResults]="customerSearchResults"
+  [locationOptions]="locationOptions" [quotationBasePriceError]="quotationBasePriceError"
+  [quotationFloorOptions]="quotationFloorOptions" [quotationMeetingSlots]="quotationMeetingSlots"
+  [quotationDiscountError]="quotationDiscountError" [quotationFormSaving]="quotationFormSaving"
+  [billingPeriodOptions]="billingPeriodOptions" [securityDepositMonthOptions]="securityDepositMonthOptions"
+  [(customerSearchQueryModel)]="customerSearchQuery"
+  [(selectedQuotationLocationIdModel)]="selectedQuotationLocationId"
+  [(quotationOfferingTypeIdModel)]="quotationOfferingTypeId"
+  [(selectedQuotationSpaceTypeIdModel)]="selectedQuotationSpaceTypeId"
+  [(selectedQuotationCapacityModel)]="selectedQuotationCapacity"
+  [(quotationPerSeatBasePriceModel)]="quotationPerSeatBasePrice" [(quotationFloorIdModel)]="quotationFloorId"
+  [(quotationStartDateModel)]="quotationStartDate" [(quotationMeetingDayEndModel)]="quotationMeetingDayEnd"
+  [(quotationMonthsModel)]="quotationMonths" [(quotationDiscountTypeModel)]="quotationDiscountType"
+  [(quotationDiscountValueModel)]="quotationDiscountValue"
+  [(quotationBillingPeriodMonthsModel)]="quotationBillingPeriodMonths"
+  [(quotationSecurityDepositMonthsModel)]="quotationSecurityDepositMonths"
+  [(quotationValidUntilModel)]="quotationValidUntil" [(quotationRemarksModel)]="quotationRemarks"
+  [(quotationMeetingRoomModeModel)]="quotationMeetingRoomMode" [locationLockedFn]="locationLockedFn"
+  [quotationDynamicDiscountCapFn]="quotationDynamicDiscountCapFn" [quotationFloorPerSeatFn]="quotationFloorPerSeatFn"
+  [quotationMaxAllowedDiscountFixedFn]="quotationMaxAllowedDiscountFixedFn"
+  [quotationBillingAmountFn]="quotationBillingAmountFn" [quotationDepositMonthsFn]="quotationDepositMonthsFn"
+  [effectiveQuotationSecurityDepositFn]="effectiveQuotationSecurityDepositFn"
+  [quotationTaxAmountFn]="quotationTaxAmountFn" [quotationFirstInvoiceDiscountFn]="quotationFirstInvoiceDiscountFn"
+  [quotationFirstInvoiceTotalFn]="quotationFirstInvoiceTotalFn" [isQuotationPrivateRoomFn]="isQuotationPrivateRoomFn"
+  [isQuotationSharedSpaceFn]="isQuotationSharedSpaceFn" [isQuotationMeetingRoomFn]="isQuotationMeetingRoomFn"
+  [availableQuotationCapacitiesFn]="availableQuotationCapacitiesFn"
+  [filteredQuotationSpaceOptionsFn]="filteredQuotationSpaceOptionsFn"
+  [filteredQuotationOfferingTypes]="filteredQuotationOfferingTypesFn" [spaceTypeOptionsAt]="spaceTypeOptionsAtFn"
+  [spaceTypeHintAt]="spaceTypeHintAtFn" [isQuotationSlotSelected]="isQuotationSlotSelectedFn"
+  (closeAdminQuotationForm)="closeAdminQuotationForm()" (submitAdminQuotation)="submitAdminQuotation($event)"
+  (onCustomerSearch)="onCustomerSearch()" (openCreateCustomerFromBooking)="openCreateCustomerFromBooking()"
+  (selectCustomer)="selectCustomer($event)" (onQuotationLocationChange)="onQuotationLocationChange()"
+  (onQuotationOfferingTypeChange)="onQuotationOfferingTypeChange()"
+  (validateQuotationDiscount)="validateQuotationDiscount()"
+  (onQuotationSpaceTypeChange)="onQuotationSpaceTypeChange()"
+  (onQuotationCapacityChange)="onQuotationCapacityChange()" (onQuotationSpaceSelected)="onQuotationSpaceSelected()"
+  (onQuotationBasePriceChange)="onQuotationBasePriceChange()"
+  (onQuotationMeetingModeChange)="onQuotationMeetingModeChange()"
+  (generateQuotationMeetingSlots)="generateQuotationMeetingSlots()"
+  (toggleQuotationSlot)="toggleQuotationSlot($event)" (recalcQuotationAmount)="recalcQuotationAmount()"
+  (onQuotationMonthPeriodChange)="onQuotationMonthPeriodChange()" (onDiscountTypeChange)="onDiscountTypeChange()"
+  (onQuotationDiscountChange)="onQuotationDiscountChange()" />
 }
 
 @if (showBookingForm()) {

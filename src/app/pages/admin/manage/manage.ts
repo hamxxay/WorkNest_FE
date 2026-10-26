@@ -53,6 +53,7 @@ import { ManageQuotationConversionModal } from '../manage-quotation-conversion-m
 import { ManageQuickCustomerModal } from '../manage-quick-customer-modal/manage-quick-customer-modal';
 import { ManageQuotationPreviewModal } from '../manage-quotation-preview-modal/manage-quotation-preview-modal';
 import { ManageBookingChallanModal } from '../manage-booking-challan-modal/manage-booking-challan-modal';
+import { ManageQuotationFormModal } from '../manage-quotation-form-modal/manage-quotation-form-modal';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -79,7 +80,8 @@ interface EntityConfig {
     ManageRecordPaymentModal, ManageRevertApprovalModal, ManageReassignBookingModal, ManageAddInquiryModal,
     ManageContactTypeModal, ManageItemBranchModal, ManageContactFeedbackModal, ManageAgreementSendModal,
     ManageAgreementSignModal, ManageAgreementDetailsModal, ManageInitialInvoicePreviewModal, ManageCustomInvoiceModal,
-    ManageQuotationConversionModal, ManageQuickCustomerModal, ManageQuotationPreviewModal, ManageBookingChallanModal],
+    ManageQuotationConversionModal, ManageQuickCustomerModal, ManageQuotationPreviewModal, ManageBookingChallanModal,
+    ManageQuotationFormModal],
   templateUrl: './manage.html',
   // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
   styleUrls: ['../../../styles/form-popup.css', './manage.css']
@@ -633,6 +635,8 @@ export class Manage implements OnInit {
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
   }
+  /** The quotation form's filteredQuotationOfferingTypes (manage-quotation-form-modal), bound to this page. */
+  readonly filteredQuotationOfferingTypesFn = () => this.filteredQuotationOfferingTypes();
 
   filteredBookingOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
     const locId = this.selectedLocationId ? Number(this.selectedLocationId) : null;
@@ -853,12 +857,16 @@ export class Manage implements OnInit {
     const floorPerSeat = standard * (1 - cap / 100);
     return Math.floor(((perSeat - floorPerSeat) / perSeat) * 10000) / 100;
   }
+  /** The quotation form's quotationDynamicDiscountCap (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationDynamicDiscountCapFn = () => this.quotationDynamicDiscountCap;
 
   /** Lowest allowed price per seat after discount (shown next to the cap). */
   get quotationFloorPerSeat(): number {
     const standard = Number(this.quotationMinPerSeatBasePrice || 0) || Number(this.quotationPerSeatBasePrice || 0);
     return parseFloat((standard * (1 - this.quotationBaseDiscountCap / 100)).toFixed(2));
   }
+  /** The quotation form's quotationFloorPerSeat (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationFloorPerSeatFn = () => this.quotationFloorPerSeat;
 
   get quotationMaxAllowedDiscountFixed(): number {
     const standard = Number(this.quotationMinPerSeatBasePrice || 0);
@@ -871,6 +879,8 @@ export class Manage implements OnInit {
     const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationMonthlyRent;
     return parseFloat(((base * this.quotationDynamicDiscountCap) / 100).toFixed(2));
   }
+  /** The quotation form's quotationMaxAllowedDiscountFixed (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationMaxAllowedDiscountFixedFn = () => this.quotationMaxAllowedDiscountFixed;
 
   get maxAllowedDiscountValue(): number {
     if (this.quotationDiscountType === 'Percentage') return this.quotationDynamicDiscountCap;
@@ -958,11 +968,15 @@ export class Manage implements OnInit {
     if (this.isQuotationMeetingRoom) return this.quotationSubtotal;
     return Math.max(0, parseFloat((this.quotationBillingPeriodMonths * this.quotationMonthlyRent).toFixed(2)));
   }
+  /** The quotation form's quotationBillingAmount (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationBillingAmountFn = () => this.quotationBillingAmount;
 
   /** Months sent with the quotation: the selection for private office and shared space, always 0 for meeting rooms. */
   get quotationDepositMonths(): number {
     return (this.isQuotationPrivateRoom || this.isQuotationSharedSpace) ? Manage.clampDepositMonths(this.quotationSecurityDepositMonths) : 0;
   }
+  /** The quotation form's quotationDepositMonths (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationDepositMonthsFn = () => this.quotationDepositMonths;
 
   /** Live deposit on Create Quotation = months x monthly rent x (1 - rent discount %); 0 for shared / meeting. */
   get effectiveQuotationSecurityDeposit(): number {
@@ -970,6 +984,8 @@ export class Manage implements OnInit {
     return Manage.depositAmount(this.quotationDepositMonths, rent,
       Manage.rentDiscountPct(this.quotationDiscountType, this.quotationDiscountValue, rent));
   }
+  /** The quotation form's effectiveQuotationSecurityDeposit (manage-quotation-form-modal), read lazily through this. */
+  readonly effectiveQuotationSecurityDepositFn = () => this.effectiveQuotationSecurityDeposit;
 
   get quotationDiscountAmount(): number {
     const val = Number(this.quotationDiscountValue || 0);
@@ -990,6 +1006,8 @@ export class Manage implements OnInit {
     const supportCharge = 2000 * cap * billingM;
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
+  /** The quotation form's quotationTaxAmount (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationTaxAmountFn = () => this.quotationTaxAmount;
 
   get quotationFirstInvoiceDiscount(): number {
     if (this.isQuotationMeetingRoom) return this.quotationDiscountAmount;
@@ -1000,11 +1018,15 @@ export class Manage implements OnInit {
     }
     return parseFloat(Math.min(this.quotationBillingAmount, Math.max(0, val * billingM)).toFixed(2));
   }
+  /** The quotation form's quotationFirstInvoiceDiscount (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationFirstInvoiceDiscountFn = () => this.quotationFirstInvoiceDiscount;
 
   get quotationFirstInvoiceTotal(): number {
     const subtotal = this.quotationBillingAmount + this.quotationTaxAmount + this.effectiveQuotationSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.quotationFirstInvoiceDiscount).toFixed(2));
   }
+  /** The quotation form's quotationFirstInvoiceTotal (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationFirstInvoiceTotalFn = () => this.quotationFirstInvoiceTotal;
 
   // Meeting room slots for quotation
   readonly quotationMeetingSlots = signal<{ label: string; start: string; end: string }[]>([]);
@@ -1092,6 +1114,8 @@ export class Manage implements OnInit {
   get locationLocked(): boolean {
     return this.isLocationBound && this.locationOptions().length <= 1;
   }
+  /** The quotation form's locationLocked (manage-quotation-form-modal), read lazily through this. */
+  readonly locationLockedFn = () => this.locationLocked;
 
   /** Locations an admin may assign to a user: all for a super admin, otherwise only the admin's own. */
   /** The signed-in Admin's / Sales Executive's own locations: from the profile, else from the sign-in token. */
@@ -2126,6 +2150,8 @@ export class Manage implements OnInit {
     const loc = this.locationIdOf(location);
     return (loc != null ? this.spaceTypeGroupsByLocation().get(loc) : undefined) ?? Manage.NO_OPTIONS;
   }
+  /** The quotation form's spaceTypeOptionsAt (manage-quotation-form-modal), bound to this page. */
+  readonly spaceTypeOptionsAtFn = (location: unknown) => this.spaceTypeOptionsAt(location);
 
   /** Spaces form "Space Type" options (ids) for the form's location; every type on an older API. */
   spaceTypeIdOptionsAt(location: unknown): readonly { v: number; l: string }[] {
@@ -2136,6 +2162,8 @@ export class Manage implements OnInit {
   spaceTypeHintAt(location: unknown, optionCount: number): string {
     return spaceTypeHint(this.spaceTypeRows(), this.locationIdOf(location), optionCount);
   }
+  /** The quotation form's spaceTypeHintAt (manage-quotation-form-modal), bound to this page. */
+  readonly spaceTypeHintAtFn = (location: unknown, optionCount: number) => this.spaceTypeHintAt(location, optionCount);
 
   /** True when a chosen space type value isn't offered at the form's new location (so the form drops it). */
   private spaceTypeGoneAt(options: readonly { v: any }[], selected: unknown): boolean {
@@ -5656,6 +5684,8 @@ export class Manage implements OnInit {
   isQuotationSlotSelected(slot: { start: string }): boolean {
     return this.quotationSelectedSlots.has(slot.start);
   }
+  /** The quotation form's isQuotationSlotSelected (manage-quotation-form-modal), bound to this page. */
+  readonly isQuotationSlotSelectedFn = (slot: { start: string }) => this.isQuotationSlotSelected(slot);
 
   // ---------- Tour inquiry Type ----------
   /** Type filter on the Tour Inquiries page: '' = all, else Website | WhatsApp | WalkIn | Reference. */
@@ -6726,16 +6756,22 @@ export class Manage implements OnInit {
     const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
     return s === 'private' || s.includes('private');
   }
+  /** The quotation form's isQuotationPrivateRoom (manage-quotation-form-modal), read lazily through this. */
+  readonly isQuotationPrivateRoomFn = () => this.isQuotationPrivateRoom;
 
   get isQuotationSharedSpace(): boolean {
     const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
     return s === 'shared' || s.includes('shared') || s.includes('desk') || s.includes('coworking');
   }
+  /** The quotation form's isQuotationSharedSpace (manage-quotation-form-modal), read lazily through this. */
+  readonly isQuotationSharedSpaceFn = () => this.isQuotationSharedSpace;
 
   get isQuotationMeetingRoom(): boolean {
     const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
     return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
+  /** The quotation form's isQuotationMeetingRoom (manage-quotation-form-modal), read lazily through this. */
+  readonly isQuotationMeetingRoomFn = () => this.isQuotationMeetingRoom;
 
   get availableQuotationCapacities(): number[] {
     if (!this.isQuotationPrivateRoom) return [];
@@ -6750,6 +6786,8 @@ export class Manage implements OnInit {
     });
     return Array.from(caps).sort((a, b) => a - b);
   }
+  /** The quotation form's availableQuotationCapacities (manage-quotation-form-modal), read lazily through this. */
+  readonly availableQuotationCapacitiesFn = () => this.availableQuotationCapacities;
 
   get filteredQuotationSpaceOptions(): { v: any; l: string }[] {
     if (!this.selectedQuotationSpaceTypeId) return [];
@@ -6800,6 +6838,8 @@ export class Manage implements OnInit {
       return { v: s.id, l: `${s.name}${tag}` };
     });
   }
+  /** The quotation form's filteredQuotationSpaceOptions (manage-quotation-form-modal), read lazily through this. */
+  readonly filteredQuotationSpaceOptionsFn = () => this.filteredQuotationSpaceOptions;
 
   onQuotationSpaceSelected() {
     this.loadQuotationTaxRate();
