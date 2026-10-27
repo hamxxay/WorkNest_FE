@@ -6183,7 +6183,7 @@ export abstract class ManageBase implements OnInit {
 
     const sendInvoiceBookingId = Number(this.route.snapshot.queryParamMap.get('sendInitialInvoice'));
     if (Number.isInteger(sendInvoiceBookingId) && sendInvoiceBookingId > 0) {
-      this.admin.getBookingById(sendInvoiceBookingId).subscribe({
+      this.bookingService.getBookingDetails(sendInvoiceBookingId).subscribe({
         next: (res: any) => {
           const row = res?.data ?? res ?? {};
           this.sendInitialInvoice({ ...row, bookingId: sendInvoiceBookingId });
