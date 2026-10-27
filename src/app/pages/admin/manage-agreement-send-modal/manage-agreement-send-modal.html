@@ -1,0 +1,206 @@
+<div class="modal-overlay" (click)="closeSendAgreementModal.emit()">
+  <div class="modal-content" style="max-width:650px;width:100%" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closeSendAgreementModal.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Send Coworking Space Agreement</h2>
+    <p style="color:#64748b;font-size:0.85rem;margin-top:-6px;margin-bottom:16px">
+      Verify customer / company details and generate official Coworking Space Use Agreement (PDF) sent directly to
+      customer.
+    </p>
+
+    <!-- Quotation & Workspace Summary Card -->
+    @if (sendAgreementData.quotationNumber || sendAgreementData.spaceName) {
+    <div
+      style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:0.72rem;color:#64748b;font-weight:700;text-transform:uppercase">Quotation Reference</div>
+        <strong style="font-size:0.95rem;color:#0f172a">{{ sendAgreementData.quotationNumber || ('Quotation #' +
+          (selectedAgreementItem?.id || selectedAgreementItem?.quotationId)) }}</strong>
+        <div style="font-size:0.78rem;color:#475569" *ngIf="sendAgreementData.overrideEmail">To: {{
+          sendAgreementData.overrideEmail }}</div>
+      </div>
+      @if (sendAgreementData.spaceName) {
+      <div style="text-align:right">
+        <div style="font-size:0.72rem;color:#64748b;font-weight:700;text-transform:uppercase">Workspace Space</div>
+        <strong style="font-size:0.95rem;color:#2563eb">{{ sendAgreementData.spaceName }}</strong>
+        <div style="font-size:0.78rem;color:#64748b">
+          {{ sendAgreementData.spaceTypeName || 'Office' }}<span *ngIf="sendAgreementData.locationName"> • {{
+            sendAgreementData.locationName }}</span>
+        </div>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- Entity Type Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:10px">
+      <button type="button" class="btn-admin" [class.btn-primary-admin]="sendAgreementTab === 'Individual'"
+        [class.btn-outline-admin]="sendAgreementTab !== 'Individual'" (click)="sendAgreementTab = 'Individual'">
+        Individual
+      </button>
+      <button type="button" class="btn-admin" [class.btn-primary-admin]="sendAgreementTab === 'Company'"
+        [class.btn-outline-admin]="sendAgreementTab !== 'Company'" (click)="sendAgreementTab = 'Company'">
+        Company / Private Limited
+      </button>
+      <button type="button" class="btn-admin btn-outline-admin" disabled style="opacity:0.5;cursor:not-allowed"
+        title="AOP coming soon">
+        AOP / Partnership <span class="role-badge role-sales" style="font-size:0.65rem;margin-left:4px">Coming
+          Soon</span>
+      </button>
+    </div>
+
+    @if (sendAgreementError()) {
+    <div class="alert-admin alert-error-admin">{{ sendAgreementError() }}</div>
+    }
+
+    <form (ngSubmit)="submitSendAgreement.emit()">
+      @if (sendAgreementTab === 'Individual') {
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Full Name *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerFullName" name="agCustName"
+            required />
+        </div>
+        <div class="form-group-admin">
+          <label>CNIC / Passport *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerCnic" name="agCustCnic"
+            #agCnicCtrl="ngModel" required placeholder="XXXXX-XXXXXXX-X" [maxlength]="cnicMaxLength" inputmode="numeric"
+            (input)="onCnicFieldInput($event, sendAgreementData, 'customerCnic')"
+            [class.input-invalid]="agCnicCtrl.touched && cnicError(sendAgreementData.customerCnic, true)" />
+          @if (agCnicCtrl.touched && cnicError(sendAgreementData.customerCnic, true); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Phone Number</label>
+          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone" name="agCustPhone"
+            #agCustPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" placeholder="e.g. 03001234567"
+            (input)="onPhoneFieldInput($event, sendAgreementData, 'customerPhone')"
+            [class.input-invalid]="agCustPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone)" />
+          @if (agCustPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
+        </div>
+        <div class="form-group-admin">
+          <label>Residential Address</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerAddress"
+            name="agCustAddress" />
+        </div>
+      </div>
+      } @else {
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Company / Corporate Name *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.companyName" name="agCompName"
+            required />
+        </div>
+        <div class="form-group-admin">
+          <label>NTN (National Tax Number) *</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.companyNtn" name="agCompNtn"
+            required placeholder="XXXXXXX-X" />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>SECP Registration No.</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.companySecpRegNo" name="agCompSecp"
+            placeholder="SECP Reg #" />
+        </div>
+        <div class="form-group-admin">
+          <label>Authorized Signatory Name</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerFullName" name="agAuthName"
+            placeholder="Director / CEO" />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Registered Office Address</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="sendAgreementData.customerAddress"
+            name="agCompAddress" />
+        </div>
+        <div class="form-group-admin">
+          <label>Contact Phone</label>
+          <input class="form-input-admin" type="tel" [(ngModel)]="sendAgreementData.customerPhone" name="agCompPhone"
+            #agCompPhoneCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" placeholder="e.g. 03001234567"
+            (input)="onPhoneFieldInput($event, sendAgreementData, 'customerPhone')"
+            [class.input-invalid]="agCompPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone)" />
+          @if (agCompPhoneCtrl.touched && phoneError(sendAgreementData.customerPhone); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
+        </div>
+      </div>
+      }
+
+      <p class="form-section-label" style="margin-top:1rem">Agreement Terms & Commercials</p>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Contract Start Date *</label>
+          <input class="form-input-admin" type="date" [(ngModel)]="sendAgreementData.contractStartDate"
+            name="agStartDate" required />
+        </div>
+        <div class="form-group-admin">
+          <label>Contract End Date *</label>
+          <input class="form-input-admin" type="date" [(ngModel)]="sendAgreementData.contractEndDate" name="agEndDate"
+            required />
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Billing Period *</label>
+          <select class="form-input-admin" [(ngModel)]="sendAgreementData.billingPeriod" name="agBillingPeriod">
+            <option value="Monthly">Monthly</option>
+            <option value="Bi-Monthly">Bi-Monthly</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Bi-Annual">Bi-Annual</option>
+            <option value="Annual">Annual</option>
+          </select>
+        </div>
+        <div class="form-group-admin">
+          <label>Operating Hours / Offering *</label>
+          <select class="form-input-admin" [(ngModel)]="sendAgreementData.operatingHours" name="agOpHours">
+            @for (ot of filteredAgreementOfferingTypes(); track ot.id) {
+            <option [value]="ot.description">{{ ot.description }}</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Recurring Fee Amount (PKR) *</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="sendAgreementData.monthlyFee" name="agMonthlyFee"
+            required />
+          <small style="color:#64748b;font-size:0.75rem">Clause 4.1: Discounted rent + PST for billing cycle</small>
+        </div>
+        <div class="form-group-admin">
+          <label for="agSecurityDeposit">Refundable Security Deposit (PKR)</label>
+          <input id="agSecurityDeposit" class="form-input-admin" type="text" [value]="sendAgreementDepositText" readonly
+            aria-describedby="agSecurityDepositHint" />
+          <small id="agSecurityDepositHint" style="color:#64748b;font-size:0.75rem">Clause 4.4: from the quotation's
+            Security Deposit (Months); not editable here</small>
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>Security Deposit Refund Days *</label>
+          <input class="form-input-admin" type="number" [(ngModel)]="sendAgreementData.refundDays" name="agRefundDays"
+            required />
+          <small style="color:#64748b;font-size:0.75rem">Clause 4.6: Days to refund after termination</small>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:1.5rem">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeSendAgreementModal.emit()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="sendAgreementSaving()">
+          {{ sendAgreementSaving() ? 'Generating & Sending...' : 'Send Agreement to Customer' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

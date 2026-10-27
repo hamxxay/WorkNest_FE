@@ -1,0 +1,294 @@
+<div class="modal-overlay receipt-overlay" (click)="closeChallan.emit()">
+  <div class="modal-content receipt-modal" (click)="$event.stopPropagation()" id="admin-receipt-printable"
+    style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,850px);max-height:min(92dvh,850px);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
+
+    <!-- Header -->
+    <div
+      style="background:linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;letter-spacing:1px">WORKNEST</div>
+        <div style="font-size:.78rem;opacity:.9;margin-top:2px;font-weight:500">Booking Confirmation & Payment Challan
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.68rem;opacity:.75;text-transform:uppercase;letter-spacing:0.5px">Challan Number</div>
+        <div style="font-size:1.05rem;font-weight:700;letter-spacing:1px;color:#38bdf8">{{ formatChallanDisplay(c) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Validity Banner -->
+    <div
+      style="background:#fef3c7;border-bottom:1px solid #fde68a;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <span style="font-size:.82rem;color:#92400e;font-weight:700">
+        Valid Until: {{ c.validity ? (c.validity | date:'MMM d, y') : '5 days from issue' }}
+      </span>
+      <span style="font-size:.78rem;color:#92400e;font-weight:600">Pay before expiry date to confirm workspace
+        booking</span>
+    </div>
+
+    <!-- Scrollable Body -->
+    <div style="padding:24px 28px;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain" data-challan-body>
+
+      <!-- Customer + Space Details Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:20px">
+        <div style="background:#f8fafc;padding:14px 16px;border-radius:8px;border:1px solid #e2e8f0">
+          <div
+            style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+            Customer Details</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ c.customerName }}</div>
+          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.customerEmail }}</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px" *ngIf="c.customerCode">Customer ID: <strong>{{
+              c.customerCode }}</strong></div>
+        </div>
+        <div style="background:#f8fafc;padding:14px 16px;border-radius:8px;border:1px solid #e2e8f0">
+          <div
+            style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+            Workspace Details</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ c.spaceName || 'Workspace' }}</div>
+          <div style="font-size:0.82rem;color:#475569;margin-top:2px">{{ c.spaceTypeName || 'Office' }} • {{
+            c.locationName || 'Main Branch' }}</div>
+        </div>
+      </div>
+
+      <!-- Lease Contract Summary Ribbon -->
+      <div
+        style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px">
+        @if (isMeetingRoom(c)) {
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Booking Rent</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#0f172a">PKR {{ (c.subtotalAmount || c.totalPayable || 0)
+            | number:'1.0-0' }}</div>
+          <div style="font-size:0.72rem;color:#64748b">Base Booking Rent</div>
+        </div>
+        <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
+          <div style="font-size:0.68rem;font-weight:700;color:#1e40af;text-transform:uppercase">Total Payable</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getChallanInitialPayable(c) |
+            number:'1.0-0' }}</div>
+          <div style="font-size:0.72rem;color:#1e40af">Rent + Tax</div>
+        </div>
+        } @else {
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Monthly Rent Rate</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#2563eb">PKR {{ getChallanMonthlyRent(c) | number:'1.0-0'
+            }}</div>
+          <div style="font-size:0.72rem;color:#64748b">per month</div>
+        </div>
+        @if (getChallanSecurityDeposit(c) > 0) {
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">Security Deposit</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#d97706">PKR {{ getChallanSecurityDeposit(c) |
+            number:'1.0-0' }}</div>
+          <div style="font-size:0.72rem;color:#64748b">Refundable</div>
+        </div>
+        }
+        <div>
+          <div style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase">User will be billed
+          </div>
+          <div style="font-size:1.05rem;font-weight:800;color:#0284c7">Every {{ getChallanBillingMonths(c) }} Mo</div>
+          <div style="font-size:0.72rem;color:#64748b">Advance Rent Period</div>
+        </div>
+        <div style="background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe">
+          <div style="font-size:0.68rem;font-weight:700;color:#1e40af;text-transform:uppercase">1st Cycle Billed Rent
+          </div>
+          <div style="font-size:1.05rem;font-weight:800;color:#1d4ed8">PKR {{ getChallanFirstCycleRent(c) |
+            number:'1.0-0' }}</div>
+          <div style="font-size:0.72rem;color:#1e40af">First {{ getChallanBillingMonths(c) }} Months Rent</div>
+        </div>
+        }
+      </div>
+
+      <!-- Itemized Payment Statement Table (Payable Now) -->
+      <div class="m-table-scroll">
+        <table
+          style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+          <thead>
+            <tr style="background:#0f172a;color:#ffffff">
+              <th style="padding:12px 14px;text-align:left;font-weight:700">Itemized Billing Description (Payment Due
+                Now)
+              </th>
+              <th style="padding:12px 14px;text-align:center;font-weight:700">Billing Basis</th>
+              <th style="padding:12px 14px;text-align:right;font-weight:700">Amount (PKR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (isMeetingRoom(c)) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">Meeting Room Booking Rent</strong>
+                <div style="font-size:0.78rem;color:#64748b">Reserved time slot booking rate</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                Per Booking Slot
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                PKR {{ (c.subtotalAmount || c.totalPayable || 0) | number:'1.0-0' }}
+              </td>
+            </tr>
+            } @else {
+            <!-- 1st Advance Rent Period -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#ffffff">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">1st Advance Rent Period ({{ getChallanBillingMonths(c) }}
+                  Month(s))</strong>
+                <div style="font-size:0.78rem;color:#64748b">Advance Rent for 1st billing cycle</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                {{ getChallanBillingMonths(c) }} Mo × PKR {{ getChallanMonthlyRent(c) | number:'1.0-0' }}
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#1d4ed8">
+                PKR {{ getChallanFirstCycleRent(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+
+            <!-- Security Deposit (only when the stored deposit > 0) -->
+            @if (getChallanSecurityDeposit(c) > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc">
+              <td style="padding:12px 14px">
+                <strong style="color:#0f172a">Security Deposit (Refundable)</strong>
+                <div style="font-size:0.78rem;color:#64748b">Fully refundable upon lease termination</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#475569;font-size:0.82rem">
+                @if (getChallanSecurityMonths(c) > 0) { {{ getChallanSecurityMonths(c) }} Month(s) Equivalent } @else {
+                Refundable }
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#0f172a">
+                PKR {{ getChallanSecurityDeposit(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
+            }
+
+            <!-- Provincial Sales Tax (PST) on Advance Rent -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4" *ngIf="getChallanTaxAmount(c) > 0">
+              <td style="padding:12px 14px">
+                <strong style="color:#15803d">Provincial Sales Tax (PST)</strong>
+                <div style="font-size:0.78rem;color:#166534">16% PST on Support Charges (PKR 2,000/seat/mo)</div>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#166534;font-size:0.82rem">
+                16% on Support Services
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ getChallanTaxAmount(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+
+            <!-- Special Discount if any -->
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5" *ngIf="getChallanFirstCycleDiscount(c) > 0">
+              <td style="padding:12px 14px;color:#16a34a">
+                <strong>Special Discount Applied</strong>
+              </td>
+              <td style="padding:12px 14px;text-align:center;color:#16a34a;font-size:0.82rem">
+                Discount Offset
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">
+                - PKR {{ getChallanFirstCycleDiscount(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <!-- Grand Total Payable Row -->
+            <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+              <td colspan="2" style="padding:14px;font-weight:800;color:#1e40af">
+                TOTAL INITIAL AMOUNT PAYABLE (NOW)
+              </td>
+              <td style="padding:14px;text-align:right;font-weight:800;color:#1d4ed8;font-size:1.15rem">
+                PKR {{ getChallanInitialPayable(c) | number:'1.0-0' }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Booking Reference Banner -->
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-size:.82rem">
+        <span style="color:#1e40af">Booking Ref: <strong>#{{ c.bookingId }}</strong></span>
+        <span style="color:#64748b">Issued: {{ c.createdAt | date:'MMM d, y, h:mm a' }}</span>
+      </div>
+
+      <!-- Terms & Conditions Block -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;padding:12px 16px;margin-bottom:16px">
+        <div
+          style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:6px">
+          Terms &amp; Conditions</div>
+        <div style="font-size:.75rem;color:#475569;line-height:1.6">
+          <div>1. The price is exclusive of all the taxes.</div>
+          <div>2. Worknest will charge Provincial Sales Tax on service.</div>
+          <div>3. Payment must be made before the challan expiry date to confirm the booking.</div>
+          @if (getChallanSecurityDeposit(c) > 0) {
+          <div>4. Security deposit is fully refundable upon termination of the agreement, subject to lease terms.</div>
+          <div>5. Cancellation policy applies as per the signed agreement. Early termination may forfeit the deposit.
+          </div>
+          <div>6. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          } @else {
+          <!-- No security deposit: no deposit terms (owner's rule, 16 Oct 2026) -->
+          <div>4. Cancellation policy applies as per the signed agreement.</div>
+          <div>5. WorkNest reserves the right to modify pricing and terms with prior notice.</div>
+          }
+        </div>
+      </div>
+
+      <div style="font-size:.75rem;color:#94a3b8;text-align:center;border-top:1px dashed #e2e8f0;padding-top:14px">
+        Present this challan at any WorkNest counter or pay via bank transfer using the challan number.<br />
+        This challan is system-generated and does not require a signature.
+      </div>
+
+    </div>
+
+    <!-- Actions Footer -->
+    <div
+      style="padding:14px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0"
+      data-challan-actions>
+      <button class="btn-admin btn-outline-admin" (click)="closeChallan.emit()">Close</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn-admin" (click)="sendInitialInvoice.emit(c)" [disabled]="sendingInitialInvoiceId() !== null"
+          style="background:#1d4ed8;color:#fff;border:none;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2L11 13" />
+            <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+          </svg>
+          {{ sendingInitialInvoiceId() === (c.bookingId || c.id) ? 'Sending Invoice...' : 'Send Initial Payment Invoice'
+          }}
+        </button>
+        <button class="btn-admin" (click)="sendChallanEmail.emit()" [disabled]="sendingChallanEmail()"
+          style="background:#0d9488;color:#fff;border:none;display:flex;align-items:center;gap:6px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          {{ sendingChallanEmail() ? 'Sending Email...' : 'Email Challan' }}
+        </button>
+        <button class="btn-admin" (click)="downloadChallan.emit()"
+          style="background:#0f766e;color:#fff;border:none;display:flex;align-items:center;gap:6px"
+          title="Download Challan PDF">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Download PDF
+        </button>
+        <button class="btn-admin btn-primary-admin" (click)="printReceipt.emit()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect width="12" height="8" x="6" y="14" />
+          </svg>
+          Print Challan
+        </button>
+      </div>
+    </div>
+    @if (challanEmailSent()) {
+    <div
+      style="padding:10px 28px;background:#ecfdf5;color:#047857;border-top:1px solid #a7f3d0;font-weight:600;font-size:.82rem;text-align:center;flex-shrink:0">
+      {{ challanEmailSent() }}
+    </div>
+    }
+
+  </div>
+</div>

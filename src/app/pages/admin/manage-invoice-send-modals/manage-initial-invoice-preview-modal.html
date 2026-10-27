@@ -1,0 +1,251 @@
+<div class="modal-overlay" (click)="closeInitialInvoicePreview.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()"
+    style="max-width:760px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(90vh,850px)">
+
+    <!-- Modal Header -->
+    <div
+      style="background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <h3 style="margin:0;font-size:1.15rem;font-weight:700">Preview Initial Payment Invoice</h3>
+          <span
+            style="background:#2563eb;color:#fff;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:12px">
+            Booking #{{ item.bookingId || item.BookingId || item.id || item.Id }}
+          </span>
+        </div>
+        <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">
+          Review initial invoice details and payment procedure before sending to customer email.
+        </div>
+      </div>
+      <button (click)="closeInitialInvoicePreview.emit()" title="Close" aria-label="Close"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+
+    <!-- Alert Info Banner -->
+    <div
+      style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:12px 24px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:0.82rem;color:#1e40af">
+        Sending this invoice will issue the <strong>1st Billing Cycle Rent</strong>,@if
+        (initialInvoicePreview()?.securityDeposit > 0) { <strong>Security Deposit</strong>,}
+        and <strong>Bank Payment Procedure</strong> directly to the customer.
+        @if (initialInvoiceIssuedOn()) { The invoice is dated <strong>{{ initialInvoiceIssuedOn() | date:'d MMM y'
+          }}</strong> (the signed agreement's date). }
+      </div>
+    </div>
+
+    <!-- Body Content -->
+    <div style="padding:24px;flex:1 1 auto;overflow-y:auto">
+
+      <!-- Summary Cards Grid -->
+      <div class="m-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Customer Information</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.customerName || item.userName ||
+            item.name || 'Customer' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ item.customerEmail || item.userEmail || item.email || '-' }}
+          </div>
+        </div>
+
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">
+            Workspace & Location</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#0f172a">{{ item.spaceName || item.SpaceName ||
+            'Workspace' }}</div>
+          <div style="font-size:0.82rem;color:#64748b">{{ item.spaceTypeName || item.SpaceTypeName || 'Office' }} • {{
+            item.locationName || item.LocationName || 'Main Location' }}</div>
+        </div>
+      </div>
+
+      <!-- Recipient Email Field -->
+      <div style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px">
+        <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">
+          Customer Email Address <span style="color:#ef4444">*</span>
+        </label>
+        <input class="form-input-admin" type="email" [(ngModel)]="initialInvoiceRecipientEmail"
+          placeholder="customer@example.com" style="width:100%;font-size:0.9rem" />
+      </div>
+
+      <!-- Invoice type: Standard or Withholding Tax (WHT). Not shown when the first invoice already exists (it is only re-sent). -->
+      @if (!initialInvoicePreview()?.hasExistingInvoice) {
+      <div class="m-stack"
+        style="background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <label for="initInvType"
+            style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">Invoice Type</label>
+          <select id="initInvType" class="form-input-admin" style="width:100%;font-size:0.9rem"
+            [ngModel]="initialInvoiceType()" (ngModelChange)="onInitialInvoiceTypeChange.emit($event)"
+            [disabled]="sendingInitialInvoiceId() !== null">
+            <option value="standard">Standard invoice</option>
+            <option value="wht">Withholding tax invoice</option>
+          </select>
+        </div>
+        @if (initialInvoiceType() === 'wht') {
+        <div>
+          <label for="initInvWhtRate"
+            style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px">
+            WHT Rate <span style="color:#ef4444">*</span>
+          </label>
+          <select id="initInvWhtRate" class="form-input-admin" style="width:100%;font-size:0.9rem"
+            [ngModel]="initialInvoiceWhTaxId()" (ngModelChange)="onInitialInvoiceWhtRateChange.emit($event)"
+            [disabled]="sendingInitialInvoiceId() !== null">
+            <option [ngValue]="null" disabled>{{ initialInvoiceWhtRates().length ? 'Select WHT rate' : 'Loading…' }}
+            </option>
+            @for (o of initialInvoiceWhtRates(); track o.id) {
+            <option [ngValue]="o.id">{{ o.description }} ({{ o.rate }}%)</option>
+            }
+          </select>
+        </div>
+        }
+      </div>
+      }
+
+      @if (initialInvoiceNeedsWhtRate()) {
+      <div
+        style="padding:16px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;margin-bottom:20px;font-size:0.88rem">
+        Select a WHT rate to calculate the withholding tax invoice.
+      </div>
+      } @else if (initialInvoicePreview(); as pv) {
+      <!-- Financial Conversion Itemization Table -->
+      <div class="m-table-scroll">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:0.88rem">
+          <thead>
+            <tr style="background:#0f172a;color:#fff">
+              <th style="padding:10px 14px;text-align:left;border-top-left-radius:6px">Line Description</th>
+              <th style="padding:10px 14px;text-align:right;border-top-right-radius:6px">Amount (PKR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:10px 14px">
+                <strong>1st Cycle Advance Rent ({{ pv.billingMonths }} Month(s))</strong>
+                <div style="font-size:0.75rem;color:#64748b">
+                  {{ pv.description }}
+                </div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600">
+                PKR {{ pv.rent | number:'1.0-0' }}
+              </td>
+            </tr>
+
+            @if (pv.discount > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fcfdf5">
+              <td style="padding:10px 14px;color:#16a34a">
+                <strong>Special Discount @if (pv.discountPercentage) { ({{ pv.discountPercentage }}%) }</strong>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#16a34a">
+                - PKR {{ pv.discount | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
+
+            <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4">
+              <td style="padding:10px 14px">
+                <strong style="color:#15803d">Service Charge & Province Tax (16%)</strong>
+                <div style="font-size:0.75rem;color:#166534">Effective-dated provincial tax snapshot</div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:700;color:#15803d">
+                + PKR {{ pv.tax | number:'1.0-0' }}
+              </td>
+            </tr>
+
+            @if (pv.isWhtInvoice) {
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fffbeb">
+              <td style="padding:10px 14px">
+                <strong style="color:#92400e">Withholding Tax Gross-up ({{ pv.whtRatePercent }}%)</strong>
+                <div style="font-size:0.75rem;color:#92400e">Rent + support grossed up; support, tax and deposit are
+                  not.</div>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#92400e">
+                + PKR {{ pv.whtGrossUp | number:'1.0-2' }}
+              </td>
+            </tr>
+            }
+
+            @if (pv.securityDeposit > 0) {
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:10px 14px">
+                <strong>Security Deposit (Refundable)</strong>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600">
+                + PKR {{ pv.securityDeposit | number:'1.0-0' }}
+              </td>
+            </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr style="background:#eff6ff;font-size:1.05rem;border-top:2px solid #bfdbfe">
+              <td style="padding:12px 14px;font-weight:800;color:#1e40af">
+                Total Initial Amount Payable
+              </td>
+              <td style="padding:12px 14px;text-align:right;font-weight:800;color:#1d4ed8">
+                PKR {{ pv.grandTotal | number:'1.0-0' }}
+              </td>
+            </tr>
+            @if (pv.isWhtInvoice) {
+            <tr style="font-size:0.88rem">
+              <td style="padding:8px 14px;color:#92400e">Less Withholding Tax ({{ pv.whtRatePercent }}%) withheld by the
+                customer</td>
+              <td style="padding:8px 14px;text-align:right;color:#92400e">- PKR {{ pv.whtAmount | number:'1.0-2' }}</td>
+            </tr>
+            <tr style="font-size:0.9rem">
+              <td style="padding:8px 14px;font-weight:700">Net Payable</td>
+              <td style="padding:8px 14px;text-align:right;font-weight:700">PKR {{ pv.netPayableAfterWht |
+                number:'1.0-2' }}</td>
+            </tr>
+            }
+          </tfoot>
+        </table>
+      </div>
+      } @else if (initialInvoicePreviewLoading()) {
+      <div
+        style="padding:28px;text-align:center;color:#64748b;font-size:0.9rem;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px">
+        Calculating the invoice&hellip;
+      </div>
+      } @else {
+      <div
+        style="padding:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;margin-bottom:20px;font-size:0.88rem;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <span>{{ initialInvoicePreviewError() || 'The invoice could not be calculated.' }} Nothing has been sent.</span>
+        <button class="btn-admin btn-outline-admin"
+          (click)="loadInitialInvoicePreview(+(item.bookingId || item.BookingId || item.id || item.Id), initialInvoiceIssuedOn())">Try
+          again</button>
+      </div>
+      }
+
+      <!-- Bank Deposit Payment Procedure Section -->
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:14px;margin-bottom:10px">
+        <div style="font-size:0.82rem;font-weight:700;color:#0f172a;margin-bottom:6px">Payment Procedure & Bank Deposit
+          Details</div>
+        <div style="font-size:0.8rem;color:#334155;line-height:1.6">
+          1. Please deposit this payment in the following bank account:<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;<strong>Bank Name:</strong> Bank Of Punjab<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;<strong>Account Title:</strong> Worknest pvt Ltd<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;<strong>Account Number:</strong> 15570100744731<br />
+          2. Send the receipt on <strong>+923201809696</strong>.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div
+      style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <button class="btn-admin btn-outline-admin" (click)="closeInitialInvoicePreview.emit()"
+        [disabled]="sendingInitialInvoiceId() !== null">
+        Cancel
+      </button>
+
+      <button class="btn-admin btn-primary-admin" (click)="confirmSendInitialInvoice.emit()"
+        [disabled]="sendingInitialInvoiceId() !== null || !initialInvoicePreview() || initialInvoiceNeedsWhtRate()"
+        style="background:#2563eb;color:#fff;padding:10px 20px;font-size:0.95rem;font-weight:700;display:flex;align-items:center;gap:8px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 2L11 13" />
+          <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+        </svg>
+        {{ sendingInitialInvoiceId() !== null ? 'Sending Invoice...' : 'Confirm & Send Initial Invoice' }}
+      </button>
+    </div>
+
+  </div>
+</div>

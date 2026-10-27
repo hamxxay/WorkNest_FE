@@ -1,0 +1,61 @@
+<div class="modal-overlay" (click)="closePaymentModal.emit()">
+  <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closePaymentModal.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Payment Summary</h2>
+    @if (paymentSummaryLoading()) {
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+    } @else if (paymentSummaryError()) {
+    <div class="alert-admin alert-error-admin">{{ paymentSummaryError() }}</div>
+    } @else if (paymentSummary(); as s) {
+    <div class="user-detail-grid">
+      <div class="user-line"><span>User</span><strong>{{ s.payment?.userEmail }}</strong></div>
+      <div class="user-line"><span>{{ amountLabels['Payment.amount'] || 'Amount' }}</span><strong>PKR {{
+          (s.payment?.amount ?? 0) | number:'1.0-0' }}</strong></div>
+      <div class="user-line"><span>Method</span><strong>{{ s.payment?.paymentMethod }}</strong></div>
+      <div class="user-line"><span>Status</span><strong>{{ s.payment?.paymentStatus }}</strong></div>
+      <div class="user-line"><span>Ref</span><strong>{{ s.payment?.transactionRef }}</strong></div>
+      <div class="user-line"><span>Paid At</span><strong>{{ s.payment?.paidAt ? (s.payment?.paidAt | date:'medium') :
+          'Not paid' }}</strong></div>
+    </div>
+    <div class="history-section">
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin:12px 0;">
+        <h4 style="margin:0 0 8px 0;font-size:0.85rem;color:#1e293b;">Booking & Contract Financials</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Space Number</span><strong>{{
+              s.payment?.spaceNumber || "—" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Advance Rent Period</span><strong
+              style="color:#0284c7">{{ s.payment?.billingPeriod || "Quarterly" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Current Cycle Rent</span><strong
+              style="color:#0284c7">PKR {{ (s.payment?.currentCycleAmount ?? 0) | number:'1.0-0' }}</strong></div>
+          @if ((s.payment?.securityDeposit ?? 0) > 0) {
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Security Deposit</span><strong
+              style="color:#475569">PKR {{ s.payment?.securityDeposit | number:'1.0-0' }}</strong></div>
+          }
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Next Bill Due</span><strong
+              style="color:#0284c7">{{ s.payment?.nextBillDueDate ? (s.payment?.nextBillDueDate | date:"mediumDate") :
+              "N/A" }}</strong></div>
+          <div><span style="color:#64748b;font-size:.7rem;display:block">Balance Left</span><strong
+              style="color:#b45309">PKR {{ (s.payment?.balanceLeft ?? 0) | number:'1.0-0' }}</strong></div>
+        </div>
+      </div>
+      <h3>User Payment Stats</h3>
+      <div class="history-stats">
+        <div class="stat-card"><span>Total</span><strong>{{ s.userPaymentStats?.totalPayments ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Paid</span><strong>{{ s.userPaymentStats?.paidPayments ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Failed</span><strong>{{ s.userPaymentStats?.failedPayments ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Total Paid</span><strong>PKR {{ (s.userPaymentStats?.totalPaidAmount ?? 0) |
+            number:'1.0-0' }}</strong></div>
+      </div>
+    </div>
+    }
+  </div>
+</div>

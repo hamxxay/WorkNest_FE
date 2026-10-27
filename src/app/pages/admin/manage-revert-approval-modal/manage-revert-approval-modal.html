@@ -1,0 +1,45 @@
+<div class="modal-overlay" (click)="closeRevertApproval.emit()" style="z-index:1100">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;width:100%;">
+    <button class="modal-close" (click)="closeRevertApproval.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Revert to Pending Approval</h2>
+    <div class="user-detail-grid" style="margin-bottom: 1rem;">
+      <div class="user-line"><span>Invoice</span><strong>{{ rinv.invoiceNumber || rinv.InvoiceNumber || ('INV-' +
+          (rinv.id || rinv.Id)) }}</strong></div>
+      <div class="user-line"><span>Customer</span><strong>{{ getCellValue(rinv, { key: 'customerName', label:
+          'Customer' }) }}</strong></div>
+    </div>
+    <ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.82rem;color:#92400e;line-height:1.5">
+      <li>The customer has already received the original invoice email.</li>
+      <li>It will disappear from the customer portal until it is approved again.</li>
+      <li>Door access suspension for this invoice is lifted while it is pending.</li>
+      <li>Invoices on 1Bill/EzPay or with received payments can't be reverted.</li>
+    </ul>
+    @if (revertApprovalError()) {
+    <div class="alert-admin alert-error-admin">{{ revertApprovalError() }}</div>
+    }
+    <form (ngSubmit)="submitRevertApproval.emit()">
+      <div class="form-group-admin">
+        <label for="revertReason">Reason <span style="color:#dc2626">*</span></label>
+        <textarea id="revertReason" class="form-input-admin" rows="3" maxlength="500" name="revertReason"
+          [value]="revertApprovalReason()" (input)="revertApprovalReason.set($any($event.target).value)"
+          [disabled]="revertApprovalSaving()" placeholder="Why is this invoice going back for approval?"></textarea>
+        <small style="display:block;text-align:right;color:#64748b;font-size:.75rem">{{ revertApprovalReason().length
+          }} / 500</small>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeRevertApproval.emit()"
+          [disabled]="revertApprovalSaving()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin"
+          [disabled]="revertApprovalSaving() || !revertApprovalReason().trim()">
+          {{ revertApprovalSaving() ? 'Reverting...' : 'Revert to Pending Approval' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

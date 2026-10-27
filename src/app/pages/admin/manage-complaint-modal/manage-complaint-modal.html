@@ -1,0 +1,101 @@
+<div class="modal-overlay" (click)="closeAddComplaint()">
+  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="cmpAddTitle"
+    (click)="$event.stopPropagation()" (ngSubmit)="saveAddComplaint()" novalidate>
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'complaint' }" /></span>
+      <div>
+        <h2 id="cmpAddTitle">New complaint</h2>
+        <p>For a customer who called, walked in or emailed. With their WhatsApp number, they get status updates there.
+        </p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeAddComplaint()" title="Close" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <div class="inq-section">Customer <small>optional</small></div>
+      <div class="inq-grid">
+        <div class="inq-field">
+          <label for="cmpName">Customer name</label>
+          <input id="cmpName" class="form-input-admin" type="text" maxlength="200" name="cmpName"
+            [(ngModel)]="addComplaint.customerName" autocomplete="off" />
+        </div>
+        <div class="inq-field">
+          <label for="cmpPhone">WhatsApp number</label>
+          <input id="cmpPhone" class="form-input-admin" type="tel" name="cmpPhone" [maxlength]="phoneMaxLength"
+            inputmode="tel" [(ngModel)]="addComplaint.phoneNumber" #cmpPhoneCtrl="ngModel"
+            placeholder="e.g. 03001234567" autocomplete="off"
+            (input)="onPhoneFieldInput($event, addComplaint, 'phoneNumber')"
+            [class.input-invalid]="(cmpPhoneCtrl.touched || addComplaintTried()) && complaintFieldError('phoneNumber')" />
+          @if ((cmpPhoneCtrl.touched || addComplaintTried()) && complaintFieldError('phoneNumber'); as msg) {
+          <small class="field-error-text">{{ msg }}</small>
+          }
+        </div>
+        <div class="inq-field inq-span">
+          <label for="cmpEmail">Email</label>
+          <input id="cmpEmail" class="form-input-admin" type="email" maxlength="256" name="cmpEmail"
+            [(ngModel)]="addComplaint.email" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="inq-section">Complaint</div>
+      <div class="inq-field">
+        @if (fixedItemBranch; as fb) {
+        <label for="cmpBranch">Branch</label>
+        <input id="cmpBranch" class="form-input-admin" type="text" [value]="fb.name" readonly />
+        <small class="inq-hint">Your location. The complaint goes to its staff.</small>
+        } @else {
+        <label for="cmpBranch">Branch <span class="req">*</span></label>
+        <select id="cmpBranch" class="form-input-admin" name="cmpBranch" [(ngModel)]="addComplaintLocationId"
+          [disabled]="itemBranchesState() === 'loading'" [class.input-invalid]="!!complaintFieldError('branch')">
+          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a
+            branch' }}</option>
+          @for (b of itemBranches(); track b.id) {
+          <option [ngValue]="b.id">{{ b.name }}</option>
+          }
+        </select>
+        @if (complaintFieldError('branch'); as msg) {
+        <small class="field-error-text">{{ msg }}</small>
+        } @else if (itemBranchesMissing) {
+        <small class="field-error-text">{{ itemBranchesMissingText }}</small>
+        }
+        }
+      </div>
+      <fieldset class="inq-field">
+        <legend>Category <span class="req">*</span></legend>
+        <div class="inq-chips" [class.invalid]="!!complaintFieldError('category')">
+          @for (o of complaintOptions('category'); track o.v) {
+          <label class="inq-chip" [class.selected]="addComplaint.category === o.v">
+            <input type="radio" name="cmpCategory" [value]="o.v" [(ngModel)]="addComplaint.category" />
+            {{ o.l }}
+          </label>
+          }
+        </div>
+        @if (complaintFieldError('category'); as msg) { <small class="field-error-text">{{ msg }}</small> }
+      </fieldset>
+      <div class="inq-field">
+        <div class="inq-label-row">
+          <label for="cmpDesc">Description <span class="req">*</span></label>
+          <span class="inq-hint">{{ addComplaint.description.length }} / 2000</span>
+        </div>
+        <textarea id="cmpDesc" class="form-input-admin" rows="4" maxlength="2000" name="cmpDesc"
+          [(ngModel)]="addComplaint.description" [class.input-invalid]="!!complaintFieldError('description')"
+          placeholder="What went wrong, where, and since when"></textarea>
+        @if (complaintFieldError('description'); as msg) { <small class="field-error-text">{{ msg }}</small> }
+      </div>
+
+      @if (addComplaintError()) {
+      <p class="inq-error" role="alert">{{ addComplaintError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeAddComplaint()">Cancel</button>
+      <button type="submit" class="btn-admin btn-primary-admin" [disabled]="addComplaintSaving()">
+        {{ addComplaintSaving() ? 'Saving…' : 'Add complaint' }}
+      </button>
+    </footer>
+  </form>
+</div>

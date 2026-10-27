@@ -1,4 +1,4 @@
-/* Audit Log. The base admin look (page padding, cards, table, buttons, modal) comes from ../manage/manage.css. */
+/* Audit Log. The base admin look (page padding, cards, table, buttons, modal) comes from ../manage-base/manage-list.css. */
 
 .audit-page {
   --al-teal: #0d9488;

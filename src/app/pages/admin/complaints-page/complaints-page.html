@@ -1,0 +1,434 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div>
+      <h1>{{ config().title }}</h1>
+      <p>Manage all {{ config().title.toLowerCase() }}</p>
+    </div>
+    <div class="header-actions">
+      @if (hasListFilters) {
+      <!-- Every row matching the search and the filters (all pages), as an .xlsx file. -->
+      <button type="button" class="btn-admin btn-outline-admin" (click)="exportExcel()" [disabled]="exporting()"
+        [attr.aria-busy]="exporting()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" x2="12" y1="15" y2="3" />
+        </svg>
+        @if (exporting()) {
+        Exporting{{ exportProgress() ? ' ' + exportProgress() : '' }}...
+        } @else {
+        Export Excel
+        }
+      </button>
+      }
+      @if (config().createFn) {
+      <button class="btn-admin btn-primary-admin" (click)="openCreate()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" x2="12" y1="5" y2="19" />
+          <line x1="5" x2="19" y1="12" y2="12" />
+        </svg>
+        {{ config().createLabel || 'Add New' }}
+      </button>
+      }
+    </div>
+  </div>
+
+  @if (success()) {
+  <div class="alert-admin alert-success-admin">{{ success() }}</div>
+  }
+
+  <div class="admin-card">
+    <div class="card-toolbar">
+      <div class="search-box">
+        <svg (click)="onSearchImmediate()" data-tooltip="Search now" style="cursor:pointer"
+          xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearch()"
+          (keyup.enter)="onSearchImmediate()" />
+        @if (searchQuery) {
+        <button (click)="clearSearch()" title="Clear search" aria-label="Clear search"
+          style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px">&times;</button>
+        }
+      </div>
+      @if (entity === 'contacts' || entity === 'complaints') {
+      <div class="toolbar-filters">
+        @if (showBranchFilter) {
+        <!-- Only when the user sees more than one branch (the API scopes the list to theirs). -->
+        <label class="page-size-wrap type-filter">
+          <span>{{ entity === 'contacts' ? 'Location' : 'Branch' }}</span>
+          <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)"
+            [attr.aria-label]="entity === 'contacts' ? 'Filter by location' : 'Filter by branch'">
+            <option value="">{{ entity === 'contacts' ? 'All locations' : 'All branches' }}</option>
+            @for (b of itemBranches(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+            }
+          </select>
+        </label>
+        }
+      </div>
+      }
+      @if (hasListFilters) {
+      <!-- Location / Status / date range: applied on the server with the search (back to page 1 on a change). -->
+      <div class="toolbar-filters list-filters">
+        @if (showBranchFilter) {
+        <!-- Only when the user sees more than one location (the API scopes the list to theirs). -->
+        <label class="page-size-wrap type-filter">
+          <span>Location</span>
+          <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)" aria-label="Filter by location"
+            [disabled]="exporting()">
+            <option value="">All locations</option>
+            @for (b of itemBranches(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+            }
+          </select>
+        </label>
+        }
+        @if (listStatusOptions().length) {
+        <label class="page-size-wrap type-filter">
+          <span>Status</span>
+          <select [ngModel]="listStatusFilter" (ngModelChange)="onListStatusFilter($event)"
+            aria-label="Filter by status" [disabled]="exporting()">
+            <option value="">All statuses</option>
+            @for (o of listStatusOptions(); track o.value) {
+            <option [value]="o.value">{{ statusDisplay(o.label) }}</option>
+            }
+          </select>
+        </label>
+        }
+        @if (hasListPeriod) {
+        <!-- Invoices: opens on this month (issue date, Pakistan dates); a wider period fetches that range. -->
+        <label class="page-size-wrap type-filter">
+          <span>{{ listDateLabel }}</span>
+          <select [ngModel]="listPeriod" (ngModelChange)="onListPeriod($event)"
+            [attr.aria-label]="listDateLabel + ' period'" [disabled]="exporting()">
+            @for (o of listPeriodOptions; track o.value) {
+            <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        @if (listPeriodText) {
+        <span class="list-period-range">{{ listPeriodText }}</span>
+        }
+        }
+        @if (!hasListPeriod || listPeriod === 'custom') {
+        <label class="page-size-wrap type-filter date-filter">
+          <span>{{ hasListPeriod ? 'From' : listDateLabel + ' from' }}</span>
+          <input type="date" [ngModel]="listDateFrom" (ngModelChange)="onListDateFrom($event)"
+            [attr.max]="listDateTo || null" [attr.aria-label]="listDateLabel + ' from'" [disabled]="exporting()" />
+        </label>
+        <label class="page-size-wrap type-filter date-filter">
+          <span>to</span>
+          <input type="date" [ngModel]="listDateTo" (ngModelChange)="onListDateTo($event)"
+            [attr.min]="listDateFrom || null" [attr.aria-label]="listDateLabel + ' to'" [disabled]="exporting()" />
+        </label>
+        }
+        @if (listFiltersActive) {
+        <button type="button" class="btn-admin btn-outline-admin btn-clear-filters" (click)="clearListFilters()"
+          [disabled]="exporting()">Clear filters</button>
+        }
+      </div>
+      }
+      <div class="toolbar-right">
+        <label class="page-size-wrap">
+          <span>Show</span>
+          <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
+            @for (size of pageSizeOptions; track size) {
+            <option [value]="size">{{ size }}</option>
+            }
+          </select>
+        </label>
+        <span class="item-count">{{ totalCount() }} items</span>
+      </div>
+    </div>
+
+    @if (loading()) {
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+    } @else if (loadError()) {
+    <!-- The list could not be loaded: say so (not "No records found.") and offer Retry. -->
+    <div class="empty-state list-error" role="alert">
+      <p>{{ loadError() }}</p>
+      <button type="button" class="btn-admin btn-outline-admin" (click)="retryLoad()">Retry</button>
+    </div>
+    } @else if (filtered.length === 0) {
+    <div class="empty-state">
+      <p>{{ listEmptyText }}</p>
+      @if (listFiltersActive) {
+      <button type="button" class="btn-admin btn-outline-admin" (click)="clearListFilters()">Clear filters</button>
+      }
+    </div>
+    } @else {
+    <div class="table-wrap">
+      <table class="admin-table" [class.compact-list]="entity === 'invoices'">
+        <thead>
+          <tr>
+            @for (col of screenColumns(); track col.key) {
+            <th [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">{{ col.screenLabel || col.label }}</th>
+            }
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of filtered; track item.rowKey || item.bookingId || item.id || item.idGuid || $index) {
+          <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
+            @for (col of screenColumns(); track col.key) {
+            <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
+              @if ((entity === 'contacts' && col.key === 'locationName') || (entity === 'complaints' && col.key
+              === 'branch')) {
+              <!-- The branch and a pencil to set / change it (opens the branch popup). No branch = seen by every branch. -->
+              @let branchName = itemBranchName(item);
+              @if (canSetItemBranch(item)) {
+              <button type="button" class="type-edit" (click)="openItemBranch(item)"
+                [attr.aria-label]="branchName ? 'Change branch: ' + branchName : 'Set branch'">
+                @if (branchName) {
+                <span class="type-pill branch-pill">{{ branchName }}</span>
+                } @else {
+                <span class="type-pill type-unset">No branch</span>
+                }
+                <svg class="type-pencil" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  aria-hidden="true">
+                  <path
+                    d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
+                </svg>
+              </button>
+              } @else if (branchName) {
+              <span class="type-pill branch-pill">{{ branchName }}</span>
+              } @else {
+              <span class="type-pill type-unset">No branch</span>
+              }
+              } @else if (col.type === 'image') {
+              <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
+              } @else if (canEditStatus(col)) {
+              <!-- Status is changed right here: the pill shows the current status and is coloured by it. -->
+              <span class="status-picker" [class]="'status-picker status-' + statusKey(getCellValue(item, col))">
+                <select
+                  (change)="changeStatus(item, $any($event.target).value, $any($event.target), currentStatusOption(item, col))"
+                  aria-label="Change status" [title]="'Change status'">
+                  @if (!currentStatusOption(item, col)) {
+                  <option value="" disabled selected>{{ getCellValue(item, col) || 'Not set' }}</option>
+                  }
+                  @for (s of config().statusOptions; track s) {
+                  <option [value]="s" [selected]="s === currentStatusOption(item, col)">{{ statusDisplay(s) }}</option>
+                  }
+                </select>
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+              } @else if (col.type === 'status' || col.type === 'booking-status' || col.type === 'invoice-status') {
+              <span class="status-badge"
+                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{
+                getCellValue(item,
+                col) }}</span>
+              } @else if (col.type === 'approval-status') {
+              <span class="status-badge"
+                [style.background]="getCellValue(item, col) === 'Pending Approval' ? '#fef3c7' : '#dcfce7'"
+                [style.color]="getCellValue(item, col) === 'Pending Approval' ? '#92400e' : '#166534'"
+                [style.border]="getCellValue(item, col) === 'Pending Approval' ? '1px solid #fde68a' : '1px solid #bbf7d0'">
+                {{ getCellValue(item, col) }}
+              </span>
+              } @else if (col.type === 'boolean') {
+              <span class="bool-badge" [class.active]="item[col.key]">{{ item[col.key] ? 'Yes' : 'No' }}</span>
+              } @else if (col.type === 'date') {
+              {{ getCellValue(item, col) | date:'mediumDate' }}
+              } @else if (col.type === 'datetime') {
+              {{ getCellValue(item, col) | date:'short' }}
+              } @else if (col.type === 'currency') {
+              @if (!col.label.includes('(PKR)')) { PKR }{{ (getCellValue(item, col) || 0) | number:'1.0-0' }}
+              } @else if (col.type === 'space-prices') {
+              <span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(item).display }}</span>
+              } @else if (col.type === 'roles') {
+              @for (r of item[col.key]; track r) {
+              <span class="role-tag">{{ r }}</span>
+              }
+              } @else if (col.type === 'role') {
+              <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
+                }}</span>
+              } @else {
+              <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
+              }
+            </td>
+            }
+            <td class="actions-cell">
+
+              @if (entity === 'quotation-responses' || item.isQuotationResponse || item.isQuotationDecline) {
+
+              <button class="action-btn info" (click)="previewQuotation(item.rawQuotationItem || item)"
+                title="View quotation and version history" aria-label="View quotation and version history">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              <button class="action-btn" (click)="createNextVersion(item.rawQuotationItem || item)"
+                title="Create a new version" aria-label="Create a new version"
+                style="background:#7c3aed;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              }
+              @if (config().updateFn && config().fields && (entity !== 'users' || canEditUser(item))) {
+              <button class="action-btn edit" (click)="openEdit(item)" [title]="'Edit ' + rowNoun()"
+                [attr.aria-label]="'Edit ' + rowNoun()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </button>
+              }
+              @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
+              <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()"
+                [attr.aria-label]="'Delete ' + rowNoun()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+              </button>
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="admin-pagination">
+      <button class="btn-admin btn-outline-admin" (click)="prevPage()" [disabled]="!canPrev()">Previous</button>
+      <span>Page {{ page() }} of {{ totalPages() }}</span>
+      <button class="btn-admin btn-outline-admin" (click)="nextPage()" [disabled]="!canNext()">Next</button>
+    </div>
+    }
+  </div>
+</div>
+
+@if (showDiscardConfirm()) {
+<div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscard()">
+  <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;"
+    (click)="$event.stopPropagation()">
+    <div
+      style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    </div>
+    <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">{{ discardConfirmTitle }}</h3>
+    <p style="margin:0 0 20px 0; font-size:0.875rem; color:#64748b; line-height:1.5;">
+      {{ discardConfirmMessage }}
+    </p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button type="button" class="btn-admin btn-outline-admin" style="flex:1" (click)="cancelDiscard()">
+        Keep Editing
+      </button>
+      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;"
+        (click)="confirmDiscard()">
+        Discard
+      </button>
+    </div>
+  </div>
+</div>
+}
+
+<!-- Tour inquiry feedback -->
+<!-- ===================== Tour inquiry popups (Add inquiry, Type, Feedback) ===================== -->
+<!-- One icon per inquiry Type / feedback outcome; the same colour is used in the list pill and the popups. -->
+<ng-template #inqIcon let-name>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    @switch (name) {
+    @case ('Website') {
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /> }
+    @case ('WhatsApp') {
+    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+    <path d="M8 12h.01" />
+    <path d="M12 12h.01" />
+    <path d="M16 12h.01" /> }
+    @case ('WalkIn') {
+    <path d="M13 4h3a2 2 0 0 1 2 2v14" />
+    <path d="M2 20h3" />
+    <path d="M13 20h9" />
+    <path d="M10 12v.01" />
+    <path d="M13 4.56v16.16a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z" /> }
+    @case ('Reference') {
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M19 8v6" />
+    <path d="M22 11h-6" /> }
+    @case ('not_interested') {
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" /> }
+    @case ('future_prospect') {
+    <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
+    <path d="M16 2v4" />
+    <path d="M8 2v4" />
+    <path d="M3 10h5" />
+    <path d="M17.5 17.5 16 16.3V14" />
+    <circle cx="16" cy="16" r="6" /> }
+    @case ('converted') {
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="m9 15 2 2 4-4" /> }
+    @case ('inquiry') {
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M8 8h8" />
+    <path d="M8 12h5" /> }
+    @case ('feedback') {
+    <rect width="8" height="4" x="8" y="2" rx="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="m9 14 2 2 4-4" /> }
+    @case ('type') {
+    <path
+      d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z" />
+    <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /> }
+    @case ('close') {
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" /> }
+    @case ('complaint') {
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M12 7v3" />
+    <path d="M12 13h.01" /> }
+    @case ('branch') {
+    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="10" r="3" /> }
+    }
+  </svg>
+</ng-template>
+
+<!-- Set / change the branch of an inquiry or a complaint -->
+@if (showItemBranch() && itemBranchItem; as bi) {
+<app-manage-item-branch-modal [inqIcon]="inqIcon" [bi]="bi" [entity]="entity" [itemBranchLine]="itemBranchLineFn"
+  [itemBranches]="itemBranches" [itemBranchId]="itemBranchIdFn" [(itemBranchValueModel)]="itemBranchValue"
+  [itemBranchError]="itemBranchError" [itemBranchSaving]="itemBranchSaving" (closeItemBranch)="closeItemBranch()"
+  (saveItemBranch)="saveItemBranch()" />
+}
+
+<!-- ===================== New complaint (Complaints page) ===================== -->
+@if (showAddComplaint()) {
+<app-manage-complaint-modal [inqIcon]="inqIcon" [addComplaint]="addComplaint"
+  [(addComplaintLocationId)]="addComplaintLocationId" [addComplaintTried]="addComplaintTried"
+  [addComplaintError]="addComplaintError" [addComplaintSaving]="addComplaintSaving"
+  [itemBranchesState]="itemBranchesState" [itemBranches]="itemBranches" [fixedItemBranch]="fixedItemBranch"
+  [itemBranchesMissing]="itemBranchesMissing" [itemBranchesMissingText]="itemBranchesMissingText"
+  [phoneMaxLength]="phoneMaxLength" [complaintFieldError]="complaintFieldErrorFn" [complaintOptions]="complaintOptionsFn"
+  (addComplaintClose)="closeAddComplaint()" (addComplaintSave)="saveAddComplaint()"
+  (phoneFieldInput)="onPhoneFieldInput($event.event, $event.target, $event.key)" />
+}

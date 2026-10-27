@@ -1,8 +1,6 @@
 import { WhtInvoiceFields } from '../../../components/wht-invoice-fields/wht-invoice-fields';
-import { Component, signal, OnInit, computed, inject, HostListener, ChangeDetectorRef } from '@angular/core';
+import { Directive, signal, OnInit, computed, inject, HostListener, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CommonModule, DatePipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ContactService } from '../../../services/contact.service';
@@ -13,13 +11,12 @@ import { AmountFieldService } from '../../../services/amount-field.service';
 import { ASSIGNABLE_ROLES, BILLING_PERIOD_OPTIONS } from '../../../utils/constants';
 import { BookingService } from '../../../services/booking.service';
 import { QuotationService } from '../../../services/quotation.service';
-import { BookingBillingSummary } from '../../../models/admin.model';
 import { ToastService } from '../../../services/toast.service';
 import { AgreementService, AgreementESignature } from '../../../services/agreement.service';
 import { WhtRateOption, WhtRateService } from '../../../services/wht-rate.service';
 import { firstValueFrom, Observable, of, timeout } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
-import { localDateIso, localDateTimeIso, pakistanDateIso } from '../../../utils/dates';
+import { localDateIso, pakistanDateIso } from '../../../utils/dates';
 import { rangeLabel } from '../ceo/period-range';
 import { CNIC_MAX_LENGTH, cnicError, onCnicInput } from '../../../utils/cnic';
 import { PHONE_MAX_LENGTH, isValidPhone, onPhoneInput, phoneError } from '../../../utils/phone';
@@ -30,6 +27,7 @@ import {
 } from '../../../utils/list-filters';
 import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx-table';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
+import * as pricing from './utils/manage-pricing.utils';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -49,15 +47,10 @@ interface EntityConfig {
   statusOptions?: string[];
 }
 
-@Component({
-  selector: 'app-manage',
-  imports: [CommonModule, FormsModule, DatePipe, WhtInvoiceFields],
-  templateUrl: './manage.html',
-  // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.
-  styleUrls: ['../../../styles/form-popup.css', './manage.css']
-})
-export class Manage implements OnInit {
-  billingPeriods: any[] = [];
+/** Everything the Manage list pages do (lists, filters, export, row actions, every entity popup), moved here verbatim
+ * from Manage so per-entity pages can extend it. Each page (customers-page, bookings-page, ...) is only its @Component decorator. */
+@Directive()
+export abstract class ManageBase implements OnInit {
   entity = '';
   readonly config = signal<EntityConfig>({ title: '', columns: [], getFn: () => of({ data: [], total: 0 }) });
   /** The list's columns on screen (the export uses every column of the config). */
@@ -163,12 +156,6 @@ export class Manage implements OnInit {
   readonly reassignError = signal('');
   selectedNewSpace = '';
 
-  bookingCalendarLoading = signal(false);
-  readonly bookingMonthCells = signal<any[]>([]);
-  readonly bookingMonthTitle = signal('');
-  private bookingCalendarDate = new Date();
-  weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
   readonly locationOptions = signal<{ v: any; l: string }[]>([]);
   /**
    * Booking / Quotation "Space Type": one option per category (value 'private' / 'meeting' / 'shared'), from every
@@ -219,7 +206,6 @@ export class Manage implements OnInit {
   bookingOfferingTypeId: number = 1;
   bookingOfferingType = '24/7';
   readonly bookingDiscountError = signal('');
-  bookingChallanMode: 'initial' | 'full' = 'initial';
   bookingSubtotal = 0;
   bookingDiscountAmount = 0;
   bookingFloorId: number | null = null;
@@ -235,54 +221,20 @@ export class Manage implements OnInit {
     { v: 0, l: 'No deposit' }, { v: 1, l: '1 month' }, { v: 2, l: '2 months' }, { v: 3, l: '3 months' },
   ];
 
-  /** A month count as the API accepts it: a whole number 0-3 (anything else, incl. missing, is 0). */
-  private static clampDepositMonths(value: unknown): number {
-    const n = Math.round(Number(value));
-    return Number.isFinite(n) ? Math.min(3, Math.max(0, n)) : 0;
-  }
+  private static clampDepositMonths(value: unknown): number { return pricing.clampDepositMonths(value); }
 
-  /**
-   * 2 decimals, halves away from zero, as the API rounds its decimals (MidpointRounding.AwayFromZero). Binary float
-   * noise is dropped first (15 significant digits), so 10,001 x 0.895 = 8,950.895 gives 8,950.90 here as there.
-   */
-  private static round2(value: number): number {
-    if (!Number.isFinite(value)) return 0;
-    const clean = Number(value.toPrecision(15));
-    const shifted = Number(`${Math.round(Number(`${Math.abs(clean)}e2`))}e-2`);
-    const rounded = Number.isFinite(shifted) ? shifted : Math.round(Math.abs(clean) * 100) / 100;
-    return clean < 0 ? -rounded : rounded;
-  }
+  private static depositAmount(months: number, monthlyRent: number, discountPct: number): number { return pricing.depositAmount(months, monthlyRent, discountPct); }
 
-  /** Deposit amount = months x monthly rent x (1 - rent discount %), 2 decimals: the figure the API stores. */
-  private static depositAmount(months: number, monthlyRent: number, discountPct: number): number {
-    if (!(months > 0) || !(monthlyRent > 0)) return 0;
-    const pct = Math.min(100, Math.max(0, Number(discountPct) || 0));
-    return Math.max(0, Manage.round2(months * monthlyRent * (1 - pct / 100)));
-  }
+  private static storedDeposit(isContractSpace: boolean, storedAmount: unknown, storedMonths: unknown, monthlyRent: number, discountPct: number): number { return pricing.storedDeposit(isContractSpace, storedAmount, storedMonths, monthlyRent, discountPct); }
 
-  /**
-   * A stored deposit as the API reads it back (SecurityDepositRules.Stored): the stored amount; a stored 0 with
-   * months > 0 on a contract space (private office / shared space) = months x rent x (1 - discount); else none.
-   */
-  private static storedDeposit(isContractSpace: boolean, storedAmount: unknown, storedMonths: unknown,
-    monthlyRent: number, discountPct: number): number {
-    const amount = Number(storedAmount ?? 0);
-    if (amount > 0) return Manage.round2(amount);
-    if (!isContractSpace) return 0;
-    return Manage.depositAmount(Number(storedMonths ?? 0), monthlyRent, discountPct);
-  }
-
-  /** Months behind a stored deposit amount when a response has no month count (older API). */
-  private static depositMonthsFromAmount(amount: unknown, monthlyRent: number, discountPct: number): number {
-    const perMonth = Manage.depositAmount(1, monthlyRent, discountPct);
-    const a = Number(amount ?? 0);
-    return a > 0 && perMonth > 0 ? Manage.clampDepositMonths(a / perMonth) : 0;
-  }
+  private static depositMonthsFromAmount(amount: unknown, monthlyRent: number, discountPct: number): number { return pricing.depositMonthsFromAmount(amount, monthlyRent, discountPct); }
 
   /** Months sent with the booking: the selection for private office and shared space, always 0 for meeting rooms. */
   get bookingDepositMonths(): number {
-    return (this.isAdminPrivateRoom || this.isAdminSharedSpace) ? Manage.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
+    return (this.isAdminPrivateRoom || this.isAdminSharedSpace) ? ManageBase.clampDepositMonths(this.bookingSecurityDepositMonths) : 0;
   }
+  /** The booking form's bookingDepositMonths (manage-booking-form-modal), read lazily through this. */
+  readonly bookingDepositMonthsFn = () => this.bookingDepositMonths;
 
   /**
    * Months in the booking request: always on create; on edit only when changed (left out = unchanged), so saving
@@ -298,16 +250,7 @@ export class Manage implements OnInit {
     return /security deposit/i.test(String(message ?? '')) ? 'securityDepositMonths' : 'space';
   }
 
-  /**
-   * The rent discount as a percentage of the monthly rent: a fixed amount ("Amount" / "Fixed") converts to its share
-   * of ONE month's rent (at most 100%); any other type is a percentage (as SecurityDepositRules.DiscountFraction).
-   */
-  private static rentDiscountPct(discountType: string, discountValue: unknown, monthlyRent: number): number {
-    const val = Number(discountValue || 0);
-    if (!(val > 0)) return 0;
-    if (!/^(amount|fixed)$/i.test(String(discountType ?? '').trim())) return Math.min(100, val);
-    return monthlyRent > 0 ? Math.min(100, (val / monthlyRent) * 100) : 0;
-  }
+  private static rentDiscountPct(discountType: string, discountValue: unknown, monthlyRent: number): number { return pricing.rentDiscountPct(discountType, discountValue, monthlyRent); }
   // Per-seat monthly base price: starts at the space's standard rate and may only be raised (same rule as quotations).
   bookingPerSeatBasePrice = 0;
   bookingMinPerSeatBasePrice = 0;
@@ -331,6 +274,8 @@ export class Manage implements OnInit {
     const floorPerSeat = this.bookingMinPerSeatBasePrice * (1 - cap / 100);
     return Math.floor(((perSeat - floorPerSeat) / perSeat) * 10000) / 100;
   }
+  /** The booking form's bookingDynamicDiscountCap (manage-booking-form-modal), read lazily through this. */
+  readonly bookingDynamicDiscountCapFn = () => this.bookingDynamicDiscountCap;
 
   /** Offering type's discount cap at the standard rate. */
   get bookingBaseDiscountCap(): number {
@@ -355,6 +300,8 @@ export class Manage implements OnInit {
     const base = this.isAdminMeetingRoom ? this.bookingSubtotal : this.bookingMonthlyRent;
     return parseFloat(((base * this.bookingDynamicDiscountCap) / 100).toFixed(2));
   }
+  /** The booking form's bookingMaxAllowedDiscountFixed (manage-booking-form-modal), read lazily through this. */
+  readonly bookingMaxAllowedDiscountFixedFn = () => this.bookingMaxAllowedDiscountFixed;
 
   get bookingOfferingTypeName(): string {
     const otId = Number(this.bookingOfferingTypeId || 0);
@@ -456,9 +403,11 @@ export class Manage implements OnInit {
   /** Live deposit on Create Booking = months x monthly rent x (1 - rent discount %); 0 for shared / meeting. */
   get effectiveSecurityDeposit(): number {
     const rent = this.bookingMonthlyRent;
-    return Manage.depositAmount(this.bookingDepositMonths, rent,
-      Manage.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
+    return ManageBase.depositAmount(this.bookingDepositMonths, rent,
+      ManageBase.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
   }
+  /** The booking form's effectiveSecurityDeposit (manage-booking-form-modal), read lazily through this. */
+  readonly effectiveSecurityDepositFn = () => this.effectiveSecurityDeposit;
 
   get bookingMonthlyRent(): number {
     if (this.isAdminMeetingRoom) return this.bookingSubtotal;
@@ -474,11 +423,15 @@ export class Manage implements OnInit {
     const months = Number(this.adminMonths || 1);
     return parseFloat(((this.bookingSubtotal || 0) / months).toFixed(2));
   }
+  /** The booking form's bookingMonthlyRent (manage-booking-form-modal), read lazily through this. */
+  readonly bookingMonthlyRentFn = () => this.bookingMonthlyRent;
 
   get bookingBillingAmount(): number {
     if (this.isAdminMeetingRoom) return this.bookingSubtotal;
     return Math.max(0, parseFloat((this.bookingBillingPeriodMonths * this.bookingMonthlyRent).toFixed(2)));
   }
+  /** The booking form's bookingBillingAmount (manage-booking-form-modal), read lazily through this. */
+  readonly bookingBillingAmountFn = () => this.bookingBillingAmount;
 
   /** Seats the support charge is billed on: the chosen capacity, else the space's own capacity (as the invoice does). */
   get bookingSupportSeats(): number {
@@ -497,6 +450,8 @@ export class Manage implements OnInit {
     const supportCharge = 2000 * this.bookingSupportSeats * Math.max(1, Number(this.bookingBillingPeriodMonths || 3));
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
+  /** The booking form's bookingTaxAmount (manage-booking-form-modal), read lazily through this. */
+  readonly bookingTaxAmountFn = () => this.bookingTaxAmount;
 
   get bookingFirstInvoiceDiscount(): number {
     if (this.isAdminMeetingRoom) return this.bookingDiscountAmount;
@@ -507,11 +462,15 @@ export class Manage implements OnInit {
     }
     return parseFloat(Math.min(this.bookingBillingAmount, Math.max(0, val * billingM)).toFixed(2));
   }
+  /** The booking form's bookingFirstInvoiceDiscount (manage-booking-form-modal), read lazily through this. */
+  readonly bookingFirstInvoiceDiscountFn = () => this.bookingFirstInvoiceDiscount;
 
   get bookingFirstInvoiceTotal(): number {
     const subtotal = this.bookingBillingAmount + this.bookingTaxAmount + this.effectiveSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.bookingFirstInvoiceDiscount).toFixed(2));
   }
+  /** The booking form's bookingFirstInvoiceTotal (manage-booking-form-modal), read lazily through this. */
+  readonly bookingFirstInvoiceTotalFn = () => this.bookingFirstInvoiceTotal;
 
   readonly accountOptions = signal<{ v: number; l: string }[]>([]);
   /** Space categories (Private Office, Meeting Room, ...) for the Space Types form: every type needs one. */
@@ -534,8 +493,6 @@ export class Manage implements OnInit {
   readonly customerSearchResults = signal<any[]>([]);
   customerSearchTimer: any;
   selectedCustomer: any = null;
-  // When opening customer-create from booking flow, set this to true so save() can inject created customer
-  creatingCustomerFromBooking = false;
 
   // - Country Codes & Dropdowns -
   countryCodeOptions: { v: string; l: string }[] = [
@@ -588,7 +545,6 @@ export class Manage implements OnInit {
   readonly quickCustomerError = signal('');
 
   // - Admin Booking Receipt -
-  readonly showReceiptModal = signal(false);
   adminBookingReceipt = signal<any>(null);
   readonly showChallanModal = signal(false);
   challanData = signal<any>(null);
@@ -648,6 +604,8 @@ export class Manage implements OnInit {
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
   }
+  /** The quotation form's filteredQuotationOfferingTypes (manage-quotation-form-modal), bound to this page. */
+  readonly filteredQuotationOfferingTypesFn = () => this.filteredQuotationOfferingTypes();
 
   filteredBookingOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
     const locId = this.selectedLocationId ? Number(this.selectedLocationId) : null;
@@ -656,6 +614,8 @@ export class Manage implements OnInit {
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
   }
+  /** The booking form's filteredBookingOfferingTypes (manage-booking-form-modal), bound to this page. */
+  readonly filteredBookingOfferingTypesFn = () => this.filteredBookingOfferingTypes();
 
   filteredAgreementOfferingTypes(): { id: number; description: string; discountCap: number; locationId?: number | null }[] {
     const locId = this.sendAgreementData?.locationId ? Number(this.sendAgreementData.locationId) : null;
@@ -664,6 +624,8 @@ export class Manage implements OnInit {
     const filtered = all.filter(o => o.locationId == null || Number(o.locationId) === locId);
     return filtered.length > 0 ? filtered : all;
   }
+  /** The send-agreement popup's filteredAgreementOfferingTypes (manage-agreement-send-modal), bound to this page. */
+  readonly filteredAgreementOfferingTypesFn = () => this.filteredAgreementOfferingTypes();
 
   loadQuotationTaxRate() {
     const locId = Number(this.selectedQuotationLocationId || 0);
@@ -866,12 +828,16 @@ export class Manage implements OnInit {
     const floorPerSeat = standard * (1 - cap / 100);
     return Math.floor(((perSeat - floorPerSeat) / perSeat) * 10000) / 100;
   }
+  /** The quotation form's quotationDynamicDiscountCap (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationDynamicDiscountCapFn = () => this.quotationDynamicDiscountCap;
 
   /** Lowest allowed price per seat after discount (shown next to the cap). */
   get quotationFloorPerSeat(): number {
     const standard = Number(this.quotationMinPerSeatBasePrice || 0) || Number(this.quotationPerSeatBasePrice || 0);
     return parseFloat((standard * (1 - this.quotationBaseDiscountCap / 100)).toFixed(2));
   }
+  /** The quotation form's quotationFloorPerSeat (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationFloorPerSeatFn = () => this.quotationFloorPerSeat;
 
   get quotationMaxAllowedDiscountFixed(): number {
     const standard = Number(this.quotationMinPerSeatBasePrice || 0);
@@ -884,11 +850,8 @@ export class Manage implements OnInit {
     const base = this.isQuotationMeetingRoom ? this.quotationSubtotal : this.quotationMonthlyRent;
     return parseFloat(((base * this.quotationDynamicDiscountCap) / 100).toFixed(2));
   }
-
-  get maxAllowedDiscountValue(): number {
-    if (this.quotationDiscountType === 'Percentage') return this.quotationDynamicDiscountCap;
-    return this.quotationMaxAllowedDiscountFixed;
-  }
+  /** The quotation form's quotationMaxAllowedDiscountFixed (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationMaxAllowedDiscountFixedFn = () => this.quotationMaxAllowedDiscountFixed;
 
   get quotationOfferingTypeName(): string {
     const otId = Number(this.quotationOfferingTypeId || 0);
@@ -971,18 +934,24 @@ export class Manage implements OnInit {
     if (this.isQuotationMeetingRoom) return this.quotationSubtotal;
     return Math.max(0, parseFloat((this.quotationBillingPeriodMonths * this.quotationMonthlyRent).toFixed(2)));
   }
+  /** The quotation form's quotationBillingAmount (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationBillingAmountFn = () => this.quotationBillingAmount;
 
   /** Months sent with the quotation: the selection for private office and shared space, always 0 for meeting rooms. */
   get quotationDepositMonths(): number {
-    return (this.isQuotationPrivateRoom || this.isQuotationSharedSpace) ? Manage.clampDepositMonths(this.quotationSecurityDepositMonths) : 0;
+    return (this.isQuotationPrivateRoom || this.isQuotationSharedSpace) ? ManageBase.clampDepositMonths(this.quotationSecurityDepositMonths) : 0;
   }
+  /** The quotation form's quotationDepositMonths (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationDepositMonthsFn = () => this.quotationDepositMonths;
 
   /** Live deposit on Create Quotation = months x monthly rent x (1 - rent discount %); 0 for shared / meeting. */
   get effectiveQuotationSecurityDeposit(): number {
     const rent = this.quotationMonthlyRent;
-    return Manage.depositAmount(this.quotationDepositMonths, rent,
-      Manage.rentDiscountPct(this.quotationDiscountType, this.quotationDiscountValue, rent));
+    return ManageBase.depositAmount(this.quotationDepositMonths, rent,
+      ManageBase.rentDiscountPct(this.quotationDiscountType, this.quotationDiscountValue, rent));
   }
+  /** The quotation form's effectiveQuotationSecurityDeposit (manage-quotation-form-modal), read lazily through this. */
+  readonly effectiveQuotationSecurityDepositFn = () => this.effectiveQuotationSecurityDeposit;
 
   get quotationDiscountAmount(): number {
     const val = Number(this.quotationDiscountValue || 0);
@@ -1003,6 +972,8 @@ export class Manage implements OnInit {
     const supportCharge = 2000 * cap * billingM;
     return parseFloat((supportCharge * 0.16).toFixed(2));
   }
+  /** The quotation form's quotationTaxAmount (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationTaxAmountFn = () => this.quotationTaxAmount;
 
   get quotationFirstInvoiceDiscount(): number {
     if (this.isQuotationMeetingRoom) return this.quotationDiscountAmount;
@@ -1013,11 +984,15 @@ export class Manage implements OnInit {
     }
     return parseFloat(Math.min(this.quotationBillingAmount, Math.max(0, val * billingM)).toFixed(2));
   }
+  /** The quotation form's quotationFirstInvoiceDiscount (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationFirstInvoiceDiscountFn = () => this.quotationFirstInvoiceDiscount;
 
   get quotationFirstInvoiceTotal(): number {
     const subtotal = this.quotationBillingAmount + this.quotationTaxAmount + this.effectiveQuotationSecurityDeposit;
     return parseFloat(Math.max(0, subtotal - this.quotationFirstInvoiceDiscount).toFixed(2));
   }
+  /** The quotation form's quotationFirstInvoiceTotal (manage-quotation-form-modal), read lazily through this. */
+  readonly quotationFirstInvoiceTotalFn = () => this.quotationFirstInvoiceTotal;
 
   // Meeting room slots for quotation
   readonly quotationMeetingSlots = signal<{ label: string; start: string; end: string }[]>([]);
@@ -1105,6 +1080,8 @@ export class Manage implements OnInit {
   get locationLocked(): boolean {
     return this.isLocationBound && this.locationOptions().length <= 1;
   }
+  /** The quotation form's locationLocked (manage-quotation-form-modal), read lazily through this. */
+  readonly locationLockedFn = () => this.locationLocked;
 
   /** Locations an admin may assign to a user: all for a super admin, otherwise only the admin's own. */
   /** The signed-in Admin's / Sales Executive's own locations: from the profile, else from the sign-in token. */
@@ -1143,12 +1120,12 @@ export class Manage implements OnInit {
 
   /** Roles that are tied to location(s): admin, sales executive, sales manager and access officer. */
   isLocationRole(role: any): boolean {
-    return Manage.LOCATION_ROLES.includes(this.normalizeRole(role));
+    return ManageBase.LOCATION_ROLES.includes(this.normalizeRole(role));
   }
 
   /** "Admin, Sales Executive, Sales Manager and Access Officer": the location-bound roles as the database names them. */
   get locationRoleNames(): string {
-    const names = Manage.LOCATION_ROLES.map(r => this.getRoleLabel(r));
+    const names = ManageBase.LOCATION_ROLES.map(r => this.getRoleLabel(r));
     return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join('');
   }
 
@@ -1331,10 +1308,6 @@ export class Manage implements OnInit {
         this.load();
         if (this.entity === 'spaces') this.loadSpaceDropdowns();
         if (this.entity === 'bookings') this.loadSpacesForDropdown();
-        if (this.entity === 'spaceconfig') {
-          this.loadSpaceDropdowns();
-          this.loadSpaceConfig();
-        }
         if (this.entity === 'customers' || this.entity === 'users') {
           this.loadCityOptions();
           if (this.entity === 'users') { this.loadLocationOptions(); this.loadRoles(); }
@@ -1356,29 +1329,6 @@ export class Manage implements OnInit {
   }
 
   spaceConfigItems = signal<any[]>([]);
-  spaceConfigSaving = signal(false);
-  readonly spaceConfigError = signal('');
-  readonly spaceConfigSuccess = signal('');
-  editingConfig: any = null;
-  configFormData: any = {};
-  readonly showConfigModal = signal(false);
-  vacantSpaces = signal<any[]>([]);
-  vacantLoading = signal(false);
-  vacantBranchId: any = null;
-  readonly vacantBranchOptions = signal<{ id: any; name: string }[]>([]);
-  readonly generateError = signal('');
-  readonly generateSuccess = signal('');
-
-  private loadSpaceConfig() {
-    this.admin.getSpaceConfig().subscribe({
-      next: (res: any) => {
-        this.spaceConfigItems.set(res?.data ?? []);
-        this.loadSpaceInventoryForConfig();
-      },
-      error: this.apiError('Failed to load space config.')
-    });
-    this.loadVacantSpaces();
-  }
 
   private loadSpaceInventoryForConfig() {
     if (this.allSpaces().length) {
@@ -1392,212 +1342,6 @@ export class Manage implements OnInit {
     });
   }
 
-  private loadVacantSpaces() {
-    this.vacantLoading.set(true);
-    this.admin.getVacantSpaces(this.vacantBranchId ?? undefined).subscribe({
-      next: (res: any) => {
-        const vacant = (res?.data ?? []).sort((a: any, b: any) => (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0));
-        this.vacantSpaces.set(vacant);
-        this.vacantLoading.set(false);
-      },
-      error: () => this.vacantLoading.set(false)
-    });
-  }
-
-  get vacantSpacesGrouped(): { type: string; spaces: any[] }[] {
-    const grouped = new Map<string, any[]>();
-    for (const s of this.vacantSpaces()) {
-      const code = parseInt(s.code, 10);
-      const key = code >= 3200 ? 'Meeting' : code >= 3100 ? 'Private' : code >= 3000 ? 'Shared' : (s.spaceTypeName || 'Other');
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(s);
-    }
-    return Array.from(grouped.entries()).map(([type, spaces]) => ({ type, spaces }));
-  }
-
-  actualSpaceCount(cfg: any): number {
-    if (!cfg) return 0;
-    const category = (cfg.spaceCategory || '').toLowerCase();
-    const prefix = String(cfg.codePrefix || '').trim();
-    const matches = this.allSpaces().filter((s: any) => {
-      const code = String(s.code ?? '');
-      const typeName = String(s.spaceTypeName ?? '').toLowerCase();
-      if (prefix && code.startsWith(prefix)) {
-        return true;
-      }
-      return !!(category && (typeName.includes(category) || category.includes(typeName)));
-    });
-    return matches.length || Number(cfg.totalSpaces ?? 0);
-  }
-
-  openEditConfig(cfg: any) {
-    this.editingConfig = cfg;
-    this.configFormData = {
-      totalSpaces: cfg.totalSpaces,
-      defaultCapacities: cfg.defaultCapacities,
-      openingTime: cfg.openingTime,
-      closingTime: cfg.closingTime,
-      securityDeposit: cfg.securityDeposit ?? null,
-      pricePerHour: cfg.pricePerHour ?? null,
-      pricePerDay: cfg.pricePerDay ?? null,
-      pricePerMonth: cfg.pricePerMonth ?? null,
-    };
-    this.spaceConfigError.set('');
-    this.spaceConfigSuccess.set('');
-    this.showConfigModal.set(true);
-  }
-
-  cancelEditConfig() {
-    this.requestDiscardableClose(this.isConfigFormDirty(), () => {
-      this.editingConfig = null;
-      this.showConfigModal.set(false);
-    });
-  }
-
-  saveConfig() {
-    if (!this.editingConfig) return;
-    this.spaceConfigSaving.set(true);
-    this.admin.updateSpaceConfig(this.editingConfig.spaceCategory, this.configFormData).subscribe({
-      next: () => {
-        this.spaceConfigSuccess.set('Configuration saved.');
-        this.spaceConfigSaving.set(false);
-        this.editingConfig = null;
-        this.showConfigModal.set(false);
-        this.loadSpaceConfig();
-        setTimeout(() => this.spaceConfigSuccess.set(''), 3000);
-      },
-      error: (e: any) => {
-        this.spaceConfigError.set(e?.error?.detail || 'Failed to save config.');
-        this.spaceConfigSaving.set(false);
-      }
-    });
-  }
-
-  onVacantBranchChange() {
-    this.loadVacantSpaces();
-  }
-
-  // - Add / Remove Single Space -
-  readonly showAddSpaceModal = signal(false);
-  addSpaceTypeId = '';
-  addSpaceLocationId = '';
-  addSpacePreviewCode = '';
-  addSpaceSaving = signal(false);
-  readonly addSpaceError = signal('');
-
-  openAddSpaceModal() {
-    this.addSpaceTypeId = '';
-    this.addSpaceLocationId = this.userLocationId ? String(this.userLocationId) : '';
-    this.addSpacePreviewCode = '';
-    this.addSpaceError.set('');
-    this.generateError.set('');
-    this.generateSuccess.set('');
-    this.showAddSpaceModal.set(true);
-  }
-
-  closeAddSpaceModal() {
-    this.requestDiscardableClose(this.isAddSpaceFormDirty(), () => {
-      this.showAddSpaceModal.set(false);
-      this.addSpaceTypeId = '';
-      this.addSpacePreviewCode = '';
-    });
-  }
-
-  onAddSpaceSelectionChange() {
-    this.addSpacePreviewCode = '';
-    // Space types belong to a location: a type the chosen location doesn't have is cleared.
-    if (this.spaceTypeGoneAt(this.spaceTypeIdOptionsAt(this.addSpaceLocationId), this.addSpaceTypeId)) {
-      this.addSpaceTypeId = '';
-    }
-    if (!this.addSpaceTypeId || !this.addSpaceLocationId) return;
-    // Find the config for the selected space type to get codePrefix
-    const typeName = this.spaceTypeIdOptionsAt(this.addSpaceLocationId).find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
-    const cfg = this.spaceConfigItems().find((c: any) =>
-      typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
-      (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
-    );
-    const prefix = cfg?.codePrefix ? parseInt(cfg.codePrefix, 10) : 0;
-    // Count existing spaces of this type at this location
-    const existing = this.vacantSpaces().filter((s: any) =>
-      (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
-        String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
-      (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
-    );
-    // Also count from allSpaces for a more accurate next code
-    const allOfType = this.allSpaces().filter((s: any) =>
-      (String(s.locationId ?? '') === String(this.addSpaceLocationId) ||
-        String(s.locationIdGuid ?? '') === String(this.addSpaceLocationId)) &&
-      (s.spaceTypeName || '').toLowerCase() === typeName.toLowerCase()
-    );
-    const count = Math.max(existing.length, allOfType.length);
-    this.addSpacePreviewCode = prefix ? String(prefix + count + 1) : '';
-  }
-
-  submitAddSpace() {
-    if (!this.addSpaceTypeId || !this.addSpaceLocationId) {
-      this.addSpaceError.set('Space type and location are required.');
-      return;
-    }
-    const typeName = this.spaceTypeIdOptionsAt(this.addSpaceLocationId).find(t => String(t.v) === this.addSpaceTypeId)?.l ?? '';
-    const locName = this.locationOptions().find(l => String(l.v) === this.addSpaceLocationId)?.l ?? '';
-    const cfg = this.spaceConfigItems().find((c: any) =>
-      typeName.toLowerCase().includes((c.spaceCategory || '').toLowerCase()) ||
-      (c.spaceCategory || '').toLowerCase().includes(typeName.toLowerCase())
-    );
-    const payload: Partial<any> = {
-      name: `${typeName} ${this.addSpacePreviewCode || ''}`.trim(),
-      code: this.addSpacePreviewCode || undefined,
-      locationId: Number(this.addSpaceLocationId) || this.addSpaceLocationId,
-      spaceTypeId: Number(this.addSpaceTypeId) || this.addSpaceTypeId,
-      pricePerHour: cfg?.pricePerHour ?? 0,
-      pricePerDay: cfg?.pricePerDay ?? 0,
-      status: 'Available',
-    };
-    this.addSpaceSaving.set(true);
-    this.addSpaceError.set('');
-    this.admin.createSpace(payload).subscribe({
-      next: () => {
-        this.addSpaceSaving.set(false);
-        this.showAddSpaceModal.set(false);
-        this.generateSuccess.set(`Space "${payload['name']}" added at ${locName}.`);
-        setTimeout(() => this.generateSuccess.set(''), 4000);
-        this.loadVacantSpaces();
-        if (this.allSpaces().length) this.loadSpacesForDropdown();
-      },
-      error: (e: any) => {
-        this.addSpaceSaving.set(false);
-        this.addSpaceError.set(e?.error?.message ?? 'Failed to add space.');
-      }
-    });
-  }
-
-  removeSpace(space: any) {
-    if (!confirm(`Remove space "${space.name} (${space.code})"? This cannot be undone.`)) return;
-    const id = space.idGuid ?? space.idGUID ?? space.id;
-    this.admin.deleteSpace(id).subscribe({
-      next: () => {
-        this.generateSuccess.set(`Space "${space.name}" removed.`);
-        setTimeout(() => this.generateSuccess.set(''), 4000);
-        this.loadVacantSpaces();
-      },
-      error: (e: any) => {
-        this.generateError.set(e?.error?.message ?? 'Failed to remove space.');
-      }
-    });
-  }
-
-  private refreshVacantBranchOptions() {
-    const options = new Map<any, string>();
-    for (const opt of this.locationOptions()) {
-      const branchId = (opt as any).branchId;
-      const branchName = (opt as any).branchName ?? '';
-      if (branchId != null && !options.has(branchId)) {
-        options.set(branchId, branchName || String(branchId));
-      }
-    }
-    this.vacantBranchOptions.set(Array.from(options.entries()).map(([id, name]) => ({ id, name })));
-  }
-
   private loadSpaceDropdowns() {
     this.admin.getLocations(1, 1000, '').subscribe({
       next: (res: any) => {
@@ -1607,7 +1351,6 @@ export class Manage implements OnInit {
           if (l.branchId) { opt.branchId = l.branchId; opt.branchName = l.branchName ?? l.branchCode; }
           return opt;
         }));
-        this.refreshVacantBranchOptions();
         this.config.set(this.buildConfig('spaces'));
       },
       error: this.apiError('Failed to load locations.')
@@ -1681,13 +1424,6 @@ export class Manage implements OnInit {
       },
       error: this.apiError('Failed to load locations.')
     });
-  }
-
-  getBoundLocationName(locationId?: any): string {
-    const targetId = locationId ?? this.formData['locationId'] ?? this.auth.user()?.locationId;
-    if (!targetId) return 'Assigned Location';
-    const opt = this.locationOptions().find(l => String(l.v) === String(targetId));
-    return opt ? opt.l : `Location #${targetId}`;
   }
 
   private loadCityOptions() {
@@ -1935,12 +1671,12 @@ export class Manage implements OnInit {
     const spaceCodeNum = targetSpace ? Number(targetSpace.code ?? 0) : Number(booking.spaceCode ?? 0);
 
     // The space's category decides (a "desk" type is a shared space); else the code range / type name as before.
-    let group = targetSpace ? Manage.spaceGroupOf(targetSpace) : '';
+    let group = targetSpace ? ManageBase.spaceGroupOf(targetSpace) : '';
     if (!group) {
       group = 'private';
       if (spaceCodeNum >= 3200 || stName.includes('meeting') || stName.includes('conference')) group = 'meeting';
       else if (spaceCodeNum >= 3100 || stName.includes('private') || stName.includes('office')) group = 'private';
-      else if (spaceCodeNum >= 3000 || Manage.SHARED_SPACE_WORDS.some(w => stName.includes(w))) group = 'shared';
+      else if (spaceCodeNum >= 3000 || ManageBase.SHARED_SPACE_WORDS.some(w => stName.includes(w))) group = 'shared';
     }
     this.selectedSpaceTypeId = group;
 
@@ -2010,12 +1746,12 @@ export class Manage implements OnInit {
     if (!this.isAdminPrivateRoom && !this.isAdminSharedSpace) {
       this.bookingSecurityDepositMonths = 0;
     } else if (secMonths != null) {
-      this.bookingSecurityDepositMonths = Manage.clampDepositMonths(secMonths);
+      this.bookingSecurityDepositMonths = ManageBase.clampDepositMonths(secMonths);
     } else {
       const rent = this.bookingMonthlyRent;
-      this.bookingSecurityDepositMonths = Manage.depositMonthsFromAmount(
+      this.bookingSecurityDepositMonths = ManageBase.depositMonthsFromAmount(
         booking.securityDeposit ?? booking.SecurityDeposit ?? booking.securityDepositRequired ?? booking.SecurityDepositRequired,
-        rent, Manage.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
+        rent, ManageBase.rentDiscountPct(this.bookingDiscountType, this.bookingDiscountValue, rent));
     }
     this.bookingEditLoadedDepositMonths = this.bookingDepositMonths;
   }
@@ -2035,7 +1771,7 @@ export class Manage implements OnInit {
     const l = label.toLowerCase();
     if (l.includes('meeting') || l.includes('conference') || l.includes('board')) return 'meeting';
     if (l.includes('private')) return 'private';
-    if (Manage.SHARED_SPACE_WORDS.some(w => l.includes(w))) return 'shared';
+    if (ManageBase.SHARED_SPACE_WORDS.some(w => l.includes(w))) return 'shared';
     if (l.includes('office')) return 'private';
     return l;
   }
@@ -2045,7 +1781,7 @@ export class Manage implements OnInit {
 
   /** A space's form group from its category code, else its type name (spaceTypeGroup); '' when neither tells. */
   private static spaceGroupOf(space: any): string {
-    const group = Manage.spaceTypeGroup(String(space?.spaceTypeName || space?.SpaceTypeName || ''), spaceCategoryCode(space));
+    const group = ManageBase.spaceTypeGroup(String(space?.spaceTypeName || space?.SpaceTypeName || ''), spaceCategoryCode(space));
     return group === 'private' || group === 'meeting' || group === 'shared' ? group : '';
   }
 
@@ -2057,7 +1793,7 @@ export class Manage implements OnInit {
       const name = (s.name || s.displayName || s.label || s.typeName || s.description || s.l || '').trim();
       const label = name ? name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : '';
       if (!label) return;
-      const group = Manage.spaceTypeGroup(label, spaceCategoryCode(s));
+      const group = ManageBase.spaceTypeGroup(label, spaceCategoryCode(s));
       if (!map.has(group)) {
         map.set(group, { v: group, l: group === 'meeting' ? 'Meeting Room' : group === 'private' ? 'Private Room' : group === 'shared' ? 'Shared Space' : label });
       }
@@ -2068,7 +1804,7 @@ export class Manage implements OnInit {
   private populateSpaceTypeOptions(apiTypes: any[]) {
     this.spaceTypeRows.set(apiTypes || []);
     const map = new Map<string, { v: any; l: string }>();
-    const getGroup = (label: string): string => Manage.spaceTypeGroup(label);
+    const getGroup = (label: string): string => ManageBase.spaceTypeGroup(label);
     const addedGroups = new Set<string>();
 
     // 1. From /spacetype API - use the category as value so all types in same category are matched
@@ -2145,8 +1881,10 @@ export class Manage implements OnInit {
   spaceTypeOptionsAt(location: unknown): readonly { v: any; l: string }[] {
     if (!this.spaceTypesPerLocation()) return this.spaceTypeOptions();
     const loc = this.locationIdOf(location);
-    return (loc != null ? this.spaceTypeGroupsByLocation().get(loc) : undefined) ?? Manage.NO_OPTIONS;
+    return (loc != null ? this.spaceTypeGroupsByLocation().get(loc) : undefined) ?? ManageBase.NO_OPTIONS;
   }
+  /** The quotation form's spaceTypeOptionsAt (manage-quotation-form-modal), bound to this page. */
+  readonly spaceTypeOptionsAtFn = (location: unknown) => this.spaceTypeOptionsAt(location);
 
   /** Spaces form "Space Type" options (ids) for the form's location; every type on an older API. */
   spaceTypeIdOptionsAt(location: unknown): readonly { v: number; l: string }[] {
@@ -2157,6 +1895,8 @@ export class Manage implements OnInit {
   spaceTypeHintAt(location: unknown, optionCount: number): string {
     return spaceTypeHint(this.spaceTypeRows(), this.locationIdOf(location), optionCount);
   }
+  /** The quotation form's spaceTypeHintAt (manage-quotation-form-modal), bound to this page. */
+  readonly spaceTypeHintAtFn = (location: unknown, optionCount: number) => this.spaceTypeHintAt(location, optionCount);
 
   /** True when a chosen space type value isn't offered at the form's new location (so the form drops it). */
   private spaceTypeGoneAt(options: readonly { v: any }[], selected: unknown): boolean {
@@ -2342,7 +2082,7 @@ export class Manage implements OnInit {
         if (this.selectedSpaceTypeId === 'meeting') return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
         if (this.selectedSpaceTypeId === 'private') return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
         if (this.selectedSpaceTypeId === 'shared') return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working')
-          || (!categoryCode && Manage.spaceTypeGroup(sTypeName) === 'shared');
+          || (!categoryCode && ManageBase.spaceTypeGroup(sTypeName) === 'shared');
         return false;
       });
     }
@@ -2559,34 +2299,29 @@ export class Manage implements OnInit {
       default: return false;
     }
   }
-
-  private getCustomerUserId(u: any): string {
-    // WN_Customers has no WN_Users link - use customerEmail to resolve at booking time
-    return u.idGUID ?? u.idGuid ?? String(u.id ?? '');
-  }
+  /** The booking form's isCustomerFieldEmpty (manage-booking-form-modal), bound to this page. */
+  readonly isCustomerFieldEmptyFn = (field: string) => this.isCustomerFieldEmpty(field);
 
   get isAdminMeetingRoom(): boolean {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
-
-  get isAdminMeetingRoomDayMode(): boolean {
-    return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'day';
-  }
-
-  get isAdminMeetingRoomSlotMode(): boolean {
-    return this.isAdminMeetingRoom && this.meetingRoomBookingMode === 'slot';
-  }
+  /** The booking form's isAdminMeetingRoom (manage-booking-form-modal), read lazily through this. */
+  readonly isAdminMeetingRoomFn = () => this.isAdminMeetingRoom;
 
   get isAdminPrivateRoom(): boolean {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'private' || s.includes('private');
   }
+  /** The booking form's isAdminPrivateRoom (manage-booking-form-modal), read lazily through this. */
+  readonly isAdminPrivateRoomFn = () => this.isAdminPrivateRoom;
 
   get isAdminSharedSpace(): boolean {
     const s = String(this.selectedSpaceTypeId || '').toLowerCase();
     return s === 'shared' || s.includes('shared') || s.includes('desk') || s.includes('coworking');
   }
+  /** The booking form's isAdminSharedSpace (manage-booking-form-modal), read lazily through this. */
+  readonly isAdminSharedSpaceFn = () => this.isAdminSharedSpace;
 
   get adminEndDateDisplay(): string {
     if (!this.bookingFormData.endDateTime) return '';
@@ -2594,6 +2329,8 @@ export class Manage implements OnInit {
     if (isNaN(d.getTime())) return '';
     return localDateIso(d);
   }
+  /** The booking form's adminEndDateDisplay (manage-booking-form-modal), read lazily through this. */
+  readonly adminEndDateDisplayFn = () => this.adminEndDateDisplay;
 
   generateAdminMeetingSlots() {
     if (!this.adminMeetingDate) { this.adminMeetingSlots.set([]); return; }
@@ -2624,6 +2361,8 @@ export class Manage implements OnInit {
   isAdminSlotSelected(slot: { start: string; isLocked?: boolean }): boolean {
     return this.adminSelectedSlots.has(slot.start);
   }
+  /** The booking form's isAdminSlotSelected (manage-booking-form-modal), bound to this page. */
+  readonly isAdminSlotSelectedFn = (slot: { start: string; isLocked?: boolean }) => this.isAdminSlotSelected(slot);
 
   private applyAdminSlotsToDates() {
     if (!this.adminMeetingDate || !this.adminSelectedSlots.size) {
@@ -2635,17 +2374,6 @@ export class Manage implements OnInit {
     const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
     this.bookingFormData.startDateTime = `${this.adminMeetingDate}T${sorted[0]}:00`;
     this.bookingFormData.endDateTime = `${this.adminMeetingDate}T${String(lastHour).padStart(2, '0')}:00:00`;
-  }
-
-  onAdminMeetingModeChange() {
-    this.adminMeetingDate = '';
-    this.adminMeetingDayEnd = '';
-    this.adminMeetingSlots.set([]);
-    this.adminSelectedSlots = new Set();
-    this.adminStartDate = '';
-    this.bookingFormData.startDateTime = '';
-    this.bookingFormData.endDateTime = '';
-    this.recalcAmount();
   }
 
   onAdminMeetingDayChange() {
@@ -3030,7 +2758,7 @@ export class Manage implements OnInit {
             if (errorMsg) {
               this.bookingFormSaving.set(false);
               this.bookingFormError.set(errorMsg);
-              this.bookingFormErrorField = Manage.bookingErrorField(errorMsg);
+              this.bookingFormErrorField = ManageBase.bookingErrorField(errorMsg);
               this.showError(errorMsg);
               this.scrollToTopAndHighlight(this.bookingFormErrorField);
               return;
@@ -3048,7 +2776,7 @@ export class Manage implements OnInit {
           error: (err: any) => {
             this.bookingFormSaving.set(false);
             this.bookingFormError.set(err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Failed to update booking.');
-            this.bookingFormErrorField = Manage.bookingErrorField(this.bookingFormError());
+            this.bookingFormErrorField = ManageBase.bookingErrorField(this.bookingFormError());
             this.showError(this.bookingFormError());
             this.scrollToTopAndHighlight(this.bookingFormErrorField);
           }
@@ -3065,7 +2793,7 @@ export class Manage implements OnInit {
             console.error('[BOOKING TEST] Creation returned error message:', errorMsg);
             this.bookingFormSaving.set(false);
             this.bookingFormError.set(errorMsg);
-            this.bookingFormErrorField = Manage.bookingErrorField(errorMsg);
+            this.bookingFormErrorField = ManageBase.bookingErrorField(errorMsg);
             this.showError(errorMsg);
             this.scrollToTopAndHighlight(this.bookingFormErrorField);
             return;
@@ -3265,7 +2993,7 @@ export class Manage implements OnInit {
           this.bookingFormSaving.set(false);
           const msg = err?.error?.errorMessage || err?.error?.ErrorMessage || err?.error?.message || err?.message || 'Failed to create booking.';
           this.bookingFormError.set(msg);
-          this.bookingFormErrorField = Manage.bookingErrorField(msg);
+          this.bookingFormErrorField = ManageBase.bookingErrorField(msg);
           this.showError(msg);
           this.scrollToTopAndHighlight(this.bookingFormErrorField);
         }
@@ -3800,6 +3528,8 @@ export class Manage implements OnInit {
 
     return item[col.key] ?? '';
   }
+  /** The revert-approval popup's getCellValue (manage-revert-approval-modal), bound to this page. */
+  readonly getCellValueFn = (item: any, col: ColDef) => this.getCellValue(item, col);
 
   formatChallanDisplay(c: any): string {
     if (!c) return '-';
@@ -3830,6 +3560,8 @@ export class Manage implements OnInit {
     const dd = String(dateObj.getDate()).padStart(2, '0');
     return `WN-${yyyy}${mm}${dd}-${String(bId).padStart(6, '0')}`;
   }
+  /** The challan popup's formatChallanDisplay (manage-booking-challan-modal), bound to this page. */
+  readonly formatChallanDisplayFn = (c: any) => this.formatChallanDisplay(c);
 
 
   openCreate() {
@@ -3867,7 +3599,6 @@ export class Manage implements OnInit {
       this.formData.locationId = choices.length === 1 ? Number(choices[0].v)
         : (!choices.length && mine.length === 1 ? mine[0] : '');
     }
-    if (this.entity === 'bookings') this.initBookingCalendar();
     if (this.entity === 'gallery') this.formData.isActive = true;
     if (this.entity === 'users') {
       this.formData.role = 'general';
@@ -3978,27 +3709,6 @@ export class Manage implements OnInit {
       });
     }
     return Object.values(this.formData).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== false);
-  }
-
-  isConfigFormDirty(): boolean {
-    if (!this.configFormData) return false;
-    if (this.editingConfig) {
-      return Object.keys(this.configFormData).some(k => {
-        const val = this.configFormData[k];
-        const orig = (this.editingConfig as any)[k];
-        if (val === orig) return false;
-        if ((val === '' || val === null || val === undefined) && (orig === '' || orig === null || orig === undefined)) return false;
-        return String(val) !== String(orig);
-      });
-    }
-    return Object.values(this.configFormData).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== false);
-  }
-
-  isAddSpaceFormDirty(): boolean {
-    return Boolean(
-      (this.addSpaceTypeId && this.addSpaceTypeId.trim()) ||
-      (this.addSpacePreviewCode && this.addSpacePreviewCode.trim())
-    );
   }
 
   isReassignFormDirty(): boolean {
@@ -4334,24 +4044,8 @@ export class Manage implements OnInit {
 
       if (locId) this.loadFloorsForLocation(Number(locId));
     }
-    if (this.entity === 'bookings') {
-      this.formData['startDateTime'] = this.toDatetimeLocal(item.startDateTime);
-      this.formData['endDateTime'] = this.toDatetimeLocal(item.endDateTime);
-      if (!this.formData['spaceId'] && item.spaceGuid) {
-        this.formData['spaceId'] = item.spaceGuid;
-      }
-    }
     this.error.set('');
     this.showModal.set(true);
-  }
-
-  private toDatetimeLocal(val: any): string {
-    if (!val) return '';
-    try {
-      const d = new Date(val);
-      if (isNaN(d.getTime())) return val;
-      return localDateTimeIso(d);
-    } catch { return val; }
   }
 
   closeModal() {
@@ -4732,19 +4426,6 @@ export class Manage implements OnInit {
         this.success.set(this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.'));
         setTimeout(() => this.success.set(''), 3000);
 
-        if (this.creatingCustomerFromBooking) {
-          try {
-            const created = res?.data ?? res;
-            if (created) {
-              this.selectCustomer(created);
-            }
-          } catch (e) {
-            // ignore
-          }
-          this.config.set(this.buildConfig(this.entity));
-          this.creatingCustomerFromBooking = false;
-        }
-
         this.load();
       },
       error: (e: any) => {
@@ -4839,19 +4520,12 @@ export class Manage implements OnInit {
       'resolved': 3, '3': 3,
       'closed': 4, '4': 4
     };
-    const membershipStatusMap: Record<string, number> = {
-      'active': 1, '1': 1,
-      'inactive': 2, '2': 2,
-      'suspended': 3, '3': 3,
-      'expired': 4, '4': 4
-    };
 
     const complaintStatusMap: Record<string, number> = { 'open': 1, 'in progress': 2, 'resolved': 3, 'closed': 4 };
     const targetMap = this.entity === 'bookings' ? bookingStatusMap :
       this.entity === 'payments' ? paymentStatusMap :
         this.entity === 'complaints' ? complaintStatusMap :
-          this.entity === 'contacts' ? contactStatusMap :
-            this.entity === 'memberships' ? membershipStatusMap : bookingStatusMap;
+          this.entity === 'contacts' ? contactStatusMap : bookingStatusMap;
 
     const sStr = String(status).trim().toLowerCase();
     const statusId = targetMap[sStr] ?? (isNaN(Number(status)) ? 1 : Number(status));
@@ -4964,7 +4638,6 @@ export class Manage implements OnInit {
   }
 
   openBookingUser(item: any) { this.openUserModal(item.userEmail ?? item.userPublicId ?? item.userId); }
-  openUserFromUsers(item: any) { this.openUserModal(item.idGuid); }
 
   private openUserModal(idOrEmail: any) {
     this.showUserModal.set(true);
@@ -5105,55 +4778,6 @@ export class Manage implements OnInit {
     });
   }
 
-  private initBookingCalendar() { this.bookingCalendarDate = new Date(); this.buildBookingCalendar(); }
-  prevBookingMonth() { this.bookingCalendarDate.setMonth(this.bookingCalendarDate.getMonth() - 1); this.buildBookingCalendar(); }
-  nextBookingMonth() { this.bookingCalendarDate.setMonth(this.bookingCalendarDate.getMonth() + 1); this.buildBookingCalendar(); }
-
-  private buildBookingCalendar() {
-    const d = this.bookingCalendarDate;
-    this.bookingMonthTitle.set(d.toLocaleString('default', { month: 'long', year: 'numeric' }));
-    const year = d.getFullYear(), month = d.getMonth() + 1;
-    const first = new Date(year, month - 1, 1).getDay();
-    const days = new Date(year, month, 0).getDate();
-    const spaceId = this.formData['spaceId'];
-    this.bookingMonthCells.set([]);
-    const fill = (bookedDates: string[]) => {
-      const cells: any[] = [];
-      for (let i = 0; i < first; i++) cells.push({ placeholder: true });
-      for (let d = 1; d <= days; d++) {
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        cells.push({ day: d, date: dateStr, isBooked: bookedDates.includes(dateStr) });
-      }
-      this.bookingMonthCells.set(cells);
-    };
-    if (spaceId) {
-      this.bookingCalendarLoading.set(true);
-      this.admin.getBookingCalendar(spaceId, year, month).subscribe({
-        next: (res: any) => { fill(res?.data?.bookedDates ?? []); this.bookingCalendarLoading.set(false); },
-        error: () => { fill([]); this.bookingCalendarLoading.set(false); }
-      });
-    } else { fill([]); }
-  }
-
-  pickBookingDate(day: any) {
-    if (!day.date || day.isBooked) return;
-    if (!this.formData['startDateTime']) {
-      this.formData['startDateTime'] = day.date;
-    } else if (!this.formData['endDateTime'] && day.date >= this.formData['startDateTime']) {
-      this.formData['endDateTime'] = day.date;
-    } else {
-      this.formData['startDateTime'] = day.date;
-      this.formData['endDateTime'] = '';
-    }
-  }
-
-  isBookingInRange(date: string): boolean {
-    const s = this.formData['startDateTime'], e = this.formData['endDateTime'];
-    return s && e && date > s && date < e;
-  }
-
-  isBookingPast(date: string): boolean { return !!date && date < localDateIso(); }
-
   loadFloorsForLocation(locationId: number) {
     this.floorOptions.set([]);
     if (!locationId) return;
@@ -5190,7 +4814,6 @@ export class Manage implements OnInit {
         this.formData['locationIds'] = [only];
       }
     }
-    if (key === 'spaceId' && this.entity === 'bookings') this.buildBookingCalendar();
     if (key === 'locationId' && this.entity === 'spaces') {
       this.loadFloorsForLocation(this.formData['locationId']);
       // Space types belong to a location: a type the new location doesn't have is cleared.
@@ -5674,6 +5297,8 @@ export class Manage implements OnInit {
   isQuotationSlotSelected(slot: { start: string }): boolean {
     return this.quotationSelectedSlots.has(slot.start);
   }
+  /** The quotation form's isQuotationSlotSelected (manage-quotation-form-modal), bound to this page. */
+  readonly isQuotationSlotSelectedFn = (slot: { start: string }) => this.isQuotationSlotSelected(slot);
 
   // ---------- Tour inquiry Type ----------
   /** Type filter on the Tour Inquiries page: '' = all, else Website | WhatsApp | WalkIn | Reference. */
@@ -5703,6 +5328,8 @@ export class Manage implements OnInit {
     const clean = (v: any) => (v && v !== '-' ? String(v).trim() : '');
     return [clean(item?.fullName), clean(item?.phone) || clean(item?.email)].filter(Boolean).join(' · ');
   }
+  /** The inquiry popups' inquiryContactLine (manage-inquiry-modals), bound to this page. */
+  readonly inquiryContactLineFn = (item: any) => this.inquiryContactLine(item);
 
   // Add Inquiry (its own form: where it came from first, then the customer's details)
   readonly showAddInquiry = signal(false);
@@ -5772,6 +5399,9 @@ export class Manage implements OnInit {
   complaintOptions(key: 'category'): { v: string; l: string }[] {
     return (this.config().fields || []).find(f => f.key === key)?.options ?? [];
   }
+  /** The complaint popup's query helpers (manage-complaint-modal), bound to this page. */
+  readonly complaintFieldErrorFn = (key: 'phoneNumber' | 'branch' | 'category' | 'description') => this.complaintFieldError(key);
+  readonly complaintOptionsFn = (key: 'category') => this.complaintOptions(key);
 
   openAddComplaint() {
     this.addComplaint = { customerName: '', phoneNumber: '', email: '', category: '', description: '' };
@@ -6086,7 +5716,7 @@ export class Manage implements OnInit {
   /** Dates are applied a moment after the last change (typing a date changes it several times). */
   private applyListDates() {
     clearTimeout(this.listDateTimer);
-    if (!Manage.isListDate(this.listDateFrom) || !Manage.isListDate(this.listDateTo)) return;
+    if (!ManageBase.isListDate(this.listDateFrom) || !ManageBase.isListDate(this.listDateTo)) return;
     this.listDateTimer = setTimeout(() => this.applyListFilters(), 300);
   }
 
@@ -6125,7 +5755,7 @@ export class Manage implements OnInit {
     const cfg = this.config();
     const search = this.searchQuery;
     const size = this.exportPageSize;
-    const max = Manage.EXPORT_MAX_ROWS;
+    const max = ManageBase.EXPORT_MAX_ROWS;
     this.exporting.set(true);
     this.exportProgress.set('');
     try {
@@ -6283,6 +5913,9 @@ export class Manage implements OnInit {
     const clean = (v: any) => (v && v !== '-' ? String(v).trim() : '');
     return [clean(item?.complaintNo), clean(item?.customerName), clean(item?.phoneNumber)].filter(Boolean).join(' · ');
   }
+  /** The branch popup's query helpers (manage-inquiry-modals/manage-item-branch-modal), bound to this page. */
+  readonly itemBranchLineFn = (item: any) => this.itemBranchLine(item);
+  readonly itemBranchIdFn = (item: any) => this.itemBranchId(item);
 
   readonly showItemBranch = signal(false);
   readonly itemBranchSaving = signal(false);
@@ -6541,10 +6174,24 @@ export class Manage implements OnInit {
   /** Bookings opened as /admin/bookings?booking=<id> (e.g. from the dashboard's rooms in use): show that booking's details. */
   private openBookingFromParams() {
     const id = Number(this.route.snapshot.queryParamMap.get('booking'));
-    if (!Number.isInteger(id) || id <= 0) return;
-    this.openBookingDetailsModal({ bookingId: id, id });
-    // Drop the parameter so a refresh does not reopen the details.
-    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    if (Number.isInteger(id) && id > 0) {
+      this.openBookingDetailsModal({ bookingId: id, id });
+      // Drop the parameter so a refresh does not reopen the details.
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      return;
+    }
+
+    const sendInvoiceBookingId = Number(this.route.snapshot.queryParamMap.get('sendInitialInvoice'));
+    if (Number.isInteger(sendInvoiceBookingId) && sendInvoiceBookingId > 0) {
+      this.admin.getBookingById(sendInvoiceBookingId).subscribe({
+        next: (res: any) => {
+          const row = res?.data ?? res ?? {};
+          this.sendInitialInvoice({ ...row, bookingId: sendInvoiceBookingId });
+        },
+        error: () => this.sendInitialInvoice({ bookingId: sendInvoiceBookingId })
+      });
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    }
   }
 
   /** Customers list: the name opens the customer detail page (Ctrl / Cmd / Shift / middle click: the browser opens the link). */
@@ -6788,16 +6435,22 @@ export class Manage implements OnInit {
     const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
     return s === 'private' || s.includes('private');
   }
+  /** The quotation form's isQuotationPrivateRoom (manage-quotation-form-modal), read lazily through this. */
+  readonly isQuotationPrivateRoomFn = () => this.isQuotationPrivateRoom;
 
   get isQuotationSharedSpace(): boolean {
     const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
     return s === 'shared' || s.includes('shared') || s.includes('desk') || s.includes('coworking');
   }
+  /** The quotation form's isQuotationSharedSpace (manage-quotation-form-modal), read lazily through this. */
+  readonly isQuotationSharedSpaceFn = () => this.isQuotationSharedSpace;
 
   get isQuotationMeetingRoom(): boolean {
     const s = String(this.selectedQuotationSpaceTypeId || '').toLowerCase();
     return s === 'meeting' || s.includes('meeting') || s.includes('conference');
   }
+  /** The quotation form's isQuotationMeetingRoom (manage-quotation-form-modal), read lazily through this. */
+  readonly isQuotationMeetingRoomFn = () => this.isQuotationMeetingRoom;
 
   get availableQuotationCapacities(): number[] {
     if (!this.isQuotationPrivateRoom) return [];
@@ -6812,6 +6465,8 @@ export class Manage implements OnInit {
     });
     return Array.from(caps).sort((a, b) => a - b);
   }
+  /** The quotation form's availableQuotationCapacities (manage-quotation-form-modal), read lazily through this. */
+  readonly availableQuotationCapacitiesFn = () => this.availableQuotationCapacities;
 
   get filteredQuotationSpaceOptions(): { v: any; l: string }[] {
     if (!this.selectedQuotationSpaceTypeId) return [];
@@ -6835,7 +6490,7 @@ export class Manage implements OnInit {
       if (isMeeting) return categoryCode.includes('meeting') || sTypeName.includes('meeting') || sTypeName.includes('conference') || sName.includes('meeting') || sName.includes('conference');
       if (isPrivate) return categoryCode.includes('private') || sTypeName.includes('private') || sTypeName.includes('office');
       if (isShared) return categoryCode.includes('shared') || categoryCode.includes('coworking') || sTypeName.includes('shared') || sTypeName.includes('co-working')
-        || (!categoryCode && Manage.spaceTypeGroup(sTypeName) === 'shared');
+        || (!categoryCode && ManageBase.spaceTypeGroup(sTypeName) === 'shared');
       return false;
     });
 
@@ -6862,6 +6517,8 @@ export class Manage implements OnInit {
       return { v: s.id, l: `${s.name}${tag}` };
     });
   }
+  /** The quotation form's filteredQuotationSpaceOptions (manage-quotation-form-modal), read lazily through this. */
+  readonly filteredQuotationSpaceOptionsFn = () => this.filteredQuotationSpaceOptions;
 
   onQuotationSpaceSelected() {
     this.loadQuotationTaxRate();
@@ -7151,7 +6808,7 @@ export class Manage implements OnInit {
         this.onQuotationLocationChange(true);
 
         // The space's category decides; without one its type name (a "desk" type is a shared space).
-        const group = Manage.spaceGroupOf({ ...space, spaceTypeName: space.spaceTypeName || space.spaceCategory || '' });
+        const group = ManageBase.spaceGroupOf({ ...space, spaceTypeName: space.spaceTypeName || space.spaceCategory || '' });
         if (group) this.selectedQuotationSpaceTypeId = group;
 
         this.selectedQuotationCapacity = space.capacity || sourceVersion.capacity || null;
@@ -7201,8 +6858,8 @@ export class Manage implements OnInit {
     // stored amount. Never a default month count. (Shared spaces / meeting rooms send 0 whatever this holds.)
     const srcSecMonths = sourceVersion.securityDepositMonths ?? sourceVersion.SecurityDepositMonths;
     this.quotationSecurityDepositMonths = srcSecMonths != null
-      ? Manage.clampDepositMonths(srcSecMonths)
-      : Manage.depositMonthsFromAmount(sourceVersion.securityDeposit ?? sourceVersion.SecurityDeposit,
+      ? ManageBase.clampDepositMonths(srcSecMonths)
+      : ManageBase.depositMonthsFromAmount(sourceVersion.securityDeposit ?? sourceVersion.SecurityDeposit,
         this.getQuotationMonthlyRent(sourceVersion), this.getQuotationDiscountPercentage(sourceVersion));
     this.quotationDiscountType = sourceVersion.discountType || 'Percentage';
     this.quotationDiscountValue = sourceVersion.discountValue || sourceVersion.discountPercentage || 0;
@@ -7309,15 +6966,6 @@ export class Manage implements OnInit {
     });
   }
 
-  emailQuotation(item: any) {
-    if (!this.selectedQuotation() || this.selectedQuotation().id !== item.id) {
-      this.previewQuotation(item);
-      setTimeout(() => this.sendQuotationEmailNow(), 500);
-      return;
-    }
-    this.sendQuotationEmailNow();
-  }
-
   sendQuotationEmailNow() {
     const q = this.selectedQuotation();
     if (!q || this.sendingQuotationEmail()) return;
@@ -7376,12 +7024,8 @@ export class Manage implements OnInit {
     const st = (item.status || item.Status || '').toString().trim().toLowerCase();
     return st === 'accepted' || st === 'signed' || st === 'agreementsigned' || st === 'active' || st === 'sent' || st === 'agreementsent' || item.isAccepted === true || item.IsAccepted === true;
   }
-
-  isQuotationSigned(item: any): boolean {
-    if (!item) return false;
-    const st = (item.status || item.Status || '').toString().trim().toLowerCase();
-    return st === 'signed' || st === 'agreementsigned';
-  }
+  /** The quotation preview's isQuotationAccepted (manage-quotation-preview-modal), bound to this page. */
+  readonly isQuotationAcceptedFn = (item: any) => this.isQuotationAccepted(item);
 
   convertQuotationToBooking(item: any) {
     if (!item) return;
@@ -7393,17 +7037,6 @@ export class Manage implements OnInit {
   readonly showBookingDetailsModal = signal(false);
   selectedBookingDetails = signal<any>(null);
   bookingBillingSummaryData = signal<any>(null);
-
-  /** Booking details: the deposit as stored; 0 with stored months > 0 on a private office (older rows) = months x rent
-   *  x (1 - discount %). */
-  bookingDetailsDeposit(b: any): number {
-    if (!b) return 0;
-    const months = Number(b.securityDepositMonths ?? b.SecurityDepositMonths ?? 0);
-    const rent = Number(b.monthlyRent ?? b.MonthlyRent ?? b.contract?.monthlyRent ?? 0);
-    const pct = Number(b.discountPercentage ?? b.DiscountPercentage ?? 0);
-    return Manage.storedDeposit(this.isPrivateRoom(b) || this.isSharedSpace(b), b.securityDeposit ?? b.SecurityDeposit ?? b.contract?.securityDeposit,
-      months, rent, pct);
-  }
 
 
   openBookingDetailsModal(item: any) {
@@ -7704,6 +7337,8 @@ export class Manage implements OnInit {
   initialInvoiceNeedsWhtRate(): boolean {
     return this.initialInvoiceType() === 'wht' && this.initialInvoiceWhTaxId() === null;
   }
+  /** The initial-invoice preview's initialInvoiceNeedsWhtRate (manage-invoice-send-modals), bound to this page. */
+  readonly initialInvoiceNeedsWhtRateFn = () => this.initialInvoiceNeedsWhtRate();
   /** What the API is asked for: undefined = booking's own setting; null = standard; an Id = WHT at that rate. */
   private initialInvoiceWhtArg(): number | null | undefined {
     if (!this.initialInvoiceWhtChosen) return undefined;
@@ -7809,7 +7444,7 @@ export class Manage implements OnInit {
 
     const calculatedRent = monthlyRate * cycleMonths;
     // The stored amount; 0 with stored months > 0 on a contract space (older rows) = months x rent x (1 - discount %).
-    const securityDeposit = Manage.storedDeposit(this.isPrivateRoom(item) || this.isSharedSpace(item),
+    const securityDeposit = ManageBase.storedDeposit(this.isPrivateRoom(item) || this.isSharedSpace(item),
       item.effectiveSecurityDeposit ?? item.securityDeposit ?? item.SecurityDeposit ?? item.depositAmount, secMonths, monthlyRate,
       Number(item.discountPercentage ?? item.DiscountPercentage ?? 0));
     const discount = item.bookingDiscountAmount ?? item.discountAmount ?? 0;
@@ -8047,11 +7682,6 @@ export class Manage implements OnInit {
       };
       this.customInvoiceLines = [];
     });
-  }
-
-  closeQuickUploadModal() {
-    this.showQuickUploadModal.set(false);
-    this.quickUploadAgreementId = null;
   }
 
   onCustomInvoiceMonthsChange() {
@@ -8436,403 +8066,68 @@ export class Manage implements OnInit {
 
 
 
-  getChallanContractMonths(c: any): number {
-    if (!c) return 1;
-    if (c.contractPeriodMonths != null && Number(c.contractPeriodMonths) > 0) return Number(c.contractPeriodMonths);
-    if (c.ContractPeriodMonths != null && Number(c.ContractPeriodMonths) > 0) return Number(c.ContractPeriodMonths);
-    if (c.contract?.numberOfMonths != null && Number(c.contract.numberOfMonths) > 0) return Number(c.contract.numberOfMonths);
-    if (c.Contract?.NumberOfMonths != null && Number(c.Contract.NumberOfMonths) > 0) return Number(c.Contract.NumberOfMonths);
-    if (c.numberOfMonths != null && Number(c.numberOfMonths) > 0) return Number(c.numberOfMonths);
-    if (c.NumberOfMonths != null && Number(c.NumberOfMonths) > 0) return Number(c.NumberOfMonths);
-    if (c.durationMonths != null && Number(c.durationMonths) > 0) return Number(c.durationMonths);
-    if (c.DurationMonths != null && Number(c.DurationMonths) > 0) return Number(c.DurationMonths);
-    if (c.months != null && Number(c.months) > 0) return Number(c.months);
-    if (c.Months != null && Number(c.Months) > 0) return Number(c.Months);
+  getChallanBillingMonths(c: any): number { return pricing.getChallanBillingMonths(c); }
 
-    const start = c.startDateTime || c.StartDateTime || c.startOn || c.StartOn || c.contractStartDate || c.ContractStartDate || c.contract?.contractStartDate;
-    const end = c.endDateTime || c.EndDateTime || c.endOn || c.EndOn || c.contractEndDate || c.ContractEndDate || c.contract?.contractEndDate;
-    if (start && end) {
-      const s = new Date(start);
-      const e = new Date(end);
-      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-        const diffMonths = ((e.getFullYear() - s.getFullYear()) * 12) + (e.getMonth() - s.getMonth());
-        if (diffMonths > 0) return diffMonths;
-        const diffDays = Math.ceil((e.getTime() - s.getTime()) / 86400000);
-        const calculated = Math.max(1, Math.round(diffDays / 30));
-        if (calculated > 0) return calculated;
-      }
-    }
+  getChallanSecurityMonths(c: any): number { return pricing.getChallanSecurityMonths(c); }
 
-    const details = c.details || c.Details || c.items || c.Items || c.lineItems || c.LineItems || [];
-    const rentLine = Array.isArray(details) ? details.find((d: any) => {
-      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
-      return ft === 'roomrent' || ft === 'rent';
-    }) : null;
-    if (rentLine && Number(rentLine.quantity || rentLine.Quantity) > 0) {
-      return Number(rentLine.quantity || rentLine.Quantity);
-    }
+  getChallanMonthlyRent(c: any): number { return pricing.getChallanMonthlyRent(c); }
 
-    return Number(c.billingPeriodMonths ?? c.BillingPeriodMonths ?? 1);
-  }
+  getChallanFirstCycleRent(c: any): number { return pricing.getChallanFirstCycleRent(c); }
 
-  getChallanBillingMonths(c: any): number {
-    if (!c) return 3;
-    return Number(c.billingPeriodMonths ?? c.BillingPeriodMonths ?? 3);
-  }
+  getChallanSecurityDeposit(c: any): number { return pricing.getChallanSecurityDeposit(c); }
 
-  /** Months behind a booking's deposit: the stored months, else the deposit line's; 0 when unknown (never a default). */
-  getChallanSecurityMonths(c: any): number {
-    if (!c) return 0;
-    const storedMonths = Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0);
-    if (storedMonths > 0) return storedMonths;
-    const details = c.details || c.Details || c.items || c.Items || c.lineItems || c.LineItems || [];
-    const secLine = Array.isArray(details) ? details.find((d: any) => {
-      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
-      const desc = String(d.description || d.Description || '').toLowerCase();
-      return ft === 'securitydeposit' || desc.includes('security deposit');
-    }) : null;
-    if (secLine && Number(secLine.quantity || secLine.Quantity) !== undefined && !isNaN(Number(secLine.quantity || secLine.Quantity))) {
-      return Number(secLine.quantity || secLine.Quantity);
-    }
-    if (secLine && (secLine.description || secLine.Description)) {
-      const match = String(secLine.description || secLine.Description).match(/(\d+)\s*Month/i);
-      if (match && match[1]) return Number(match[1]);
-    }
-    return 0;
-  }
+  getChallanTaxAmount(c: any): number { return pricing.getChallanTaxAmount(c); }
 
-  getChallanMonthlyRent(c: any): number {
-    if (!c || this.isMeetingRoom(c)) return 0;
-    const dbMonthly = c.monthlyRent ?? c.MonthlyRent ?? c.roomPrice ?? c.RoomPrice;
-    if (dbMonthly !== undefined && dbMonthly !== null && Number(dbMonthly) > 0) {
-      return Number(dbMonthly);
-    }
-    const months = this.getChallanContractMonths(c);
-    const dbSubtotal = c.subtotalAmount ?? c.SubtotalAmount ?? c.totalContractAmount ?? c.TotalContractAmount;
-    if (dbSubtotal !== undefined && dbSubtotal !== null && Number(dbSubtotal) > 0 && months > 0) {
-      return Number(dbSubtotal) / months;
-    }
-    const seatPrice = Number(c.seatPrice ?? c.SeatPrice ?? 0);
-    // seats from the record only: the bracket in the space name is the room code, not seats
-    const capacity = Number(c.capacity ?? c.Capacity ?? c.spaceCapacity ?? c.SpaceCapacity ?? 0);
-    const typeName = String(c.spaceTypeName || c.SpaceTypeName || '').toLowerCase();
-    const isPrivate = typeName.includes('private') || typeName.includes('office') || typeName.includes('room');
-
-    if (isPrivate && capacity > 0 && seatPrice > 0) {
-      return seatPrice * capacity;
-    }
-    if (seatPrice > 0) return seatPrice;
-    return 0;
-  }
-
-  getChallanTotalContract(c: any): number {
-    if (!c) return 0;
-    if (this.isMeetingRoom(c)) {
-      return Number(c.subtotalAmount ?? c.SubtotalAmount ?? c.totalAmount ?? c.TotalAmount ?? 0);
-    }
-    const dbTotal = c.totalContractAmount ?? c.TotalContractAmount ?? c.subtotalAmount ?? c.SubtotalAmount;
-    if (dbTotal !== undefined && dbTotal !== null && Number(dbTotal) > 0 && Number(dbTotal) !== Number(c.totalAmount) && Number(dbTotal) !== Number(c.totalPayable)) {
-      return Number(dbTotal);
-    }
-    const months = this.getChallanContractMonths(c);
-    const monthlyRent = this.getChallanMonthlyRent(c);
-    return monthlyRent * months;
-  }
-
-  getChallanFirstCycleRent(c: any): number {
-    if (!c) return 0;
-    if (this.isMeetingRoom(c)) {
-      return Number(c.subtotalAmount ?? c.SubtotalAmount ?? c.totalAmount ?? c.TotalAmount ?? 0);
-    }
-    const dbCycle = c.currentCycleAmount ?? c.CurrentCycleAmount ?? c.firstCycleRent ?? c.FirstCycleRent;
-    if (dbCycle !== undefined && dbCycle !== null && Number(dbCycle) > 0 && Number(dbCycle) < Number(this.getChallanTotalContract(c))) {
-      return Number(dbCycle);
-    }
-    const bpm = this.getChallanBillingMonths(c);
-    const monthlyRent = this.getChallanMonthlyRent(c);
-    return monthlyRent * bpm;
-  }
-
-  /** A booking's security deposit: the stored amount; if that is 0 but stored months > 0 on a private office (older
-   *  rows), months x monthly rent x (1 - discount). No stored months = no deposit (months are never defaulted). */
-  getChallanSecurityDeposit(c: any): number {
-    if (!c) return 0;
-    const storedMonths = Number(c.securityDepositMonths ?? c.SecurityDepositMonths ?? 0);
-    const discAmount = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
-    const subtotal = Number(c.subtotalAmount ?? c.SubtotalAmount ?? 0);
-    const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? (subtotal > 0 && discAmount > 0 ? (discAmount / subtotal) * 100 : 0));
-    return Manage.storedDeposit(this.isPrivateRoom(c) || this.isSharedSpace(c), c.securityDeposit ?? c.SecurityDeposit, storedMonths,
-      this.getChallanMonthlyRent(c), discPct);
-  }
-
-  getChallanSupportCharges(c: any): number {
-    if (!c || this.isMeetingRoom(c)) return 0;
-    const rate = Number(c.perSeatSupportRate ?? c.PerSeatSupportRate ?? 2000);
-    const capacity = this.getChallanCapacity(c);
-    const billingM = this.getChallanBillingMonths(c);
-    const billingMonths = billingM > 0 ? billingM : 3;
-    return rate * capacity * billingMonths;
-  }
-
-  /** Seats on the booking (capacity sent with the booking / challan). The bracket in the space name is the room
-   *  code (e.g. "Office 303 (303)"), not seats, so it is no longer used. */
-  getChallanCapacity(c: any): number {
-    const cap = Number(c?.capacity ?? c?.Capacity ?? c?.spaceCapacity ?? c?.SpaceCapacity ?? 0);
-    return cap > 0 ? cap : 1;
-  }
-
-  getChallanTaxAmount(c: any): number {
-    if (!c) return 0;
-    if (this.isMeetingRoom(c)) {
-      // meeting rooms: support = 10% of the discounted rent, PST = 16% of that (same as the invoice)
-      const discounted = Math.max(0, this.getChallanFirstCycleRent(c) - this.getChallanFirstCycleDiscount(c));
-      return Math.round(discounted * 0.10 * 0.16 * 100) / 100;
-    }
-    const supportServices = this.getChallanSupportCharges(c);
-    const taxRate = Number(c.appliedTaxPercentage ?? c.AppliedTaxPercentage ?? 16);
-    return Math.round(supportServices * (taxRate / 100) * 100) / 100;
-  }
-
-  getChallanContractTaxAmount(c: any): number {
-    if (!c || this.isMeetingRoom(c)) return 0;
-    const rate = Number(c.perSeatSupportRate ?? c.PerSeatSupportRate ?? 2000);
-    const capacity = this.getChallanCapacity(c);
-    const contractMonths = this.getChallanContractMonths(c);
-    const totalMonths = contractMonths > 0 ? contractMonths : 12;
-    const taxRate = Number(c.appliedTaxPercentage ?? c.AppliedTaxPercentage ?? 16);
-    const totalSupport = rate * capacity * totalMonths;
-    return Math.round(totalSupport * (taxRate / 100) * 100) / 100;
-  }
-
-  getChallanFirstCycleDiscount(c: any): number {
-    if (!c) return 0;
-    const cycleRent = this.getChallanFirstCycleRent(c);
-    const discPct = Number(c.discountPercentage ?? c.DiscountPercentage ?? 0);
-    if (discPct > 0) {
-      return Math.round(cycleRent * (discPct / 100) * 100) / 100;
-    }
-    const totalDisc = Number(c.discountAmount ?? c.DiscountAmount ?? 0);
-    if (totalDisc > 0) {
-      return Math.min(cycleRent, totalDisc);
-    }
-    const discVal = Number(c.discountValue ?? c.DiscountValue ?? 0);
-    if (discVal > 0) {
-      return Math.min(cycleRent, discVal);
-    }
-    return 0;
-  }
+  getChallanFirstCycleDiscount(c: any): number { return pricing.getChallanFirstCycleDiscount(c); }
 
 
-  getChallanInitialPayable(c: any): number {
-    if (!c) return 0;
-    const cycleRent = this.getChallanFirstCycleRent(c);
-    const deposit = this.getChallanSecurityDeposit(c);
-    const tax = this.getChallanTaxAmount(c);
-    const discount = this.getChallanFirstCycleDiscount(c);
-    return Math.max(0, cycleRent + deposit + tax - discount);
-  }
+  getChallanInitialPayable(c: any): number { return pricing.getChallanInitialPayable(c); }
+  /** The challan popup's pricing queries (manage-booking-challan-modal), bound to this page. */
+  readonly getChallanBillingMonthsFn = (c: any) => this.getChallanBillingMonths(c);
+  readonly getChallanSecurityMonthsFn = (c: any) => this.getChallanSecurityMonths(c);
+  readonly getChallanMonthlyRentFn = (c: any) => this.getChallanMonthlyRent(c);
+  readonly getChallanFirstCycleRentFn = (c: any) => this.getChallanFirstCycleRent(c);
+  readonly getChallanSecurityDepositFn = (c: any) => this.getChallanSecurityDeposit(c);
+  readonly getChallanTaxAmountFn = (c: any) => this.getChallanTaxAmount(c);
+  readonly getChallanFirstCycleDiscountFn = (c: any) => this.getChallanFirstCycleDiscount(c);
+  readonly getChallanInitialPayableFn = (c: any) => this.getChallanInitialPayable(c);
 
-  getQuotationContractMonths(q: any): number {
-    if (!q) return 1;
-    if (q.contractPeriodMonths != null && Number(q.contractPeriodMonths) > 0) return Number(q.contractPeriodMonths);
-    if (q.ContractPeriodMonths != null && Number(q.ContractPeriodMonths) > 0) return Number(q.ContractPeriodMonths);
-    if (q.contract?.numberOfMonths != null && Number(q.contract.numberOfMonths) > 0) return Number(q.contract.numberOfMonths);
-    if (q.Contract?.NumberOfMonths != null && Number(q.Contract.NumberOfMonths) > 0) return Number(q.Contract.NumberOfMonths);
-    if (q.numberOfMonths != null && Number(q.numberOfMonths) > 0) return Number(q.numberOfMonths);
-    if (q.NumberOfMonths != null && Number(q.NumberOfMonths) > 0) return Number(q.NumberOfMonths);
-    if (q.durationMonths != null && Number(q.durationMonths) > 0) return Number(q.durationMonths);
-    if (q.DurationMonths != null && Number(q.DurationMonths) > 0) return Number(q.DurationMonths);
-    if (q.months != null && Number(q.months) > 0) return Number(q.months);
-    if (q.Months != null && Number(q.Months) > 0) return Number(q.Months);
+  getQuotationContractMonths(q: any): number { return pricing.getQuotationContractMonths(q); }
 
-    const start = q.startDateTime || q.StartDateTime || q.startOn || q.StartOn || q.contractStartDate || q.ContractStartDate || q.contract?.contractStartDate;
-    const end = q.endDateTime || q.EndDateTime || q.endOn || q.EndOn || q.contractEndDate || q.ContractEndDate || q.contract?.contractEndDate;
-    if (start && end) {
-      const s = new Date(start);
-      const e = new Date(end);
-      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-        const diffMonths = ((e.getFullYear() - s.getFullYear()) * 12) + (e.getMonth() - s.getMonth());
-        if (diffMonths > 0) return diffMonths;
-        const diffDays = Math.ceil((e.getTime() - s.getTime()) / 86400000);
-        const calculated = Math.max(1, Math.round(diffDays / 30));
-        if (calculated > 0) return calculated;
-      }
-    }
+  getQuotationBillingMonths(q: any): number { return pricing.getQuotationBillingMonths(q); }
 
-    const details = q.details || q.Details || [];
-    const rentLine = Array.isArray(details) ? details.find((d: any) => {
-      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
-      return ft === 'roomrent' || ft === 'rent';
-    }) : null;
-    if (rentLine && Number(rentLine.quantity || rentLine.Quantity) > 0) {
-      return Number(rentLine.quantity || rentLine.Quantity);
-    }
+  getQuotationSecurityMonths(q: any): number { return pricing.getQuotationSecurityMonths(q); }
 
-    return Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 1);
-  }
+  getQuotationMonthlyRent(q: any): number { return pricing.getQuotationMonthlyRent(q); }
 
-  getQuotationBillingMonths(q: any): number {
-    if (!q) return 3;
-    return Number(q.billingPeriodMonths ?? q.BillingPeriodMonths ?? 3);
-  }
+  getQuotationFirstCycleRent(q: any): number { return pricing.getQuotationFirstCycleRent(q); }
 
-  /** Months behind a quotation's deposit: the stored months, else the deposit line's; 0 when unknown (never a default). */
-  getQuotationSecurityMonths(q: any): number {
-    if (!q) return 0;
-    const storedMonths = Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 0);
-    if (storedMonths > 0) return storedMonths;
-    const details = q.details || q.Details || [];
-    const secLine = Array.isArray(details) ? details.find((d: any) => {
-      const ft = String(d.feeType || d.FeeType || '').toLowerCase();
-      const desc = String(d.description || d.Description || '').toLowerCase();
-      return ft === 'securitydeposit' || desc.includes('security deposit');
-    }) : null;
-    if (secLine && Number(secLine.quantity || secLine.Quantity) !== undefined && !isNaN(Number(secLine.quantity || secLine.Quantity))) {
-      return Number(secLine.quantity || secLine.Quantity);
-    }
-    if (secLine && (secLine.description || secLine.Description)) {
-      const match = String(secLine.description || secLine.Description).match(/(\d+)\s*Month/i);
-      if (match && match[1]) return Number(match[1]);
-    }
-    return 0;
-  }
+  getQuotationSecurityDeposit(q: any): number { return pricing.getQuotationSecurityDeposit(q); }
 
-  getQuotationMonthlyRent(q: any): number {
-    if (!q || this.isMeetingRoom(q)) return 0;
-    const dbMonthly = q.monthlyRent ?? q.MonthlyRent ?? q.roomPrice ?? q.RoomPrice;
-    if (dbMonthly !== undefined && dbMonthly !== null && Number(dbMonthly) > 0) {
-      return Number(dbMonthly);
-    }
-    const months = this.getQuotationContractMonths(q);
-    const dbSubtotal = q.subtotalAmount ?? q.SubtotalAmount ?? q.totalContractAmount ?? q.TotalContractAmount;
-    if (dbSubtotal !== undefined && dbSubtotal !== null && Number(dbSubtotal) > 0 && months > 0) {
-      return Number(dbSubtotal) / months;
-    }
-    const seatPrice = Number(q.seatPrice ?? q.SeatPrice ?? 0);
-    // seats from the record only: the bracket in the space name is the room code, not seats
-    const capacity = Number(q.capacity ?? q.Capacity ?? q.spaceCapacity ?? q.SpaceCapacity ?? 0);
-    const typeName = String(q.spaceTypeName || q.SpaceTypeName || '').toLowerCase();
-    const isPrivate = typeName.includes('private') || typeName.includes('office') || typeName.includes('room');
+  getQuotationSupportCharges(q: any): number { return pricing.getQuotationSupportCharges(q); }
 
-    if (isPrivate && capacity > 0 && seatPrice > 0) {
-      return seatPrice * capacity;
-    }
-    if (seatPrice > 0) return seatPrice;
-    return 0;
-  }
+  getQuotationTaxAmount(q: any): number { return pricing.getQuotationTaxAmount(q); }
 
-  getQuotationTotalContract(q: any): number {
-    if (!q) return 0;
-    if (this.isMeetingRoom(q)) {
-      return Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
-    }
-    const months = this.getQuotationContractMonths(q);
-    const monthlyRent = this.getQuotationMonthlyRent(q);
-    return monthlyRent * months;
-  }
+  getQuotationDiscountAmount(q: any): number { return pricing.getQuotationDiscountAmount(q); }
 
-  getQuotationFirstCycleRent(q: any): number {
-    if (!q) return 0;
-    if (this.isMeetingRoom(q)) {
-      return Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
-    }
-    const bpm = this.getQuotationBillingMonths(q);
-    const monthlyRent = this.getQuotationMonthlyRent(q);
-    return monthlyRent * bpm;
-  }
+  getQuotationDiscountPercentage(q: any): number { return pricing.getQuotationDiscountPercentage(q); }
+  /** The quotation preview's other pricing queries (manage-quotation-preview-modal), bound to this page. */
+  readonly getQuotationSecurityMonthsFn = (q: any) => this.getQuotationSecurityMonths(q);
+  readonly getQuotationMonthlyRentFn = (q: any) => this.getQuotationMonthlyRent(q);
+  readonly getQuotationSupportChargesFn = (q: any) => this.getQuotationSupportCharges(q);
+  readonly getQuotationDiscountPercentageFn = (q: any) => this.getQuotationDiscountPercentage(q);
 
-  /** A quotation's security deposit: the stored amount; if that is 0 but stored months > 0 on a private office (older
-   *  rows; an old shared row can hold 1 month with no amount), months x monthly rent x (1 - rent discount). No stored
-   *  months = no deposit (months are never defaulted). */
-  getQuotationSecurityDeposit(q: any): number {
-    if (!q) return 0;
-    const storedMonths = Number(q.securityDepositMonths ?? q.SecurityDepositMonths ?? 0);
-    const monthlyRent = this.getQuotationMonthlyRent(q);
-    const discType = q.discountType ?? q.DiscountType;
-    const discPct = (discType === 'Amount' || discType === 'Fixed')
-      ? Manage.rentDiscountPct('Amount', q.discountValue ?? q.DiscountValue, monthlyRent)
-      : this.getQuotationDiscountPercentage(q);
-    return Manage.storedDeposit(this.isPrivateRoom(q) || this.isSharedSpace(q), q.securityDeposit ?? q.SecurityDeposit, storedMonths, monthlyRent, discPct);
-  }
+  getQuotationInitialPayable(q: any): number { return pricing.getQuotationInitialPayable(q); }
 
-  getQuotationSupportCharges(q: any): number {
-    if (!q || this.isMeetingRoom(q)) return 0;
-    const capacity = this.getChallanCapacity(q);   // seats from the quotation, not the space-name bracket
-    const bpm = this.getQuotationBillingMonths(q);
-    const perSeatSupportRate = Number(q.perSeatSupportRate ?? q.PerSeatSupportRate ?? 2000);
-    return perSeatSupportRate * capacity * bpm;
-  }
-
-  getQuotationTaxAmount(q: any): number {
-    if (!q) return 0;
-    if (this.isMeetingRoom(q)) {
-      // meeting rooms: support = 10% of the rent, PST = 16% of that (same as the invoice)
-      const base = Number(q.subtotalAmount ?? q.SubtotalAmount ?? q.totalAmount ?? q.TotalAmount ?? 0);
-      const discounted = Math.max(0, base - this.getQuotationDiscountAmount(q));
-      return Math.round(discounted * 0.10 * 0.16 * 100) / 100;
-    }
-    const supportServices = this.getQuotationSupportCharges(q);
-    const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
-    return Math.round(supportServices * (taxPct / 100) * 100) / 100;
-  }
-
-  getQuotationContractTaxAmount(q: any): number {
-    if (!q || this.isMeetingRoom(q)) return 0;
-    const capacity = this.getChallanCapacity(q);   // seats from the quotation, not the space-name bracket
-    const contractMonths = this.getQuotationContractMonths(q);
-    const perSeatSupportRate = Number(q.perSeatSupportRate ?? q.PerSeatSupportRate ?? 2000);
-    const totalSupport = perSeatSupportRate * capacity * contractMonths;
-    const taxPct = Number(q.appliedTaxPercentage ?? q.AppliedTaxPercentage ?? 16);
-    return Math.round(totalSupport * (taxPct / 100) * 100) / 100;
-  }
-
-  getQuotationDiscountAmount(q: any): number {
-    if (!q) return 0;
-    const discType = q.discountType ?? q.DiscountType;
-    const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
-    const bpm = this.getQuotationBillingMonths(q);
-    if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0) {
-      if (this.isMeetingRoom(q)) return discVal;
-      return discVal * bpm;
-    }
-    const pct = q.discountPercentage ?? q.DiscountPercentage;
-    if (pct != null && Number(pct) > 0) {
-      const cycleRent = this.getQuotationFirstCycleRent(q);
-      return Math.round(cycleRent * (Number(pct) / 100) * 100) / 100;
-    }
-    return Number(q.discountAmount ?? q.DiscountAmount ?? 0);
-  }
-
-  getQuotationDiscountPercentage(q: any): number {
-    if (!q) return 0;
-    const pct = q.discountPercentage ?? q.DiscountPercentage;
-    if (pct != null && Number(pct) > 0) return Number(pct);
-    const discType = q.discountType ?? q.DiscountType;
-    const discVal = Number(q.discountValue ?? q.DiscountValue ?? 0);
-    const monthlyRent = this.getQuotationMonthlyRent(q);
-    if ((discType === 'Amount' || discType === 'Fixed') && discVal > 0 && monthlyRent > 0) {
-      return parseFloat(((discVal / monthlyRent) * 100).toFixed(2));
-    }
-    const disc = this.getQuotationDiscountAmount(q);
-    const cycleRent = this.getQuotationFirstCycleRent(q);
-    if (disc > 0 && cycleRent > 0) {
-      return parseFloat(((disc / cycleRent) * 100).toFixed(2));
-    }
-    return 0;
-  }
-
-  getQuotationInitialPayable(q: any): number {
-    if (!q) return 0;
-    const cycleRent = this.getQuotationFirstCycleRent(q);
-    const deposit = this.getQuotationSecurityDeposit(q);
-    const tax = this.getQuotationTaxAmount(q);
-    const discount = this.getQuotationDiscountAmount(q);
-    return Math.max(0, parseFloat(((cycleRent - discount) + deposit + tax).toFixed(2)));
-  }
-
-  getQuotationNetTotal(q: any): number {
-    return this.getQuotationInitialPayable(q);
-  }
+  /** The conversion popup's pricing queries (manage-quotation-conversion-modal), bound to this page. */
+  readonly getQuotationContractMonthsFn = (q: any) => this.getQuotationContractMonths(q);
+  readonly getQuotationBillingMonthsFn = (q: any) => this.getQuotationBillingMonths(q);
+  readonly getQuotationFirstCycleRentFn = (q: any) => this.getQuotationFirstCycleRent(q);
+  readonly getQuotationDiscountAmountFn = (q: any) => this.getQuotationDiscountAmount(q);
+  readonly getQuotationTaxAmountFn = (q: any) => this.getQuotationTaxAmount(q);
+  readonly getQuotationSecurityDepositFn = (q: any) => this.getQuotationSecurityDeposit(q);
+  readonly getQuotationInitialPayableFn = (q: any) => this.getQuotationInitialPayable(q);
+  readonly isMeetingRoomFn = (item: any) => this.isMeetingRoom(item);
 
   readonly showConversionPreviewModal = signal(false);
   selectedConversionQuotation = signal<any>(null);
@@ -8871,19 +8166,9 @@ export class Manage implements OnInit {
           ...bookingData
         };
 
-        // Navigate cleanly to Bookings page and reload bookings list
-        this.router.navigate(['/admin/bookings']).then(() => {
-          this.entity = 'bookings';
-          this.config.set(this.buildConfig('bookings'));
-          this.page.set(1);
-          this.searchQuery = '';
-          this.load(() => {
-            if (bId) {
-              setTimeout(() => {
-                this.sendInitialInvoice(bookingItem);
-              }, 400);
-            }
-          });
+        // Navigate cleanly to Bookings page with query param to open initial invoice preview
+        this.router.navigate(['/admin/bookings'], {
+          queryParams: bId ? { sendInitialInvoice: bId } : {}
         });
       },
       error: (err: any) => {
@@ -8893,32 +8178,11 @@ export class Manage implements OnInit {
     });
   }
 
-  getSpaceType(item: any): string {
-    if (!item) return 'MeetingRoom';
-    const raw = String(item.spaceType || item.SpaceType || item.spaceCategory || item.SpaceCategory || '').toLowerCase();
-    if (raw === 'privateroom' || raw === 'private' || raw.includes('private')) return 'PrivateRoom';
-    if (raw === 'sharedspace' || raw === 'shared' || raw.includes('shared') || raw.includes('desk') || raw.includes('coworking')) return 'SharedSpace';
-    if (raw === 'meetingroom' || raw === 'meeting' || raw.includes('meeting') || raw.includes('conference')) return 'MeetingRoom';
+  isMeetingRoom(item: any): boolean { return pricing.isMeetingRoom(item); }
 
-    const name = String(item.name || item.Name || item.title || item.Title || item.spaceTypeName || item.SpaceTypeName || item.spaceName || item.SpaceName || '').toLowerCase();
-    if (name.includes('meeting') || name.includes('conference') || name.includes('board')) return 'MeetingRoom';
-    if (name.includes('shared') || name.includes('coworking') || name.includes('desk') || name.includes('open')) return 'SharedSpace';
-    if (name.includes('private') || name.includes('office') || name.includes('room')) return 'PrivateRoom';
-    if ((item.billingPeriodMonths <= 0 || !item.billingPeriodMonths) && (!item.totalContractAmount || item.totalContractAmount <= 0)) return 'MeetingRoom';
-    return 'SharedSpace';
-  }
+  isSharedSpace(item: any): boolean { return pricing.isSharedSpace(item); }
 
-  isMeetingRoom(item: any): boolean {
-    return this.getSpaceType(item) === 'MeetingRoom';
-  }
-
-  isSharedSpace(item: any): boolean {
-    return this.getSpaceType(item) === 'SharedSpace';
-  }
-
-  isPrivateRoom(item: any): boolean {
-    return this.getSpaceType(item) === 'PrivateRoom';
-  }
+  isPrivateRoom(item: any): boolean { return pricing.isPrivateRoom(item); }
 
   readonly showSendAgreementModal = signal(false);
   sendAgreementTab: 'Individual' | 'Company' = 'Individual';
@@ -9335,6 +8599,11 @@ export class Manage implements OnInit {
   customerCopyOnFile(ag: any): boolean {
     return !!(ag?.signedPdfUploadedAt || ag?.SignedPdfUploadedAt);
   }
+  /** The sign popup's query helpers (manage-agreement-sign-modal), bound to this page. */
+  readonly todayIsoFn = () => this.todayIso();
+  readonly signMinDateFn = (ag: any) => this.signMinDate(ag);
+  readonly signChallanAlreadyExpiredFn = () => this.signChallanAlreadyExpired();
+  readonly customerCopyOnFileFn = (ag: any) => this.customerCopyOnFile(ag);
   openSignAgreement(item: any) {
     this.signAgreementItem.set(item);
     this.signFile.set(null);
@@ -9400,18 +8669,6 @@ export class Manage implements OnInit {
     });
   }
 
-  markAgreementSigned(agreementId: any) {
-    if (!agreementId) return;
-    const obs = this.agreementSvc ? this.agreementSvc.markAgreementSigned(Number(agreementId)) : this.admin.markAgreementSigned(agreementId);
-    obs.subscribe({
-      next: () => {
-        this.showSuccess('Agreement marked as signed!');
-        this.load();
-      },
-      error: (err: any) => this.showError(err?.error?.message || 'Failed to mark agreement signed.')
-    });
-  }
-
   readonly showAgreementDetailsModal = signal(false);
   selectedAgreementDetails = signal<any>(null);
   uploadingSignedAgreementId = signal<number | null>(null);
@@ -9445,6 +8702,10 @@ export class Manage implements OnInit {
   eSignedBy(ag: any): string {
     return ag?.eSignedBy || ag?.ESignedBy || ag?.esignedBy || '';
   }
+  /** The sign and agreement-details popups' e-signature helpers (manage-agreement-sign-modal,
+   *  manage-agreement-details-modal), bound to this page. */
+  readonly eSignedAtFn = (ag: any) => this.eSignedAt(ag);
+  readonly eSignedByFn = (ag: any) => this.eSignedBy(ag);
 
   onSignedAgreementFileSelected(agreementId: any, event: any) {
     const input = event.target as HTMLInputElement;
@@ -9516,11 +8777,8 @@ export class Manage implements OnInit {
     if (!agreementId) return '#';
     return this.agreementSvc.getSignedPdfDownloadUrl(Number(agreementId));
   }
-
-  triggerSignedUpload(agreementId: any) {
-    const el = document.getElementById('upload-signed-' + agreementId) as HTMLInputElement;
-    if (el) el.click();
-  }
+  /** The agreement-details popup's getSignedAgreementDownloadUrl (manage-agreement-details-modal), bound to this page. */
+  readonly getSignedAgreementDownloadUrlFn = (agreementId: any) => this.getSignedAgreementDownloadUrl(agreementId);
 
   deleteSignedAgreementPdf(agreementId: any) {
     if (!agreementId) return;
@@ -9548,17 +8806,4 @@ export class Manage implements OnInit {
     });
   }
 
-  readonly showQuickUploadModal = signal(false);
-  quickUploadAgreementId: number | null = null;
-
-  openQuickUploadModal(item?: any) {
-    this.quickUploadAgreementId = item ? (item.id || item.agreementId) : (this.filtered.length > 0 ? (this.filtered[0].id || this.filtered[0].agreementId) : null);
-    this.showQuickUploadModal.set(true);
-  }
-
 }
-
-
-
-
-

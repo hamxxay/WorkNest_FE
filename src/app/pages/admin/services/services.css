@@ -1,5 +1,5 @@
 /* Services (background service switches). The base admin look (page padding, header, cards, buttons) comes from
-   ../manage/manage.css and the confirm popup from ../../../styles/form-popup.css. */
+   ../manage-base/manage-list.css and the confirm popup from ../../../styles/form-popup.css. */
 
 .sv-page {
   --sv-teal: #0d9488;

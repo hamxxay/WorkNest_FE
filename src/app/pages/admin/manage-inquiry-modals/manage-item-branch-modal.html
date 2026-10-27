@@ -1,0 +1,52 @@
+<div class="modal-overlay" (click)="closeItemBranch.emit()">
+  <div class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="itemBranchTitle"
+    (click)="$event.stopPropagation()">
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
+      <div>
+        <h2 id="itemBranchTitle">{{ entity === 'contacts' ? 'Inquiry location' : 'Complaint branch' }}</h2>
+        <p>{{ itemBranchLine(bi) }}</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeItemBranch.emit()" [disabled]="itemBranchSaving()" title="Close"
+        aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Which branch should handle it?</legend>
+        <div class="inq-choice-grid two">
+          @for (b of itemBranches(); track b.id) {
+          <label class="inq-choice teal" [class.selected]="itemBranchValue === b.id">
+            <input type="radio" name="itemBranch" [value]="b.id" [(ngModel)]="itemBranchValue" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'branch' }" /></span>
+            <span class="inq-choice-text">
+              <strong>{{ b.name }}</strong>
+              @if (itemBranchId(bi) === b.id) { <small>Current branch</small> }
+            </span>
+          </label>
+          }
+        </div>
+      </fieldset>
+      @if (!itemBranchId(bi)) {
+      <p class="inq-note">Without a branch, the staff of every branch see it. Once set, it goes to that branch's staff.
+      </p>
+      }
+      @if (itemBranchError()) {
+      <p class="inq-error" role="alert">{{ itemBranchError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeItemBranch.emit()"
+        [disabled]="itemBranchSaving()">Cancel</button>
+      <button type="button" class="btn-admin btn-primary-admin" (click)="saveItemBranch.emit()"
+        [disabled]="itemBranchSaving() || !itemBranchValue">
+        {{ itemBranchSaving() ? 'Saving…' : 'Save branch' }}
+      </button>
+    </footer>
+  </div>
+</div>
