@@ -20,7 +20,6 @@
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 /* Print */
 @media print {
-  body * { visibility: hidden !important; }
   .modal-close { display: none !important; }
 }
 /* ---------- Form popups: shared polish ---------- */
@@ -39,7 +38,7 @@
 .modal-content table .form-input-admin{height:34px}
 .modal-content .form-input-admin:hover:not(:focus):not(:disabled){border-color:#cbd5e1}
 .modal-content .form-input-admin:focus{border-color:#0d9488;box-shadow:0 0 0 4px rgba(13,148,136,.12)}
-.modal-content .form-input-admin:disabled,.modal-content .form-input-admin[readonly]{background:#f8fafc;color:#64748b}
+.modal-content .form-input-admin:disabled{background:#f8fafc;color:#64748b}
 .modal-content .form-input-admin::placeholder{color:#94a3b8}
 /* Buttons stay visible at the bottom of long forms */
 .modal-actions{position:sticky;bottom:0;z-index:2;background:#fff;margin:24px -28px -28px;padding:16px 28px;border-top:1px solid #f1f5f9;border-radius:0 0 16px 16px}
@@ -72,9 +71,6 @@
   /* ...except a header bar that ends with its close button: the title block shrinks and wraps instead. */
   .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)):not(button) { flex-wrap: nowrap; }
   .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)) > :first-child { min-width: 0; }
-  /* Popups with no padding of their own: their header / body / footer side padding shrinks to 16px. */
-  .modal-content[style*="padding: 0;"] > [style*="padding"] { padding-left: 16px !important; padding-right: 16px !important; }
-  .modal-content[style*="max-height"] { max-height: calc(100dvh - 20px) !important; }
   /* Fixed two- and three-column field grids stack; four KPI tiles become two by two. */
   .modal-content .m-stack { grid-template-columns: 1fr !important; }
   .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
