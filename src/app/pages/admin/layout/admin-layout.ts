@@ -314,9 +314,21 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   /** Visible menu items (role rules applied), grouped under section headings. */
   private visibleItems(): any[] {
+    if (this.isNetworkEngineer) {
+      // For network engineer, exactly 5 tabs are shown under Network:
+      // Network Overview, Clients, Devices, Internet, Wi-Fi.
+      const onGwn = this.currentPath().startsWith('/admin/network/gwn');
+      return this.menuItems
+        .filter((i: any) => i.group === 'Network')
+        .map((i: any) => {
+          if (!onGwn || i.route === '/admin/network/internet') return i;
+          return { ...i, route: counterpart(i.route, 'gwn') };
+        });
+    }
+
     const items = this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
       && (!i.customInvoiceOnly || this.customInvoiceAllowed())
-      && (i.group !== 'Network' || this.isNetworkEngineer || this.networkAllowed()));
+      && (i.group !== 'Network' || this.networkAllowed()));
     // On the Grandstream (F-7) pages, or for staff who only see Grandstream, the Network links open its pages
     // (it has no Internet page). The switch at the top of every Network page moves between the two networks.
     const gwnMode = this.currentPath().startsWith('/admin/network/gwn') || (!this.unifiAllowed() && this.gwnAllowed());
@@ -364,6 +376,8 @@ export class AdminLayout implements OnInit, OnDestroy {
     if (!this.isNetworkEngineer || !this.unifiScopeLoaded || !this.gwnScopeLoaded) return;
     const path = this.router.url.split(/[?#]/)[0];
     if (!path.startsWith('/admin/network')) return;
+    // Internet is always accessible to Network Engineer
+    if (path === '/admin/network/internet') return;
     const onGwn = path.startsWith('/admin/network/gwn');
     if (!onGwn && !this.unifiAllowed() && this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'gwn'));
     else if (onGwn && this.unifiAllowed() && !this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'unifi'));
