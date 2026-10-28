@@ -171,8 +171,6 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   voiding = signal(false);
 
   // ── Validation Computed ───────────────────────────────────────────────────
-  minReceiptDate = computed(() => { return ''; });
-
   /** Why the receipt date blocks Generate (empty when valid). */
   dateError = computed(() => {
     if (!this.selectedInvoice()) return '';
@@ -350,13 +348,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     this.invoiceSearchQuery.set(inv.dropdownDisplay);
     this.invoiceDropdownOpen.set(false);
 
-    // Adjust receipt date if today is somehow before invoice date (shouldn't happen, but safe)
-    const invDate = inv.issuedOn ? inv.issuedOn.toString().split('T')[0] : '';
-    if (invDate && this.todayStr < invDate) {
-      this.receiptDate.set(invDate);
-    } else {
-      this.receiptDate.set(this.todayStr);
-    }
+    this.receiptDate.set(this.todayStr);
 
     // Load accounts for this invoice's company
     this.loadAccounts(inv.companyId);

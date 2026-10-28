@@ -305,7 +305,6 @@
                 [value]="receiptDate()"
                 (input)="receiptDate.set($any($event.target).value)"
                 [max]="todayStr"
-                [min]="minReceiptDate()"
                 [class.input-invalid]="dateError()"
                 aria-label="Receipt date"
               />
