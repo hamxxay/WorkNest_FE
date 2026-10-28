@@ -1,18 +1,18 @@
 // AUTO-GENERATED — do not edit manually. Edit .env instead.
 export const environment = {
   production: false,
-  apiUrl: '<API_URL>',
-  fromEmail: '<FROM_EMAIL>',
-  whatsappNumber: '<WHATSAPP_NUMBER>',
+  apiUrl: 'http://localhost:5200/api',
+  fromEmail: 'noreply@worknest.pk',
+  whatsappNumber: '+923099771774',
   payfast: {
     sandbox: true,
   },
   firebase: {
-    apiKey:            '<FIREBASE_API_KEY>',
-    authDomain:        '<FIREBASE_AUTH_DOMAIN>',
-    projectId:         '<FIREBASE_PROJECT_ID>',
-    storageBucket:     '<FIREBASE_STORAGE_BUCKET>',
-    messagingSenderId: '<FIREBASE_MESSAGING_SENDER_ID>',
-    appId:             '<FIREBASE_APP_ID>',
+    apiKey:            'AIzaSyCkExUnLV-oGvRp56PVnTJMPWPplLFIuXs',
+    authDomain:        'work-nest-3936a.firebaseapp.com',
+    projectId:         'work-nest-3936a',
+    storageBucket:     'work-nest-3936a.firebasestorage.app',
+    messagingSenderId: '722479405081',
+    appId:             '1:722479405081:web:48935f617c573c030e7288',
   },
 };
