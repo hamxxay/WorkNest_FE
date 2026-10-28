@@ -17,6 +17,8 @@ export class Unauthorized {
       this.router.navigate(['/admin/sales-manager']);
     } else if (this.auth.isAccessOfficerOnly()) {
       this.router.navigate(['/admin/access']);
+    } else if (this.auth.isNetworkEngineerOnly()) {
+      this.router.navigate(['/admin/network']);
     } else if (this.auth.hasRole('admin')) {
       this.router.navigate(['/admin']);
     } else {

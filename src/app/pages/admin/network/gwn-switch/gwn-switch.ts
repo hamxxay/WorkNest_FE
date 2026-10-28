@@ -16,9 +16,10 @@ import { GwnError, GwnNetwork, GwnService } from '../../../../services/gwn.servi
 
 interface SwitchOption { key: string; label: string; sub: string; kind: 'unifi' | 'gwn'; netId?: number }
 
-// Read once per session (each Network page shows the switch).
+// Read once per session (each Network page shows the switch); read again when another user signs in.
 let unifiAllowed$: Observable<boolean> | null = null;
 let locationNames$: Observable<Map<number, string>> | null = null;
+let cachedFor: string | null = null;
 
 const UNIFI_DEFAULT = 'I-8';
 const GWN_DEFAULTS: Record<number, string> = { 2: 'F-7' };
@@ -105,6 +106,8 @@ export class NetworkSwitch implements OnInit {
 
   ngOnInit() {
     const superAdmin = this.auth.hasRole('super_admin');
+    const who = this.auth.getUser()?.email ?? '';
+    if (who !== cachedFor) { unifiAllowed$ = null; locationNames$ = null; cachedFor = who; }
     if (!unifiAllowed$) {
       unifiAllowed$ = superAdmin ? of(true) : this.unifi.getScope().pipe(map(s => !!s.allowed), catchError(() => of(true)), shareReplay(1));
     }

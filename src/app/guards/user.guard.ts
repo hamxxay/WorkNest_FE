@@ -20,5 +20,9 @@ export const userGuard: CanActivateFn = () => {
   if (auth.isAuthenticated() && auth.isAccessOfficerOnly()) {
     return router.createUrlTree(['/admin/access']);
   }
+  // A Network Engineer only uses the Network pages.
+  if (auth.isAuthenticated() && auth.isNetworkEngineerOnly()) {
+    return router.createUrlTree(['/admin/network']);
+  }
   return true;
 };

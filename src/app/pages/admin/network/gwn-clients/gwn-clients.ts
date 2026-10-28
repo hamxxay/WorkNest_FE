@@ -48,9 +48,9 @@ export class GwnClientsPage implements OnInit, OnDestroy {
   private charts = new ChartBag();
   private timers: ReturnType<typeof setInterval>[] = [];
 
-  /** Admins rename; only super admins block / unblock. Sales executives read only. */
-  readonly canRename = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
-  readonly isSuperAdmin = this.auth.hasRole('super_admin');
+  /** Admins and network engineers rename; only super admins and network engineers block / unblock. Sales executives read only. */
+  readonly canRename = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
+  readonly isSuperAdmin = this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   data = signal<GwnClient[] | null>(null);
   devices = signal<GwnDevice[]>([]);

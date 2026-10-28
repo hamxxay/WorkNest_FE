@@ -553,6 +553,9 @@ export class AuthService {
     if (this.isAccessOfficerOnly()) {
       return '/admin/access';
     }
+    if (this.isNetworkEngineerOnly()) {
+      return '/admin/network';
+    }
     if (this.hasRole('sales_executive')) {
       return '/admin/dashboard';
     }
@@ -581,10 +584,6 @@ export class AuthService {
   }
 
   /**
-   * An Access Officer (role "access_officer") only uses the Access page (door access by CNIC) for their own
-   * location(s). Only when the user has no other staff role (a CEO / Sales Manager keeps their dashboard).
-   */
-    /**
    * A Network Engineer (role "network_engineer") only uses network management (/admin/network) for their own
    * location(s). Only when the user has no other staff role.
    */
@@ -594,15 +593,19 @@ export class AuthService {
       && !this.hasRole('ceo') && !this.hasRole('sales_manager') && !this.hasRole('access_officer');
   }
 
+  /**
+   * An Access Officer (role "access_officer") only uses the Access page (door access by CNIC) for their own
+   * location(s). Only when the user has no other staff role (a CEO / Sales Manager keeps their dashboard).
+   */
   isAccessOfficerOnly(): boolean {
     return this.hasRole('access_officer')
       && !this.hasRole('super_admin') && !this.hasRole('admin') && !this.hasRole('sales_executive')
       && !this.hasRole('ceo') && !this.hasRole('sales_manager');
   }
 
-  /** CEO, Sales Manager or Access Officer: one page (their dashboard / the Access page) and no other. */
+  /** CEO, Sales Manager, Access Officer or Network Engineer: one page / section (their dashboard, Access, Network) and no other. */
   isSinglePageOnly(): boolean {
-    return this.isCeoOnly() || this.isSalesManagerOnly() || this.isAccessOfficerOnly();
+    return this.isCeoOnly() || this.isSalesManagerOnly() || this.isAccessOfficerOnly() || this.isNetworkEngineerOnly();
   }
 
   /**

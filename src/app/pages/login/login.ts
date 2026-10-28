@@ -165,11 +165,12 @@ export class Login {
   }
 
   /**
-   * Super admin, admin, sales executive, CEO, sales manager, access officer and receptionist use the CMS; everyone
+   * Super admin, admin, sales executive, CEO, sales manager, access officer, network engineer and receptionist use the
+   * CMS; everyone
    * else is a customer.
    */
   private isStaff(user?: any): boolean {
-    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager', 'accessofficer'];
+    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager', 'accessofficer', 'networkengineer'];
     const roles: string[] = user?.roles ?? [];
     return roles.some(r => staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
   }
@@ -198,6 +199,9 @@ export class Login {
     if (has('salesmanager') && !has('superadmin') && !has('admin') && !has('salesexecutive')) return '/admin/sales-manager';
     // An Access Officer only has the Access page (door access by CNIC).
     if (has('accessofficer') && !has('superadmin') && !has('admin') && !has('salesexecutive')) return '/admin/access';
+    // A Network Engineer only has the Network pages (same rule as AuthService.isNetworkEngineerOnly).
+    if (has('networkengineer') && !has('superadmin') && !has('admin') && !has('salesexecutive') && !has('ceo')
+      && !has('salesmanager') && !has('accessofficer')) return '/admin/network';
     const isSales = roles.some(r => String(r).toLowerCase().replace(/[\s_]/g, '') === 'salesexecutive');
     if (isSales) return '/admin/dashboard';
     const isAdmin = roles.some(r => {
