@@ -56,8 +56,11 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   private ownLocationIds = computed<number[]>(() => {
     if (this.isSuperAdmin()) return [];
     const u = this.auth.getUser();
-    const ids: (number | null | undefined)[] = u?.locationIds?.length ? u.locationIds : [u?.locationId];
-    return ids.filter((x): x is number => x != null).map(Number);
+    const fromList = (u?.locationIds ?? []).filter((x): x is number => x != null && Number(x) > 0).map(Number);
+    if (fromList.length) return fromList;
+    const fromToken = this.auth.tokenLocationIds();
+    if (fromToken.length) return fromToken;
+    return u?.locationId != null && Number(u.locationId) > 0 ? [Number(u.locationId)] : [];
   });
   /** Super admin always gets the location filter; location-bound users only when they have several locations. */
   showLocationFilter = computed(() => this.isSuperAdmin() || this.ownLocationIds().length > 1);

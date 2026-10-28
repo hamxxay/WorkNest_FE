@@ -193,7 +193,7 @@ export class AuthService {
           roles: roles.length ? roles : ['customer'],
           displayName: String(data?.name ?? '').trim() || email.split('@')[0],
           locationId: data?.locationId != null ? Number(data.locationId) : null,
-          locationIds: Array.isArray(data?.locationIds) ? data.locationIds.map(Number) : [],
+          locationIds: Array.isArray(data?.locationIds) && data.locationIds.length ? data.locationIds.map(Number) : this.tokenLocationIds(),
           roleDisplayName: String(data?.roleDisplayName ?? '').trim() || undefined
         };
         localStorage.setItem(this.userKey, JSON.stringify(userInfo));
@@ -782,6 +782,11 @@ export class AuthService {
           localStorage.setItem(this.tokenKey, token);
         }
         if (hydratedUser) {
+          if (apiPayload?.locationId != null) hydratedUser.locationId = Number(apiPayload.locationId);
+          const tokenLocs = this.tokenLocationIds();
+          hydratedUser.locationIds = Array.isArray(apiPayload?.locationIds) && apiPayload.locationIds.length
+            ? apiPayload.locationIds.map(Number)
+            : (tokenLocs.length ? tokenLocs : (hydratedUser.locationIds ?? []));
           localStorage.setItem(this.userKey, JSON.stringify(hydratedUser));
         }
 

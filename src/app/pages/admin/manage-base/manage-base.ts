@@ -1087,9 +1087,11 @@ export abstract class ManageBase implements OnInit {
   /** The signed-in Admin's / Sales Executive's own locations: from the profile, else from the sign-in token. */
   private get myLocationIds(): number[] {
     const u = this.auth.user();
-    const fromProfile = (u?.locationIds?.length ? u.locationIds : [u?.locationId])
-      .filter(x => x != null && Number(x) > 0).map(Number);
-    return fromProfile.length ? [...new Set(fromProfile)] : this.auth.tokenLocationIds();
+    const fromList = (u?.locationIds ?? []).filter(x => x != null && Number(x) > 0).map(Number);
+    if (fromList.length) return [...new Set(fromList)];
+    const fromToken = this.auth.tokenLocationIds();
+    if (fromToken.length) return fromToken;
+    return u?.locationId != null && Number(u.locationId) > 0 ? [Number(u.locationId)] : [];
   }
 
   /** Locations the signed-in user may give: all for a Super Admin, only their own for an Admin. */
