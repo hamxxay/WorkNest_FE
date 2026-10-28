@@ -1,0 +1,118 @@
+<div class="ca-wrap">
+  <!-- Report -->
+  <div class="ca-filters">
+    <div class="ca-field">
+      <label for="ca-from">From</label>
+      <input id="ca-from" type="date" [(ngModel)]="fromDate" />
+    </div>
+    <div class="ca-field">
+      <label for="ca-to">To</label>
+      <input id="ca-to" type="date" [(ngModel)]="toDate" />
+    </div>
+    <div class="ca-field grow">
+      <label for="ca-person">Person</label>
+      <select id="ca-person" [(ngModel)]="personId">
+        <option [ngValue]="null">All people</option>
+        @for (p of people(); track p.personId) {
+        <option [ngValue]="p.personId">{{ p.name }}{{ p.active ? '' : ' (removed)' }}</option>
+        }
+      </select>
+    </div>
+    <div class="ca-actions">
+      <button type="button" class="ca-btn primary" (click)="generate()" [disabled]="loading()">Show</button>
+      <button type="button" class="ca-btn" (click)="exportExcel()" [disabled]="!report() || loading()">Excel</button>
+      <a class="ca-btn" routerLink="/admin/reports/attendance" [queryParams]="{ customer: customerId() }">Full report</a>
+    </div>
+  </div>
+  @if (dateError()) { <p class="ca-error">{{ dateError() }}</p> }
+
+  @if (loading()) {
+  <div class="ca-state" aria-busy="true"><span class="ca-spinner"></span>Working out attendance...</div>
+  } @else if (error(); as err) {
+  <div class="ca-notice" [class.db]="err.notInstalled" role="alert">
+    <span><strong>{{ err.notInstalled ? 'Attendance is not installed yet.' : 'The report could not be loaded.' }}</strong> {{ err.message }}</span>
+    @if (!err.notInstalled) { <button type="button" class="link-btn" (click)="generate()">Try again</button> }
+  </div>
+  } @else if (report(); as r) {
+  <app-attendance-report-view [report]="r" />
+  }
+
+  @if (!error()?.notInstalled) {
+  <!-- Shifts -->
+  <section class="ca-section" aria-labelledby="ca-shifts-h">
+    <div class="ca-head"><h3 id="ca-shifts-h">Shifts</h3><span class="ca-count">{{ shifts().rows.length }}</span></div>
+    @if (shifts().loading) { <div class="ca-state"><span class="ca-spinner"></span>Loading shifts...</div> }
+    @else if (shifts().error; as err) { <p class="ca-error">{{ err.message }}</p> }
+    @else if (!shifts().rows.length) { <p class="ca-muted">No shifts yet. Without a shift, only check-in, check-out and hours are shown.</p> }
+    @else {
+    <div class="ca-scroll">
+      <table class="ca-table">
+        <thead><tr><th>Name</th><th>Time</th><th class="num">Grace</th><th class="num">Half day under</th><th>Work days</th><th class="num">Employees</th></tr></thead>
+        <tbody>
+          @for (s of shifts().rows; track s.id) {
+          <tr>
+            <td class="name">{{ s.name }} @if (s.isDefault) { <span class="ca-tag">Default</span> }</td>
+            <td class="nw">{{ time(s.startTime) }} - {{ time(s.endTime) }} @if (s.crossesMidnight) { <span class="ca-tag night">Night</span> }</td>
+            <td class="num">{{ s.graceMinutes }} min</td>
+            <td class="num">{{ s.halfDayMinutes !== null ? s.halfDayMinutes + ' min' : '-' }}</td>
+            <td>{{ days(s) }}</td>
+            <td class="num">{{ s.employeeCount }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </section>
+
+  <!-- Holidays -->
+  <section class="ca-section" aria-labelledby="ca-holidays-h">
+    <div class="ca-head"><h3 id="ca-holidays-h">Holidays</h3><span class="ca-count">{{ holidays().rows.length }}</span></div>
+    @if (holidays().loading) { <div class="ca-state"><span class="ca-spinner"></span>Loading holidays...</div> }
+    @else if (holidays().error; as err) { <p class="ca-error">{{ err.message }}</p> }
+    @else if (!holidays().rows.length) { <p class="ca-muted">The customer has not declared any holidays.</p> }
+    @else {
+    <div class="ca-scroll">
+      <table class="ca-table">
+        <thead><tr><th>Date</th><th>Name</th></tr></thead>
+        <tbody>
+          @for (h of holidays().rows; track h.id) {
+          <tr><td class="nw">{{ h.date | date:'EEE, d MMM y' }}</td><td>{{ h.name || '-' }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </section>
+
+  <!-- Employees -->
+  <section class="ca-section" aria-labelledby="ca-employees-h">
+    <div class="ca-head"><h3 id="ca-employees-h">Employees</h3><span class="ca-count">{{ employees().rows.length }}</span></div>
+    @if (employees().loading) { <div class="ca-state"><span class="ca-spinner"></span>Loading employees...</div> }
+    @else if (employees().error; as err) { <p class="ca-error">{{ err.message }}</p> }
+    @else if (!employees().rows.length) { <p class="ca-muted">No employees yet. They are added on the customer's bookings.</p> }
+    @else {
+    <div class="ca-scroll">
+      <table class="ca-table">
+        <thead><tr><th>Name</th><th>CNIC</th><th>Rooms</th><th>Shift</th><th>Fingerprint</th><th>Status</th></tr></thead>
+        <tbody>
+          @for (e of employees().rows; track e.personId) {
+          <tr>
+            <td class="name">{{ e.name }}</td>
+            <td class="nw mono">{{ e.idNumberMasked || '-' }}</td>
+            <td>{{ e.rooms.length ? e.rooms.join(', ') : '-' }}</td>
+            <td>
+              {{ e.shiftName || 'No shift' }}
+              @if (e.usesDefaultShift && e.shiftName) { <span class="ca-tag">Default</span> }
+            </td>
+            <td><span class="ca-pill" [class.ok]="e.enrolled">{{ e.enrolled ? 'Enrolled' : 'Not enrolled' }}</span></td>
+            <td><span class="ca-pill" [class.ok]="e.active">{{ e.active ? 'Active' : 'Removed' }}</span></td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </section>
+  }
+</div>

@@ -788,6 +788,19 @@ input.input-invalid {
 
 /* Modals: always fit the screen, content scrolls inside. */
 .modal-content { max-height: 90vh; max-height: min(90vh, calc(100dvh - 24px)); }
+/* Popups with a button bar: the bar is a footer stuck to the popup's bottom edge. A sticky bar stops at the scroll
+   box's bottom padding, so with padding there the fields scroll on underneath it; the padding moves into the bar. */
+.modal-content:has(.modal-actions) { padding-bottom: 0 !important; }
+.modal-content .modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background-color: var(--bg-card, #fff);
+  margin-bottom: 0 !important;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-top: 1px solid #f1f5f9;
+}
 
 @media (max-width: 767.98px) {
   /* 16px text in fields stops iPhones zooming the page when a field is tapped; 44px tall is easy to hit. */

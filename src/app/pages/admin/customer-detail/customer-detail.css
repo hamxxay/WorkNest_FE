@@ -87,6 +87,15 @@ a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .facts dd a:hover { text-decoration: underline; }
 .facts dd.notes { white-space: pre-line; color: #334155; }
 
+/* attendance switch (profile) */
+.att-switch-row { display: inline-flex; align-items: center; gap: 8px; }
+.att-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; border-radius: 999px; border: none; padding: 0; background: #cbd5e1; cursor: pointer; transition: background .15s; }
+.att-switch.on { background: #0d9488; }
+.att-switch:disabled { cursor: default; opacity: .65; }
+.att-knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .15s; }
+.att-switch.on .att-knob { transform: translateX(18px); }
+.att-err { font-size: 0.82rem; color: #92400e; }
+
 /* ---------- tabs ---------- */
 .tabs-panel { padding: 0; scroll-margin-top: 16px; }
 .tab-strip { display: flex; gap: 4px; padding: 10px 14px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto; scrollbar-width: thin; }
@@ -242,4 +251,9 @@ a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .facts { grid-template-columns: minmax(0, 1fr); }
   .facts .span2 { grid-column: auto; }
   .rtable tbody tr { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .att-switch { width: 48px; height: 28px; }
+  .att-knob { width: 22px; height: 22px; }
+  .att-switch.on .att-knob { transform: translateX(20px); }
 }

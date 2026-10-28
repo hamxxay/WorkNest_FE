@@ -6,7 +6,8 @@ import { RouterLink } from '@angular/router';
 import { HikDeviceService } from '../../../../services/hik-device.service';
 import { AuthService } from '../../../../services/auth.service';
 import { AdminService } from '../../../../services/admin.service';
-import { HikAccessDashboard, HikAccessEvent } from '../../../../models/hik-device.model';
+import { HikAccessDashboard, HikAccessEvent, HikDeviceDetail } from '../../../../models/hik-device.model';
+import { ManageAccessMachineModal } from '../../manage-access-machine-modal/manage-access-machine-modal';
 import {
   ACCENT, Chart, METHOD_LABELS, addDays, downloadCsv, formatTime12, hourLabel, hourRangeLabel, initials, localDate, relStamp
 } from '../access-shared';
@@ -16,7 +17,7 @@ type HourFilter = 'all' | 'fingerprint' | 'face' | 'card' | 'door' | 'denied';
 @Component({
   selector: 'app-access-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ManageAccessMachineModal],
   templateUrl: './access-dashboard.html',
   styleUrls: ['../access-shared.css', './access-dashboard.css']
 })
@@ -30,6 +31,18 @@ export class AccessDashboard implements OnInit, OnDestroy {
   readonly canSetLocation = this.auth.hasRole('super_admin');
   locations = signal<{ id: number; name: string }[]>([]);
   savingLocationId = signal<number | null>(null);
+
+  /** Admins and super admins add, edit and delete machines (admins: in their own locations). */
+  readonly canManage = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  /** Locations offered in the add / edit form: super admin every one, an admin only theirs. */
+  manageLocations = computed(() => {
+    if (this.canSetLocation) return this.locations();
+    const mine = this.auth.tokenLocationIds();
+    return mine.length ? this.locations().filter(l => mine.includes(l.id)) : this.locations();
+  });
+  /** Add / edit popup: undefined = closed, null = add, a number = edit that machine. */
+  machineModalId = signal<number | null | undefined>(undefined);
+  deletingId = signal<number | null>(null);
 
   @ViewChild('inflowCanvas', { static: true }) inflowCanvas!: ElementRef<HTMLCanvasElement>;
   private inflowChart?: Chart;
@@ -107,7 +120,7 @@ export class AccessDashboard implements OnInit, OnDestroy {
   ngOnInit() {
     this.load();
     this.loadSyncStatus();
-    if (this.canSetLocation) this.loadLocations();
+    if (this.canSetLocation || this.canManage) this.loadLocations();
     // Live refresh every 30s (skipped while the drill-down is open).
     this.refreshTimer = setInterval(() => { if (!this.showHourModal()) { this.load(true); this.loadSyncStatus(); } }, 30000);
   }
@@ -142,6 +155,49 @@ export class AccessDashboard implements OnInit, OnDestroy {
       error: (err: any) => {
         this.savingLocationId.set(null);
         this.toast.error(err?.error?.message || 'The location could not be saved.');
+      }
+    });
+  }
+
+  openAddMachine() { this.machineModalId.set(null); }
+
+  openEditMachine(m: { id: number }) { this.machineModalId.set(m.id); }
+
+  closeMachineModal() { this.machineModalId.set(undefined); }
+
+  /** After add / edit: the API already tested the machine; reload the list to show it. */
+  onMachineSaved(d: HikDeviceDetail | null) {
+    const added = this.machineModalId() === null;
+    this.machineModalId.set(undefined);
+    const state = d ? (d.online ? ' It is online.' : ' It is offline right now.') : '';
+    this.toast.success(`${d?.name || 'Machine'} ${added ? 'added' : 'saved'}.${state}`);
+    this.load(true);
+  }
+
+  /** Deletes a machine. While people are still enrolled on it the API refuses (409); then ask again to delete anyway. */
+  deleteMachine(m: { id: number; name: string }) {
+    if (this.deletingId() !== null) return;
+    if (!confirm(`Delete the machine ${m.name}? It is removed from WorkNest (the machine itself is not reset).`)) return;
+    this.runDelete(m, false);
+  }
+
+  private runDelete(m: { id: number; name: string }, force: boolean) {
+    this.deletingId.set(m.id);
+    this.hik.deleteDevice(m.id, force).subscribe({
+      next: (res: any) => {
+        this.deletingId.set(null);
+        this.data.update(d => d ? { ...d, devices: (d.devices || []).filter((x: any) => x.id !== m.id) } : d);
+        this.toast.success(res?.message || `${m.name} deleted.`);
+        this.load(true);
+      },
+      error: (err: any) => {
+        this.deletingId.set(null);
+        const msg = err?.error?.message || 'The machine could not be deleted.';
+        if (err?.status === 409 && !force) {
+          if (confirm(`${msg}\n\nDelete it anyway?`)) this.runDelete(m, true);
+          return;
+        }
+        this.toast.error(msg);
       }
     });
   }

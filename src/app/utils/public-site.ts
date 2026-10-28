@@ -18,18 +18,35 @@ export const toPublicSiteGuard: CanActivateFn = (_route, state) => {
 };
 
 /**
- * Customers use worknestpk.com: hands the session over (they arrive there signed in) and ends it here.
- * The token goes after '#', which the browser never sends to a server; the site removes it on arrival.
+ * Customers use worknestpk.com: sends them there already signed in, and ends the session here (the CMS is staff-only).
+ * A one-time code (single use, 60 seconds, for worknestpk.com only) goes after '#' in /auth/handoff, which the browser
+ * never sends to a server; the site redeems it for its own session and removes it from the address bar. Without a code
+ * (API not updated yet, network error) the customer just gets worknestpk.com's sign-in page, as before.
  */
 export function handOffToPublicSite(
-  auth: { getToken(): string | null; logout$(options: { keepApiSession?: boolean }): Observable<unknown> },
-  landingPath = '/'
+  auth: { createHandoffCode$(target: 'web'): Observable<string | null>; logout$(): Observable<unknown> },
+  landingPath = '/my-bookings'
 ): void {
-  const token = auth.getToken();
-  const url = token
-    ? `${publicSiteUrl(landingPath)}#handoff=${encodeURIComponent(token)}`
-    : publicSiteUrl('/login');
-  const go = () => { window.location.replace(url); };
-  // keepApiSession: the token was just handed to worknestpk.com, so only this portal's session ends here.
-  auth.logout$({ keepApiSession: true }).subscribe({ next: go, error: go });
+  auth.createHandoffCode$('web').subscribe(code => {
+    const url = code
+      ? `${publicSiteUrl('/auth/handoff')}#code=${encodeURIComponent(code)}&next=${encodeURIComponent(landingPath)}`
+      : publicSiteUrl('/login');
+    let gone = false;
+    const go = () => { if (!gone) { gone = true; window.location.replace(url); } };
+    // A full sign-out (this token is revoked): worknestpk.com gets a new session of its own from the code.
+    auth.logout$().subscribe({ next: go, error: go, complete: go });
+  });
+}
+
+/** The code handed over by the other site (/auth/handoff#code=...), removed from the address bar straight away. */
+export function takeHandoffCode(): string | null {
+  if (typeof window === 'undefined') return null;
+  const match = /(?:^#|&)code=([^&]+)/.exec(window.location.hash || '');
+  history.replaceState(history.state, '', window.location.pathname + window.location.search);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]).trim() || null;
+  } catch {
+    return null;
+  }
 }

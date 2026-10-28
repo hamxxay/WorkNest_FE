@@ -5,7 +5,7 @@ import { environment } from '../../environments/environment';
 import {
   HikDevice, HikRosterResponse, HikDeviceUser,
   HikAccessDashboard, HikAccessEvent, HikSyncActivity, HikAccessAnalytics, HikUserAnalytics,
-  HikStaff, HikTag, HikStaffResult
+  HikStaff, HikTag, HikStaffResult, HikDeviceDetail, HikDeviceGroup, HikDeviceSaveRequest
 } from '../models/hik-device.model';
 
 @Injectable({
@@ -36,6 +36,33 @@ export class HikDeviceService {
   /** Super admin: which WorkNest location a machine belongs to (null = not assigned). */
   setDeviceLocation(id: number, locationId: number | null): Observable<any> {
     return this.http.put<any>(`${this.api}/hik/devices/${id}/location`, { locationId });
+  }
+
+  // ---- machine management (admin, super admin; needs the database script HIK_DEV_01) ----
+
+  /** One machine with its connection details (no password), for the edit form. */
+  getDevice(id: number): Observable<{ data: HikDeviceDetail }> {
+    return this.http.get<{ data: HikDeviceDetail }>(`${this.api}/hik/devices/${id}`);
+  }
+
+  /** Machine groups for the Group select. */
+  getDeviceGroups(): Observable<{ data: HikDeviceGroup[] }> {
+    return this.http.get<{ data: HikDeviceGroup[] }>(`${this.api}/hik/device-groups`);
+  }
+
+  /** Adds a machine; the API tests it right after (an offline machine is still saved). 409 = host + port already used. */
+  addDevice(body: HikDeviceSaveRequest): Observable<any> {
+    return this.http.post<any>(`${this.api}/hik/devices`, body);
+  }
+
+  /** Changes a machine; an empty password keeps the saved one. */
+  updateDevice(id: number, body: HikDeviceSaveRequest): Observable<any> {
+    return this.http.put<any>(`${this.api}/hik/devices/${id}`, body);
+  }
+
+  /** Deletes a machine. 409 while people are still enrolled on it, unless force. */
+  deleteDevice(id: number, force = false): Observable<any> {
+    return this.http.delete<any>(`${this.api}/hik/devices/${id}`, { params: force ? { force: 'true' } : {} });
   }
 
   /** "Test all": tests every machine and saves online / offline. */

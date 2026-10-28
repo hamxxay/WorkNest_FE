@@ -1,0 +1,7 @@
+.machine-modal { width: min(640px, 100%); }
+.https-toggle { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 40px; font-size: .85rem; font-weight: 600; color: #334155; cursor: pointer; }
+.https-toggle input { width: 16px; height: 16px; accent-color: #0d9488; }
+.pass-row { display: flex; gap: 8px; }
+.pass-row .form-input-admin { flex: 1; min-width: 0; }
+.pass-row .btn-admin { flex: 0 0 auto; }
+.inq-link:disabled { opacity: .5; cursor: not-allowed; text-decoration: none; }

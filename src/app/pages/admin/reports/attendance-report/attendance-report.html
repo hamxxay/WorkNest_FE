@@ -1,0 +1,170 @@
+<div class="admin-page reports-page">
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-badge">Access Control</div>
+      <h1>Attendance Report</h1>
+      <p class="subtitle">Check-in, check-out and hours of a customer's employees, from the scans on their room machines.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="exportExcel()" [disabled]="!report() || loading()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+        Export to Excel
+      </button>
+      <button class="btn btn-outline" (click)="exportPdf()" [disabled]="!report() || loading() || exporting()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+        </svg>
+        {{ exporting() ? 'Making PDF...' : 'Export PDF' }}
+      </button>
+    </div>
+  </div>
+
+  @if (customersError(); as err) {
+  <div class="error-banner" [class.db]="err.notInstalled" role="alert">{{ err.message }}</div>
+  }
+
+  <div class="admin-card filter-card">
+    <div class="filter-grid">
+      <div class="form-group">
+        <label for="att-customer">Customer</label>
+        <select id="att-customer" class="form-control" [(ngModel)]="customerId" (ngModelChange)="onCustomerChange()" [disabled]="customersLoading()">
+          <option [ngValue]="null">{{ customersLoading() ? 'Loading customers...' : '-- Choose a customer --' }}</option>
+          @if (enabledCustomers().length) {
+          <optgroup label="Attendance enabled">
+            @for (c of enabledCustomers(); track c.customerId) {
+            <option [ngValue]="c.customerId">{{ c.customerName }} ({{ c.employeeCount }} {{ c.employeeCount === 1 ? 'person' : 'people' }})</option>
+            }
+          </optgroup>
+          }
+          @if (disabledCustomers().length) {
+          <optgroup label="Attendance disabled">
+            @for (c of disabledCustomers(); track c.customerId) {
+            <option [ngValue]="c.customerId">{{ c.customerName }} (disabled)</option>
+            }
+          </optgroup>
+          }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="att-from">From</label>
+        <input id="att-from" type="date" class="form-control" [(ngModel)]="fromDate" />
+      </div>
+
+      <div class="form-group">
+        <label for="att-to">To</label>
+        <input id="att-to" type="date" class="form-control" [(ngModel)]="toDate" />
+      </div>
+
+      <div class="form-group">
+        <label for="att-person">Person</label>
+        <select id="att-person" class="form-control" [(ngModel)]="personId" [disabled]="!customerId">
+          <option [ngValue]="null">All people</option>
+          @for (p of people(); track p.personId) {
+          <option [ngValue]="p.personId">{{ p.name }}{{ p.active ? '' : ' (removed)' }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group btn-col">
+        <button class="btn btn-primary" (click)="generate()" [disabled]="loading() || !customerId">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          Generate Report
+        </button>
+      </div>
+    </div>
+
+    @if (dateError()) {
+    <div class="error-banner">{{ dateError() }}</div>
+    }
+    @if (selectedCustomer(); as c) {
+    <p class="filter-note">
+      @if (c.enabled) {
+      <span class="state-pill on">Attendance enabled</span> The customer sees attendance in the app and web portal.
+      } @else {
+      <span class="state-pill off">Attendance disabled</span> The customer does not see attendance; staff can still read it.
+      }
+      @if (canToggle) {
+      <button type="button" class="btn btn-sm" [class.btn-primary]="!c.enabled" [class.btn-outline]="c.enabled"
+              (click)="toggleEnabled(c)" [disabled]="toggling()">
+        {{ toggling() ? 'Saving...' : (c.enabled ? 'Turn off' : 'Turn on') }}
+      </button>
+      }
+      @if (canOpenCustomer) {
+      <a class="link" [routerLink]="['/admin/customers', c.customerId]">Open customer</a>
+      }
+    </p>
+    }
+  </div>
+
+  @if (exportError()) {
+  <div class="error-banner" role="alert">{{ exportError() }}</div>
+  }
+
+  <div #printArea>
+    @if (loading()) {
+    <div class="admin-card">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Working out attendance...</p>
+      </div>
+    </div>
+    } @else if (error(); as err) {
+    <div class="admin-card">
+      <div class="empty-state" role="alert">
+        <h4>{{ err.notInstalled ? 'Attendance is not installed yet' : 'Could not load the report' }}</h4>
+        <p>{{ err.message }}</p>
+        @if (!err.notInstalled) {
+        <button class="btn btn-outline" (click)="generate()">Try again</button>
+        }
+      </div>
+    </div>
+    } @else if (report(); as r) {
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-label">People</span>
+        <span class="metric-value">{{ totals().people }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Present days</span>
+        <span class="metric-value text-success">{{ totals().present }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Late days</span>
+        <span class="metric-value text-warning">{{ totals().late }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Absent days</span>
+        <span class="metric-value text-danger">{{ totals().absent }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Missing check-out</span>
+        <span class="metric-value">{{ totals().missingOut }}</span>
+      </div>
+      <div class="metric-card highlight">
+        <span class="metric-label">Hours worked</span>
+        <span class="metric-value">{{ totals().worked }}</span>
+        <span class="metric-sub">Overtime {{ totals().overtime }}</span>
+      </div>
+    </div>
+
+    <div class="admin-card table-card">
+      <app-attendance-report-view [report]="r" />
+    </div>
+    } @else {
+    <div class="admin-card">
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>
+        </svg>
+        <h4>Choose a customer</h4>
+        <p>Pick a customer and a date range (up to 62 days) to see their employees' attendance.</p>
+      </div>
+    </div>
+    }
+  </div>
+</div>

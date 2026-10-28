@@ -126,6 +126,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/access-dashboard', group: 'Access Control',    label: 'Access Dashboard',    icon: 'access-dashboard', adminOnly: true },
     { route: '/admin/access-activity-log', group: 'Access Control', label: 'Access Activity Log', icon: 'access-activity',  adminOnly: true },
     { route: '/admin/access-analytics', group: 'Access Control',    label: 'Access Analytics',    icon: 'access-analytics', adminOnly: true },
+    { route: '/admin/reports/attendance', group: 'Access Control',  label: 'Attendance',          icon: 'attendance' },
     { route: '/admin/network', group: 'Network',          label: 'Network Overview', icon: 'network'         },
     { route: '/admin/network/clients', group: 'Network',  label: 'Clients',          icon: 'net-clients'     },
     { route: '/admin/network/devices', group: 'Network',  label: 'Devices',          icon: 'net-devices'     },
