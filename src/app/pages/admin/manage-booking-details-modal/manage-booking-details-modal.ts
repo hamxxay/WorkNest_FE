@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, Output, Signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { isPrivateRoom, isSharedSpace, storedDeposit } from '../manage-base/utils/manage-pricing.utils';
+import { isPrivateRoom, isSharedSpace, storedDeposit } from '../../../utils/manage-pricing.utils';
 
 /** Booking Details popup of the Manage page (Manage.showBookingDetailsModal). Markup moved from manage.html; Manage
  *  loads the booking and its billing summary and keeps the actions (challan, recurring invoice, edit). */
