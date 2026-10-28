@@ -326,7 +326,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     this.invoicesSub?.unsubscribe();
     this.searchingInvoices.set(true);
     // No locationId: the API scopes location-bound users to their own locations.
-    this.invoicesSub = this.feeReceiptService.getUnpaidInvoices(search, undefined, 30).subscribe({
+    this.invoicesSub = this.feeReceiptService.getUnpaidInvoices(search, undefined, 200).subscribe({
       next: (list) => {
         this.unpaidInvoices.set(list);
         this.searchingInvoices.set(false);

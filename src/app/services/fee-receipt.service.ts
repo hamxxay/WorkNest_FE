@@ -231,7 +231,7 @@ export class FeeReceiptService {
   private baseUrl = `${environment.apiUrl}/fee-receipts`;
 
   /** locationId is optional: the API already limits location-bound users to their own locations. */
-  getUnpaidInvoices(search?: string, locationId?: number | null, top: number = 30): Observable<UnpaidInvoiceDto[]> {
+  getUnpaidInvoices(search?: string, locationId?: number | null, top: number = 200): Observable<UnpaidInvoiceDto[]> {
     let params = new HttpParams().set('top', top.toString());
     if (search && search.trim()) {
       params = params.set('search', search.trim());

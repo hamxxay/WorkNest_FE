@@ -134,6 +134,9 @@
                         @if (inv.isCustom) {
                           <span class="fr-badge fr-badge-custom">Custom Invoice</span>
                         }
+                        @if (inv.statusLabel === 'Overdue') {
+                          <span class="fr-badge fr-badge-overdue">Overdue</span>
+                        }
                         @if (inv.amountPaid > 0) {
                           <span class="fr-badge fr-badge-partial">Part paid</span>
                         }

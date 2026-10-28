@@ -1071,6 +1071,13 @@
   border: 1px solid #bae6fd;
 }
 
+/* Past DueOn with a balance still owed. */
+.fr-badge-overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
 .fr-dd-amount small {
   font-weight: 500;
   font-size: 0.75rem;
