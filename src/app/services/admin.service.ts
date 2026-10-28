@@ -339,7 +339,9 @@ export class AdminService {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/approve`, {});
   }
 
-  /** Super admin only: move an approved invoice back to Pending Approval (reason 1..500 chars). */
+  deleteUnapprovedInvoice(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/unapproved`);
+  }
   revertInvoiceApproval(invoiceId: number, reason: string): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/revert-approval`, { reason });
   }

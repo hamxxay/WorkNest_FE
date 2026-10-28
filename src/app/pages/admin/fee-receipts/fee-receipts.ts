@@ -171,11 +171,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
   voiding = signal(false);
 
   // ── Validation Computed ───────────────────────────────────────────────────
-  minReceiptDate = computed(() => {
-    const inv = this.selectedInvoice();
-    if (!inv || !inv.issuedOn) return '';
-    return inv.issuedOn.toString().split('T')[0];
-  });
+  minReceiptDate = computed(() => { return ''; });
 
   /** Why the receipt date blocks Generate (empty when valid). */
   dateError = computed(() => {
@@ -183,8 +179,7 @@ export class FeeReceiptsComponent implements OnInit, OnDestroy {
     const date = this.receiptDate();
     if (!date) return 'Select a receipt date.';
     if (date > this.todayStr) return 'Receipt date cannot be in the future.';
-    const minDate = this.minReceiptDate();
-    if (minDate && date < minDate) return 'Receipt date cannot be before the invoice issue date.';
+    
     return '';
   });
 

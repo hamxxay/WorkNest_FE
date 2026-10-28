@@ -217,6 +217,20 @@
               </div>
               <span class="total-amount mono">PKR {{ inv.netReceivableAmount | number:'1.2-2' }}</span>
             </div>
+
+            @if (inv.amountPaid > 0) {
+              <div class="fr-breakdown-row paid-deduction">
+                <span class="text-success font-semibold">Less: Paid So Far (Previous Receipts)</span>
+                <span class="mono text-success font-semibold">- PKR {{ inv.amountPaid | number:'1.2-2' }}</span>
+              </div>
+              <div class="fr-breakdown-row total-banner balance-banner">
+                <div class="total-label-wrap">
+                  <span class="total-title balance-title">Remaining Balance Due</span>
+                  <span class="total-hint">Outstanding amount currently payable on this invoice</span>
+                </div>
+                <span class="total-amount mono balance-amount">PKR {{ inv.balanceAmount | number:'1.2-2' }}</span>
+              </div>
+            }
           </div>
         </div>
 
@@ -295,7 +309,7 @@
                 [class.input-invalid]="dateError()"
                 aria-label="Receipt date"
               />
-              <span class="fr-field-hint">Between invoice issue date ({{ inv.issuedOn | date:'mediumDate' }}) and today.</span>
+              <span class="fr-field-hint">Cannot be in the future (today or earlier).</span>
               @if (dateError()) {
                 <small class="field-error-text">{{ dateError() }}</small>
               }

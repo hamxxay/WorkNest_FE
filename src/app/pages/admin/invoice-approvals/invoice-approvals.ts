@@ -40,6 +40,7 @@ export class InvoiceApprovalsComponent implements OnInit {
   readonly viewSuccess = signal<boolean>(false);
   readonly viewError = signal<string>('');
   readonly approving = signal<boolean>(false);
+  readonly deleting = signal<boolean>(false);
   readonly approvalResult = signal<{ success: boolean; message: string } | null>(null);
 
   // Generate recurring invoice modal state
@@ -196,6 +197,57 @@ export class InvoiceApprovalsComponent implements OnInit {
         this.approving.set(false);
         const errMsg = err?.error?.message || err?.message || 'Failed to approve invoice.';
         this.approvalResult.set({ success: false, message: errMsg });
+        this.toast.error(errMsg);
+      }
+    });
+  }
+
+  deleteCurrentInvoice(): void {
+    const inv = this.selectedInvoice();
+    if (!inv || this.deleting()) return;
+
+    const invoiceId = inv.id || inv.Id;
+    const invNum = inv.invoiceNumber || inv.InvoiceNumber || `INV-${invoiceId}`;
+
+    if (!confirm(`Are you sure you want to delete unapproved invoice ${invNum}? This action cannot be undone.`)) {
+      return;
+    }
+
+    this.deleting.set(true);
+
+    this.admin.deleteUnapprovedInvoice(invoiceId).subscribe({
+      next: (res: any) => {
+        this.deleting.set(false);
+        const msg = res?.message || `Invoice ${invNum} deleted successfully.`;
+        this.toast.success(msg);
+        this.queue.update(items => items.filter(x => (x.id || x.Id) !== invoiceId));
+        this.closeReview();
+      },
+      error: (err: any) => {
+        this.deleting.set(false);
+        const errMsg = err?.error?.message || err?.message || 'Failed to delete invoice.';
+        this.toast.error(errMsg);
+      }
+    });
+  }
+
+  deleteInvoiceDirect(item: any, event: MouseEvent): void {
+    event.stopPropagation();
+    const invoiceId = item.id || item.Id;
+    const invNum = item.invoiceNumber || item.InvoiceNumber || `INV-${invoiceId}`;
+
+    if (!confirm(`Are you sure you want to delete unapproved invoice ${invNum}?`)) {
+      return;
+    }
+
+    this.admin.deleteUnapprovedInvoice(invoiceId).subscribe({
+      next: (res: any) => {
+        const msg = res?.message || `Invoice ${invNum} deleted successfully.`;
+        this.toast.success(msg);
+        this.queue.update(items => items.filter(x => (x.id || x.Id) !== invoiceId));
+      },
+      error: (err: any) => {
+        const errMsg = err?.error?.message || err?.message || 'Failed to delete invoice.';
         this.toast.error(errMsg);
       }
     });
