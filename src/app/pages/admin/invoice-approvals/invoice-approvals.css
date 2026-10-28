@@ -132,17 +132,21 @@
   flex-wrap: wrap;
 }
 
+/* The admin-wide style draws the box on .search-box and strips the input's left padding, so the icon sits beside the
+   input (flex) instead of on top of it. */
 .search-box {
   position: relative;
   flex: 1;
   max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .search-box svg {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
   color: #94a3b8;
 }
 
@@ -187,7 +191,7 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
@@ -211,6 +215,14 @@
   padding: 14px 16px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
+}
+
+/* Invoice #, rent period and due date stay on one line (they wrapped into 2-3 lines); the table scrolls sideways on
+   narrow screens instead. */
+.queue-table td:nth-child(1),
+.queue-table td:nth-child(4),
+.queue-table td:nth-child(5) {
+  white-space: nowrap;
 }
 
 .queue-row {
