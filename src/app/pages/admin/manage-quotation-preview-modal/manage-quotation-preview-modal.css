@@ -4,11 +4,6 @@
 .btn-outline-admin:disabled{opacity:.4;cursor:not-allowed}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
 .modal-content{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative}
-.modal-content h2{font-size:1.2rem;font-weight:700;color:#0f172a;margin-bottom:20px}
-/* Print */
-@media print {
-  body * { visibility: hidden !important; }
-}
 /* Status badges for Quotation */
 .status-badge.status-approved,
 .status-badge.status-active {
@@ -38,8 +33,6 @@
 }
 /* Print rule for Quotation Preview */
 @media print {
-  #quotation-printable,
-  #quotation-printable * { visibility: visible !important; }
   #quotation-printable {
     position: fixed !important;
     inset: 0 !important;
@@ -52,14 +45,12 @@
 /* ---------- Form popups: shared polish ---------- */
 .modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
 .modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
-.modal-content h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 22px;padding:0 40px 16px 0;border-bottom:1px solid #f1f5f9}
 @keyframes wnFade{from{opacity:0}to{opacity:1}}
 @keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (max-width: 640px) {
   /* Popups: fit the phone, scroll inside, buttons stay reachable. */
   .modal-overlay { padding: 10px; }
   .modal-content { padding: 20px 16px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
-  .modal-content h2 { font-size: 1.1rem; margin-bottom: 16px; padding-bottom: 12px; overflow-wrap: anywhere; }
 }
 /* Popups laid out with inline styles (challan, invoice, quotation, agreement and billing popups). */
 .m-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
@@ -75,7 +66,6 @@
   /* Fixed two- and three-column field grids stack; four KPI tiles become two by two. */
   .modal-content .m-stack { grid-template-columns: 1fr !important; }
   .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
-  .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
 }
 @media (max-width: 640px) {
   /* Quotation preview document: less padding so the paper fits the phone (print keeps its own layout). */
