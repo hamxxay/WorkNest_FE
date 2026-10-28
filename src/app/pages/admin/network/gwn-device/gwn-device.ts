@@ -33,7 +33,8 @@ export class GwnDevicePage implements OnInit, OnDestroy {
   private sub?: Subscription;
   private firstNet = true;
 
-  readonly isSuperAdmin = this.auth.hasRole('super_admin');
+  /** Reboot: super admins and network engineers (same as api/gwn/device/reboot). */
+  readonly isSuperAdmin = this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   mac = signal('');
   data = signal<GwnDeviceDetail | null>(null);

@@ -1196,7 +1196,7 @@ export abstract class ManageBase implements OnInit {
   /** Users: Admin, Super Admin, CEO, Sales Manager and Access Officer accounts, which only a Super Admin manages. */
   private isAdminAccount(item: any): boolean {
     const role = this.normalizeRole(item?.role ?? item?.roleId ?? item?.RoleId);
-    return role === 'admin' || role === 'super_admin' || role === 'ceo' || role === 'sales_manager' || role === 'access_officer';
+    return role === 'admin' || role === 'super_admin' || role === 'ceo' || role === 'sales_manager' || role === 'access_officer' || role === 'network_engineer';
   }
 
   /** Users: a Super Admin edits everyone; an Admin edits their own profile and the users below them. */
@@ -4581,6 +4581,7 @@ export abstract class ManageBase implements OnInit {
     if (str === '17' || str === 'ceo') return 'ceo';
     if (str === '18' || str === 'salesmanager' || str === 'sales_manager') return 'sales_manager';
     if (str === '19' || str === 'accessofficer' || str === 'access_officer') return 'access_officer';
+    if (str === '20' || str === 'networkengineer' || str === 'network_engineer') return 'network_engineer';
     // Another role id: its name from GET api/roles.
     if (/^\d+$/.test(str) && this.roleIds?.[str]) return this.roleIds[str];
     return str || 'general';

@@ -119,7 +119,7 @@ export class Signup {
   /** The email is verified and the API signed the user in: staff go to their page, customers to worknestpk.com. */
   onEmailVerified(res: AuthResult) {
     this.verifyEmail.set(null);
-    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager', 'accessofficer'];
+    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager', 'accessofficer', 'networkengineer'];
     const isStaff = (res.data?.roles ?? []).some(r => staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
     if (isStaff) {
       this.router.navigateByUrl(this.authService.getPostLoginRedirect());

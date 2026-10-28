@@ -207,7 +207,16 @@ export class AdminLayout implements OnInit, OnDestroy {
     });
     // The role's database label (auth/me) when the sign-in response did not bring it.
     if (!this.auth.getUser()?.roleDisplayName) this.auth.refreshProfileLabels();
-    // A CEO / Sales Manager / Access Officer has no sidebar badges or network section (those APIs are staff-only).
+    // A Network Engineer has the Network section only: which networks they may see decides its links, and a page of
+    // a network they may not see goes to the same page of the other one.
+    if (this.isNetworkEngineer) {
+      this.loadNetworkScope();
+      this.navSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+        this.currentPath.set(this.router.url.split(/[?#]/)[0]);
+        this.keepEngineerOnOwnNetwork();
+      });
+    }
+    // A CEO / Sales Manager / Access Officer / Network Engineer has no sidebar badges (those APIs are staff-only).
     if (this.dashboardHome) return;
     this.loadNetworkScope();
     this.loadCustomInvoiceAccess();
@@ -334,9 +343,30 @@ export class AdminLayout implements OnInit, OnDestroy {
   readonly gwnAllowed = signal(false);
   readonly networkAllowed = computed(() => this.unifiAllowed() || this.gwnAllowed());
   private loadNetworkScope() {
-    this.gwn.getNetworks().subscribe({ next: list => this.gwnAllowed.set(list.length > 0), error: () => { /* UniFi decides */ } });
+    this.gwn.getNetworks().subscribe({
+      next: list => { this.gwnAllowed.set(list.length > 0); this.gwnScopeLoaded = true; this.keepEngineerOnOwnNetwork(); },
+      error: () => { this.gwnScopeLoaded = true; this.keepEngineerOnOwnNetwork(); /* UniFi decides */ }
+    });
     if (this.isSuperAdmin) return;
-    this.unifi.getScope().subscribe({ next: s => this.unifiAllowed.set(s.allowed), error: () => { /* keep the section */ } });
+    this.unifi.getScope().subscribe({
+      next: s => { this.unifiAllowed.set(s.allowed); this.unifiScopeLoaded = true; this.keepEngineerOnOwnNetwork(); },
+      error: () => { /* keep the section */ }
+    });
+  }
+
+  /**
+   * Network Engineer: only F-7 (Grandstream) -> a UniFi page (e.g. the /admin/network home) opens the same Grandstream
+   * page; only I-8 (UniFi) -> a Grandstream page opens the same UniFi page. Waits for both scopes.
+   */
+  private unifiScopeLoaded = false;
+  private gwnScopeLoaded = false;
+  private keepEngineerOnOwnNetwork() {
+    if (!this.isNetworkEngineer || !this.unifiScopeLoaded || !this.gwnScopeLoaded) return;
+    const path = this.router.url.split(/[?#]/)[0];
+    if (!path.startsWith('/admin/network')) return;
+    const onGwn = path.startsWith('/admin/network/gwn');
+    if (!onGwn && !this.unifiAllowed() && this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'gwn'));
+    else if (onGwn && this.unifiAllowed() && !this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'unifi'));
   }
 
   get menuGroups(): { name: string; items: any[] }[] {
