@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { ListFilterParams, appendListFilters } from '../utils/list-filters';
 
 @Injectable({
   providedIn: 'root'
@@ -38,6 +39,17 @@ export class QuotationService {
   /**
    * Get dynamic offering types and their discount caps from DB
    */
+  /**
+   * Get dynamic tax rate & applicability for support charges
+   */
+  getTaxRate(locationId?: number, spaceId?: number): Observable<any> {
+    const params = new URLSearchParams();
+    if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    if (spaceId != null && spaceId > 0) params.set('spaceId', String(spaceId));
+    const qs = params.toString() ? '?' + params.toString() : '';
+    return this.http.get<any>(this.apiUrl + '/tax-rate' + qs);
+  }
+
   getOfferingTypes(locationId?: number): Observable<any> {
     const qs = locationId ? `?locationId=${locationId}` : '';
     return this.http.get<any>(`${this.apiUrl}/offering-types${qs}`);
@@ -46,12 +58,13 @@ export class QuotationService {
   /**
    * Get paginated list of quotations (admin only)
    */
-  getQuotations(page: number, limit: number, search?: string, locationId?: number): Observable<any> {
+  getQuotations(page: number, limit: number, search?: string, locationId?: number, filters?: ListFilterParams): Observable<any> {
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     return this.http.get<any>(`${this.apiUrl}?${params.toString()}`);
   }
 

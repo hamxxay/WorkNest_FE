@@ -11,7 +11,7 @@
 @keyframes inqFade { from { opacity: 0; } to { opacity: 1; } }
 
 .inq-modal { --inq-ink: #0f172a; --inq-text: #334155; --inq-muted: #64748b; --inq-line: #e2e8f0; --inq-soft: #f8fafc; --inq-teal: #0d9488;
-  width: min(580px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: #fff;
+  width: min(580px, 100%); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; background: #fff;
   border-radius: 18px; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45), 0 0 0 1px rgba(15, 23, 42, .04); overflow: hidden;
   animation: inqIn .18s ease-out; text-align: left; }
 @keyframes inqIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
@@ -42,6 +42,8 @@
 .inq-lead { margin: 0; font-size: .87rem; line-height: 1.5; color: var(--inq-text); }
 .inq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .inq-grid.id-grid { grid-template-columns: 150px 1fr; }
+/* A field that takes the whole row of a two-column grid. */
+.inq-grid > .inq-span { grid-column: 1 / -1; }
 .inq-mini-label { font-size: .75rem; font-weight: 600; color: var(--inq-muted); }
 /* Small heading over a group of fields ("Customer", "Complaint"). */
 .inq-section { display: flex; align-items: center; gap: 10px; margin: 2px 0 -4px; font-size: .7rem; font-weight: 700; letter-spacing: .08em;
@@ -55,6 +57,9 @@
 .inq-modal textarea.form-input-admin { resize: vertical; line-height: 1.5; }
 .inq-modal .form-input-admin::placeholder { color: #94a3b8; }
 .inq-modal .form-input-admin.input-invalid { border-color: #ef4444 !important; }
+/* A value that is shown but fixed (e.g. a one-location user's branch). */
+.inq-modal .form-input-admin[readonly] { background: var(--inq-soft); color: var(--inq-text); cursor: default; }
+.inq-modal select.form-input-admin:disabled { background: var(--inq-soft); color: var(--inq-muted); }
 
 /* Choice cards (radio buttons): one per option, icon + title + one line. */
 .inq-choice-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -126,6 +131,14 @@
 .inq-modal .btn-outline-admin:disabled { opacity: .4; }
 
 @media (max-width: 560px) {
+  .inq-overlay { padding: 12px; }
+  .inq-modal { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 16px; }
+  .inq-modal .form-input-admin, .inq-modal :is(input, select, textarea) { font-size: 16px !important; }
+  .inq-close { flex-basis: 44px; height: 44px; margin: -6px -8px 0 auto; }
+  .inq-modal .btn-admin { min-height: 44px; }
+  .inq-chip { min-height: 40px; }
+  .inq-details > div { flex-wrap: wrap; }
+  .inq-details dd { text-align: left; }
   .inq-grid, .inq-grid.id-grid, .inq-choice-grid.two { grid-template-columns: 1fr; }
   .inq-head { padding: 18px 18px 14px; }
   .inq-body { padding: 16px 18px 6px; }

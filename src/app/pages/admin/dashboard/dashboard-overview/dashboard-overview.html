@@ -16,25 +16,47 @@
 } @else {
   <div class="kpi-grid">
     @for (k of kpis(); track k.key) {
-      <a class="kpi-card" [routerLink]="k.link" [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
-        <span class="kpi-label">{{ k.label }}</span>
-        <span class="kpi-value">{{ k.value }}</span>
-        <span class="kpi-foot">
-          @if (k.trend) {
-            <span class="trend" [class.good]="k.trend.good" [class.bad]="!k.trend.good" [class.flat]="k.trend.dir === 'flat'">
-              @if (k.trend.dir === 'up') { ↑ } @else if (k.trend.dir === 'down') { ↓ }
-              {{ k.trend.text }}
-            </span>
-            <span class="kpi-sub">{{ k.vs }}</span>
-          } @else {
-            <span class="kpi-sub">{{ k.sub }}</span>
-          }
-        </span>
-        @if (k.trend) { <span class="kpi-sub kpi-sub-2">{{ k.sub }}</span> }
-      </a>
+      @if (k.opens === 'rooms') {
+        <!-- Occupancy: opens the rooms in use right now (same count as the card) -->
+        <button type="button" [class]="'kpi-card kpi-btn tone-' + k.tone" (click)="roomsOpen.set(true)"
+          aria-haspopup="dialog" [attr.aria-expanded]="roomsOpen()" title="Show the rooms in use right now">
+          <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
+          <span class="kpi-open" aria-hidden="true">
+            <span class="kpi-open-text">View rooms</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </button>
+      } @else {
+        <a class="kpi-card" [routerLink]="k.link" [queryParams]="k.query ?? null" [class]="'kpi-card tone-' + k.tone" [title]="k.full || ''">
+          <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: k }" />
+        </a>
+      }
     }
   </div>
 }
+
+<ng-template #kpiBody let-k>
+  <span class="kpi-label">{{ k.label }}</span>
+  <span class="kpi-value">{{ k.value }}</span>
+  <span class="kpi-foot">
+    @if (k.trend) {
+      <span class="trend" [class.good]="k.trend.good" [class.bad]="!k.trend.good" [class.flat]="k.trend.dir === 'flat'">
+        @if (k.trend.dir === 'up') { ↑ } @else if (k.trend.dir === 'down') { ↓ }
+        {{ k.trend.text }}
+      </span>
+      <span class="kpi-sub">{{ k.vs }}</span>
+    } @else {
+      <span class="kpi-sub">{{ k.sub }}</span>
+    }
+  </span>
+  @if (k.trend) { <span class="kpi-sub kpi-sub-2">{{ k.sub }}</span> }
+</ng-template>
+
+<app-occupied-rooms-drawer [open]="roomsOpen()" [locationIds]="roomsLocationIds()" [refreshTick]="refreshTick()" (closed)="roomsOpen.set(false)" />
+
+<!-- Chart drill-down: a bar / slice / point (or Enter on a focused chart) opens its records; Escape closes -->
+<app-ceo-drawer [request]="drill()" [period]="period()" [source]="drillSource" (closed)="closeDrill()" />
+<span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
 
 <!-- Executive charts + needs attention -->
 <div class="ins-grid">
@@ -52,8 +74,11 @@
         </div>
       }
     </div>
-    <div class="chart-box h-lg">
-      <canvas #revenueCanvas></canvas>
+    <div class="chart-box h-lg chart-nav" [attr.tabindex]="canNav('revenue') ? 0 : null" [attr.role]="canNav('revenue') ? 'group' : null"
+      [attr.aria-roledescription]="canNav('revenue') ? 'interactive chart' : null"
+      [attr.aria-label]="canNav('revenue') ? 'Revenue and collections by month. Arrow keys move between months; Enter opens the invoices of the month.' : null"
+      (keydown)="chartKey('revenue', $event)" (focus)="chartFocus('revenue', $event)" (blur)="navs.revenue.clear()">
+      <canvas #revenueCanvas role="img" [attr.aria-label]="chartLabels().revenue"></canvas>
       @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().revenue) {
         <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No invoices in this range yet</strong><span>The chart fills in as data comes in.</span></div>
       }
@@ -66,8 +91,11 @@
         <p class="panel-sub">Outstanding by days past due, as of today</p>
       </div>
     </div>
-    <div class="chart-box h-donut">
-      <canvas #agingCanvas></canvas>
+    <div class="chart-box h-donut chart-nav" [attr.tabindex]="canNav('aging') ? 0 : null" [attr.role]="canNav('aging') ? 'group' : null"
+      [attr.aria-roledescription]="canNav('aging') ? 'interactive chart' : null"
+      [attr.aria-label]="canNav('aging') ? 'Receivables aging by days past due. Arrow keys move between buckets; Enter opens the invoices of the bucket.' : null"
+      (keydown)="chartKey('aging', $event)" (focus)="chartFocus('aging', $event)" (blur)="navs.aging.clear()">
+      <canvas #agingCanvas role="img" [attr.aria-label]="chartLabels().aging"></canvas>
       @if (loading()) { <div class="sk chart-sk round"></div> } @else if (empty().aging) {
         <div class="chart-empty"><span class="chart-empty-icon ok"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><strong>Nothing outstanding</strong><span>Every invoice is paid.</span></div>
       } @else {
@@ -78,9 +106,11 @@
       <ul class="aging-legend">
         @for (a of data()?.aging ?? []; track a.label; let i = $index) {
           <li>
-            <i [style.background]="agingColors[i]"></i>
-            <span>{{ a.label }}</span>
-            <strong [title]="fullMoney(a.amount)">{{ money(a.amount) }}</strong>
+            <button type="button" class="legend-row" (click)="openAging(i)" [attr.aria-label]="'Open the invoices ' + a.label.toLowerCase() + ', ' + fullMoney(a.amount)">
+              <i [style.background]="agingColors[i]" aria-hidden="true"></i>
+              <span>{{ a.label }}</span>
+              <strong [title]="fullMoney(a.amount)">{{ money(a.amount) }}</strong>
+            </button>
           </li>
         }
       </ul>
@@ -93,8 +123,11 @@
         <p class="panel-sub">{{ seriesLabel() }} · share of spaces in use, bookings created each month</p>
       </div>
     </div>
-    <div class="chart-box h-lg">
-      <canvas #occCanvas></canvas>
+    <div class="chart-box h-lg chart-nav" [attr.tabindex]="canNav('occupancy') ? 0 : null" [attr.role]="canNav('occupancy') ? 'group' : null"
+      [attr.aria-roledescription]="canNav('occupancy') ? 'interactive chart' : null"
+      [attr.aria-label]="canNav('occupancy') ? 'Occupancy and new bookings by month. Arrow keys move between months; Enter opens the new bookings of the month, with a link to the spaces in use.' : null"
+      (keydown)="chartKey('occupancy', $event)" (focus)="chartFocus('occupancy', $event)" (blur)="navs.occupancy.clear()">
+      <canvas #occCanvas role="img" [attr.aria-label]="chartLabels().occupancy"></canvas>
       @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().occupancy) {
         <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No occupancy or bookings in this range yet</strong><span>The chart fills in as data comes in.</span></div>
       }
@@ -107,8 +140,11 @@
         <p class="panel-sub">Booked vs vacant, as of today</p>
       </div>
     </div>
-    <div class="chart-box h-lg">
-      <canvas #typeCanvas></canvas>
+    <div class="chart-box h-lg chart-nav" [attr.tabindex]="canNav('types') ? 0 : null" [attr.role]="canNav('types') ? 'group' : null"
+      [attr.aria-roledescription]="canNav('types') ? 'interactive chart' : null"
+      [attr.aria-label]="canNav('types') ? 'Occupancy by space type. Arrow keys move between space types; Enter opens the spaces of the type.' : null"
+      (keydown)="chartKey('types', $event)" (focus)="chartFocus('types', $event)" (blur)="navs.types.clear()">
+      <canvas #typeCanvas role="img" [attr.aria-label]="chartLabels().types"></canvas>
       @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().types) {
         <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No spaces set up yet</strong><span>The chart fills in as data comes in.</span></div>
       }
@@ -118,11 +154,14 @@
     <div class="panel-head">
       <div>
         <h3>Top customers</h3>
-        <p class="panel-sub">By amount invoiced this {{ periodWord() }}</p>
+        <p class="panel-sub">By amount invoiced {{ customersWhen() }}</p>
       </div>
     </div>
-    <div class="chart-box h-md">
-      <canvas #custCanvas></canvas>
+    <div class="chart-box h-md chart-nav" [attr.tabindex]="canNav('customers') ? 0 : null" [attr.role]="canNav('customers') ? 'group' : null"
+      [attr.aria-roledescription]="canNav('customers') ? 'interactive chart' : null"
+      [attr.aria-label]="canNav('customers') ? 'Top customers. Arrow keys move between customers; Enter opens the invoices of the customer.' : null"
+      (keydown)="chartKey('customers', $event)" (focus)="chartFocus('customers', $event)" (blur)="navs.customers.clear()">
+      <canvas #custCanvas role="img" [attr.aria-label]="chartLabels().customers"></canvas>
       @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().customers) {
         <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No invoices this period yet</strong><span>The chart fills in as data comes in.</span></div>
       }
@@ -135,8 +174,11 @@
         <p class="panel-sub">{{ aheadLabel() }} · renewal pipeline</p>
       </div>
     </div>
-    <div class="chart-box h-md">
-      <canvas #expCanvas></canvas>
+    <div class="chart-box h-md chart-nav" [attr.tabindex]="canNav('expiries') ? 0 : null" [attr.role]="canNav('expiries') ? 'group' : null"
+      [attr.aria-roledescription]="canNav('expiries') ? 'interactive chart' : null"
+      [attr.aria-label]="canNav('expiries') ? 'Leases expiring by month. Arrow keys move between months; Enter opens the leases ending in the month.' : null"
+      (keydown)="chartKey('expiries', $event)" (focus)="chartFocus('expiries', $event)" (blur)="navs.expiries.clear()">
+      <canvas #expCanvas role="img" [attr.aria-label]="chartLabels().expiries"></canvas>
       @if (loading()) { <div class="sk chart-sk"></div> } @else if (empty().expiries) {
         <div class="chart-empty"><span class="chart-empty-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span><strong>No leases end in this window</strong><span>The chart fills in as data comes in.</span></div>
       }
@@ -203,7 +245,7 @@
           </li>
         }
       </ul>
-      <a class="panel-link" [routerLink]="tab() === 'overdue' ? '/admin/invoices' : '/admin/bookings'">View all →</a>
+      <a class="panel-link" [routerLink]="tab() === 'overdue' ? '/admin/invoices' : '/admin/bookings'" [queryParams]="tab() === 'overdue' ? { period: 'all' } : null">View all →</a>
     }
   </div>
 </div>

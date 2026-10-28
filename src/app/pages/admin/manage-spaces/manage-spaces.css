@@ -65,6 +65,7 @@
 .ms-filter-row  { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
 .ms-filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 200px; }
 .ms-filter-group label { font-size: .78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.ms-filter-hint { font-size: .75rem; color: #64748b; }
 
 /* Config header */
 .ms-config-header      { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px; }
@@ -122,4 +123,12 @@ code.ms-code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4p
   .ms-config-header  { flex-direction: column; align-items: flex-start; }
   .ms-config-actions { width: 100%; justify-content: flex-end; }
   .ms-table-header   { flex-direction: column; align-items: flex-start; }
+}
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+@media (max-width: 640px) {
+  .ms-filter-row { align-items: stretch; }
+  .ms-filter-group { min-width: 0; }
+  .ms-filter-group :is(input, select) { font-size: 16px; min-height: 44px; }
 }

@@ -1,0 +1,16 @@
+.btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary-admin{background:#0d9488;color:#fff}.btn-primary-admin:hover{background:#0f766e}
+.btn-outline-admin{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-outline-admin:hover{background:#f8fafc}
+.btn-outline-admin:disabled{opacity:.4;cursor:not-allowed}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.form-input-admin{width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:.875rem;color:#0f172a;background:#f8fafc;outline:none;box-sizing:border-box}
+.form-input-admin:focus{border-color:#0d9488;background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.08)}
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+.src-walkin { --c: #c2410c; --c-soft: #fff7ed; }
+.src-reference { --c: #6d28d9; --c-soft: #f5f3ff; }
+@media (max-width: 640px) {
+  /* Popups: fit the phone, scroll inside, buttons stay reachable. */
+  .modal-overlay { padding: 10px; }
+}

@@ -30,3 +30,16 @@
   .grid { grid-template-columns: 1fr; }
 }
 .field small.field-error-text { color: #dc2626; font-size: .78rem; }
+
+/* ===================== Responsive ===================== */
+:host { display: block; min-width: 0; }
+.identity > div:last-child { min-width: 0; }
+.identity-name, .identity-meta { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .page-head h1 { font-size: 1.3rem; }
+  .card { padding: 16px; }
+  .identity { gap: 12px; }
+  .avatar { width: 52px; height: 52px; font-size: 1.1rem; }
+  .field input { font-size: 16px; height: 44px; }
+  .actions .btn { flex: 1 1 auto; height: 44px; }
+}

@@ -10,6 +10,10 @@ export const ASSIGNABLE_ROLES: { v: string; l: string }[] = [
   { v: 'ceo',             l: 'CEO' },
   // Sees the sales dashboard for their own location(s), view only. Only a Super Admin can give this role.
   { v: 'sales_manager',   l: 'Sales Manager' },
+  // Gives and removes door access by CNIC (Access page) at their own location(s). Only a Super Admin can give this role.
+  { v: 'access_officer',  l: 'Access Officer' },
+  // Full access to network configuration and monitoring at their own location(s). Only a Super Admin can give this role.
+  { v: 'network_engineer', l: 'Network Engineer' },
 ];
 
 /**

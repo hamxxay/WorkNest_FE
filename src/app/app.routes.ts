@@ -1,8 +1,10 @@
-﻿import { Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
 import { ceoGuard } from './guards/ceo.guard';
 import { salesManagerGuard } from './guards/sales-manager.guard';
+import { accessOfficerGuard } from './guards/access-officer.guard';
+import { customInvoiceGuard } from './guards/custom-invoice.guard';
 
 export const routes: Routes = [
 
@@ -25,27 +27,35 @@ export const routes: Routes = [
       { path: 'ceo',       loadComponent: () => import('./pages/admin/ceo/ceo-dashboard').then(m => m.CeoDashboard), canActivate: [ceoGuard] },
       // Sales dashboard: the only page a Sales Manager can open (adminGuard keeps them here); super admins may open it too.
       { path: 'sales-manager', loadComponent: () => import('./pages/admin/sales-manager/sales-manager-dashboard').then(m => m.SalesManagerDashboard), canActivate: [salesManagerGuard] },
+      // Access page (door access by CNIC): the only page an Access Officer can open (adminGuard keeps them here); super admins may open it too.
+      { path: 'access',    loadComponent: () => import('./pages/admin/access-officer/access-officer').then(m => m.AccessOfficerPage), canActivate: [accessOfficerGuard] },
       { path: 'profile',   loadComponent: () => import('./pages/admin/profile/profile').then(m => m.AdminProfile) },
-      { path: 'customers',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'customers' } },
+      { path: 'customers',   loadComponent: () => import('./pages/admin/customers-page/customers-page').then(m => m.CustomersPage), data: { entity: 'customers' } },
+      // Customer detail (opened from the Customers list): same guard and roles as the list (adminGuard on /admin).
+      { path: 'customers/:id', loadComponent: () => import('./pages/admin/customer-detail/customer-detail').then(m => m.CustomerDetail) },
       { path: 'kyc',         loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
       { path: 'kyc/:id',     loadComponent: () => import('./pages/admin/kyc/kyc').then(m => m.KycComponent), canActivate: [adminGuard] },
-      { path: 'users',       loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'users' } },
-      { path: 'locations',   loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'locations' } },
-      { path: 'spacetypes',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spacetypes' } },
-      { path: 'spaces',      loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'spaces' } },
-      { path: 'bookings',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'bookings' } },
-      { path: 'quotations',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'quotations' } },
-      { path: 'payments',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'payments' } },
-      { path: 'agreements',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'agreements' } },
-      { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [adminGuard] },
-      { path: 'invoices',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'invoices' } },
+      { path: 'users',       loadComponent: () => import('./pages/admin/users-page/users-page').then(m => m.UsersPage), data: { entity: 'users' } },
+      { path: 'locations',   loadComponent: () => import('./pages/admin/locations-page/locations-page').then(m => m.LocationsPage), data: { entity: 'locations' } },
+      { path: 'spacetypes',  loadComponent: () => import('./pages/admin/spacetypes-page/spacetypes-page').then(m => m.SpaceTypesPage), data: { entity: 'spacetypes' } },
+      { path: 'spaces',      loadComponent: () => import('./pages/admin/spaces-page/spaces-page').then(m => m.SpacesPage), data: { entity: 'spaces' } },
+      { path: 'bookings',    loadComponent: () => import('./pages/admin/bookings-page/bookings-page').then(m => m.BookingsPage), data: { entity: 'bookings' } },
+      { path: 'quotations',  loadComponent: () => import('./pages/admin/quotations-page/quotations-page').then(m => m.QuotationsPage), data: { entity: 'quotations' } },
+      { path: 'payments',    loadComponent: () => import('./pages/admin/payments-page/payments-page').then(m => m.PaymentsPage), data: { entity: 'payments' } },
+      { path: 'agreements',  loadComponent: () => import('./pages/admin/agreements-page/agreements-page').then(m => m.AgreementsPage), data: { entity: 'agreements' } },
+      { path: 'lease-templates', loadComponent: () => import('./pages/admin/lease-template-editor/lease-template-editor').then(m => m.LeaseTemplateEditor), canActivate: [superAdminGuard] },
+      { path: 'invoices',    loadComponent: () => import('./pages/admin/invoices-page/invoices-page').then(m => m.InvoicesPage), data: { entity: 'invoices' } },
+        { path: 'invoice-approvals', loadComponent: () => import('./pages/admin/invoice-approvals/invoice-approvals').then(m => m.InvoiceApprovalsComponent), canActivate: [adminGuard] },
       { path: 'fee-receipts', loadComponent: () => import('./pages/admin/fee-receipts/fee-receipts').then(m => m.FeeReceiptsComponent), canActivate: [adminGuard] },
+      // Custom invoices (invoice + its voucher, optionally replacing an unpaid invoice): super admins, and admins a super admin
+      // has given access (customInvoiceGuard asks api/custom-invoices/access/me; the API checks it again).
+      { path: 'custom-invoice', loadComponent: () => import('./pages/admin/custom-invoice/custom-invoice').then(m => m.CustomInvoicePage), canActivate: [customInvoiceGuard] },
 
-      { path: 'contacts',    loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'contacts' } },
+      { path: 'contacts',    loadComponent: () => import('./pages/admin/tour-inquiries-page/tour-inquiries-page').then(m => m.TourInquiriesPage), data: { entity: 'contacts' } },
       { path: 'whatsapp',    loadComponent: () => import('./pages/admin/whatsapp-inbox/whatsapp-inbox').then(m => m.WhatsAppInbox) },
-      { path: 'complaints',  loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'complaints' } },
-      { path: 'quotation-responses', loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'quotation-responses' } },
-      { path: 'gallery',      loadComponent: () => import('./pages/admin/manage/manage').then(m => m.Manage), data: { entity: 'gallery' } },
+      { path: 'complaints',  loadComponent: () => import('./pages/admin/complaints-page/complaints-page').then(m => m.ComplaintsPage), data: { entity: 'complaints' } },
+      { path: 'quotation-responses', loadComponent: () => import('./pages/admin/quotation-responses-page/quotation-responses-page').then(m => m.QuotationResponsesPage), data: { entity: 'quotation-responses' } },
+      { path: 'gallery',      loadComponent: () => import('./pages/admin/gallery-page/gallery-page').then(m => m.GalleryPage), data: { entity: 'gallery' } },
       { path: 'space-configuration', loadComponent: () => import('./pages/admin/space-config/space-config').then(m => m.SpaceConfig), canActivate: [superAdminGuard] },
       { path: 'manage-spaces',       loadComponent: () => import('./pages/admin/manage-spaces/manage-spaces').then(m => m.ManageSpaces), canActivate: [adminGuard] },
       { path: 'attendants', loadComponent: () => import('./pages/admin/attendant-management/attendant-management').then(m => m.AttendantManagement), canActivate: [adminGuard] },
@@ -61,9 +71,20 @@ export const routes: Routes = [
       { path: 'network/device/:mac', loadComponent: () => import('./pages/admin/network/network-device/network-device').then(m => m.NetworkDevice), canActivate: [adminGuard] },
       { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
       { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
+      // Grandstream GWN network (F-7): same guard as the UniFi pages; the API limits it to staff of the network's locations.
+      { path: 'network/gwn', loadComponent: () => import('./pages/admin/network/gwn-overview/gwn-overview').then(m => m.GwnOverviewPage), canActivate: [adminGuard] },
+      { path: 'network/gwn/clients', loadComponent: () => import('./pages/admin/network/gwn-clients/gwn-clients').then(m => m.GwnClientsPage), canActivate: [adminGuard] },
+      { path: 'network/gwn/devices', loadComponent: () => import('./pages/admin/network/gwn-devices/gwn-devices').then(m => m.GwnDevicesPage), canActivate: [adminGuard] },
+      { path: 'network/gwn/device/:mac', loadComponent: () => import('./pages/admin/network/gwn-device/gwn-device').then(m => m.GwnDevicePage), canActivate: [adminGuard] },
+      { path: 'network/gwn/wifi', loadComponent: () => import('./pages/admin/network/gwn-wifi/gwn-wifi').then(m => m.GwnWifiPage), canActivate: [adminGuard] },
+      // Message templates (tour inquiry WhatsApp message): admin and super admin only (adminGuard sends other staff away).
+      { path: 'message-templates', loadComponent: () => import('./pages/admin/message-templates/message-templates').then(m => m.MessageTemplates), canActivate: [adminGuard],
+        canDeactivate: [(page: { canLeave(): boolean }) => page.canLeave()] },
       { path: 'challan-validity', loadComponent: () => import('./pages/admin/challan-validity/challan-validity').then(m => m.ChallanValidity), canActivate: [superAdminGuard] },
         { path: 'audit-log', loadComponent: () => import('./pages/admin/audit-log/audit-log').then(m => m.AuditLogComponent), canActivate: [superAdminGuard] },
         { path: 'login-history', loadComponent: () => import('./pages/admin/login-history/login-history').then(m => m.LoginHistoryComponent), canActivate: [superAdminGuard] },
+      // Background service switches (turn a server job on / off): super admin only.
+      { path: 'services', loadComponent: () => import('./pages/admin/services/services').then(m => m.ServicesPage), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
     ]
   },

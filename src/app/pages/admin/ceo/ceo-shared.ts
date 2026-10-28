@@ -1,6 +1,8 @@
 import { Observable } from 'rxjs';
 import { Chart } from '../access/access-shared';
-import { CeoBreakdown, CeoBreakdownRow, CeoError, CeoMetric, CeoParams, CeoPeriod, CeoRecordKind } from '../../../services/ceo.service';
+import {
+  CeoBreakdown, CeoBreakdownRow, CeoError, CeoLocalMetric, CeoMetric, CeoParams, CeoPeriod, CeoRecordKind
+} from '../../../services/ceo.service';
 
 export { Chart };
 
@@ -10,12 +12,23 @@ export { Chart };
  * One drawer level: a breakdown (level 2) or a records list (level 3). M / R are the dashboard's metric and
  * record names (the CEO ones by default).
  */
-export type DrillLevel<M extends string = CeoMetric, R extends string = CeoRecordKind> =
-  | { kind: 'breakdown'; metric: M; params: CeoParams; crumb: string }
-  | { kind: 'records'; records: R; params: CeoParams; crumb: string };
+export type DrillLevel<M extends string = CeoMetric | CeoLocalMetric, R extends string = CeoRecordKind> =
+  | {
+      kind: 'breakdown'; metric: M; params: CeoParams; crumb: string;
+      /**
+       * A level built from the dashboard's own figures instead of a request (e.g. the months of the period); read
+       * again whenever they change (keep it a computed so the same figures give the same object).
+       */
+      local?: () => CeoBreakdown;
+    }
+  | {
+      kind: 'records'; records: R; params: CeoParams; crumb: string;
+      /** A row to mark in the list (its id), e.g. the complaint that was selected on the dashboard. */
+      highlight?: number;
+    };
 
 /** Opens the drawer: `root` is the first breadcrumb ("Revenue"), `level` the first level shown. */
-export interface DrillRequest<M extends string = CeoMetric, R extends string = CeoRecordKind> {
+export interface DrillRequest<M extends string = CeoMetric | CeoLocalMetric, R extends string = CeoRecordKind> {
   id: number; root: string; level: DrillLevel<M, R>;
 }
 
@@ -25,15 +38,39 @@ export interface DrillMetricSpec {
   money: boolean;
   /** Format of the second value when it differs from the first (e.g. lease count vs their monthly rent). */
   money2?: boolean;
+  /** The two values count different things (e.g. leases and their desks): only the first sets the bar widths. */
+  separateUnits?: boolean;
   /** Derived % column (value2 / value or value / value2). */
   derived?: { label: string; of: (r: CeoBreakdownRow) => number | null };
+  /**
+   * An extra amount column worked out from each row, for the params it answers (e.g. Receivable = revenue - paid - WHT
+   * when the breakdown was opened from the Receivable card); null = no such column. Same number format as the values.
+   */
+  amount?: (params: CeoParams) => { label: string; of: (r: CeoBreakdownRow) => number } | null;
   chart: 'grouped' | 'stacked-occupancy' | 'single';
   vertical: boolean;
   next: (params: CeoParams, row: CeoBreakdownRow) => DrillLevel<string, string>;
+  /** What a row opens, for screen readers ("Open the leases ending in Nov 2026 at I-8"); default "Open <row>". */
+  nextLabel?: (params: CeoParams, row: CeoBreakdownRow) => string;
+  /**
+   * A second list a row offers next to the one it opens (e.g. the leases ending that month next to its bookings),
+   * shown as a link under the row; null for none.
+   */
+  secondary?: (params: CeoParams, row: CeoBreakdownRow) => { label: string; level: DrillLevel<string, string> } | null;
+  /** The line under the table; default "Select a row to see the records behind it." */
+  hint?: (params: CeoParams) => string;
+  /** Rows to show (default all), e.g. only the locations with an occupied room when the list is occupied rooms only. */
+  keep?: (params: CeoParams, row: CeoBreakdownRow) => boolean;
 }
 
 /** A records list (level 3): rows hold at most 200 (newest first), total is the full count. */
-export interface DrillRecords { title: string; total: number; rows: unknown[]; }
+export interface DrillRecords {
+  title: string; total: number; rows: unknown[];
+  /** A line on the totals of every record (e.g. "PKR 1,250,000 invoiced"), shown under the title; none = no line. */
+  summary?: string;
+  /** Other lists about the same selection, offered as links above the table (e.g. the spaces in use that month). */
+  related?: { label: string; level: DrillLevel<string, string> }[];
+}
 
 /** Where the drawer gets its data: the CEO API by default, the Sales Manager API on that dashboard. */
 export interface DrillSource {
@@ -41,6 +78,10 @@ export interface DrillSource {
   breakdown(metric: string, params: CeoParams): Observable<CeoBreakdown>;
   records(kind: string, params: CeoParams): Observable<DrillRecords>;
   describeError(err: unknown): CeoError;
+  /** Records show desks instead of amounts (the Sales Manager dashboard shows no money). */
+  desks?: boolean;
+  /** Where a record's booking opens (e.g. /admin/bookings?booking=12); none = booking numbers stay plain text. */
+  bookingLink?: (bookingId: number) => { path: string; queryParams: Record<string, string | number> } | null;
 }
 
 /** KPI card on a dashboard. */
@@ -126,6 +167,16 @@ export function firstNameOf(user: { displayName?: string; email?: string } | nul
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
+/**
+ * The person's WorkNest name (WN_Users.Name) for "Prepared by" on an export; '' when only the email is known (an email
+ * prefix is never shown as a name).
+ */
+export function displayNameOf(user: { displayName?: string; email?: string } | null | undefined): string {
+  const name = (user?.displayName || '').trim();
+  const prefix = (user?.email || '').split('@')[0].trim();
+  return name && name.toLowerCase() !== prefix.toLowerCase() ? name : '';
+}
+
 /** Whole days from today to an ISO date (negative = past); null when there is no valid date. */
 export function daysUntil(date: string | null | undefined): number | null {
   if (!date) return null;
@@ -185,6 +236,24 @@ export function inquiryTypeKey(type: string | null | undefined): string {
   return k in INQUIRY_TYPES ? k : 'notset';
 }
 
+/**
+ * Complaint statuses (Sales Manager dashboard): chip colours and the status bar colour. Open = new, Resolved =
+ * fixed and waiting for the customer's reply.
+ */
+export const COMPLAINT_STATUSES: Record<string, { fg: string; bg: string; bar: string; label: string; hint: string }> = {
+  open: { fg: '#c2410c', bg: '#fff7ed', bar: '#c2410c', label: 'Open', hint: 'waiting for action' },
+  in_progress: { fg: '#1d4ed8', bg: '#eff6ff', bar: '#1d4ed8', label: 'In progress', hint: 'being worked on' },
+  resolved: { fg: '#047857', bg: '#ecfdf5', bar: '#047857', label: 'Resolved', hint: 'awaiting customer' },
+  closed: { fg: '#475569', bg: '#f1f5f9', bar: '#94a3b8', label: 'Closed', hint: 'done' }
+};
+
+/** Colours and label of a complaint status key (an unknown status shows as it is, in slate). */
+export function complaintStatusStyle(status: string | null | undefined) {
+  const s = String(status || '');
+  return COMPLAINT_STATUSES[s]
+    ?? { fg: '#475569', bg: '#f1f5f9', bar: '#94a3b8', label: s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : 'Unknown', hint: '' };
+}
+
 /** Pill tone for a status word from the API. */
 export function statusTone(status: string | null | undefined): 'ok' | 'bad' | 'warn' | 'neutral' {
   const s = String(status || '').toLowerCase();
@@ -198,18 +267,26 @@ export function statusTone(status: string | null | undefined): 'ok' | 'bad' | 'w
   return 'neutral';
 }
 
-// ---------- Chart.js theme (as the admin dashboard) ----------
+// ---------- Chart.js theme (every chart on the CEO and Sales dashboards and in the drawer) ----------
 
 export const CHART_FONT = "'Inter', system-ui, -apple-system, sans-serif";
 
+/** Dark, roomy tooltip: bold title, the series as dots, the hint ("click for locations") as a muted footer. */
 export const TOOLTIP = {
-  backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', footerColor: '#94a3b8', padding: 10, cornerRadius: 8,
-  titleFont: { weight: 600 as const }, bodyFont: { weight: 500 as const }, boxPadding: 4, usePointStyle: true
+  backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', footerColor: '#94a3b8', padding: 12, cornerRadius: 10,
+  caretSize: 5, titleMarginBottom: 6, bodySpacing: 4, footerMarginTop: 8, boxPadding: 6, boxWidth: 8, boxHeight: 8, usePointStyle: true,
+  titleFont: { size: 12, weight: 600 as const }, bodyFont: { size: 12, weight: 500 as const }, footerFont: { size: 11, weight: 500 as const }
 };
-export const GRID = { color: '#eef2f6', drawTicks: false };
+/** Hairline gridlines, one step off white (axes and ticks stay muted: applyChartDefaults). */
+export const GRID = { color: '#eef2f6', lineWidth: 1, drawTicks: false };
+/** Above the plot, aligned with the panel's left edge: the same dot, size and colour as the HTML legends (.rooms-legend). */
 export const LEGEND = {
-  position: 'bottom' as const,
-  labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 16 }
+  position: 'top' as const,
+  align: 'start' as const,
+  labels: {
+    usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 18, color: '#64748b',
+    font: { size: 12, weight: 500 as const }
+  }
 };
 export const AXIS_MONEY = { callback: (v: any) => money(Number(v)).replace('PKR ', ''), padding: 8 };
 
@@ -240,6 +317,8 @@ export class ChartKeyNav {
     describe: (i: number) => string;
     pick: (i: number) => void;
     announce: (text: string) => void;
+    /** Where keyboard focus starts: the latest column (default, for months) or the first one (e.g. a ranking). */
+    start?: 'first' | 'last';
   }) {}
 
   keydown(e: KeyboardEvent) {
@@ -262,10 +341,10 @@ export class ChartKeyNav {
     e.stopPropagation();
   }
 
-  /** Focus entered: start on the latest column so the first arrow press feels natural. */
+  /** Focus entered: start on the latest column (or the first, with start: 'first') so the first arrow press feels natural. */
   focus() {
     const n = this.opts.count();
-    if (n && this.index < 0) this.set(n - 1);
+    if (n && this.index < 0) this.set(this.opts.start === 'first' ? 0 : n - 1);
   }
 
   clear() {

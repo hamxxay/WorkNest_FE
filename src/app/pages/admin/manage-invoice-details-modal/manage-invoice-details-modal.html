@@ -1,0 +1,150 @@
+<div class="modal-overlay receipt-overlay" (click)="closeInvoiceDetails.emit()">
+  <div class="modal-content receipt-modal" (click)="$event.stopPropagation()"
+    style="max-width:640px;width:100%;padding:0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:min(92vh,850px);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
+
+    <!-- Header -->
+    <div
+      style="background:#1e3a5f;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div>
+        <div style="font-size:1.25rem;font-weight:700;letter-spacing:.5px">WORKNEST</div>
+        <div style="font-size:.75rem;opacity:.8;margin-top:2px">Invoice Details</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.7rem;opacity:.7">Invoice No.</div>
+        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.invoiceNumber || inv.InvoiceNumber ||
+          ('INV-' + inv.id) }}</div>
+        @if (inv.OneBillNumber || inv.oneBillNumber) {
+        <div style="font-size:.7rem;opacity:.7;margin-top:6px">1Bill Consumer No.</div>
+        <div style="font-size:1rem;font-weight:700;letter-spacing:1px">{{ inv.OneBillNumber || inv.oneBillNumber }}
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div
+      style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div style="display:flex;gap:16px;font-size:.82rem;color:#1e40af;font-weight:600;flex-wrap:wrap">
+        <span>Issued On: {{ (inv.createdOn || inv.createdAt || inv.issuedOn) | date:'MMM d, y' }}</span>
+        <span>Due On: {{ (inv.dueOn || inv.DueOn) | date:'MMM d, y' }}</span>
+        @if (inv.billingPeriodStart || inv.BillingPeriodStart || inv.startOn || inv.StartOn) {
+        <span>Rent Period: {{ (inv.billingPeriodStart || inv.BillingPeriodStart || inv.startOn || inv.StartOn) |
+          date:'MMM d, y' }} - {{ (inv.billingPeriodEnd || inv.BillingPeriodEnd || inv.endOn || inv.EndOn) | date:'MMM
+          d, y' }}</span>
+        }
+      </div>
+      <span class="status-badge" [class]="'status-' + (inv.statusLabel || inv.status || 'unpaid').toLowerCase()">
+        {{ inv.statusLabel || inv.status || 'Unpaid' }}
+      </span>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:24px 28px;flex:1 1 auto;overflow-y:auto">
+
+      <!-- Customer & Space Details -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;margin-bottom:20px">
+        <div>
+          <div
+            style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">
+            Customer Details
+          </div>
+          <div style="font-size:.82rem;line-height:1.8">
+            <div><span style="color:#64748b">Name: </span><strong>{{ inv.customerName || inv.userName || inv.userEmail
+                || 'Customer' }}</strong></div>
+            <div><span style="color:#64748b">Email: </span><strong>{{ inv.customerEmail || inv.userEmail || '-'
+                }}</strong></div>
+            @if (inv.customerCode || inv.userCode) {
+            <div><span style="color:#64748b">Code / ID: </span><strong>{{ inv.customerCode || inv.userCode }}</strong>
+            </div>
+            }
+          </div>
+        </div>
+
+        <div>
+          <div
+            style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:4px">
+            Space &amp; Location Details
+          </div>
+          <div style="font-size:.82rem;line-height:1.8">
+            <div><span style="color:#64748b">Space: </span><strong>{{ spaceCellValue }}</strong></div>
+            @if (inv.locationName) {
+            <div><span style="color:#64748b">Location: </span><strong>{{ inv.locationName }}</strong></div>
+            }
+            @if (inv.spaceTypeName) {
+            <div><span style="color:#64748b">Type: </span><strong>{{ inv.spaceTypeName }}</strong></div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Summary Breakdown -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px">
+        <div
+          style="background:#f1f5f9;padding:8px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px">
+          Payment Breakdown
+        </div>
+        <div style="padding:0 16px">
+          @for (line of (inv.items || inv.lineItems || inv.LineItems || inv.lines || inv.Lines || inv.details ||
+          inv.Details || []); track line.id || $index) {
+          <div
+            style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem">
+            <span>{{ line.description || line.Description || line.chargeTypeLabel || line.feeType || 'Item' }}</span>
+            <strong>PKR {{ (line.amount || line.Amount || line.unitPrice || line.lineTotal || 0) | number:'1.0-0'
+              }}</strong>
+          </div>
+          }
+          <div
+            style="display:flex;justify-content:space-between;padding:12px 0;font-size:.95rem;font-weight:700;color:#1e3a5f">
+            <span>Total Amount</span>
+            <span>PKR {{ (inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount ?? inv.total ??
+              inv.Total ?? 0) | number:'1.0-0' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#166534">
+            <span>Amount Paid</span>
+            <span>PKR {{ (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? inv.amountPaid ??
+              inv.AmountPaid ?? 0) | number:'1.0-0' }}</span>
+          </div>
+          <div
+            style="display:flex;justify-content:space-between;padding:6px 0 12px;font-size:.85rem;color:#b45309;font-weight:600">
+            <span>Balance Due</span>
+            <span>PKR {{ (inv.balanceAmount ?? inv.BalanceAmount ?? inv.balanceDue ?? inv.BalanceDue ?? inv.balance ??
+              ((inv.grandTotal ?? inv.GrandTotal ?? inv.totalAmount ?? inv.TotalAmount
+              ?? 0) - (inv.paidTotal ?? inv.PaidTotal ?? inv.paidAmount ?? inv.PaidAmount ?? 0))) | number:'1.0-0'
+              }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn-admin btn-outline-admin" (click)="closeInvoiceDetails.emit()">Close</button>
+      <button class="btn-admin" (click)="sendInvoiceEmail.emit(inv)"
+        [disabled]="sendingInvoiceEmailId() === (inv.id || inv.Id)"
+        style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13" />
+          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+        {{ sendingInvoiceEmailId() === (inv.id || inv.Id) ? 'Sending Email...' : 'Send Invoice Email' }}
+      </button>
+      <button class="btn-admin" (click)="downloadStatementPdf.emit(inv)"
+        style="background:#0f766e;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px"><svg
+          xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>Download PDF</button>
+      @if (canRevertInvoiceApproval) {
+      <button class="btn-admin" (click)="openRevertApproval.emit(inv)"
+        style="background:#b45309;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600">
+        Revert to Pending Approval</button>
+      }
+      <button class="btn-admin btn-primary-admin" (click)="openRecordPaymentModal.emit(inv)">Record Payment</button>
+    </div>
+  </div>
+</div>

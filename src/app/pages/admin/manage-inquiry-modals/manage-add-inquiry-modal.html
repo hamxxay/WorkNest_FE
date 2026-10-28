@@ -1,0 +1,102 @@
+<div class="modal-overlay" (click)="closeAddInquiry.emit()">
+  <form class="inq-modal" role="dialog" aria-modal="true" aria-labelledby="inqAddTitle"
+    (click)="$event.stopPropagation()" (ngSubmit)="saveAddInquiry.emit()" novalidate>
+    <header class="inq-head">
+      <span class="inq-head-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+          [ngTemplateOutletContext]="{ $implicit: 'inquiry' }" /></span>
+      <div>
+        <h2 id="inqAddTitle">Add tour inquiry</h2>
+        <p>For a customer who walked in or was referred. WhatsApp and website inquiries come in on their own.</p>
+      </div>
+      <button type="button" class="inq-close" (click)="closeAddInquiry.emit()" title="Close" aria-label="Close">
+        <ng-container [ngTemplateOutlet]="inqIcon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+      </button>
+    </header>
+
+    <div class="inq-body">
+      <fieldset class="inq-field">
+        <legend>Where did this inquiry come from?</legend>
+        <div class="inq-choice-grid two">
+          <label class="inq-choice src-walkin" [class.selected]="addInquiry.type === 'WalkIn'">
+            <input type="radio" name="addInqType" value="WalkIn" [(ngModel)]="addInquiry.type" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'WalkIn' }" /></span>
+            <span class="inq-choice-text"><strong>Walk-In</strong><small>Visited or called in</small></span>
+          </label>
+          <label class="inq-choice src-reference" [class.selected]="addInquiry.type === 'Reference'">
+            <input type="radio" name="addInqType" value="Reference" [(ngModel)]="addInquiry.type" />
+            <span class="inq-choice-icon"><ng-container [ngTemplateOutlet]="inqIcon"
+                [ngTemplateOutletContext]="{ $implicit: 'Reference' }" /></span>
+            <span class="inq-choice-text"><strong>Reference</strong><small>Someone referred them</small></span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="inq-field">
+        @if (fixedItemBranch; as fb) {
+        <label for="inqBranch">Branch</label>
+        <input id="inqBranch" class="form-input-admin" type="text" [value]="fb.name" readonly />
+        <small class="inq-hint">Your location. The inquiry goes to its staff.</small>
+        } @else {
+        <label for="inqBranch">Branch <span class="req">*</span></label>
+        <select id="inqBranch" class="form-input-admin" name="addInqBranch" [(ngModel)]="addInquiry.locationId"
+          [disabled]="itemBranchesState() === 'loading'">
+          <option [ngValue]="null" disabled>{{ itemBranchesState() === 'loading' ? 'Loading branches…' : 'Choose a
+            branch' }}</option>
+          @for (b of itemBranches(); track b.id) {
+          <option [ngValue]="b.id">{{ b.name }}</option>
+          }
+        </select>
+        @if (itemBranchesMissing) {
+        <small class="field-error-text">{{ itemBranchesMissingText }}</small>
+        } @else {
+        <small class="inq-hint">The inquiry goes to this branch's staff.</small>
+        }
+        }
+      </div>
+
+      @if (addInquiry.type === 'Reference') {
+      <div class="inq-field">
+        <label for="inqRefName">Referred by <span class="req">*</span></label>
+        <input id="inqRefName" class="form-input-admin" type="text" maxlength="200" name="addInqRef"
+          [(ngModel)]="addInquiry.referenceName" placeholder="Name of the person who referred them" />
+        <small class="inq-hint">Filled in with your name. Change it if someone else referred the customer.</small>
+      </div>
+      }
+
+      <div class="inq-grid">
+        <div class="inq-field">
+          <label for="inqName">Full name <span class="req">*</span></label>
+          <input id="inqName" class="form-input-admin" type="text" maxlength="200" name="addInqName"
+            [(ngModel)]="addInquiry.fullName" autocomplete="off" />
+        </div>
+        <div class="inq-field">
+          <label for="inqPhone">Phone</label>
+          <input id="inqPhone" class="form-input-admin" type="tel" name="addInqPhone" [maxlength]="phoneMaxLength"
+            [(ngModel)]="addInquiry.phone" placeholder="e.g. 03001234567" autocomplete="off" />
+        </div>
+      </div>
+      <div class="inq-field">
+        <label for="inqEmail">Email <span class="req">*</span></label>
+        <input id="inqEmail" class="form-input-admin" type="email" maxlength="255" name="addInqEmail"
+          [(ngModel)]="addInquiry.email" autocomplete="off" />
+      </div>
+      <div class="inq-field">
+        <label for="inqNotes">Notes</label>
+        <textarea id="inqNotes" class="form-input-admin" rows="3" maxlength="1000" name="addInqNotes"
+          [(ngModel)]="addInquiry.notes" placeholder="What they are looking for, seats, budget..."></textarea>
+      </div>
+
+      @if (addInquiryError()) {
+      <p class="inq-error" role="alert">{{ addInquiryError() }}</p>
+      }
+    </div>
+
+    <footer class="inq-foot">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="closeAddInquiry.emit()">Cancel</button>
+      <button type="submit" class="btn-admin btn-primary-admin" [disabled]="addInquirySaving()">
+        {{ addInquirySaving() ? 'Adding…' : 'Add inquiry' }}
+      </button>
+    </footer>
+  </form>
+</div>

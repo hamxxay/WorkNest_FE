@@ -517,3 +517,8 @@
   #printable-challan { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; }
   .voucher-actions { display: none !important; }
 }
+
+/* Phones: 16px fields so iOS does not zoom in on focus. */
+@media (max-width: 640px) {
+  .form-input, input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px; }
+}

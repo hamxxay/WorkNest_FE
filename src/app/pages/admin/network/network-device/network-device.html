@@ -1,4 +1,5 @@
 <div class="net-page" #page>
+  <app-network-switch />
   <a class="crumb no-print" routerLink="/admin/network/devices"><net-icon name="back" [size]="16" />All devices</a>
 
   <div class="dash-header">
@@ -23,7 +24,7 @@
     <div class="dash-header-actions no-print">
       <span class="updated">{{ updatedText() }}</span>
       <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
-      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing() || !mac()" title="Refresh" aria-label="Refresh device"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing() || !mac()" title="Refresh device" aria-label="Refresh device"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
     </div>
   </div>
 

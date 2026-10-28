@@ -1,0 +1,31 @@
+.btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary-admin{background:#0d9488;color:#fff}.btn-primary-admin:hover{background:#0f766e}
+.btn-outline-admin{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-outline-admin:hover{background:#f8fafc}
+.btn-outline-admin:disabled{opacity:.4;cursor:not-allowed}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-content{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative}
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+.modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+@keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (max-width: 640px) {
+  /* Popups: fit the phone, scroll inside, buttons stay reachable. */
+  .modal-overlay { padding: 10px; }
+  .modal-content { padding: 20px 16px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
+}
+/* Popups laid out with inline styles (challan, invoice, quotation, agreement and billing popups). */
+.m-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+@media (max-width: 640px) {
+  /* Header bars, info strips and footers: rows wrap instead of running off the popup. */
+  .modal-content [style*="display: flex"]:not(button):not(a):not(label):not([style*="flex-direction: column"]) { flex-wrap: wrap; row-gap: 8px; }
+  /* ...except a header bar that ends with its close button: the title block shrinks and wraps instead. */
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)):not(button) { flex-wrap: nowrap; }
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)) > :first-child { min-width: 0; }
+  /* Popups with no padding of their own: their header / body / footer side padding shrinks to 16px. */
+  .modal-content[style*="padding: 0;"] > [style*="padding"] { padding-left: 16px !important; padding-right: 16px !important; }
+  .modal-content[style*="max-height"] { max-height: calc(100dvh - 20px) !important; }
+  /* Fixed two- and three-column field grids stack; four KPI tiles become two by two. */
+  .modal-content .m-stack { grid-template-columns: 1fr !important; }
+  .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
+}

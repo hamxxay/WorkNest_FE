@@ -113,7 +113,7 @@
               <span class="term-value">{{ activeQuotation().billingPeriodMonths || 3 }} Months</span>
             </div>
 
-            @if (isPrivateRoom(activeQuotation())) {
+            @if (activeQuotation().securityDeposit > 0) {
               <div class="term-box">
                 <span class="term-label">Security Deposit</span>
                 <span class="term-value">PKR {{ activeQuotation().securityDeposit | number:'1.0-0' }}</span>
@@ -166,7 +166,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <h3>Accept Quotation</h3>
-        <button class="close-btn" (click)="closeAcceptModal()">&times;</button>
+        <button class="close-btn" (click)="closeAcceptModal()" title="Close" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <p class="modal-confirm-text">
@@ -197,7 +197,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <h3>Decline Quotation</h3>
-        <button class="close-btn" (click)="closeDeclineModal()">&times;</button>
+        <button class="close-btn" (click)="closeDeclineModal()" title="Close" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <p class="modal-confirm-text">

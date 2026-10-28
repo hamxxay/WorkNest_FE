@@ -569,6 +569,59 @@
   margin-bottom: 24px;
 }
 
+/* ── Payment mode, amount and the invoice's figures (part payments, FR_01) ── */
+.fr-span-2 { grid-column: 1 / -1; }
+
+.fr-mode-seg {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+.fr-mode-seg button {
+  min-width: 110px;
+  height: 38px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.fr-mode-seg button:hover:not(:disabled) { color: #0f172a; }
+.fr-mode-seg button.active { background: #fff; color: #0f766e; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14); }
+.fr-mode-seg button:disabled { color: #94a3b8; cursor: not-allowed; }
+.fr-mode-seg button:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
+
+.fr-pay-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.fr-pay-figures > div { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: #fff; min-width: 0; }
+.fr-pay-figures span { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+.fr-pay-figures strong { font-size: 1rem; color: #0f172a; overflow-wrap: anywhere; }
+.fr-pay-figures .after { background: #fff7ed; }
+.fr-pay-figures .after strong { color: #9a3412; }
+.fr-pay-figures .after.zero { background: #f0fdf4; }
+.fr-pay-figures .after.zero strong { color: #15803d; }
+
+@media (max-width: 768px) {
+  .fr-pay-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fr-mode-seg { align-self: stretch; }
+  .fr-mode-seg button { flex: 1; min-width: 0; height: 44px; }
+}
+
 @media (max-width: 768px) {
   .fr-form-grid {
     grid-template-columns: 1fr;
@@ -843,6 +896,13 @@
   max-width: 440px;
 }
 
+/* Receipts History search: centre the magnifier in the box (this wrapper is not a flex row like .fr-search-input-wrap,
+   so without a top the absolutely placed icon sat at the top edge). */
+.fr-toolbar-search .fr-search-icon {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .fr-toolbar-input {
   height: 40px;
   padding-left: 38px !important;
@@ -995,6 +1055,33 @@
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #fde68a;
+}
+
+/* Made on the Custom Invoice page (type 7): paid in full only. */
+.fr-badge-custom {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+}
+
+/* An invoice with a part payment already recorded (FR_01). */
+.fr-badge-partial {
+  background: #e0f2fe;
+  color: #075985;
+  border: 1px solid #bae6fd;
+}
+
+/* Past DueOn with a balance still owed. */
+.fr-badge-overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.fr-dd-amount small {
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .fr-badge-ro {
@@ -1329,6 +1416,21 @@
   background: #fffbeb;
 }
 
+/* Part payment: what is still due on the invoice after this receipt. */
+.row-balance-after td {
+  padding-top: 8px;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.amount-cell .amount-left {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9a3412;
+}
+
 .row-grand-total td {
   font-size: 1.1rem;
   font-weight: 900;
@@ -1504,4 +1606,44 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+}
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+.fr-header-left { min-width: 0; }
+
+@media (max-width: 640px) {
+  .fr-header { margin-bottom: 16px; }
+  .fr-header-left h1 { font-size: 1.3rem; }
+  .fr-header-actions, .fr-tab-pills { width: 100%; }
+  .fr-tab-pills { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); box-sizing: border-box; }
+  .fr-tab-pill { justify-content: center; min-height: 44px; padding: 8px 10px; white-space: normal; text-align: center; }
+  .fr-page :is(input, select, textarea) { font-size: 16px; }
+}
+
+
+/* Partial Payment & Remaining Balance Styles */
+.fr-breakdown-row.paid-deduction {
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 600;
+}
+
+.fr-breakdown-row.balance-banner {
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.08) 0%, rgba(234, 88, 12, 0.18) 100%) !important;
+  border-top: 2px solid #ea580c !important;
+  margin-top: 4px;
+}
+
+.balance-title {
+  color: #c2410c !important;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.balance-amount {
+  color: #ea580c !important;
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace, Courier;
 }

@@ -6,7 +6,7 @@
   </button>
   @if (open()) {
     <div class="wr-backdrop" (click)="close()"></div>
-    <div class="wr-menu" role="menu">
+    <div class="wr-menu" role="menu" appKeepInView>
       @if (!confirming()) {
         <p class="wr-note">Sent to super admins automatically every week.</p>
         <button type="button" role="menuitem" class="wr-item" (click)="preview()">

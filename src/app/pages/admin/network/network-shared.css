@@ -208,3 +208,25 @@ select.form-control { -webkit-appearance: none; appearance: none; padding-right:
   .head-stats div { align-items: flex-start; }
   .form-control.search { min-width: 0; width: 100%; }
 }
+
+/* ---------- phones ---------- */
+.net-page { max-width: 1600px; }
+@media (max-width: 760px) {
+  /* card toolbars take the card's width (search, filters and dropdowns never run past the card) */
+  .panel-head { align-items: stretch; }
+  .panel-tools { width: 100%; }
+  .panel-tools > .form-control { flex: 1 1 140px; min-width: 0; }
+  .form-control { max-width: 100%; height: 44px; font-size: 16px; }
+  .dash-panel { padding: 16px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .btn-report { height: 44px; }
+  .btn-sm { height: 36px; }
+  .seg { max-width: 100%; flex-wrap: wrap; }
+  .seg button { min-height: 34px; }
+  /* the name column keeps a readable width; the table scrolls sideways in its box instead */
+  .clean-table .dev { min-width: 170px; }
+  .clean-table th { padding: 10px 12px; }
+  .clean-table td { padding: 11px 12px; }
+  .facts > div { flex-wrap: wrap; gap: 4px 16px; }
+  .facts dd { overflow-wrap: anywhere; }
+}

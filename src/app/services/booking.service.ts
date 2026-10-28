@@ -63,18 +63,25 @@ export class BookingService {
     return this.http.get<any>(`${this.apiUrl}/available-spaces?${params.toString()}`);
   }
 
-  getSmartAvailableSpaces(categoryCode: string, startOn: string, endOn: string, capacity?: number): Observable<any> {
+  /**
+   * GET booking/smart/available: free spaces of a category for the period. locationId: only that location's spaces
+   * (the location of the card the customer chose); without it, every location.
+   */
+  getSmartAvailableSpaces(categoryCode: string, startOn: string, endOn: string, capacity?: number, locationId?: number | null): Observable<any> {
     const p = new URLSearchParams({ categoryCode, startOn, endOn });
     if (capacity) p.set('capacity', String(capacity));
+    if (locationId && locationId > 0) p.set('locationId', String(locationId));
     return this.http.get<any>(`${this.apiUrl}/smart/available?${p.toString()}`);
   }
 
+  /** POST booking/smart: books a free space of the category; locationId keeps it at the location the customer chose. */
   createSmart(booking: {
     categoryCode: string;
     startDateTime: string;
     endDateTime: string;
     capacity?: number;
     notes?: string;
+    locationId?: number | null;
   }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/smart`, booking);
   }
@@ -115,29 +122,38 @@ export class BookingService {
     return this.http.patch<any>(`${this.apiUrl}/${id}/cancel`, {});
   }
 
+  // ---- Free meeting-room hours (private office customers; API booking/meeting-room/*, script MR_01) ----
+
   /**
-   * Get monthly free meeting room entitlement details for a given date
+   * Monthly free meeting-room allowance for the month of `date` (YYYY-MM-DD):
+   * { hasEntitlement, allocatedMinutes, usedMinutes, remainingMinutes, maxBookingHours, locationName, message, ... }
    */
   getMeetingRoomEntitlement(date: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/meeting-room/entitlement?date=${date}`);
+    return this.http.get<any>(`${this.apiUrl}/meeting-room/entitlement`, { params: { date } });
+  }
+
+  /** Meeting rooms the customer may book with free hours on `date`, each with the times already taken (`busy`). */
+  getFreeMeetingRooms(date: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/meeting-room/rooms`, { params: { date } });
   }
 
   /**
-   * Create a free meeting room booking using monthly entitlement hours
+   * Create a free meeting room booking using monthly entitlement hours.
+   * startOn: Pakistan wall-clock time without an offset, e.g. "2026-10-20T10:00:00".
    */
   bookFreeMeetingRoom(booking: { spaceId: number; startOn: string; durationHours: number; notes?: string }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/meeting-room/book`, booking);
   }
 
   /**
-   * Cancel a free meeting room booking
+   * Cancel a free meeting room booking (own booking, before it starts)
    */
   cancelFreeMeetingRoom(id: number, cancelReason?: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/meeting-room/${id}/cancel`, { cancelReason });
+    return this.http.post<any>(`${this.apiUrl}/meeting-room/${id}/cancel`, { cancelReason: cancelReason || null });
   }
 
   /**
-   * Get user's own free meeting room bookings list
+   * Get user's own free meeting room bookings list (newest first)
    */
   getMyFreeMeetingRooms(): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/meeting-room/my`);

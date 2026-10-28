@@ -6,8 +6,10 @@ import { environment } from '../../environments/environment';
 
 /** Matches the API rule (fee receipt SPs): an invoice is a WHT invoice when its type is 6 or it carries WHT. */
 const isWhtInvoice = (invoiceTypeId: number, whtAmount: number) => invoiceTypeId === 6 || whtAmount > 0;
+/** Invoice type 7: made on the Custom Invoice page (paid in full only, like WHT invoices). */
+const CUSTOM_INVOICE_TYPE_ID = 7;
 const invoiceTypeLabel = (invoiceTypeId: number, whtAmount: number) =>
-  isWhtInvoice(invoiceTypeId, whtAmount) ? 'WHT Invoice' : 'Standard Invoice';
+  isWhtInvoice(invoiceTypeId, whtAmount) ? 'WHT Invoice' : invoiceTypeId === CUSTOM_INVOICE_TYPE_ID ? 'Custom Invoice' : 'Standard Invoice';
 
 export interface UnpaidInvoiceDto {
   invoiceId: number;
@@ -35,7 +37,22 @@ export interface UnpaidInvoiceDto {
   grandTotal: number;
   netReceivableAmount: number;
   dropdownDisplay: string;
+  /** Paid so far (net of WHT). */
+  amountPaid: number;
+  /** Left to pay: net receivable less paid so far, never below 0. */
+  balanceAmount: number;
+  /** Unpaid | Partial | Paid. */
+  paymentStatus: string;
+  /** Unpaid | Partial | Overdue. */
+  statusLabel: string;
+  /** False for withholding-tax and custom invoices (paid in full only) and before the database update FR_01. */
+  allowPartial: boolean;
+  /** A custom invoice (type 7, or isCustom from the API): the receipt is for the whole balance. */
+  isCustom: boolean;
 }
+
+/** Full = the invoice's whole remaining balance (worked out by the server when saving); Partial = an amount up to it. */
+export type PaymentMode = 'Full' | 'Partial';
 
 export interface FeeReceiptAccountDto {
   accountId: number;
@@ -55,6 +72,9 @@ export interface CreateFeeReceiptDto {
   remarks?: string | null;
   depositorName: string;
   depositorCnic: string; // 12345-1234567-1
+  paymentMode: PaymentMode;
+  /** Sent for a Partial payment only. */
+  amount?: number | null;
 }
 
 /** Body of POST /fee-receipts/void (FeeReceiptVoidDto). */
@@ -85,6 +105,22 @@ export interface FeeReceiptListItemDto {
   voidReason: string;
   createdOn: string;
   createdByName: string;
+  /**
+   * Snapshot taken when the receipt was saved (printed receipts use these, never today's invoice figures): what the
+   * invoice asked (net of WHT), paid before, received in this receipt, left after it. Null on receipts saved before the
+   * database update FR_01 (shown from the amount alone).
+   */
+  invoiceTotal: number | null;
+  previousPaid: number | null;
+  amountPaid: number;
+  balanceAfter: number | null;
+  /**
+   * Monthly receipts (database update RC_02): a multi-month invoice gets one receipt per calendar month. Receipt 1 is
+   * saved here; months 2..N are created by the API when each month starts. Older receipts are month 1 of 1.
+   */
+  billingMonth: string | null;   // 1st of the month this receipt is for
+  monthNo: number;
+  monthCount: number;
 }
 
 export interface FeeReceiptDetailDto extends FeeReceiptListItemDto {
@@ -124,6 +160,8 @@ export interface ApiResponse<T> {
   errors?: string[];
 }
 
+const numOrNull = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : Number(v));
+
 /** Maps a FeeReceiptDto (camelCase JSON) from list / get-by-id / create into the view model. */
 function mapReceipt(r: any): FeeReceiptDetailDto {
   r = r ?? {};
@@ -155,6 +193,13 @@ function mapReceipt(r: any): FeeReceiptDetailDto {
     voidReason: r.voidReason ?? '',
     createdOn: r.createdOn ?? '',
     createdByName: r.createdByName ?? '',
+    invoiceTotal: numOrNull(r.invoiceTotal),
+    previousPaid: numOrNull(r.previousPaid),
+    amountPaid: Number(r.amountPaid ?? r.totalAmount ?? 0),
+    balanceAfter: numOrNull(r.balanceAfter),
+    billingMonth: r.billingMonth ?? null,
+    monthNo: Math.max(1, Number(r.monthNo ?? 1) || 1),
+    monthCount: Math.max(1, Number(r.monthCount ?? 1) || 1),
     invoiceTypeId,
     invoiceTypeName: invoiceTypeLabel(invoiceTypeId, whtAmount),
     roomRentExclTax,
@@ -186,7 +231,7 @@ export class FeeReceiptService {
   private baseUrl = `${environment.apiUrl}/fee-receipts`;
 
   /** locationId is optional: the API already limits location-bound users to their own locations. */
-  getUnpaidInvoices(search?: string, locationId?: number | null, top: number = 30): Observable<UnpaidInvoiceDto[]> {
+  getUnpaidInvoices(search?: string, locationId?: number | null, top: number = 200): Observable<UnpaidInvoiceDto[]> {
     let params = new HttpParams().set('top', top.toString());
     if (search && search.trim()) {
       params = params.set('search', search.trim());
@@ -203,6 +248,8 @@ export class FeeReceiptService {
           const invNum = r.invoiceNumber ?? '';
           const invoiceTypeId = Number(r.invoiceTypeId ?? 0);
           const whtAmount = Number(r.whtAmount ?? 0);
+          const isCustom = invoiceTypeId === CUSTOM_INVOICE_TYPE_ID || r.isCustom === true;
+          const isWht = isWhtInvoice(invoiceTypeId, whtAmount);
           return {
             invoiceId: r.invoiceId ?? 0,
             invoiceIdGuid: r.invoiceIdGUID ?? '',
@@ -228,7 +275,13 @@ export class FeeReceiptService {
             securityDepositAmount: Number(r.securityDepositAmount ?? 0),
             grandTotal: Number(r.grandTotal ?? 0),
             netReceivableAmount: Number(r.netReceivableAmount ?? 0),
-            dropdownDisplay: r.displayName || `${custName}-${custCode}-${invNum}`
+            dropdownDisplay: r.displayName || `${custName}-${custCode}-${invNum}`,
+            amountPaid: Number(r.amountPaid ?? 0),
+            balanceAmount: Number(r.balanceAmount ?? r.netReceivableAmount ?? 0),
+            paymentStatus: r.paymentStatus ?? 'Unpaid',
+            statusLabel: r.statusLabel ?? 'Unpaid',
+            allowPartial: (r.allowPartial === true || !isWht) && !isCustom && !isWht,
+            isCustom
           };
         });
       })

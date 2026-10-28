@@ -1,0 +1,102 @@
+.alert-admin{padding:10px 16px;border-radius:8px;font-size:.875rem;margin-bottom:16px}
+.alert-error-admin{background:rgba(239,68,68,.08);color:#dc2626;border:1px solid rgba(239,68,68,.2)}
+.btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary-admin{background:#0d9488;color:#fff}.btn-primary-admin:hover{background:#0f766e}
+.btn-outline-admin{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-outline-admin:hover{background:#f8fafc}
+.btn-outline-admin:disabled{opacity:.4;cursor:not-allowed}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-content{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:6px}
+.modal-close:hover{color:#0f172a;background:#f1f5f9}
+.modal-content h2{font-size:1.2rem;font-weight:700;color:#0f172a;margin-bottom:20px}
+.form-group-admin{margin-bottom:14px}
+.form-group-admin label{display:block;font-size:.82rem;font-weight:500;color:#475569;margin-bottom:5px}
+.form-input-admin{width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:.875rem;color:#0f172a;background:#f8fafc;outline:none;box-sizing:border-box}
+.form-input-admin:focus{border-color:#0d9488;background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.08)}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.form-row-admin{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* Print */
+@media print {
+  .modal-close { display: none !important; }
+}
+/* Segmented Type Selector Pills */
+.type-selector-pills {
+  display: flex;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.type-selector-pills .pill-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.type-selector-pills .pill-btn:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.6);
+}
+.type-selector-pills .pill-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+.modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
+.modal-content h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 22px;padding:0 40px 16px 0;border-bottom:1px solid #f1f5f9}
+.modal-close{top:20px;right:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+@keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.form-row-admin{gap:16px}
+.modal-content .form-group-admin{margin-bottom:16px}
+.modal-content .form-group-admin label{font-size:.8rem;font-weight:600;color:#334155;margin-bottom:6px}
+.modal-content .form-input-admin{height:42px;padding:0 14px;border:1px solid #dbe2ea;border-radius:10px;background:#fff;font-size:.9rem;transition:border-color .15s,box-shadow .15s}
+.modal-content select.form-input-admin{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center}
+.modal-content .form-input-admin:hover:not(:focus):not(:disabled){border-color:#cbd5e1}
+.modal-content .form-input-admin:focus{border-color:#0d9488;box-shadow:0 0 0 4px rgba(13,148,136,.12)}
+.modal-content .form-input-admin:disabled{background:#f8fafc;color:#64748b}
+.modal-content .form-input-admin::placeholder{color:#94a3b8}
+/* Buttons stay visible at the bottom of long forms */
+.modal-actions{position:sticky;bottom:0;z-index:2;background:#fff;margin:24px -28px -28px;padding:16px 28px;border-top:1px solid #f1f5f9;border-radius:0 0 16px 16px}
+.modal-actions .btn-admin{height:40px;padding:0 20px;border-radius:10px;font-weight:600}
+.modal-actions .btn-primary-admin{box-shadow:0 1px 2px rgba(13,148,136,.3)}
+@media (max-width:720px){
+  .form-row-admin{grid-template-columns:1fr}
+}
+@media (max-width: 640px) {
+  /* Popups: fit the phone, scroll inside, buttons stay reachable. */
+  .modal-overlay { padding: 10px; }
+  .modal-content { padding: 20px 16px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
+  .modal-content h2 { font-size: 1.1rem; margin-bottom: 16px; padding-bottom: 12px; overflow-wrap: anywhere; }
+  .modal-close { top: 12px; right: 12px; width: 40px; height: 40px; }
+  .modal-actions { flex-wrap: wrap; margin: 20px -16px -20px; padding: 12px 16px; }
+  /* A sticky footer stops at the scroller's padding edge: no bottom padding, so nothing shows under it. */
+  .modal-content:not(.sheet-modal):has(.modal-actions) { padding-bottom: 0; }
+  .modal-content:not(.sheet-modal) .modal-actions { margin-bottom: 0; }
+  .modal-actions .btn-admin { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+  .modal-content .form-input-admin { font-size: 16px; min-height: 44px; }
+  .type-selector-pills { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  /* Header bars, info strips and footers: rows wrap instead of running off the popup. */
+  .modal-content [style*="display: flex"]:not(button):not(a):not(label):not([style*="flex-direction: column"]) { flex-wrap: wrap; row-gap: 8px; }
+  /* ...except a header bar that ends with its close button: the title block shrinks and wraps instead. */
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)):not(button) { flex-wrap: nowrap; }
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)) > :first-child { min-width: 0; }
+  .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
+  .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select { font-size: 16px; }
+}

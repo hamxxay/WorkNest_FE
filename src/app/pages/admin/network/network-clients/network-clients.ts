@@ -8,8 +8,9 @@ import {
   ChartBag, ExportKind, NET_SHARED, S1, S2, ago, avg, baseOptions, buildTimeline, bytes, clientIcon, clock, dur, errMsg, exportCard,
   exportPagePdf, fmt, hbar, hbarOptions, logWhen, normMac, signalInfo, sum, timeLabel, timelineStats
 } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
-type SortKey = 'name' | 'conn' | 'uplink' | 'signal' | 'ip' | 'exp' | 'data' | 'uptime';
+type SortKey = 'name' | 'kind' | 'conn' | 'uplink' | 'signal' | 'ip' | 'exp' | 'data' | 'uptime';
 type ConnType = '' | 'wifi' | 'wired' | 'guest';
 
 const CLIENT_LABELS = { upLabel: 'Connected', downLabel: 'Disconnected', leadLabel: 'Not connected yet' };
@@ -17,7 +18,7 @@ const CLIENT_LABELS = { upLabel: 'Connected', downLabel: 'Disconnected', leadLab
 @Component({
   selector: 'app-network-clients',
   standalone: true,
-  imports: [FormsModule, RouterLink, ...NET_SHARED],
+  imports: [FormsModule, RouterLink, ...NET_SHARED, NetworkSwitch],
   templateUrl: './network-clients.html',
   styleUrls: ['../network-shared.css', './network-clients.css']
 })
@@ -38,7 +39,7 @@ export class NetworkClients implements OnInit, OnDestroy {
   private slowTimer?: ReturnType<typeof setTimeout>;
 
   /** Only admins can rename clients; sales executives get a read-only view. */
-  readonly canRename = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  readonly canRename = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   data = signal<UnifiClientsResponse | null>(null);
   loadedAt = signal<number | null>(null);
@@ -126,6 +127,7 @@ export class NetworkClients implements OnInit, OnDestroy {
     const up = this.uplink(), kind = this.kind(), dir = this.dir();
     const key: (c: UnifiClient) => string | number = {
       name: (c: UnifiClient) => c.name.toLowerCase(),
+      kind: (c: UnifiClient) => `${c.kind === 'other' ? '~' : (c.kindLabel || '').toLowerCase()} ${c.name.toLowerCase()}`,
       conn: (c: UnifiClient) => (c.wired ? 'b' : 'a') + (c.ssid || ''),
       uplink: (c: UnifiClient) => (c.uplinkName || '').toLowerCase(),
       signal: (c: UnifiClient) => c.signal ?? -999,

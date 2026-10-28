@@ -1,0 +1,590 @@
+<!-- ===================== NETWORK (own endpoint: a failure here leaves the rest of the dashboard alone) ===================== -->
+<section class="dash-section" [attr.aria-labelledby]="'net-h-' + source()" [attr.aria-busy]="loading() || refreshing()">
+  <div class="section-title">
+    <h2 [id]="'net-h-' + source()">Network</h2>
+    <span>{{ titleLine() }}</span>
+  </div>
+
+  <!-- KPI card (clickable when it leads somewhere) -->
+  <ng-template #kpiCard let-k>
+    @if (k.action) {
+      <button type="button" [class]="'kpi-card clickable tone-' + k.tone" (click)="k.action()">
+        <span class="kpi-label">{{ k.label }}</span>
+        <span class="kpi-value">{{ k.value }}</span>
+        <span class="kpi-foot"><span class="kpi-sub">{{ k.sub }}</span></span>
+        <span class="sr-only">{{ k.actionLabel }}</span>
+        <svg class="kpi-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+      </button>
+    } @else {
+      <div [class]="'kpi-card tone-' + k.tone">
+        <span class="kpi-label">{{ k.label }}</span>
+        <span class="kpi-value">{{ k.value }}</span>
+        <span class="kpi-foot"><span class="kpi-sub">{{ k.sub }}</span></span>
+      </div>
+    }
+  </ng-template>
+  <ng-template #chartIcon>
+    <span class="chart-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-3"/><path d="M12 16V9"/><path d="M17 16v-6"/></svg></span>
+  </ng-template>
+  <ng-template #wifiIcon>
+    <span class="chart-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></svg></span>
+  </ng-template>
+
+  @if (loading()) {
+    <div class="kpi-grid kpi-4" aria-hidden="true">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+      }
+    </div>
+    <div class="ins-grid" aria-hidden="true">
+      <div class="dash-panel span-8"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+      <div class="dash-panel span-4"><span class="sk sk-line w60"></span><span class="sk sk-block"></span></div>
+      <div class="span-4 full-md net-col">
+        <div class="dash-panel"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+        <div class="dash-panel">
+          <span class="sk sk-line w40"></span>
+          @for (i of [1,2,3,4,5]; track i) { <div class="sk-row"><span class="sk sk-line w70"></span><span class="sk sk-line w20"></span></div> }
+        </div>
+      </div>
+      <div class="dash-panel span-8 full-md"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
+    </div>
+  } @else if (error() && !data()) {
+    <div class="dash-panel section-empty" role="alert">
+      <span class="chart-empty-icon" [class.db]="error()!.needsDbUpdate">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      </span>
+      <strong>{{ error()!.title }}</strong>
+      <span>{{ error()!.message }}</span>
+      <button type="button" class="link-btn" (click)="load()">Try again</button>
+    </div>
+  } @else if (data(); as d) {
+    @if (!d.available && unifiQuiet()) {
+      <!-- UniFi not available but the Grandstream block shows: one quiet line, the Grandstream figures below. -->
+      <p class="note gwn-quiet-note" role="status">UniFi: {{ d.message || 'the network could not be read right now.' }}</p>
+    } @else if (!d.available) {
+      <!-- UniFi not set up, turned off, paused or not reachable: one plain line, nothing else. -->
+      <div class="dash-panel section-empty" role="status">
+        <ng-container *ngTemplateOutlet="wifiIcon" />
+        <strong>Network figures are not available</strong>
+        <span>{{ d.message || 'The network could not be read right now.' }}</span>
+        <button type="button" class="link-btn" (click)="load()">Try again</button>
+      </div>
+    } @else if (!shown()) {
+      <!-- No UniFi site here: with a Grandstream network (F-7) the Grandstream block below is the whole section. -->
+      @if (!unifiQuiet()) {
+      <div class="dash-panel section-empty" role="status">
+        <ng-container *ngTemplateOutlet="wifiIcon" />
+        <strong>No network for {{ locationId() ? 'this location' : allLabel().toLowerCase() }}</strong>
+        <span>{{ d.message || 'No network is linked to this location yet.' }} A super admin links each UniFi site to its location on Network Overview.</span>
+      </div>
+      }
+    } @else {
+      @if (bothShown()) {
+        <div class="net-block-head">
+          <span class="net-block-badge" aria-hidden="true">U</span>
+          <div><h3>UniFi · {{ unifiPlace() }}</h3><p class="panel-sub">{{ scopeText() }}</p></div>
+        </div>
+      }
+      @if (error(); as err) {
+        <div class="refresh-error" role="status">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          <span><strong>{{ err.title }}.</strong> {{ err.message }} Showing the network as it was.</span>
+          <button type="button" class="link-btn" (click)="load()">Try again</button>
+        </div>
+      } @else if (d.stale) {
+        <div class="refresh-error" role="status">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span><strong>Not current.</strong> {{ d.message || 'The network has not answered for a while.' }} These are the last figures ({{ updatedText() }}).</span>
+        </div>
+      }
+
+      <div class="net-body" [class.is-refreshing]="refreshing()">
+        @if (alerts().length) {
+          <div class="dash-panel net-alerts" [class.critical]="hasCritical()" role="status">
+            <div class="panel-head">
+              <div class="net-alert-title">
+                <span class="net-alert-icon" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                </span>
+                <div>
+                  <h3>Needs attention</h3>
+                  <p class="panel-sub">{{ alerts().length }} network issue{{ alerts().length === 1 ? '' : 's' }}</p>
+                </div>
+              </div>
+            </div>
+            <ul class="net-alert-list">
+              @for (a of alerts(); track $index) {
+                <li>
+                  <span class="pill" [class.danger]="a.level === 'critical'" [class.warn]="a.level !== 'critical'">{{ a.level === 'critical' ? 'Critical' : 'Serious' }}</span>
+                  <span class="net-alert-text">{{ a.text }}</span>
+                  @if (a.where) { <span class="net-alert-where">{{ a.where }}</span> }
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="kpi-grid kpi-4">
+          @for (k of kpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+        </div>
+
+        <div class="ins-grid">
+          <!-- 1. Clients over time (stored history) -->
+          <div class="dash-panel span-8 focus-target" id="net-panel-clients" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Clients online over time</h3>
+                <p class="panel-sub">{{ historyRange() === 'week' ? 'Last 7 days, hourly average' : 'Last 24 hours, 15-minute average' }} · Wi-Fi, wired and guest</p>
+              </div>
+              <div class="head-side">
+                @if (historyStats(); as s) {
+                  <div class="head-stats">
+                    <div><span>Average</span><strong>{{ count(s.avg) }}</strong></div>
+                    <div><span>Most at once</span><strong [title]="s.peakAt">{{ count(s.peak) }}</strong></div>
+                  </div>
+                }
+                <div class="net-seg" role="group" aria-label="Time range">
+                  <button type="button" [class.active]="historyRange() === 'day'" [attr.aria-pressed]="historyRange() === 'day'" (click)="setRange('day')">24 hours</button>
+                  <button type="button" [class.active]="historyRange() === 'week'" [attr.aria-pressed]="historyRange() === 'week'" (click)="setRange('week')">7 days</button>
+                </div>
+              </div>
+            </div>
+            <div class="chart-box h-lg chart-nav"
+              [attr.tabindex]="historyEmpty() ? null : 0" role="group" aria-roledescription="interactive chart" [attr.aria-label]="historyAria()"
+              (keydown)="clientsNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && clientsNav.focus()" (blur)="clientsNav.clear()">
+              <canvas #clientsCanvas aria-hidden="true"></canvas>
+              @if (historyEmpty()) {
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No history yet</strong><span>The chart fills in as the network is read, once a minute.</span></div>
+              }
+            </div>
+          </div>
+
+          <!-- 2. Clients by type -->
+          <div class="dash-panel span-4">
+            <div class="panel-head">
+              <div>
+                <h3>Clients by type</h3>
+                <!-- The console's live client list (as on the Clients page), not the cloud counts behind "Clients online now". -->
+                <p class="panel-sub">{{ multiSite() ? 'Connected right now, main UniFi console only (Clients page list), so the total can differ from Clients online now' : 'Connected right now, from the Clients page list' }}</p>
+              </div>
+            </div>
+            @if (types().length) {
+              <div class="chart-box h-donut">
+                <canvas #typesCanvas role="img" [attr.aria-label]="'Clients by type: ' + typesAria()"></canvas>
+                <div class="donut-center"><span>{{ multiSite() ? 'Main console' : 'Clients' }}</span><strong>{{ count(typesTotal()) }}</strong></div>
+              </div>
+              <ul class="net-legend">
+                @for (t of types(); track t.kind) {
+                  <li>
+                    <i [style.background]="t.color"></i>
+                    <span class="lg-label">{{ t.label }}</span>
+                    <small>{{ typeShare(t.count) }}</small>
+                    <strong>{{ count(t.count) }}</strong>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <div class="empty">
+                <ng-container *ngTemplateOutlet="chartIcon" />
+                <strong>No client types</strong>
+                <span>{{ d.clientTypes?.message || 'No clients are connected right now.' }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- 3. Left column: devices by type, then the top data users under it -->
+          <div class="span-4 full-md net-col">
+          <div class="dash-panel focus-target" id="net-panel-devices" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Network devices</h3>
+                <p class="panel-sub">UniFi devices by type (access points, switches, gateways, cameras, door access...), online and offline</p>
+              </div>
+              @if (d.devices; as dv) {
+                <div class="head-stats">
+                  <div><span>Online</span><strong class="good">{{ count(dv.online) }}</strong></div>
+                  <div><span>Offline</span><strong [class.bad]="dv.offline > 0">{{ count(dv.offline) }}</strong></div>
+                </div>
+              }
+            </div>
+            @if (deviceRows().length) {
+              <ul class="net-devices">
+                @for (t of deviceRows(); track t.type) {
+                  <li>
+                    <div class="nd-head">
+                      <span class="nd-name">{{ t.label }}</span>
+                      <span class="nd-count"><strong>{{ count(t.online) }}</strong> of {{ count(t.total) }} online</span>
+                    </div>
+                    <span class="nd-track" aria-hidden="true">
+                      @if (t.online) { <span [style.width.%]="t.onW" [style.background]="teal"></span> }
+                      @if (t.offline) { <span [style.width.%]="t.offW" [style.background]="offlineColor"></span> }
+                    </span>
+                    @if (t.offlineNames.length) {
+                      <span class="nd-off">Offline: {{ t.offlineNames.join(', ') }}{{ t.offline > t.offlineNames.length ? ' and more' : '' }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+              <div class="net-key">
+                <span><i class="sw" [style.background]="teal"></i>Online</span>
+                <span><i class="sw" [style.background]="offlineColor"></i>Offline</span>
+                @if (d.devices && d.devices.notInstalled) { <span class="muted">{{ count(d.devices.notInstalled) }} not installed, not counted</span> }
+              </div>
+            } @else {
+              <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No devices reported</strong><span>UniFi devices of this network show up here.</span></div>
+            }
+          </div>
+
+          <!-- 3b. Top data users (the Clients page's list, top 5); a row opens its details -->
+          <div class="dash-panel focus-target" id="net-panel-top" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Top data users</h3>
+                <p class="panel-sub">Download and upload per device, {{ topRange() }}</p>
+              </div>
+            </div>
+            @if (d.topClients === null) {
+              <div class="empty nt-empty" role="status">
+                <ng-container *ngTemplateOutlet="chartIcon" />
+                <strong>Top data users are not available</strong>
+                <span>{{ d.topClientsMessage || 'They show here once the API update is live.' }}</span>
+              </div>
+            } @else if (!topRows().length) {
+              <div class="empty nt-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No client data yet</strong><span>Devices show here once they use data {{ topRange() }}.</span></div>
+            } @else {
+              <ol class="net-top">
+                @for (r of topRows(); track r.key) {
+                  <li>
+                    <button type="button" class="nt-row" (click)="openTop(r.c, $event)" [title]="'Open details of ' + r.c.name"
+                      [attr.aria-label]="r.c.rank + '. ' + r.c.name + ', ' + r.c.kindLabel + ', ' + r.total + ' (' + r.down + ' down, ' + r.up + ' up)' + (r.c.online ? ', online now' : '') + '. Open details'">
+                      <span class="nt-rank" aria-hidden="true">{{ r.c.rank }}</span>
+                      <span class="nt-main" aria-hidden="true">
+                        <span class="nt-name">{{ r.c.name }}</span>
+                        <span class="nt-kind"><i [style.background]="r.color"></i>{{ r.c.kindLabel }}@if (r.c.online) { <span class="nt-on">Online</span> }</span>
+                        <span class="nt-track"><span [style.width.%]="r.share" [style.background]="teal"></span></span>
+                      </span>
+                      <span class="nt-figs" aria-hidden="true">
+                        <strong>{{ r.total }}</strong>
+                        <small>
+                          <span><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>{{ r.down }}</span>
+                          <span><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>{{ r.up }}</span>
+                        </small>
+                      </span>
+                      <svg class="nt-go" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                  </li>
+                }
+              </ol>
+            }
+          </div>
+          </div>
+
+          <!-- 4. Internet: lines and latency -->
+          <div class="dash-panel span-8 full-md focus-target" id="net-panel-internet" tabindex="-1">
+            <div class="panel-head">
+              <div>
+                <h3>Internet</h3>
+                <p class="panel-sub">Each line's speed now, link and last speed test, and latency over the last 24 hours</p>
+              </div>
+              @if (d.internet; as i) {
+                <div class="head-stats">
+                  <div><span>Latency now</span><strong [class.warn]="(i.latencyMs ?? 0) >= 100">{{ ms(i.latencyMs) }}</strong></div>
+                  <div><span>Worst loss, 24 h</span><strong [class.bad]="(i.lossMaxPct ?? 0) >= 1">{{ i.lossMaxPct === null ? '-' : pct(i.lossMaxPct) }}</strong></div>
+                </div>
+              }
+            </div>
+            @if (lines().length) {
+              <ul class="net-lines">
+                @for (r of lineRows(); track r.key) {
+                  <li [class.is-down]="!r.w.up">
+                    <div class="nl-top">
+                      <span class="nl-dot" [class.down]="!r.w.up" aria-hidden="true"></span>
+                      <span class="nl-main">
+                        <strong>{{ r.w.label }}@if (r.w.isp) { <span class="nl-isp">· {{ r.w.isp }}</span> }</strong>
+                        <small>{{ r.meta }}</small>
+                      </span>
+                      <span class="pill" [class.danger]="!r.w.up">{{ r.w.up ? 'Up' : 'Down' }}</span>
+                    </div>
+                    <dl class="nl-figs">
+                      <div><dt>Download now</dt><dd>{{ r.downNow }}</dd></div>
+                      <div><dt>Upload now</dt><dd>{{ r.upNow }}</dd></div>
+                      <div><dt>Link speed</dt><dd>{{ r.link }}</dd></div>
+                      <div><dt>Last test (down / up)</dt><dd [title]="r.testTitle">{{ r.test }}@if (r.testWhen) { <small>{{ r.testWhen }}</small> }</dd></div>
+                      <div><dt>Data 24 h (down / up)</dt><dd [title]="r.dataTitle">{{ r.data24 }}</dd></div>
+                    </dl>
+                    @if (r.testable) {
+                      <!-- CEO only: run a speed test on this line now (one at a time across the network, as UniFi allows) -->
+                      <div class="nl-test">
+                        @if (testNotes()[r.w.label]; as note) { <p class="nl-test-note">{{ note }}</p> }
+                        @let busyHere = testRun()?.wan === r.w.label || testStarting() === r.w.label;
+                        <button type="button" class="nl-test-btn" [class.is-running]="busyHere" [disabled]="testBusy() || !r.w.up"
+                          [attr.aria-busy]="busyHere ? 'true' : null" [attr.data-tooltip]="testTip(r.w)" (click)="runSpeedtest(r.w)">
+                          @if (busyHere) {
+                            <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                            {{ testLabel() }}
+                          } @else {
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                            Test speed
+                          }
+                        </button>
+                      </div>
+                    }
+                    @if (r.spark; as sp) {
+                      <div class="nl-spark">
+                        <svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                          <path [attr.d]="sp.area" [attr.fill]="wifiColor" fill-opacity="0.12" stroke="none" />
+                          <path [attr.d]="sp.up" fill="none" [attr.stroke]="wiredColor" stroke-width="1.25" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+                          <path [attr.d]="sp.down" fill="none" [attr.stroke]="wifiColor" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+                        </svg>
+                        <span class="nl-spark-cap">
+                          <span><i [style.background]="wifiColor"></i>Download</span>
+                          <span><i [style.background]="wiredColor"></i>Upload</span>
+                          <span class="nl-peak">24 h, peak {{ sp.peak }}</span>
+                        </span>
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+              @if (d.internet?.speedsMessage) { <p class="note nl-note">{{ d.internet?.speedsMessage }}</p> }
+            }
+            <p class="net-subhead">Latency, last 24 hours</p>
+            <div class="chart-box h-net">
+              <canvas #latencyCanvas role="img" aria-label="Internet latency over the last 24 hours"></canvas>
+              @if (latencyEmpty()) {
+                <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No latency figures yet</strong><span>UniFi reports them every 5 minutes.</span></div>
+              }
+            </div>
+          </div>
+        </div>
+
+        @if (siteLines().length) {
+          <p class="note net-sites">
+            @for (s of siteLines(); track s.id; let last = $last) {
+              UniFi site {{ s.name }} serves {{ s.serves }}{{ last ? '.' : '; ' }}
+            }
+          </p>
+        }
+      </div>
+    }
+    <!-- ===================== Grandstream GWN (F-7): its own block, after UniFi ===================== -->
+    @if (gwn(); as g) {
+      <div class="gwn-block" [class.gwn-after]="shown() || (!d.available && unifiQuiet())" role="region" [attr.aria-labelledby]="'gwn-h-' + source()">
+        <div class="net-block-head">
+          <span class="net-block-badge gwn" aria-hidden="true">G</span>
+          <div>
+            <h3 [id]="'gwn-h-' + source()">{{ gwnTitle() }}</h3>
+            <p class="panel-sub">{{ gwnSub() }}</p>
+          </div>
+          @if (canOpenGwn()) {
+            <a class="link-btn gwn-open" routerLink="/admin/network/gwn">
+              Open Grandstream network
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+          }
+        </div>
+
+        @if (unifiQuiet() && error(); as err) {
+          <div class="refresh-error" role="status">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            <span><strong>{{ err.title }}.</strong> {{ err.message }} Showing the network as it was.</span>
+            <button type="button" class="link-btn" (click)="load()">Try again</button>
+          </div>
+        }
+
+        @if (!g.available) {
+          <div class="dash-panel section-empty" role="status">
+            <ng-container *ngTemplateOutlet="wifiIcon" />
+            <strong>Grandstream figures are not available</strong>
+            <span>{{ g.message || 'The Grandstream network could not be read right now.' }}</span>
+            <button type="button" class="link-btn" (click)="load()">Try again</button>
+          </div>
+        } @else {
+          <div class="net-body" [class.is-refreshing]="refreshing()">
+            @if (gwnAlerts().length) {
+              <div class="dash-panel net-alerts" [class.critical]="gwnHasCritical()" role="status">
+                <div class="panel-head">
+                  <div class="net-alert-title">
+                    <span class="net-alert-icon" aria-hidden="true">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    </span>
+                    <div>
+                      <h3>Needs attention</h3>
+                      <p class="panel-sub">{{ gwnAlerts().length }} Grandstream issue{{ gwnAlerts().length === 1 ? '' : 's' }}</p>
+                    </div>
+                  </div>
+                </div>
+                <ul class="net-alert-list">
+                  @for (a of gwnAlerts(); track $index) {
+                    <li>
+                      <span class="pill" [class.danger]="a.level === 'critical'" [class.warn]="a.level !== 'critical'">{{ levelLabel(a.level) }}</span>
+                      <span class="net-alert-text">{{ a.text }}</span>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+
+            <div class="kpi-grid kpi-4">
+              @for (k of gwnKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+            </div>
+
+            <div class="ins-grid">
+              <!-- Clients over the last 24 hours -->
+              <div class="dash-panel span-6 full-md focus-target" id="gwn-panel-clients" tabindex="-1">
+                <div class="panel-head">
+                  <div>
+                    <h3>Clients, last 24 hours</h3>
+                    <p class="panel-sub">Clients connected to the Grandstream network</p>
+                  </div>
+                  @if (gwnClientStats(); as s) {
+                    <div class="head-stats">
+                      <div><span>Average</span><strong>{{ count(s.avg) }}</strong></div>
+                      <div><span>Most</span><strong [title]="s.peakAt">{{ count(s.peak) }}</strong></div>
+                    </div>
+                  }
+                </div>
+                <div class="chart-box h-net chart-nav"
+                  [attr.tabindex]="gwnClientsEmpty() ? null : 0" role="group" aria-roledescription="interactive chart" [attr.aria-label]="gwnClientsAria()"
+                  (keydown)="gwnClientsNav.keydown($event)" (focus)="$any($event.target).matches(':focus-visible') && gwnClientsNav.focus()" (blur)="gwnClientsNav.clear()">
+                  <canvas #gwnClientsCanvas aria-hidden="true"></canvas>
+                  @if (gwnClientsEmpty()) {
+                    <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No history yet</strong><span>GWN reports the client count every few minutes.</span></div>
+                  }
+                </div>
+              </div>
+
+              <!-- Bandwidth over the last 24 hours -->
+              <div class="dash-panel span-6 full-md focus-target" id="gwn-panel-bandwidth" tabindex="-1">
+                <div class="panel-head">
+                  <div>
+                    <h3>Bandwidth, last 24 hours</h3>
+                    <p class="panel-sub">Download and upload of the whole network</p>
+                  </div>
+                  @if (gwnBandwidthStats(); as s) {
+                    <div class="head-stats">
+                      <div><span>Peak down</span><strong>{{ s.down }}</strong></div>
+                      <div><span>Peak up</span><strong>{{ s.up }}</strong></div>
+                    </div>
+                  }
+                </div>
+                <div class="chart-box h-net">
+                  <canvas #gwnBandwidthCanvas role="img" [attr.aria-label]="gwnBandwidthAria()"></canvas>
+                  @if (gwnBandwidthEmpty()) {
+                    <div class="chart-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No bandwidth figures yet</strong><span>GWN reports them every few minutes.</span></div>
+                  }
+                </div>
+              </div>
+
+              <!-- Devices -->
+              <div class="dash-panel span-6 full-md table-panel focus-target" id="gwn-panel-devices" tabindex="-1">
+                <div class="panel-head">
+                  <div>
+                    <h3>Devices</h3>
+                    <p class="panel-sub">Grandstream access points and routers, offline first</p>
+                  </div>
+                  @if (g.devices; as dv) {
+                    <div class="head-stats">
+                      <div><span>Online</span><strong class="good">{{ count(dv.online) }}</strong></div>
+                      <div><span>Offline</span><strong [class.bad]="dv.offline > 0">{{ count(dv.offline) }}</strong></div>
+                    </div>
+                  }
+                </div>
+                @if (gwnDevices().length) {
+                  <div class="table-scroll">
+                    <table class="cmp-table compact gwn-devices">
+                      <thead><tr><th scope="col">Device</th><th scope="col">Status</th><th scope="col" class="num">Clients</th><th scope="col" class="num">Temp.</th></tr></thead>
+                      <tbody>
+                        @for (r of gwnDevices(); track r.d.mac || $index) {
+                          <tr>
+                            <th scope="row">
+                              <span class="gd-name">{{ r.d.name }}</span>
+                              @if (r.d.model) { <small class="gd-model">{{ r.d.model }}</small> }
+                            </th>
+                            <td><span class="pill" [class.on]="r.d.online" [class.danger]="!r.d.online">{{ r.d.online ? 'Online' : 'Offline' }}</span></td>
+                            <td class="num">{{ count(r.d.clients) }}</td>
+                            <td class="num" [class.warn]="r.hot">{{ r.temp }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                } @else {
+                  <div class="empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No devices reported</strong><span>Grandstream devices of this network show up here.</span></div>
+                }
+              </div>
+
+              <!-- Top 5 clients by data today -->
+              <div class="dash-panel span-6 full-md">
+                <div class="panel-head">
+                  <div>
+                    <h3>Top data users</h3>
+                    <p class="panel-sub">Download and upload per device, today</p>
+                  </div>
+                </div>
+                @if (!gwnTopRows().length) {
+                  <div class="empty nt-empty"><ng-container *ngTemplateOutlet="chartIcon" /><strong>No client data yet</strong><span>Devices show here once they use data today.</span></div>
+                } @else {
+                  <ol class="net-top">
+                    @for (r of gwnTopRows(); track r.key) {
+                      <li class="nt-row static" [attr.aria-label]="r.rank + '. ' + r.c.name + ', ' + r.total + ' (' + r.down + ' down, ' + r.up + ' up)'">
+                        <span class="nt-rank" aria-hidden="true">{{ r.rank }}</span>
+                        <span class="nt-main" aria-hidden="true">
+                          <span class="nt-name" [title]="r.c.mac">{{ r.c.name }}</span>
+                          <span class="nt-track"><span [style.width.%]="r.share" [style.background]="teal"></span></span>
+                        </span>
+                        <span class="nt-figs" aria-hidden="true">
+                          <strong>{{ r.total }}</strong>
+                          <small>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>{{ r.down }}</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>{{ r.up }}</span>
+                          </small>
+                        </span>
+                      </li>
+                    }
+                  </ol>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <span class="sr-only" aria-live="polite">{{ chartAnnounce() }}</span>
+  <span class="sr-only" aria-live="polite">{{ testAnnounce() }}</span>
+</section>
+
+<!-- Details of one top data user: the dashboard drawer's look, view only. -->
+@if (topOpen(); as c) {
+  <div class="nt-backdrop" (click)="closeTop()" (wheel)="$event.preventDefault()" aria-hidden="true"></div>
+  <aside class="nt-drawer" #topPanel role="dialog" aria-modal="true" [attr.aria-labelledby]="'nt-title-' + source()" tabindex="-1">
+    <header class="nt-drawer-head">
+      <div class="nt-drawer-nav">
+        <span class="nt-crumbs">Network <span aria-hidden="true">/</span> Top data users</span>
+        <button type="button" class="nt-close" (click)="closeTop()" aria-label="Close (Escape)" title="Close (Esc)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <h2 [id]="'nt-title-' + source()" #topHeading tabindex="-1">{{ c.name }}</h2>
+      <p class="nt-drawer-sub">
+        <span class="pill" [class.on]="c.online">{{ c.online ? 'Online now' : 'Offline' }}</span>
+        {{ c.kindLabel }} · number {{ c.rank }} by data used {{ topRange() }} · view only
+      </p>
+    </header>
+    <div class="nt-drawer-body">
+      <div class="nt-stats">
+        <div><span>Downloaded</span><strong>{{ bytes(c.downloadBytes) }}</strong></div>
+        <div><span>Uploaded</span><strong>{{ bytes(c.uploadBytes) }}</strong></div>
+        <div><span>Total</span><strong>{{ bytes(c.totalBytes) }}</strong></div>
+      </div>
+      <dl class="nt-details">
+        @for (row of topDetails(); track row.label) {
+          <div><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+        }
+      </dl>
+      <p class="note">Data used {{ topRange() }}, from UniFi's daily usage report (the same figures as Network &gt; Clients, Top data users). Downloaded is what the device received.</p>
+    </div>
+  </aside>
+}

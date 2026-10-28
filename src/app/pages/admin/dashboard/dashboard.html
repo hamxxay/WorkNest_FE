@@ -18,7 +18,7 @@
           </button>
           @if (locationMenuOpen() && locationsList().length > 1) {
           <div class="loc-menu-backdrop" (click)="locationMenuOpen.set(false)"></div>
-          <div class="loc-menu" role="listbox" aria-multiselectable="true">
+          <div class="loc-menu" role="listbox" aria-multiselectable="true" appKeepInView>
             <label class="loc-option">
               <input type="checkbox" [checked]="kpiLocationIds().length === 0" (change)="selectAllKpiLocations()" />
               <span>{{ isSalesExecutiveOnly ? 'All my locations' : 'All locations' }}</span>
@@ -35,15 +35,43 @@
       </p>
     </div>
     <div class="dash-header-actions">
-      <div class="period-seg" role="tablist" aria-label="Period">
-        @for (p of periods; track p.key) {
-          <button role="tab" [class.active]="period() === p.key" [attr.aria-selected]="period() === p.key" (click)="period.set(p.key)">{{ p.label }}</button>
+      <div class="period-wrap">
+        <div class="period-seg" role="tablist" aria-label="Period">
+          @for (p of periods; track p.key) {
+            <button role="tab" [class.active]="period() === p.key" [attr.aria-selected]="period() === p.key" (click)="setPeriod(p.key)">{{ p.label }}</button>
+          }
+          <button role="tab" [class.active]="period() === 'custom'" [attr.aria-selected]="period() === 'custom'"
+            [attr.aria-expanded]="customOpen()" aria-controls="dash-custom-range" (click)="openCustom()"
+            [title]="customLabel() || 'Choose your own dates'">
+            Custom
+          </button>
+        </div>
+        @if (customLabel() && !customOpen()) {
+          <button type="button" class="range-chip" (click)="openCustom()" title="Change the dates">{{ customLabel() }}</button>
+        }
+        @if (customOpen()) {
+          <div class="custom-range" id="dash-custom-range" role="group" aria-label="Custom date range" (keydown.escape)="cancelCustom()">
+            <label class="range-field">
+              <span>From</span>
+              <input type="date" [value]="draftFrom()" (input)="draftFrom.set($any($event.target).value); customError.set('')"
+                min="2000-01-01" [max]="draftTo() || '2100-12-31'" />
+            </label>
+            <label class="range-field">
+              <span>To</span>
+              <input type="date" [value]="draftTo()" (input)="draftTo.set($any($event.target).value); customError.set('')"
+                [min]="draftFrom() || '2000-01-01'" max="2100-12-31" (keydown.enter)="applyCustom()" />
+            </label>
+            <button type="button" class="btn-apply" (click)="applyCustom()">Apply</button>
+            <button type="button" class="btn-cancel-range" (click)="cancelCustom()">Cancel</button>
+            @if (customError()) { <span class="range-error" role="alert">{{ customError() }}</span> }
+            @else { <span class="range-hint">Up to two years. Both days are included.</span> }
+          </div>
         }
       </div>
       <span class="updated">
         @if (loading()) { Updating… } @else if (lastUpdated()) { Updated {{ updatedAgo() }} }
       </span>
-      <button class="icon-btn" (click)="refreshAll()" [disabled]="loading()" title="Refresh" aria-label="Refresh dashboard">
+      <button class="icon-btn" (click)="refreshAll()" [disabled]="loading()" title="Refresh dashboard" aria-label="Refresh dashboard">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.spin]="loading()">
           <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
@@ -69,15 +97,18 @@
   <!-- Sections by role. Sales executive: own sales pipeline, inquiries, renewals, collections.
        Admin: branch overview + team & service. Super admin: company overview + team, locations, staff, system. -->
   @if (dashRole === 'sales_executive') {
-  <app-role-dashboard role="sales_executive" [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-role-dashboard>
+  <app-role-dashboard role="sales_executive" [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"
+    [customFrom]="rangeFrom()" [customTo]="rangeTo()"></app-role-dashboard>
   <!-- Next 3 months: expected rent, occupancy, leases ending / starting (their locations) -->
   <app-forecast-panel [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()"></app-forecast-panel>
   } @else {
   <!-- Headline numbers, needs attention, 6-month trend -->
-  <app-dashboard-overview [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-dashboard-overview>
+  <app-dashboard-overview [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"
+    [customFrom]="rangeFrom()" [customTo]="rangeTo()"></app-dashboard-overview>
   <!-- Next 3 months: expected rent, occupancy, leases ending / starting -->
   <app-forecast-panel [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()"></app-forecast-panel>
-  <app-role-dashboard [role]="dashRole" [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"></app-role-dashboard>
+  <app-role-dashboard [role]="dashRole" [locationIds]="kpiLocationIds()" [refreshTick]="refreshTick()" [period]="period()"
+    [customFrom]="rangeFrom()" [customTo]="rangeTo()"></app-role-dashboard>
   }
 
   @if (canSeeAccess) {
@@ -85,8 +116,8 @@
   }
 
 
-  @if (loading()) {
-  <div class="admin-card skeleton-block">
+  @if (summaryStatus() === 'loading') {
+  <div class="admin-card skeleton-block" aria-busy="true">
     <span class="sk sk-title"></span>
     <span class="sk sk-text"></span>
     <div class="sk-grid">
@@ -96,6 +127,7 @@
   } @else {
   <!-- ========================================================================= -->
   <!-- WIDGET 1: SPACE TYPES CAPACITY & OCCUPANCY (Space Category Intelligence) -->
+  <!-- Counted by the API for every space (GET api/dashboard/main-summary).      -->
   <!-- ========================================================================= -->
   <div class="admin-card summary-card">
     <div class="summary-header">
@@ -109,13 +141,26 @@
           space records and shift status.
         </p>
       </div>
+      @if (summaryStatus() === 'ok') {
       <button class="all-types-btn" [class.active]="selectedSpaceType() === 'ALL'"
         (click)="selectedSpaceType.set('ALL'); onFilterChange()">
-        All Types ({{ totalSpacesCount() }} Spaces)
+        All Types ({{ totalSpacesCount() }} Space{{ totalSpacesCount() === 1 ? '' : 's' }})
       </button>
+      }
     </div>
 
-    @if (spaceTypeCards().length > 0) {
+    @if (summaryStatus() === 'error') {
+    <div class="widget-error" [class.db]="summaryError()?.needsDbUpdate" role="alert">
+      <span class="widget-error-icon">@if (summaryError()?.needsDbUpdate) { <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg> } @else { <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg> }</span>
+      <div class="widget-error-text">
+        <strong>{{ summaryError()?.needsDbUpdate ? 'Database update needed' : 'Could not load the space types' }}</strong>
+        <span>{{ summaryError()?.message }}</span>
+      </div>
+      <button type="button" class="btn-retry" (click)="loadSummary()">Retry</button>
+    </div>
+    } @else if (spaceTypeCards().length === 0) {
+    <div class="dropdown-empty-msg">No space types are set up for these locations yet.</div>
+    } @else {
     <div class="space-type-widgets-grid">
       @for (t of spaceTypeCards(); track t.spaceTypeId) {
       <div class="space-type-widget-card" [class.selected]="selectedSpaceType() === t.spaceTypeName"
@@ -131,7 +176,7 @@
             </span>
             <div>
               <h4 class="widget-type-name">{{ t.spaceTypeName }}</h4>
-              <span class="widget-spaces-count">{{ t.totalSpaces }} Space{{ t.totalSpaces === 1 ? '' : 's' }}</span>
+              <span class="widget-spaces-count">{{ t.totalSpaces }} Space{{ t.totalSpaces === 1 ? '' : 's' }}@if (cardsShowLocation() && t.locationName) { · {{ t.locationName }} }</span>
             </div>
           </div>
           <div class="occ-ring" [title]="t.bookedCount + ' of ' + t.totalSpaces + ' booked'">
@@ -226,9 +271,17 @@
           </div>
 
           <div class="dropdown-table-container">
+            @if (tray()?.status === 'loading') {
+            <div class="dropdown-empty-msg" aria-busy="true">Loading the list…</div>
+            } @else if (tray()?.status === 'error') {
+            <div class="tray-error" role="alert">
+              <span><strong>{{ tray()?.error?.needsDbUpdate ? 'Database update needed.' : 'Could not load this list.' }}</strong> {{ tray()?.error?.message }}</span>
+              <button type="button" class="btn-retry" (click)="retryTray()">Retry</button>
+            </div>
+            } @else {
             <!-- 1. BOOKED SPACES TABLE -->
             @if (activeDropdown()?.tag === 'booked') {
-            @if (t.bookedDetails.length === 0) {
+            @if (bookedRows().length === 0) {
             <div class="dropdown-empty-msg">No booked spaces found for {{ t.spaceTypeName }}.</div>
             } @else {
             <table class="dropdown-table">
@@ -243,7 +296,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (item of t.bookedDetails; track item.spaceId) {
+                @for (item of bookedRows(); track item.spaceId) {
                 <tr>
                   <td>
                     <strong class="item-code">{{ item.spaceCode }}</strong>
@@ -290,7 +343,7 @@
 
             <!-- 2. VACANT SPACES TABLE -->
             @if (activeDropdown()?.tag === 'vacant') {
-            @if (t.vacantDetails.length === 0) {
+            @if (vacantRows().length === 0) {
             <div class="dropdown-empty-msg">No vacant spaces available for {{ t.spaceTypeName }}.</div>
             } @else {
             <table class="dropdown-table">
@@ -304,7 +357,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (item of t.vacantDetails; track item.spaceId) {
+                @for (item of vacantRows(); track item.spaceId) {
                 <tr>
                   <td>
                     <strong class="item-code text-available">{{ item.spaceCode }}</strong>
@@ -312,7 +365,7 @@
                       }}</div>
                   </td>
                   <td><span class="cap-badge">{{ item.capacity }} Seat{{ item.capacity === 1 ? '' : 's' }}</span></td>
-                  <td><span class="loc-badge">{{ item.locationName || 'Main Location' }}</span></td>
+                  <td><span class="loc-badge">{{ item.locationName || '—' }}</span></td>
                   <td>
                     @if (item.nextBookingDate) {
                     <div class="next-booking-wrap">
@@ -335,7 +388,7 @@
 
             <!-- 3. QUOTED SPACES TABLE -->
             @if (activeDropdown()?.tag === 'quoted') {
-            @if (t.quotedDetails.length === 0) {
+            @if (quotedRows().length === 0) {
             <div class="dropdown-empty-msg">No active quotations found for {{ t.spaceTypeName }}.</div>
             } @else {
             <table class="dropdown-table">
@@ -351,7 +404,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (item of t.quotedDetails; track item.quotationNumber + item.spaceId) {
+                @for (item of quotedRows(); track item.quotationNumber + item.spaceId) {
                 <tr>
                   <td>
                     <strong class="item-code">{{ item.spaceCode }}</strong>
@@ -400,7 +453,7 @@
 
             <!-- 4. EXPIRING SOON SPACES TABLE -->
             @if (activeDropdown()?.tag === 'expiring') {
-            @if (t.expiringDetails.length === 0) {
+            @if (expiringRows().length === 0) {
             <div class="dropdown-empty-msg">No bookings expiring within {{ expiringThreshold() }} days for {{
               t.spaceTypeName }}.</div>
             } @else {
@@ -416,7 +469,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (item of t.expiringDetails; track item.bookingId || item.spaceId) {
+                @for (item of expiringRows(); track item.bookingId || item.spaceId) {
                 <tr>
                   <td>
                     <strong class="item-code">{{ item.spaceCode }}</strong>
@@ -457,6 +510,19 @@
             </table>
             }
             }
+
+            @if (trayHasMore() || tray()?.more || tray()?.error) {
+            <div class="tray-more">
+              <span>Showing {{ tray()?.rows?.length }} of {{ tray()?.total }}</span>
+              @if (tray()?.error) { <span class="tray-more-error" role="alert">{{ tray()?.error?.message }}</span> }
+              @if (trayHasMore() || tray()?.more) {
+              <button type="button" class="btn-retry" [disabled]="tray()?.more" (click)="loadTray(t.spaceTypeId, activeDropdown()!.tag, true)">
+                {{ tray()?.more ? 'Loading…' : (tray()?.error ? 'Retry' : 'Show more') }}
+              </button>
+              }
+            </div>
+            }
+            }
           </div>
         </div>
         }
@@ -468,8 +534,8 @@
 
   }
 
-  @if (loading()) {
-  <div class="admin-card skeleton-block">
+  @if (inventoryStatus() === 'loading') {
+  <div class="admin-card skeleton-block" aria-busy="true">
     <span class="sk sk-title"></span>
     <span class="sk sk-text"></span>
     @for (i of [1,2,3,4,5]; track i) { <span class="sk sk-row"></span> }
@@ -477,12 +543,15 @@
   } @else {
   <!-- ========================================================================= -->
   <!-- WIDGET 2: SPACE OPERATIONS & INVENTORY TABLE                             -->
+  <!-- Filtered, sorted and paged by the API (GET api/dashboard/inventory).      -->
   <!-- ========================================================================= -->
   <div class="admin-card ops-table-card">
     <div class="card-title-row">
       <div>
         <h3>Space Operations & Inventory</h3>
-        <p class="summary-sub">Showing {{ filteredSpaces().length }} space(s)</p>
+        <p class="summary-sub" aria-live="polite">
+          @if (inventoryBusy()) { Updating… } @else if (inventoryStatus() === 'ok') { {{ inventoryTotal() }} space{{ inventoryTotal() === 1 ? '' : 's' }} match }
+        </p>
       </div>
     </div>
 
@@ -496,10 +565,10 @@
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
-          <select [(ngModel)]="selectedLocation" (ngModelChange)="onFilterChange()">
+          <select [(ngModel)]="selectedLocation" (ngModelChange)="onInventoryLocationChange($event)">
             <option value="ALL">All Locations</option>
             @for (loc of locationsList(); track loc.id) {
-            <option [value]="loc.name">{{ loc.name }}</option>
+            <option [value]="'' + loc.id">{{ loc.name }}</option>
             }
           </select>
         </div>
@@ -514,7 +583,7 @@
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input type="text" placeholder="Search code/name..." [(ngModel)]="searchSpace"
-            (ngModelChange)="onFilterChange()" />
+            (ngModelChange)="onSearchInput()" (keydown.enter)="onFilterChange()" aria-label="Search space code or name" />
         </div>
       </div>
 
@@ -527,7 +596,7 @@
             <circle cx="12" cy="7" r="4" />
           </svg>
           <input type="text" placeholder="Customer / company..." [(ngModel)]="searchCustomer"
-            (ngModelChange)="onFilterChange()" />
+            (ngModelChange)="onSearchInput()" (keydown.enter)="onFilterChange()" aria-label="Search customer or company" />
         </div>
       </div>
 
@@ -545,10 +614,9 @@
         <label>Status</label>
         <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()">
           <option value="ALL">All Statuses</option>
-          <option value="Available">Available</option>
-          <option value="Quoted">Quoted</option>
-          <option value="Booked">Booked</option>
-          <option value="Expired">Expired</option>
+          @for (st of statusOptions; track st) {
+          <option [value]="st">{{ st }}</option>
+          }
         </select>
       </div>
 
@@ -573,7 +641,16 @@
     </div>
 
     <!-- Spaces Table -->
-    @if (filteredSpaces().length === 0) {
+    @if (inventoryStatus() === 'error') {
+    <div class="widget-error" [class.db]="inventoryError()?.needsDbUpdate" role="alert">
+      <span class="widget-error-icon">@if (inventoryError()?.needsDbUpdate) { <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg> } @else { <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg> }</span>
+      <div class="widget-error-text">
+        <strong>{{ inventoryError()?.needsDbUpdate ? 'Database update needed' : 'Could not load the spaces' }}</strong>
+        <span>{{ inventoryError()?.message }}</span>
+      </div>
+      <button type="button" class="btn-retry" (click)="loadInventory()" [disabled]="inventoryBusy()">{{ inventoryBusy() ? 'Retrying…' : 'Retry' }}</button>
+    </div>
+    } @else if (inventoryTotal() === 0) {
     <div class="empty-state">
       <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -585,7 +662,7 @@
       <p>No spaces match your selected filter criteria.</p>
     </div>
     } @else {
-    <div class="table-container">
+    <div class="table-container" [class.is-busy]="inventoryBusy()" [attr.aria-busy]="inventoryBusy()">
       <table class="clean-table">
         <thead>
           <tr>
@@ -618,7 +695,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (sp of paginatedSpaces(); track sp.spaceId) {
+          @for (sp of inventoryRows(); track sp.spaceId) {
           <tr [class.row-expiring]="sp.isExpiringSoon" [class.row-booked]="sp.status === 'Booked'"
             [class.row-quoted]="sp.status === 'Quoted'">
             <td class="col-space">
@@ -723,8 +800,8 @@
       </div>
 
       <div class="page-info">
-        Showing {{ (page() - 1) * pageSize() + 1 }} to {{ Math.min(page() * pageSize(), filteredSpaces().length) }} of
-        {{ filteredSpaces().length }} spaces
+        Showing {{ (page() - 1) * pageSize() + 1 }} to {{ Math.min(page() * pageSize(), inventoryTotal()) }} of
+        {{ inventoryTotal() }} spaces
       </div>
 
       <div class="page-actions">
@@ -927,7 +1004,7 @@
           <div class="header-badge" style="margin-bottom:6px">New Dispatch</div>
           <h2>Broadcast Announcement or Alert</h2>
         </div>
-        <button class="btn-close" (click)="closeCreateAnnouncementModal()" aria-label="Close"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn-close" (click)="closeCreateAnnouncementModal()" title="Close" aria-label="Close"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div class="modal-body">
@@ -972,11 +1049,11 @@
           <label class="form-label">Target Audience Scope</label>
           <div class="scope-toggle-tabs">
             <button type="button" class="scope-tab" [class.active]="announcementTargetScope() === 'All'"
-              (click)="announcementTargetScope.set('All')">All Members</button>
+              (click)="setAnnouncementScope('All')">All Members</button>
             <button type="button" class="scope-tab" [class.active]="announcementTargetScope() === 'Location'"
-              (click)="announcementTargetScope.set('Location')">By Location</button>
+              (click)="setAnnouncementScope('Location')">By Location</button>
             <button type="button" class="scope-tab" [class.active]="announcementTargetScope() === 'Space'"
-              (click)="announcementTargetScope.set('Space')">By Space</button>
+              (click)="setAnnouncementScope('Space')">By Space</button>
           </div>
         </div>
 
@@ -997,14 +1074,22 @@
 
         @if (announcementTargetScope() === 'Space') {
         <div class="form-group" style="margin-top:12px">
-          <label class="form-label">Select Space *</label>
-          <select class="form-control input-glass" [ngModel]="announcementSpaceId()"
-            (ngModelChange)="announcementSpaceId.set($event)">
-            <option [ngValue]="null">-- Select Space --</option>
-            @for (sp of allSpaces(); track sp.spaceId) {
-            <option [ngValue]="sp.spaceId">{{ sp.spaceCode }} — {{ sp.spaceName }} ({{ sp.spaceTypeName }})</option>
+          <label class="form-label" for="ann-space-search">Select Space *</label>
+          <input id="ann-space-search" type="search" class="form-control input-glass space-picker-search"
+            placeholder="Search space code or name" [ngModel]="spacePickerSearch()" (ngModelChange)="onSpacePickerSearch($event)" />
+          <select class="form-control input-glass" [ngModel]="announcementSpaceId()" aria-label="Space"
+            (ngModelChange)="announcementSpaceId.set($event)" [disabled]="spacePickerStatus() === 'loading'">
+            <option [ngValue]="null">{{ spacePickerStatus() === 'loading' ? 'Loading spaces…' : '-- Select Space --' }}</option>
+            @for (sp of spacePickerOptions(); track sp.spaceId) {
+            <option [ngValue]="sp.spaceId">{{ sp.label }}</option>
             }
           </select>
+          @if (spacePickerStatus() === 'error') {
+          <span class="field-hint field-error" role="alert">{{ spacePickerError() }}
+            <button type="button" class="link-btn" (click)="loadSpacePicker()">Retry</button></span>
+          } @else if (spacePickerTotal() > spacePickerOptions().length) {
+          <span class="field-hint">Showing the first {{ spacePickerOptions().length }} of {{ spacePickerTotal() }} spaces. Search to narrow the list.</span>
+          }
           <span class="field-hint">Targets members with current or past bookings for this space.</span>
         </div>
         }
@@ -1120,7 +1205,7 @@
           <p class="summary-sub" style="margin-bottom:0">Created on {{ selectedAnnouncement()?.createdAt | date:'medium'
             }} • Target: {{ selectedAnnouncement()?.targetScope }}</p>
         </div>
-        <button class="btn-close" (click)="closeAnnouncementDetailModal()" aria-label="Close"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn-close" (click)="closeAnnouncementDetailModal()" title="Close" aria-label="Close"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div class="modal-body">

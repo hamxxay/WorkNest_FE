@@ -1,4 +1,5 @@
 import { NetworkLocation } from '../network-location/network-location';
+import { NetworkSiteLocations } from '../network-location/network-site-locations';
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,6 +14,7 @@ import {
   CRIT, ChartBag, ExportKind, MUTED, NET_SHARED, S1, S2, S3, SparkPoint, ago, avg, baseOptions, bucketPoints, bytes, clientIcon,
   errMsg, exportCard, exportPagePdf, fmt, glow, hbar, hbarOptions, line, linkText, mbpsText, pct, speedParts, sum, thin, timeLabel, typeIcon
 } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 interface MapNode { node: UnifiTopologyNode; children: MapNode[] }
 interface TopItem { name: string; sub: string; value: string; frac: number; icon: string; link?: string[]; color?: string }
@@ -22,7 +24,7 @@ const MODE_TEXT: Record<string, string> = { failover_only: 'Failover', failover:
 @Component({
   selector: 'app-network-overview',
   standalone: true,
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, ...NET_SHARED, NetworkLocation],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, ...NET_SHARED, NetworkLocation, NetworkSiteLocations, NetworkSwitch],
   templateUrl: './network-overview.html',
   styleUrls: ['../network-shared.css', './network-overview.css']
 })
@@ -41,7 +43,7 @@ export class NetworkOverview implements OnInit, OnDestroy {
   private timers: ReturnType<typeof setInterval>[] = [];
   private pollTimer?: ReturnType<typeof setTimeout>;
 
-  readonly isAdmin = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  readonly isAdmin = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   data = signal<UnifiSummary | null>(null);
   wan = signal<UnifiDeviceHistory | null>(null);

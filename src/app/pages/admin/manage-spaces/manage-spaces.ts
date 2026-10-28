@@ -1,8 +1,9 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
+import { spaceTypeHint, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations } from '../../../utils/space-types';
 
 @Component({
   selector: 'app-manage-spaces',
@@ -30,7 +31,30 @@ export class ManageSpaces implements OnInit {
   filterCapacity = '';
 
   readonly locationOptions = signal<{ v: number; l: string; branchId?: number }[]>([]);
-  readonly spaceTypeOptions = signal<{ v: number; l: string }[]>([]);
+  readonly spaceTypeOptions = signal<{ v: number; l: string; locationId: number | null; locationName: string }[]>([]);
+
+  /** Space types grouped by their location (types belong to a location). */
+  private readonly typesByLocation = computed(() => spaceTypesByLocation(this.spaceTypeOptions()));
+
+  /** All Locations: every type, named with its location when types are per location. */
+  private readonly allLocationTypeOptions = computed(() => {
+    const all = this.spaceTypeOptions();
+    return spaceTypesHaveLocations(all) ? all.map(o => ({ ...o, l: o.locationName ? `${o.l} (${o.locationName})` : o.l })) : all;
+  });
+
+  /**
+   * Space Type filter options: a location shows only its own types; All Locations shows every type. An older API
+   * (types without a location) shows every type everywhere, as before.
+   */
+  get visibleSpaceTypeOptions(): readonly { v: number; l: string }[] {
+    if (!this.filterLocationId) return this.allLocationTypeOptions();
+    return spaceTypesAt(this.spaceTypeOptions(), this.typesByLocation(), this.filterLocationId);
+  }
+
+  /** "No space types at this location yet." when the chosen location has none. */
+  get spaceTypeFilterHint(): string {
+    return this.filterLocationId ? spaceTypeHint(this.spaceTypeOptions(), this.filterLocationId, this.visibleSpaceTypeOptions.length) : '';
+  }
 
   // Config for selected filters
   configs = signal<any[]>([]);
@@ -76,7 +100,9 @@ export class ManageSpaces implements OnInit {
         this.spaceTypeOptions.set(rawTypes.map((s: any) => ({
           v: s.id,
           l: s.description || s.displayName || s.label || s.typeName || s.name?.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() || '',
-          capacity: s.capacity
+          capacity: s.capacity,
+          locationId: spaceTypeLocationId(s),
+          locationName: String(s.locationName ?? '')
         })));
       },
       error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load space types.')
@@ -95,6 +121,18 @@ export class ManageSpaces implements OnInit {
       },
       error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load spaces.')
     });
+  }
+
+  /** Location filter changed: a chosen type of another location no longer applies. */
+  onLocationFilterChange() {
+    this.dropTypeNotAtLocation();
+    this.onFilterChange();
+  }
+
+  private dropTypeNotAtLocation() {
+    if (this.filterSpaceTypeId && !this.visibleSpaceTypeOptions.some(o => String(o.v) === String(this.filterSpaceTypeId))) {
+      this.filterSpaceTypeId = '';
+    }
   }
 
   onFilterChange() {
@@ -254,105 +292,88 @@ export class ManageSpaces implements OnInit {
     });
   }
 
+  /** WN_BookingStatuses codes of a closed booking (nothing left to cancel). */
+  private static readonly CLOSED_BOOKING_CODES = ['rejected', 'noshow', 'cancelled'];
+
+  /** A status label / code as a code: lower case, no spaces, dashes or underscores ("No Show" -> "noshow"). */
+  private static statusKey(v: any): string {
+    return String(v ?? '').toLowerCase().replace(/[\s_-]+/g, '');
+  }
+
   removeBookingsForSpace(space: any) {
-    if (!confirm(`Cancel and remove existing bookings for space "${space.code || space.name}"?`)) return;
+    if (!confirm(`Cancel the open bookings of space "${space.code || space.name}"?`)) return;
     const spaceId = space.idGuid || space.publicId || space.id;
+    const spaceName = space.code || space.name;
 
-    this.admin.getSpaceSummary(spaceId).subscribe({
-      next: (summaryRes: any) => {
-        const summary = summaryRes?.data ?? summaryRes;
-        const reservations = summary?.recentReservations ?? [];
-        const activeReservations = reservations.filter((r: any) => (r.bookingStatus || '').toLowerCase() !== 'cancelled');
+    // The statuses come from dbo.WN_BookingStatuses (GET api/booking/statuses: value = id, label): no ids in code.
+    this.admin.getListStatusOptions('bookings').subscribe({
+      next: (options) => {
+        const idOf = (code: string) => options.find(o => ManageSpaces.statusKey(o.label) === code)?.value;
+        const cancelledId = idOf('cancelled');
+        if (!cancelledId) {
+          this.error.set('The Cancelled booking status was not found, nothing was changed.');
+          return;
+        }
+        const closedIds = new Set(ManageSpaces.CLOSED_BOOKING_CODES.map(idOf).filter((v): v is string => !!v));
+        // Rejected, No Show and Cancelled bookings are closed already: skipped.
+        const isOpen = (b: any) => {
+          const id = b?.bookingStatusId ?? b?.BookingStatusId ?? b?.statusId ?? b?.StatusId;
+          if (id != null && id !== '' && closedIds.has(String(id))) return false;
+          const label = ManageSpaces.statusKey(b?.bookingStatusCode ?? b?.bookingStatusLabel ?? b?.bookingStatus ?? b?.status ?? '');
+          return !ManageSpaces.CLOSED_BOOKING_CODES.includes(label);
+        };
+        const ofSpace = (b: any) =>
+          b.spaceGuid === spaceId || b.spaceId === space.id || b.spaceName === space.name || (b.spaceCode && b.spaceCode === space.code);
 
-        const doCancel = (bookingList: any[]) => {
-          if (!bookingList.length) {
-            space.hasBookings = 0;
-            this.success.set(`Bookings cleared for ${space.code || space.name}.`);
-            setTimeout(() => this.success.set(''), 3000);
+        const done = (cancelled: number, failed: number) => {
+          if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
+          if (failed > 0) {
+            this.error.set(`Cancelled ${cancelled} booking(s) for ${spaceName}; ${failed} could not be cancelled.`);
             return;
           }
-          let count = 0;
-          bookingList.forEach((b: any) => {
+          space.hasBookings = 0;
+          this.success.set(cancelled > 0
+            ? `Cancelled ${cancelled} booking(s) for ${spaceName}.`
+            : `No open bookings to cancel for ${spaceName}.`);
+          setTimeout(() => this.success.set(''), 4000);
+        };
+
+        const cancelAll = (bookings: any[]) => {
+          const open = bookings.filter(isOpen);
+          if (!open.length) { done(0, 0); return; }
+          let cancelled = 0, failed = 0;
+          const settle = () => { if (cancelled + failed === open.length) done(cancelled, failed); };
+          open.forEach((b: any) => {
             const bId = b.id || b.bookingId || b.bookingPublicId || b.idGuid;
-            this.admin.updateBookingStatus(bId, 3).subscribe({
-              next: () => {
-                count++;
-                if (count === bookingList.length) {
-                  space.hasBookings = 0;
-                  this.success.set(`Successfully cancelled ${count} booking(s) for ${space.code || space.name}.`);
-                  setTimeout(() => this.success.set(''), 4000);
-                  if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
-                }
-              },
-              error: () => {
-                count++;
-                if (count === bookingList.length) {
-                  space.hasBookings = 0;
-                  if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
-                }
-              }
+            // Status Cancelled: the API voids the booking's open challan, as for Rejected and No Show.
+            this.admin.updateBookingStatus(bId, Number(cancelledId)).subscribe({
+              next: () => { cancelled++; settle(); },
+              error: () => { failed++; settle(); }
             });
           });
         };
 
-        if (activeReservations.length > 0) {
-          doCancel(activeReservations);
-        } else {
-          this.admin.getBookings(1, 1000, space.code || space.name || '').subscribe({
+        const fromBookingList = () => {
+          this.admin.getBookings(1, 1000, spaceName || '').subscribe({
             next: (bRes: any) => {
               const allB = bRes?.data ?? (Array.isArray(bRes) ? bRes : []);
-              const matches = allB.filter((b: any) =>
-                (b.spaceGuid === spaceId || b.spaceId === space.id || b.spaceName === space.name || (b.spaceCode && b.spaceCode === space.code))
-                && (b.bookingStatusLabel || b.bookingStatus || '').toLowerCase() !== 'cancelled'
-              );
-              doCancel(matches);
+              cancelAll(allB.filter(ofSpace));
             },
-            error: () => doCancel([])
+            error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to fetch bookings.')
           });
-        }
-      },
-      error: () => {
-        this.admin.getBookings(1, 1000, space.code || space.name || '').subscribe({
-          next: (bRes: any) => {
-            const allB = bRes?.data ?? (Array.isArray(bRes) ? bRes : []);
-            const matches = allB.filter((b: any) =>
-              (b.spaceGuid === spaceId || b.spaceId === space.id || b.spaceName === space.name || (b.spaceCode && b.spaceCode === space.code))
-              && (b.bookingStatusLabel || b.bookingStatus || '').toLowerCase() !== 'cancelled'
-            );
-            if (!matches.length) {
-              space.hasBookings = 0;
-              this.success.set(`Bookings cleared for ${space.code || space.name}.`);
-              setTimeout(() => this.success.set(''), 3000);
-            } else {
-              let count = 0;
-              matches.forEach((b: any) => {
-                const bId = b.id || b.bookingId || b.bookingPublicId || b.idGuid;
-                this.admin.updateBookingStatus(bId, 3).subscribe({
-                  next: () => {
-                    count++;
-                    if (count === matches.length) {
-                      space.hasBookings = 0;
-                      this.success.set(`Cancelled ${count} booking(s) for ${space.code || space.name}.`);
-                      setTimeout(() => this.success.set(''), 4000);
-                      if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
-                    }
-                  },
-                  error: () => {
-                    count++;
-                    if (count === matches.length) {
-                      space.hasBookings = 0;
-                      if (this.selectedConfig()) this.loadSpaces(this.selectedConfig().id);
-                    }
-                  }
-                });
-              });
-            }
+        };
+
+        this.admin.getSpaceSummary(spaceId).subscribe({
+          next: (summaryRes: any) => {
+            const summary = summaryRes?.data ?? summaryRes;
+            const reservations: any[] = summary?.recentReservations ?? [];
+            if (reservations.some(isOpen)) cancelAll(reservations);
+            else fromBookingList();
           },
-          error: (e: any) => {
-            this.error.set(e?.error?.message ?? 'Failed to fetch bookings.');
-          }
+          error: () => fromBookingList()
         });
-      }
+      },
+      error: (e: any) => this.error.set(e?.error?.message ?? 'Failed to load the booking statuses.')
     });
   }
 

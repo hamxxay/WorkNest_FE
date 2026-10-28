@@ -3,17 +3,21 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  DashError, DashErrorWording, DashParams, arr, describeDashboardError, getDashboardData, isMonth, num, numOrNull, obj, percent,
-  str, strOrNull
+  DashError, DashErrorWording, DashParams, DashRange, arr, capPct, conversionOf, describeDashboardError, getDashboardData, isMonth, num,
+  numOrNull, obj, percent, periodOf, periodQuery, quotationsBookedOf, rangeOf, str, strOrNull
 } from './dashboard-api';
-import { CeoBookingRecord, CeoBreakdown, CeoInquiryRecord, CeoPeriod, CeoQuotationRecord } from './ceo.service';
+import { CeoBreakdown, CeoInquiryRecord, CeoPeriod } from './ceo.service';
 
 // ============================================================
 // Sales Manager dashboard API (GET api/sales-manager/*, read-only). Shared contract with the API and the
 // mobile app (salesmgr contract, 14 Oct 2026): dashboard -> breakdown (drill level 2) -> records (level 3).
-// Everything is limited to the manager's locations (or the chosen locationId), except tour inquiries, which
-// have no location and cover every branch. Every response is normalised here, so a missing field shows as
-// an empty state on the page instead of breaking it.
+// No money at all (sm-desks contract): every figure is a count of desks, quotations, bookings or leases.
+// Desks of a booking / quotation = its capacity, else its space's capacity; meeting rooms count 0 desks.
+// Everything is limited to the manager's locations (or the chosen locationId). Tour inquiries too (by their branch,
+// WN_Contacts.LocationId); inquiries without a branch count only when no location is chosen ("All my locations"),
+// the same rule as complaints. Complaints (sm-complaints contract, 15 Oct 2026) have their own
+// endpoint, so the rest of the dashboard keeps working when only they fail. Every response is normalised
+// here, so a missing field shows as an empty state on the page instead of breaking it.
 // ============================================================
 
 export type SmPeriod = CeoPeriod;
@@ -24,35 +28,54 @@ export interface SmLocation { locationId: number; name: string; }
 
 // ---------- Sales funnel ----------
 export interface SmFunnelStage { stage: string; label: string; count: number; }
-export interface SmFunnelMonth { month: string; quotations: number; accepted: number; bookings: number; bookedValue: number; }
+export interface SmFunnelMonth {
+  month: string; quotations: number; accepted: number; bookings: number; bookedDesks: number;
+  /** Quotations created that month that were booked (never more than the quotations). */
+  quotationsBooked: number;
+}
 export interface SmFunnel {
   /** inquiries, quotations, accepted, bookings: created in the period. */
   stages: SmFunnelStage[];
-  /** Bookings / quotations, % (0-100). */
+  /** Quotations created in the period that were booked / quotations created in the period, % (0-100, never above). */
   conversionRate: number;
   conversionRatePrev: number;
-  quotedValue: number;
-  bookedValue: number;
-  bookedValuePrev: number;
+  /**
+   * Quotations created in the period that were booked (never more than the quotations). An older API does not send
+   * it: then the period's bookings, at most one per quotation.
+   */
+  quotationsBooked: number;
+  /** The same for the previous period; null when the API did not send it. */
+  quotationsBookedPrev: number | null;
+  /** Desks on quotations created in the period. */
+  quotedDesks: number;
+  /** Desks on bookings created in the period (and the previous period). */
+  bookedDesks: number;
+  bookedDesksPrev: number;
   /** Last 12 months, oldest first. */
   months: SmFunnelMonth[];
 }
 
 // ---------- Team performance ----------
+/**
+ * A sales executive under the manager: the API sends only the sales executives working at the manager's assigned
+ * locations (or the chosen one), never admins or other roles. role = WN_Roles.DisplayName.
+ */
 export interface SmPerson {
   userId: number; name: string; role: string; locations: string;
-  inquiriesHandled: number; quotations: number; accepted: number; converted: number; convertedValue: number;
+  inquiriesHandled: number; quotations: number; accepted: number; converted: number;
+  /** Desks on their converted quotations created in the period. */
+  desksSold: number;
   /** Converted / quotations, % (0-100). */
   conversionRate: number;
   /** Follow-ups due now (not period-bound). */
   followUpsDue: number;
 }
 export interface SmTeamLocation {
-  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number; convertedValue: number;
+  locationId: number; name: string; salesExecutives: number; quotations: number; converted: number; desksSold: number;
 }
 export interface SmTeam { people: SmPerson[]; perLocation: SmTeamLocation[]; }
 
-// ---------- Tour inquiries (every branch) ----------
+// ---------- Tour inquiries (the manager's locations; no branch = "All my locations" only) ----------
 export interface SmInquiryType { type: string; label: string; count: number; }
 export interface SmReason { reason: string; count: number; }
 export interface SmInquiryMonth {
@@ -69,31 +92,94 @@ export interface SmInquiries {
   months: SmInquiryMonth[];
 }
 
-// ---------- Renewals & revenue ----------
+// ---------- Renewals & desks ----------
 export interface SmExpiringLease {
-  bookingId: number; customer: string; space: string; location: string; endOn: string; monthlyAmount: number;
+  bookingId: number; customer: string; space: string; location: string; endOn: string; desks: number;
   /** Days until endOn (0 = today). */
   daysLeft: number;
 }
-export interface SmRenewalMonth { month: string; newBookingRevenue: number; expiring: number; }
+/** Desks booked (0 for future months), desks and leases ending. */
+export interface SmRenewalMonth { month: string; bookedDesks: number; endingDesks: number; expiring: number; }
 export interface SmRenewals {
   /** Leases ending in the next 90 days, soonest first. */
   expiring: SmExpiringLease[];
   expiringCount: number;
-  expiringMonthlyValue: number;
-  /** Invoiced on bookings created in the period. */
-  newBookingRevenue: number;
-  newBookingRevenuePrev: number;
-  /** Last 12 months (the API may add the next 3 for expiring leases). */
+  /** Desks on the leases ending in the next 90 days. */
+  expiringDesks: number;
+  /** Leases ending in the next 30 days, and their desks. */
+  expiring30Count: number;
+  expiring30Desks: number;
+  /** Desks booked in the period (the funnel's bookedDesks). */
+  bookedDesks: number;
+  /** Desks on bookings whose lease ended in the period. */
+  endedDesks: number;
+  /** bookedDesks - endedDesks, this period and the previous one. */
+  netDesks: number;
+  netDesksPrev: number;
+  /** Last 12 months + the next 3 (desks / leases ending). */
   months: SmRenewalMonth[];
+}
+
+// ---------- Complaints (GET api/sales-manager/complaints, loaded on its own) ----------
+/** Complaint status keys (API ComplaintStatus); 'open' is a new complaint, 'resolved' waits for the customer's reply. */
+export type SmComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+/** Current counts of every complaint in scope (not period-bound). */
+export interface SmComplaintStatusCounts { open: number; inProgress: number; resolved: number; closed: number; }
+/** open / inProgress: now; total: created in the period. NULL category = "Other". */
+export interface SmComplaintCategory { category: string; open: number; inProgress: number; total: number; }
+/** branch '' = no branch (WhatsApp), label "No branch". */
+export interface SmComplaintBranch { branch: string; label: string; open: number; inProgress: number; total: number; }
+/** created: raised that month; resolved: resolved or closed that month (by UpdatedOn). */
+export interface SmComplaintMonth { month: string; created: number; resolved: number; }
+export interface SmOldComplaint {
+  complaintId: number; complaintNo: string; customerName: string; category: string;
+  /** '' = no branch (WhatsApp). */
+  branch: string;
+  status: SmComplaintStatus | string;
+  createdOn: string | null;
+  /** Days since it was raised. */
+  ageDays: number;
+}
+export interface SmComplaints {
+  period: SmPeriod;
+  periodLabel: string;
+  /** A custom period: the range the figures cover; else null. */
+  range: DashRange | null;
+  status: SmComplaintStatusCounts;
+  /** open + inProgress. */
+  activeTotal: number;
+  /** Raised in the period / the previous period. */
+  newInPeriod: number;
+  newInPeriodPrev: number;
+  /** Resolved or closed in the period. */
+  resolvedInPeriod: number;
+  /** Follow-ups (the customer said the problem persists) raised in the period. */
+  reopenedInPeriod: number;
+  /** Average days from raised to resolved, for resolvedInPeriod; null when none. */
+  avgResolutionDays: number | null;
+  /** Most active first (open + in progress), then most raised in the period. */
+  byCategory: SmComplaintCategory[];
+  byBranch: SmComplaintBranch[];
+  /** Last 12 months, oldest first. */
+  months: SmComplaintMonth[];
+  /** Up to 8 open / in-progress complaints, oldest first. */
+  oldestActive: SmOldComplaint[];
 }
 
 export interface SmDashboard {
   period: SmPeriod;
   periodLabel: string;
   generatedAt: string | null;
+  /** A custom period: the range the figures cover, and the one the "previous" figures cover; else null. */
+  range: DashRange | null;
+  previousRange: DashRange | null;
   /** The manager's locations (every location for a super admin). */
   locations: SmLocation[];
+  /**
+   * True: the database update BR_02 has not run yet, so the tour inquiry figures count every branch (not only the
+   * manager's locations); the Tour inquiries section says so. False (or not sent): they follow the locations.
+   */
+  inquiriesAllBranches: boolean;
   /** null when the API sent no such section (the page shows an empty state). */
   funnel: SmFunnel | null;
   team: SmTeam | null;
@@ -102,21 +188,43 @@ export interface SmDashboard {
 }
 
 // ---------- Drill-down level 2 (same shape as the CEO breakdown) ----------
-export type SmMetric = 'funnel-month' | 'staff' | 'inquiries-type' | 'renewals-month' | 'revenue-month';
+export type SmMetric = 'funnel-month' | 'staff' | 'inquiries-type' | 'renewals-month' | 'desks-month';
 export type SmBreakdown = CeoBreakdown;
 
 // ---------- Drill-down level 3 ----------
-export type SmRecordKind = 'quotations' | 'bookings' | 'inquiries' | 'leases';
+export type SmRecordKind = 'quotations' | 'bookings' | 'inquiries' | 'leases' | 'complaints';
 
-export type SmQuotationRecord = CeoQuotationRecord;
-export type SmBookingRecord = CeoBookingRecord;
+export interface SmQuotationRecord {
+  quotationId: number; quotationNumber: string; customer: string; location: string;
+  createdBy: string; status: string; desks: number; createdOn: string | null;
+}
+export interface SmBookingRecord {
+  bookingId: number; customer: string; space: string; location: string;
+  startOn: string | null; endOn: string | null; status: string; desks: number;
+}
 export interface SmInquiryRecord extends CeoInquiryRecord { followUpOn: string | null; }
 export interface SmLeaseRecord {
   bookingId: number; customer: string; space: string; location: string;
-  endOn: string | null; monthlyAmount: number; daysLeft: number | null;
+  endOn: string | null; desks: number; daysLeft: number | null;
+}
+export interface SmComplaintRecord {
+  complaintId: number; complaintNo: string; customerName: string; phone: string; category: string;
+  /** '' = no branch (WhatsApp). */
+  branch: string;
+  status: SmComplaintStatus | string;
+  /** 'whatsapp' or staff. */
+  source: string;
+  /** Reopened: the customer said the problem persists. */
+  isFollowUp: boolean;
+  createdOn: string | null; updatedOn: string | null;
+  /** Days since it was raised. */
+  ageDays: number | null;
+  /** First 200 characters. */
+  description: string;
 }
 export interface SmRecordRowMap {
   quotations: SmQuotationRecord; bookings: SmBookingRecord; inquiries: SmInquiryRecord; leases: SmLeaseRecord;
+  complaints: SmComplaintRecord;
 }
 export interface SmRecords<K extends SmRecordKind = SmRecordKind> {
   title: string;
@@ -125,12 +233,52 @@ export interface SmRecords<K extends SmRecordKind = SmRecordKind> {
   rows: SmRecordRowMap[K][];
 }
 
+/** The sales dashboard's newest database script; named when the API's 503 does not say which one is missing. */
+const SM_LATEST_SCRIPT = 'SM_02';
+
+const smDbMessage = (script: string) =>
+  `The sales dashboard needs the database update ${script} before it can show figures. Ask the WorkNest team to run it, then refresh this page.`;
+
 const SM_WORDING: DashErrorWording = {
   name: 'sales dashboard',
-  // The contract: a 503 from api/sales-manager/* always means the SM_01 database script has not been run.
+  // The contract: a 503 from api/sales-manager/* always means a database script (SM_01, SM_02...) has not been run.
   any503IsDb: true,
-  dbMessage: 'The sales dashboard needs the database update SM_01 before it can show figures. Ask the WorkNest team to run it, then refresh this page.'
+  dbMessage: smDbMessage(SM_LATEST_SCRIPT)
 };
+
+/** The complaints section's database script (its procedures came after the rest of the dashboard's). */
+const SM_COMPLAINTS_SCRIPT = 'SM_03';
+
+const complaintsDbMessage = (script: string) =>
+  `The complaints section needs the database update ${script}. Ask the WorkNest team to run it, then refresh this page.`;
+
+const SM_COMPLAINTS_WORDING: DashErrorWording = {
+  name: 'complaints section',
+  any503IsDb: true,
+  dbMessage: complaintsDbMessage(SM_COMPLAINTS_SCRIPT)
+};
+
+/** Already worded by a describe function (the transport words every failure once). */
+const isDescribed = (err: unknown): err is SmError =>
+  !!err && typeof err === 'object' && 'needsDbUpdate' in (err as any) && 'title' in (err as any);
+
+/**
+ * A complaint status as one of the four keys: lower case, spaces as '_' ("In Progress" -> in_progress),
+ * 'new' -> open, 'inprogress' -> in_progress. Anything else is kept (lower case) and shows as it is.
+ */
+export function complaintStatusKey(v: unknown): SmComplaintStatus | string {
+  const s = str(v).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (s === 'open' || s === 'new') return 'open';
+  if (s === 'in_progress' || s === 'inprogress') return 'in_progress';
+  return s;
+}
+
+/** The script a 503 names ("...needs the database update SM_02.", "run CS_01_ceo_sales_dates..."), from the API's message. */
+function dbScriptOf(err: unknown): string | null {
+  const e = err as any;
+  const message = [e?.error?.message, e?.message].filter(m => typeof m === 'string').join(' ');
+  return /\b(?:SM|CS)_\d+(?![A-Za-z0-9])/i.exec(message)?.[0].toUpperCase() ?? null;
+}
 
 /** Days until an ISO date (0 = today, never negative); used when the API sends no daysLeft. */
 function daysTo(date: string | null): number | null {
@@ -140,6 +288,18 @@ function daysTo(date: string | null): number | null {
   const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
   return Math.max(0, Math.round((d.getTime() - t.getTime()) / 86400000));
 }
+
+/** Whole days since an ISO date (never negative); used when the API sends no ageDays. */
+function daysSince(date: string | null): number | null {
+  if (!date) return null;
+  const d = new Date(date.length <= 10 ? date + 'T00:00:00' : date);
+  if (isNaN(d.getTime())) return null;
+  const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((t.getTime() - d.getTime()) / 86400000));
+}
+
+/** true / 1 / "true" (flags may come as bit columns). */
+const flag = (v: unknown): boolean => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
 
 /** First present value among a few spellings of one field (whatsApp / whatsapp / WhatsApp). */
 function pick(x: any, ...keys: string[]): unknown {
@@ -153,8 +313,18 @@ export class SalesManagerService {
   private api = environment.apiUrl;
 
   /** GET api/sales-manager/dashboard: every section for one period (and optionally one of the manager's locations). */
-  getDashboard(period: SmPeriod, locationId: number | null): Observable<SmDashboard> {
-    return this.get(`${this.api}/sales-manager/dashboard`, { period, locationId }).pipe(map(d => this.toDashboard(d, period)));
+  getDashboard(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<SmDashboard> {
+    return this.get(`${this.api}/sales-manager/dashboard`, { ...periodQuery(period, range), locationId }).pipe(map(d => this.toDashboard(d, period)));
+  }
+
+  /**
+   * GET api/sales-manager/complaints: the Complaints section (same period and location filter as the dashboard).
+   * null when the API sent nothing. A 503 means the complaints update (SM_03) is missing.
+   */
+  getComplaints(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<SmComplaints | null> {
+    return this.get(`${this.api}/sales-manager/complaints`, { ...periodQuery(period, range), locationId },
+      err => SalesManagerService.describeComplaintsError(err))
+      .pipe(map(d => this.toComplaints(d, period)));
   }
 
   /** GET api/sales-manager/breakdown: drill-down level 2. */
@@ -164,33 +334,48 @@ export class SalesManagerService {
 
   /** GET api/sales-manager/records/{kind}: drill-down level 3 (read-only, newest first, at most 200 rows). */
   getRecords<K extends SmRecordKind>(kind: K, params: SmParams): Observable<SmRecords<K>> {
-    return this.get(`${this.api}/sales-manager/records/${kind}`, params).pipe(map(d => this.toRecords(kind, d)));
+    const describe = kind === 'complaints' ? SalesManagerService.describeComplaintsError : SalesManagerService.describeError;
+    return this.get(`${this.api}/sales-manager/records/${kind}`, params, describe).pipe(map(d => this.toRecords(kind, d)));
   }
 
-  /** Wording for a failed request (503 = the SM_01 database update is missing). */
+  /** Wording for a failed request (503 = a database update is missing: the one the API names, SM_01 / SM_02). */
   static describeError(err: unknown): SmError {
-    return describeDashboardError(err, SM_WORDING);
+    if (isDescribed(err)) return err;
+    const e = describeDashboardError(err, SM_WORDING);
+    const script = e.needsDbUpdate ? dbScriptOf(err) : null;
+    return script ? { ...e, message: smDbMessage(script) } : e;
   }
 
-  private get(url: string, params: SmParams): Observable<any> {
-    return getDashboardData(this.http, url, params, err => SalesManagerService.describeError(err));
+  /** Wording for a failed complaints request (503 = the complaints update, SM_03, or the one the API names). */
+  static describeComplaintsError(err: unknown): SmError {
+    if (isDescribed(err)) return err;
+    const e = describeDashboardError(err, SM_COMPLAINTS_WORDING);
+    const script = e.needsDbUpdate ? dbScriptOf(err) : null;
+    return script ? { ...e, message: complaintsDbMessage(script) } : e;
+  }
+
+  private get(url: string, params: SmParams, describe: (err: unknown) => SmError = SalesManagerService.describeError): Observable<any> {
+    return getDashboardData(this.http, url, params, describe);
   }
 
   // ---------- normalising ----------
 
   private toDashboard(raw: any, period: SmPeriod): SmDashboard {
     const d = obj(raw) ?? {};
-    const p = str(d.period);
+    const funnel = this.toFunnel(obj(d.funnel));
     return {
-      period: p === 'quarter' || p === 'year' || p === 'month' ? p : period,
+      period: periodOf<SmPeriod>(d.period, period),
       periodLabel: str(d.periodLabel),
       generatedAt: strOrNull(d.generatedAt),
+      range: rangeOf(d),
+      previousRange: rangeOf({ from: d.previousFrom, to: d.previousTo }),
       locations: arr(d.locations, (x: any) => ({ locationId: num(x.locationId), name: str(x.name) || 'Location' }))
         .filter(l => l.locationId > 0),
-      funnel: this.toFunnel(obj(d.funnel)),
+      inquiriesAllBranches: flag(d.inquiriesAllBranches),
+      funnel,
       team: this.toTeam(obj(d.team)),
       inquiries: this.toInquiries(obj(d.inquiries)),
-      renewals: this.toRenewals(obj(d.renewals))
+      renewals: this.toRenewals(obj(d.renewals), funnel?.bookedDesks ?? null)
     };
   }
 
@@ -200,18 +385,24 @@ export class SalesManagerService {
     const stageCount = (k: string) => stages.find(s => s.stage.toLowerCase() === k)?.count ?? 0;
     const quotations = stageCount('quotations');
     const bookings = stageCount('bookings');
-    // Missing rate: worked out from the stages. A fraction (0.25) is turned into a percentage, and so is last period's.
-    const rawRate = numOrNull(f.conversionRate);
-    const rate = rawRate === null ? (quotations > 0 ? (bookings / quotations) * 100 : 0) : percent(rawRate, bookings, quotations);
-    const scale = rawRate !== null && rawRate > 0 && rate !== rawRate ? 100 : 1;
+    // Conversion = quotations of the period that were booked / quotations of the period (never above 100%).
+    // Missing rate: worked out from the counts. A fraction (0.25) is turned into a percentage, and so is last period's.
+    const conv = conversionOf(f.conversionRate, f.quotationsBooked, bookings, quotations);
+    const prevBooked = numOrNull(f.quotationsBookedPrev);
     return {
       stages,
-      conversionRate: rate,
-      conversionRatePrev: num(f.conversionRatePrev) * scale,
-      quotedValue: num(f.quotedValue), bookedValue: num(f.bookedValue), bookedValuePrev: num(f.bookedValuePrev),
-      months: arr(f.months, (x: any): SmFunnelMonth => ({
-        month: str(x.month), quotations: num(x.quotations), accepted: num(x.accepted), bookings: num(x.bookings), bookedValue: num(x.bookedValue)
-      })).filter(x => isMonth(x.month))
+      conversionRate: conv.rate,
+      conversionRatePrev: capPct(num(f.conversionRatePrev) * conv.scale),
+      quotationsBooked: conv.quotationsBooked,
+      quotationsBookedPrev: prevBooked === null ? null : Math.max(0, prevBooked),
+      quotedDesks: num(f.quotedDesks), bookedDesks: num(f.bookedDesks), bookedDesksPrev: num(f.bookedDesksPrev),
+      months: arr(f.months, (x: any): SmFunnelMonth => {
+        const q = num(x.quotations), b = num(x.bookings);
+        return {
+          month: str(x.month), quotations: q, accepted: num(x.accepted), bookings: b, bookedDesks: num(x.bookedDesks),
+          quotationsBooked: quotationsBookedOf(x.quotationsBooked, b, q)
+        };
+      }).filter(x => isMonth(x.month))
     };
   }
 
@@ -224,14 +415,14 @@ export class SalesManagerService {
         return {
           userId: num(x.userId), name: str(x.name) || 'Team member', role: str(x.role), locations: str(x.locations),
           inquiriesHandled: num(x.inquiriesHandled), quotations, accepted: num(x.accepted), converted,
-          convertedValue: num(x.convertedValue),
+          desksSold: num(x.desksSold),
           conversionRate: rawRate === null ? (quotations > 0 ? (converted / quotations) * 100 : 0) : percent(rawRate, converted, quotations),
           followUpsDue: num(x.followUpsDue)
         };
       }),
       perLocation: arr(t.perLocation, (x: any): SmTeamLocation => ({
         locationId: num(x.locationId), name: str(x.name) || 'Location', salesExecutives: num(x.salesExecutives),
-        quotations: num(x.quotations), converted: num(x.converted), convertedValue: num(x.convertedValue)
+        quotations: num(x.quotations), converted: num(x.converted), desksSold: num(x.desksSold)
       }))
     };
   }
@@ -259,24 +450,74 @@ export class SalesManagerService {
     };
   }
 
-  private toRenewals(r: any | null): SmRenewals | null {
+  /** `funnelBooked`: the funnel's desks booked, for the net-desks sums when the API leaves one out. */
+  private toRenewals(r: any | null, funnelBooked: number | null): SmRenewals | null {
     if (!r) return null;
     const expiring = arr(r.expiring, (x: any): SmExpiringLease => {
       const endOn = str(x.endOn);
       return {
         bookingId: num(x.bookingId), customer: str(x.customer) || 'Customer', space: str(x.space), location: str(x.location),
-        endOn, monthlyAmount: num(x.monthlyAmount),
+        endOn, desks: num(x.desks),
         daysLeft: numOrNull(x.daysLeft) ?? daysTo(endOn) ?? 0
       };
     }).sort((a, b) => a.daysLeft - b.daysLeft);
+    const soon = expiring.filter(l => l.daysLeft <= 30);
+    const desksOf = (list: SmExpiringLease[]) => list.reduce((a, l) => a + l.desks, 0);
+    const endedDesks = num(r.endedDesks);
+    const netRaw = numOrNull(r.netDesks);
+    const bookedDesks = funnelBooked ?? (netRaw !== null ? netRaw + endedDesks : 0);
     return {
       expiring,
       expiringCount: numOrNull(r.expiringCount) ?? expiring.length,
-      expiringMonthlyValue: numOrNull(r.expiringMonthlyValue) ?? expiring.reduce((a, l) => a + l.monthlyAmount, 0),
-      newBookingRevenue: num(r.newBookingRevenue), newBookingRevenuePrev: num(r.newBookingRevenuePrev),
+      expiringDesks: numOrNull(r.expiringDesks) ?? desksOf(expiring),
+      expiring30Count: numOrNull(r.expiring30Count) ?? soon.length,
+      expiring30Desks: numOrNull(r.expiring30Desks) ?? desksOf(soon),
+      bookedDesks,
+      endedDesks,
+      netDesks: netRaw ?? bookedDesks - endedDesks,
+      netDesksPrev: num(r.netDesksPrev),
       months: arr(r.months, (x: any): SmRenewalMonth => ({
-        month: str(x.month), newBookingRevenue: num(x.newBookingRevenue), expiring: num(x.expiring)
+        month: str(x.month), bookedDesks: num(x.bookedDesks), endingDesks: num(x.endingDesks), expiring: num(x.expiring)
       })).filter(x => isMonth(x.month))
+    };
+  }
+
+  private toComplaints(raw: any, period: SmPeriod): SmComplaints | null {
+    const d = obj(raw);
+    if (!d) return null;
+    const s = obj(d.status) ?? {};
+    const status: SmComplaintStatusCounts = {
+      open: num(s.open), inProgress: num(pick(s, 'inProgress', 'in_progress')), resolved: num(s.resolved), closed: num(s.closed)
+    };
+    const active = (x: { open: number; inProgress: number }) => x.open + x.inProgress;
+    return {
+      period: periodOf<SmPeriod>(d.period, period),
+      periodLabel: str(d.periodLabel),
+      range: rangeOf(d),
+      status,
+      activeTotal: numOrNull(d.activeTotal) ?? active(status),
+      newInPeriod: num(d.newInPeriod), newInPeriodPrev: num(d.newInPeriodPrev),
+      resolvedInPeriod: num(d.resolvedInPeriod), reopenedInPeriod: num(d.reopenedInPeriod),
+      avgResolutionDays: numOrNull(d.avgResolutionDays),
+      byCategory: arr(d.byCategory, (x: any): SmComplaintCategory => ({
+        category: str(x.category).trim() || 'Other', open: num(x.open), inProgress: num(pick(x, 'inProgress', 'in_progress')), total: num(x.total)
+      })).filter(c => c.open + c.inProgress + c.total > 0)
+        .sort((a, b) => active(b) - active(a) || b.total - a.total || a.category.localeCompare(b.category)),
+      byBranch: arr(d.byBranch, (x: any): SmComplaintBranch => ({
+        branch: str(x.branch).trim(), label: str(x.label) || str(x.branch).trim() || 'No branch',
+        open: num(x.open), inProgress: num(pick(x, 'inProgress', 'in_progress')), total: num(x.total)
+      })),
+      months: arr(d.months, (x: any): SmComplaintMonth => ({ month: str(x.month), created: num(x.created), resolved: num(x.resolved) }))
+        .filter(x => isMonth(x.month)),
+      oldestActive: arr(d.oldestActive, (x: any): SmOldComplaint => {
+        const createdOn = strOrNull(x.createdOn);
+        const id = num(x.complaintId);
+        return {
+          complaintId: id, complaintNo: str(x.complaintNo) || (id ? `#${id}` : ''), customerName: str(x.customerName),
+          category: str(x.category).trim() || 'Other', branch: str(x.branch).trim(), status: complaintStatusKey(x.status),
+          createdOn, ageDays: numOrNull(x.ageDays) ?? daysSince(createdOn) ?? 0
+        };
+      }).sort((a, b) => b.ageDays - a.ageDays)
     };
   }
 
@@ -302,11 +543,11 @@ export class SalesManagerService {
       case 'quotations': return {
         quotationId: num(r.quotationId), quotationNumber: str(r.quotationNumber) || (r.quotationId ? `#${r.quotationId}` : ''),
         customer: str(r.customer), location: str(r.location), createdBy: str(r.createdBy), status: str(r.status),
-        total: num(r.total), createdOn: strOrNull(r.createdOn)
+        desks: num(r.desks), createdOn: strOrNull(r.createdOn)
       };
       case 'bookings': return {
         bookingId: num(r.bookingId), customer: str(r.customer), space: str(r.space), location: str(r.location),
-        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), totalAmount: num(r.totalAmount)
+        startOn: strOrNull(r.startOn), endOn: strOrNull(r.endOn), status: str(r.status), desks: num(r.desks)
       };
       case 'inquiries': return {
         inquiryId: num(r.inquiryId), name: str(r.name), phone: str(r.phone), type: str(r.type), referenceName: str(r.referenceName),
@@ -316,7 +557,17 @@ export class SalesManagerService {
         const endOn = strOrNull(r.endOn);
         return {
           bookingId: num(r.bookingId), customer: str(r.customer), space: str(r.space), location: str(r.location),
-          endOn, monthlyAmount: num(r.monthlyAmount), daysLeft: numOrNull(r.daysLeft) ?? daysTo(endOn)
+          endOn, desks: num(r.desks), daysLeft: numOrNull(r.daysLeft) ?? daysTo(endOn)
+        };
+      }
+      case 'complaints': {
+        const createdOn = strOrNull(r.createdOn);
+        return {
+          complaintId: num(r.complaintId), complaintNo: str(r.complaintNo) || (r.complaintId ? `#${r.complaintId}` : ''),
+          customerName: str(r.customerName), phone: str(pick(r, 'phone', 'phoneNumber')),
+          category: str(r.category).trim() || 'Other', branch: str(r.branch).trim(), status: complaintStatusKey(r.status),
+          source: str(r.source), isFollowUp: flag(r.isFollowUp), createdOn, updatedOn: strOrNull(r.updatedOn),
+          ageDays: numOrNull(r.ageDays) ?? daysSince(createdOn), description: str(r.description)
         };
       }
     }

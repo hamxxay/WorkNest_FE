@@ -1,0 +1,102 @@
+<div class="modal-overlay" (click)="requestCloseQuickCreateCustomer.emit()">
+  <div class="modal-content" style="max-width:480px" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="requestCloseQuickCreateCustomer.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Create Customer</h2>
+    @if (quickCustomerError()) {
+    <div class="alert-admin alert-error-admin">{{ quickCustomerError() }}</div>
+    }
+    <form (ngSubmit)="submitQuickCreateCustomer.emit()">
+      <div class="form-group-admin full-width">
+        <label class="form-label">Customer Type <span
+            style="color:#ef4444;font-weight:bold;margin-left:2px">*</span></label>
+        <div class="type-selector-pills">
+          <button type="button" class="pill-btn"
+            [class.active]="quickCustomerForm.customerType === 'Individual' || !quickCustomerForm.customerType"
+            (click)="quickCustomerForm.customerType = 'Individual'; quickCustomerForm.company = ''">
+            Individual
+          </button>
+          <button type="button" class="pill-btn" [class.active]="quickCustomerForm.customerType === 'Company'"
+            (click)="quickCustomerForm.customerType = 'Company'">
+            Company / Business
+          </button>
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-admin">
+          <label>First Name <span style="color:#ef4444;font-weight:bold">*</span></label>
+          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.firstName" name="qcFirstName"
+            required placeholder="First name" />
+        </div>
+        <div class="form-group-admin">
+          <label>Last Name</label>
+          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.lastName" name="qcLastName"
+            placeholder="Last name" />
+        </div>
+      </div>
+      @if (quickCustomerForm.customerType === 'Company') {
+      <div class="form-group-admin">
+        <label>Company / Business Name <span style="color:#ef4444;font-weight:bold">*</span></label>
+        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.company" name="qcCompany" required
+          placeholder="e.g. Acme Technologies Pvt Ltd" />
+      </div>
+      }
+
+
+
+
+      <div class="form-group-admin">
+        <label>Email <span style="color:#ef4444;font-weight:bold">*</span></label>
+        <input class="form-input-admin" type="email" [(ngModel)]="quickCustomerForm.email" name="qcEmail" required
+          placeholder="user@example.com" />
+      </div>
+      <div class="form-group-admin">
+        <label>Phone Number <span style="color:#ef4444;font-weight:bold">*</span></label>
+        <div style="display:flex;gap:8px">
+          <select class="form-input-admin" [(ngModel)]="quickCustomerForm.countryCode" name="qcCountryCode"
+            style="width:125px;flex-shrink:0">
+            @for (c of countryCodeOptions; track c.v) {
+            <option [value]="c.v">{{ c.l }}</option>
+            }
+          </select>
+          <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.phoneNumber" name="qcPhone"
+            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onQuickPhoneInput.emit($event)"
+            style="flex:1" />
+        </div>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
+          Country code will be joined automatically.</small>
+      </div>
+      <div class="form-group-admin">
+        <label>Address Line 1 <span style="color:#ef4444;font-weight:bold">*</span></label>
+        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.addressLine1" name="qcAddress1"
+          required placeholder="Street address, building #" />
+      </div>
+      <div class="form-group-admin">
+        <label>Address Line 2 <small style="color:#94a3b8">(Optional)</small></label>
+        <input class="form-input-admin" type="text" [(ngModel)]="quickCustomerForm.addressLine2" name="qcAddress2"
+          placeholder="Suite, unit, floor" />
+      </div>
+      <div class="form-group-admin">
+        <label>City</label>
+        <select class="form-input-admin" [(ngModel)]="quickCustomerForm.cityId" name="qcCity">
+          <option value="">Select City...</option>
+          @for (c of cityOptions(); track c.v) {
+          <option [value]="c.v">{{ c.l }}</option>
+          }
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-admin btn-outline-admin"
+          (click)="requestCloseQuickCreateCustomer.emit()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="quickCustomerSaving()">
+          {{ quickCustomerSaving() ? 'Saving...' : 'Save and Quote' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

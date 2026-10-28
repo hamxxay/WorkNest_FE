@@ -1,14 +1,18 @@
-﻿import { UnifiService } from '../../../services/unifi.service';
-import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { UnifiService } from '../../../services/unifi.service';
+import { GwnService } from '../../../services/gwn.service';
+import { counterpart } from '../network/gwn-switch/gwn-switch';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { Subscription, filter } from 'rxjs';
 import { AdminService } from '../../../services/admin.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
+import { CustomInvoiceService } from '../../../services/custom-invoice.service';
 import {
-  CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isCeoUrl, isSalesExecutiveUrl, isSalesManagerUrl
-} from '../../../guards/admin.guard';
+  ACCESS_OFFICER_HOME, CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isAccessOfficerUrl, isCeoUrl, isSalesExecutiveUrl,
+  isSalesManagerUrl
+, NETWORK_ENGINEER_HOME, isNetworkEngineerUrl } from '../../../guards/admin.guard';
 import { roleLabelFor } from '../../../utils/constants';
 
 @Component({
@@ -21,7 +25,17 @@ export class AdminLayout implements OnInit, OnDestroy {
   get boundLocationId(): number | null {
     return this.auth.getUser()?.locationId ?? null;
   }
-  sidebarCollapsed = typeof window !== 'undefined' && window.innerWidth < 1280;
+  /** Icons-only sidebar (tablets by default; the toggle switches it). Never on phones, where the sidebar is a drawer. */
+  sidebarCollapsed = AdminLayout.screenMode() === 'compact';
+  /** Phone width: the sidebar is an off-canvas drawer opened from the top bar's menu button. */
+  readonly isPhone = signal(AdminLayout.screenMode() === 'phone');
+  /** Phone drawer open. */
+  readonly mobileNavOpen = signal(false);
+  private readonly menuButton = viewChild<ElementRef<HTMLButtonElement>>('menuButton');
+  private readonly sidebarToggleBtn = viewChild<ElementRef<HTMLButtonElement>>('sidebarToggle');
+  private readonly mainEl = viewChild<ElementRef<HTMLElement>>('adminMain');
+  /** Path (no query) of the last page, so only a new page (not a filter in the URL) scrolls back to the top. */
+  private lastPath = '';
   userRole = '';
 
   isSuperAdmin = false;
@@ -31,7 +45,11 @@ export class AdminLayout implements OnInit, OnDestroy {
   isCeo = false;
   /** Sales Manager: only the sales dashboard in the sidebar, no badges or other staff calls (same reason). */
   isSalesManager = false;
-  /** CEO / Sales Manager: their one dashboard (logo link, no profile page); null for everyone else. */
+  /** Access Officer: only the Access page in the sidebar, no badges or other staff calls (same reason). */
+  isAccessOfficer = false;
+  /** Network Engineer: only the Network section in the sidebar, no badges or staff calls. */
+  isNetworkEngineer = false;
+  /** CEO / Sales Manager / Access Officer: their one page (logo link, no profile page); null for everyone else. */
   dashboardHome: string | null = null;
 
   public toastService = inject(ToastService);
@@ -39,7 +57,9 @@ export class AdminLayout implements OnInit, OnDestroy {
   private router = inject(Router);
   private admin = inject(AdminService);
   private unifi = inject(UnifiService);
+  private gwn = inject(GwnService);
   private titleService = inject(Title);
+  private customInvoices = inject(CustomInvoiceService);
 
   /** Items waiting on staff, keyed by sidebar route (from api/admin/nav-badges). Last good values are kept on errors. */
   badges = signal<Record<string, number>>({});
@@ -53,6 +73,7 @@ export class AdminLayout implements OnInit, OnDestroy {
   private navTimer: ReturnType<typeof setTimeout> | null = null;
   private navSub: Subscription | null = null;
   private badgeSub: Subscription | null = null;
+  private drawerSub: Subscription | null = null;
 
   /** Path of the open page (no query string), to show that page's "Mark as read" bar. */
   private currentPath = signal(this.router.url.split(/[?#]/)[0]);
@@ -87,9 +108,11 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/quotation-responses', group: 'Sales', label: 'Quotation Responses', icon: 'quotation-responses' },
     { route: '/admin/payments', group: 'Finance',       label: 'Payments',          icon: 'payments'        },
     { route: '/admin/agreements', group: 'Sales',     label: 'Agreements',        icon: 'challan'         },
-    { route: '/admin/lease-templates', group: 'Sales', label: 'Lease Templates',  icon: 'challan'         },
     { route: '/admin/invoices', group: 'Finance',       label: 'Invoices & Billing', icon: 'payments'        },
-    { route: '/admin/fee-receipts', group: 'Finance',       label: 'Fee Receipts',        icon: 'receipt'         },
+      { route: '/admin/invoice-approvals', group: 'Finance', label: 'Invoice Approvals', icon: 'payments' },
+    { route: '/admin/fee-receipts', group: 'Finance',       label: 'Receipts',            icon: 'receipt'         },
+    // Shown to super admins, and to admins a super admin has given access (api/custom-invoices/access/me).
+    { route: '/admin/custom-invoice', group: 'Finance',     label: 'Custom Invoice',      icon: 'custom-invoice', customInvoiceOnly: true },
     { route: '/admin/contacts', group: 'Sales',       label: 'Tour Inquiries',    icon: 'contacts'        },
     { route: '/admin/complaints', group: 'Sales',     label: 'Complaints',        icon: 'complaints'      },
     { route: '/admin/whatsapp', group: 'Sales',       label: 'WhatsApp Inbox',    icon: 'whatsapp'        },
@@ -99,6 +122,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/attendants', group: 'Access Control',     label: 'Attendants & Access', icon: 'users'         },
     { route: '/admin/biometric-users', group: 'Access Control', label: 'Access Users',     icon: 'biometrics'      },
     { route: '/admin/staff-access', group: 'Access Control',        label: 'Staff Access',        icon: 'users' },
+    { route: ACCESS_OFFICER_HOME, group: 'Access Control',          label: 'Access by CNIC',      icon: 'access-officer', superAdminOnly: true },
     { route: '/admin/access-dashboard', group: 'Access Control',    label: 'Access Dashboard',    icon: 'access-dashboard', adminOnly: true },
     { route: '/admin/access-activity-log', group: 'Access Control', label: 'Access Activity Log', icon: 'access-activity',  adminOnly: true },
     { route: '/admin/access-analytics', group: 'Access Control',    label: 'Access Analytics',    icon: 'access-analytics', adminOnly: true },
@@ -110,6 +134,9 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan', superAdminOnly: true },
       { route: '/admin/audit-log', group: 'Administration', label: 'Audit Log', icon: 'audit', superAdminOnly: true },
     { route: '/admin/login-history', group: 'Administration', label: 'Login History', icon: 'login-history', superAdminOnly: true },
+    { route: '/admin/services', group: 'Administration', label: 'Services', icon: 'net-devices', superAdminOnly: true },
+    { route: '/admin/message-templates', group: 'Administration', label: 'Message Templates', icon: 'message-template', adminOnly: true },
+    { route: '/admin/lease-templates', group: 'Administration', label: 'Lease Templates', icon: 'challan', superAdminOnly: true },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },
   ];
 
@@ -122,7 +149,16 @@ export class AdminLayout implements OnInit, OnDestroy {
     this.isSalesExecutive = this.auth.hasRole('sales_executive');
     this.isCeo = this.auth.isCeoOnly();
     this.isSalesManager = this.auth.isSalesManagerOnly();
-    if (this.isCeo) {
+    this.isAccessOfficer = this.auth.isAccessOfficerOnly();
+    this.isNetworkEngineer = this.auth.isNetworkEngineerOnly();
+        if (this.isNetworkEngineer) {
+      this.userRole = 'Network Engineer';
+      this.dashboardHome = NETWORK_ENGINEER_HOME;
+      this.menuItems = this.menuItems.filter(item => item.group === 'Network');
+      if (!isNetworkEngineerUrl(this.router.url)) {
+        this.router.navigate([NETWORK_ENGINEER_HOME]);
+      }
+    } else if (this.isCeo) {
       this.userRole = 'CEO';
       this.dashboardHome = CEO_HOME;
       // Same rule as adminGuard: the CEO dashboard and nothing else.
@@ -138,6 +174,14 @@ export class AdminLayout implements OnInit, OnDestroy {
       if (!isSalesManagerUrl(this.router.url)) {
         this.router.navigate([SALES_MANAGER_HOME]);
       }
+    } else if (this.isAccessOfficer) {
+      this.userRole = 'access_officer';
+      this.dashboardHome = ACCESS_OFFICER_HOME;
+      // Same rule as adminGuard: the Access page and nothing else.
+      this.menuItems = [{ route: ACCESS_OFFICER_HOME, group: '', label: 'Access', icon: 'access-officer' }];
+      if (!isAccessOfficerUrl(this.router.url)) {
+        this.router.navigate([ACCESS_OFFICER_HOME]);
+      }
     } else if (this.isSalesExecutive && !this.isSuperAdmin && !isAdmin) {
       this.userRole = 'Sales Executive';
       // Same allow-list as adminGuard (challan-validity is super-admin only, so not listed).
@@ -150,11 +194,32 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.baseTitle = this.titleService.getTitle();
+    this.lastPath = this.router.url.split(/[?#]/)[0];
+    // Phones: a link opened from the drawer closes it. A new page starts at the top (the page scrolls inside
+    // <main>, which the router's own scroll handling does not reset).
+    this.drawerSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+      this.mobileNavOpen.set(false);
+      const path = this.router.url.split(/[?#]/)[0];
+      if (path !== this.lastPath) {
+        this.lastPath = path;
+        this.mainEl()?.nativeElement.scrollTo({ top: 0 });
+      }
+    });
     // The role's database label (auth/me) when the sign-in response did not bring it.
     if (!this.auth.getUser()?.roleDisplayName) this.auth.refreshProfileLabels();
-    // A CEO / Sales Manager has no sidebar badges or network section (those APIs are staff-only).
+    // A Network Engineer has the Network section only: which networks they may see decides its links, and a page of
+    // a network they may not see goes to the same page of the other one.
+    if (this.isNetworkEngineer) {
+      this.loadNetworkScope();
+      this.navSub = this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+        this.currentPath.set(this.router.url.split(/[?#]/)[0]);
+        this.keepEngineerOnOwnNetwork();
+      });
+    }
+    // A CEO / Sales Manager / Access Officer / Network Engineer has no sidebar badges (those APIs are staff-only).
     if (this.dashboardHome) return;
     this.loadNetworkScope();
+    this.loadCustomInvoiceAccess();
     this.loadBadges();
     this.pollTimer = setInterval(() => { if (!document.hidden) this.loadBadges(); }, AdminLayout.POLL_MS);
     // Browsers slow timers in background tabs: refresh as soon as the tab is visible / focused again.
@@ -180,6 +245,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     if (this.navTimer) clearTimeout(this.navTimer);
     this.navSub?.unsubscribe();
     this.badgeSub?.unsubscribe();
+    this.drawerSub?.unsubscribe();
     if (this.baseTitle) this.titleService.setTitle(this.baseTitle);
   }
 
@@ -248,15 +314,59 @@ export class AdminLayout implements OnInit, OnDestroy {
 
   /** Visible menu items (role rules applied), grouped under section headings. */
   private visibleItems(): any[] {
-    return this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
-      && (i.group !== 'Network' || this.networkAllowed()));
+    const items = this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
+      && (!i.customInvoiceOnly || this.customInvoiceAllowed())
+      && (i.group !== 'Network' || this.isNetworkEngineer || this.networkAllowed()));
+    // On the Grandstream (F-7) pages, or for staff who only see Grandstream, the Network links open its pages
+    // (it has no Internet page). The switch at the top of every Network page moves between the two networks.
+    const gwnMode = this.currentPath().startsWith('/admin/network/gwn') || (!this.unifiAllowed() && this.gwnAllowed());
+    if (!gwnMode) return items;
+    return items
+      .filter((i: any) => i.route !== '/admin/network/internet')
+      .map((i: any) => (i.group === 'Network' ? { ...i, route: counterpart(i.route, 'gwn') } : i));
+  }
+
+  /**
+   * Custom Invoice: super admins always; an admin once api/custom-invoices/access/me says canUse (hidden until then,
+   * and when the check fails). The page's guard and the API check it again.
+   */
+  readonly customInvoiceAllowed = computed(() =>
+    this.isSuperAdmin || (this.isAdmin && this.customInvoices.myAccess()?.canUse === true));
+  private loadCustomInvoiceAccess() {
+    if (this.isSuperAdmin || !this.isAdmin) return;
+    this.customInvoices.getMyAccess().subscribe({ error: () => { /* keep the item hidden */ } });
   }
 
   /** False when the UniFi network belongs to other locations than this admin's / sales executive's (api/unifi/scope). */
-  readonly networkAllowed = signal(true);
+  /** The Network section shows when the user may see the UniFi network (I-8) or a Grandstream one (F-7, api/gwn/networks). */
+  readonly unifiAllowed = signal(true);
+  readonly gwnAllowed = signal(false);
+  readonly networkAllowed = computed(() => this.unifiAllowed() || this.gwnAllowed());
   private loadNetworkScope() {
+    this.gwn.getNetworks().subscribe({
+      next: list => { this.gwnAllowed.set(list.length > 0); this.gwnScopeLoaded = true; this.keepEngineerOnOwnNetwork(); },
+      error: () => { this.gwnScopeLoaded = true; this.keepEngineerOnOwnNetwork(); /* UniFi decides */ }
+    });
     if (this.isSuperAdmin) return;
-    this.unifi.getScope().subscribe({ next: s => this.networkAllowed.set(s.allowed), error: () => { /* keep the section */ } });
+    this.unifi.getScope().subscribe({
+      next: s => { this.unifiAllowed.set(s.allowed); this.unifiScopeLoaded = true; this.keepEngineerOnOwnNetwork(); },
+      error: () => { /* keep the section */ }
+    });
+  }
+
+  /**
+   * Network Engineer: only F-7 (Grandstream) -> a UniFi page (e.g. the /admin/network home) opens the same Grandstream
+   * page; only I-8 (UniFi) -> a Grandstream page opens the same UniFi page. Waits for both scopes.
+   */
+  private unifiScopeLoaded = false;
+  private gwnScopeLoaded = false;
+  private keepEngineerOnOwnNetwork() {
+    if (!this.isNetworkEngineer || !this.unifiScopeLoaded || !this.gwnScopeLoaded) return;
+    const path = this.router.url.split(/[?#]/)[0];
+    if (!path.startsWith('/admin/network')) return;
+    const onGwn = path.startsWith('/admin/network/gwn');
+    if (!onGwn && !this.unifiAllowed() && this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'gwn'));
+    else if (onGwn && this.unifiAllowed() && !this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'unifi'));
   }
 
   get menuGroups(): { name: string; items: any[] }[] {
@@ -266,20 +376,53 @@ export class AdminLayout implements OnInit, OnDestroy {
       .filter(g => g.items.length > 0);
   }
 
-  toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; }
+  /** The sidebar's own button: collapses / expands it, or closes the drawer on a phone. */
+  toggleSidebar() {
+    if (this.isPhone()) { this.closeMobileNav(true); return; }
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
 
-  // Icon-only sidebar on smaller screens; the toggle still works, and the sidebar
-  // only auto-changes when the window crosses the breakpoint.
+  openMobileNav() {
+    this.mobileNavOpen.set(true);
+    // Move focus into the drawer (its close button) once it is visible.
+    setTimeout(() => this.sidebarToggleBtn()?.nativeElement.focus(), 30);
+  }
+
+  /** Closes the phone drawer; `refocus` returns focus to the top bar's menu button (Escape / close button). */
+  closeMobileNav(refocus = false) {
+    if (!this.mobileNavOpen()) return;
+    this.mobileNavOpen.set(false);
+    if (refocus) setTimeout(() => this.menuButton()?.nativeElement.focus(), 0);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { this.closeMobileNav(true); }
+
+  // Phones (< 768px): drawer. Tablets / small laptops (< 1280px): icons only. Wider: full sidebar.
+  // The toggle still works, and the sidebar only auto-changes when the window crosses a breakpoint.
+  private static readonly PHONE_WIDTH = 768;
   private static readonly COMPACT_WIDTH = 1280;
-  private wasCompact = typeof window !== 'undefined' && window.innerWidth < AdminLayout.COMPACT_WIDTH;
+  private static screenMode(): 'phone' | 'compact' | 'wide' {
+    if (typeof window === 'undefined') return 'wide';
+    const w = window.innerWidth;
+    return w < AdminLayout.PHONE_WIDTH ? 'phone' : w < AdminLayout.COMPACT_WIDTH ? 'compact' : 'wide';
+  }
+  private lastMode = AdminLayout.screenMode();
 
   @HostListener('window:resize')
   onResize() {
-    const compact = window.innerWidth < AdminLayout.COMPACT_WIDTH;
-    if (compact !== this.wasCompact) {
-      this.sidebarCollapsed = compact;
-      this.wasCompact = compact;
+    const mode = AdminLayout.screenMode();
+    if (mode !== this.lastMode) {
+      this.lastMode = mode;
+      this.isPhone.set(mode === 'phone');
+      this.sidebarCollapsed = mode === 'compact';
+      this.mobileNavOpen.set(false);
     }
+  }
+
+  /** CEO and Sales Manager have one page: no sidebar, the dashboard fills the screen under a slim top bar. */
+  get focusMode(): boolean {
+    return this.isCeo || this.isSalesManager;
   }
 
   /** The role as the database words it (auth/me roleDisplayName); else made from the role name ("super_admin" -> "Super Admin"). */

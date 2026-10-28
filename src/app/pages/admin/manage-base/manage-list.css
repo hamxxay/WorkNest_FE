@@ -1,0 +1,351 @@
+.admin-page{padding:24px}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:16px}
+.page-header h1{font-size:1.5rem;font-weight:700;color:#0f172a;margin-bottom:4px}
+.page-header p{color:#64748b;font-size:.875rem}
+.header-actions{display:flex;gap:10px}
+.alert-admin{padding:10px 16px;border-radius:8px;font-size:.875rem;margin-bottom:16px}
+.alert-success-admin{background:rgba(16,185,129,.08);color:#059669;border:1px solid rgba(16,185,129,.2)}
+.alert-error-admin{background:rgba(239,68,68,.08);color:#dc2626;border:1px solid rgba(239,68,68,.2)}
+.admin-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.card-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;flex:1;max-width:320px}
+.search-box svg{color:#94a3b8;flex-shrink:0}
+.search-box input{border:none;background:none;outline:none;font-size:.875rem;color:#0f172a;width:100%}
+.toolbar-right{display:flex;align-items:center;gap:12px}
+.page-size-wrap{display:flex;align-items:center;gap:6px;font-size:.82rem;color:#64748b}
+.page-size-wrap select{border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:.82rem}
+.item-count{font-size:.82rem;color:#94a3b8}
+.table-wrap{overflow-x:auto}
+.admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.admin-table th{text-align:left;padding:10px 12px;color:#64748b;font-weight:500;font-size:.78rem;border-bottom:2px solid #e2e8f0;background:#f8fafc;white-space:nowrap}
+.admin-table td{padding:12px;border-bottom:1px solid #f1f5f9;color:#0f172a;vertical-align:middle}
+.role-super_admin{background:rgba(168,85,247,.12);color:#7c3aed}
+.role-admin{background:rgba(13,148,136,.12);color:#0d9488}
+.role-general{background:rgba(100,116,139,.1);color:#475569}
+.role-sales_executive{background:rgba(37,99,235,.12);color:#2563eb}
+.role-ceo{background:rgba(15,23,42,.08);color:#0f172a}
+.role-sales_manager{background:rgba(79,70,229,.1);color:#4338ca}
+.role-access_officer{background:rgba(2,132,199,.1);color:#0369a1}
+.role-select{border-color:#6366f1;color:#6366f1;min-width:120px}
+.action-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;transition:all .15s;font-size:14px}
+.action-btn.info{color:#3b82f6}.action-btn.info:hover{background:rgba(59,130,246,.08);border-color:#3b82f6}
+.action-btn.edit{color:#0d9488}.action-btn.edit:hover{background:rgba(13,148,136,.08);border-color:#0d9488}
+.action-btn.delete{color:#ef4444}.action-btn.delete:hover{background:rgba(239,68,68,.08);border-color:#ef4444}
+.action-btn.deactivate{color:#f59e0b}.action-btn.deactivate:hover{background:rgba(245,158,11,.08);border-color:#f59e0b}.action-btn.activate{color:#10b981}.action-btn.activate:hover{background:rgba(16,185,129,.08);border-color:#10b981}
+.action-btn.approve{color:#059669}.action-btn.approve:hover:not(:disabled){background:rgba(16,185,129,.08);border-color:#059669}.action-btn.approve:disabled{opacity:.6;cursor:not-allowed}
+/* Tour Inquiries: WhatsApp button (greyed out with a tooltip when the inquiry has no phone; spinner while the message is prepared). */
+.action-btn.whatsapp{color:#16a34a}.action-btn.whatsapp:hover:not([aria-disabled=true]){background:rgba(22,163,74,.08);border-color:#16a34a}
+.action-btn.whatsapp[aria-disabled=true]{opacity:.4;cursor:not-allowed}.action-btn.whatsapp.busy{opacity:1;cursor:progress}
+.wa-spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite}
+.status-select{border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:.78rem;color:#475569;background:#fff;cursor:pointer}
+.admin-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;font-size:.875rem;color:#64748b}
+.btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary-admin{background:#0d9488;color:#fff}.btn-primary-admin:hover{background:#0f766e}
+.btn-outline-admin{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-outline-admin:hover{background:#f8fafc}
+.btn-outline-admin:disabled{opacity:.4;cursor:not-allowed}
+.empty-state{padding:40px;text-align:center;color:#94a3b8}
+.loading-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px;color:#64748b}
+.spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#0d9488;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-content{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative}
+.modal-content.booking-modal{max-width:860px}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:6px}
+.modal-close:hover{color:#0f172a;background:#f1f5f9}
+.modal-content h2{font-size:1.2rem;font-weight:700;color:#0f172a;margin-bottom:20px}
+.form-group-admin{margin-bottom:14px}
+.form-group-admin label{display:block;font-size:.82rem;font-weight:500;color:#475569;margin-bottom:5px}
+.form-input-admin{width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:.875rem;color:#0f172a;background:#f8fafc;outline:none;box-sizing:border-box}
+.form-input-admin:focus{border-color:#0d9488;background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.08)}
+.checkbox-label{display:flex;align-items:center;gap:8px;font-size:.875rem;color:#475569;cursor:pointer}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+/* Under a Space Type dropdown filtered by its form's location: "Choose a location first" / none at this location. */
+.space-type-hint{display:block;font-size:.75rem;color:#64748b;margin-top:2px}
+.duplicate-row td { background: rgba(239,68,68,.06) !important; }
+.duplicate-row td:first-child { border-left: 3px solid #ef4444; }
+
+/* Print */
+@media print {
+  .modal-close { display: none !important; }
+}
+
+.duplicate-row td { background: rgba(239,68,68,.06) !important; }
+.duplicate-row td:first-child { border-left: 3px solid #ef4444; }
+
+
+
+
+
+
+/* Status badges for Quotation */
+.status-badge.status-approved,
+.status-badge.status-active {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-badge.status-inactive,
+.status-badge.status-expired {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.status-badge.status-converted {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-badge.status-agreementsent,
+.status-badge.status-sent {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.status-badge.status-signed {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Segmented Type Selector Pills */
+.type-selector-pills {
+  display: flex;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.type-selector-pills .pill-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-selector-pills .pill-btn:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.type-selector-pills .pill-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+
+
+/* ---------- Form popups: shared polish ---------- */
+.modal-overlay{background:rgba(15,23,42,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:wnFade .15s ease-out}
+.modal-content{border:1px solid #e2e8f0;box-shadow:0 24px 48px -12px rgba(15,23,42,.25);animation:wnRise .18s ease-out}
+.modal-content h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 22px;padding:0 40px 16px 0;border-bottom:1px solid #f1f5f9}
+.modal-close{top:20px;right:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+@keyframes wnFade{from{opacity:0}to{opacity:1}}
+@keyframes wnRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Large forms (Create Booking / Create Quotation): a centred sheet instead of full screen */
+
+.modal-content .form-group-admin{margin-bottom:16px}
+.modal-content .form-group-admin label{font-size:.8rem;font-weight:600;color:#334155;margin-bottom:6px}
+.modal-content .form-input-admin{height:42px;padding:0 14px;border:1px solid #dbe2ea;border-radius:10px;background:#fff;font-size:.9rem;transition:border-color .15s,box-shadow .15s}
+.modal-content textarea.form-input-admin{height:auto;min-height:84px;padding:10px 14px;line-height:1.5;resize:vertical}
+.modal-content select.form-input-admin{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center}
+.modal-content .form-input-admin:hover:not(:focus):not(:disabled){border-color:#cbd5e1}
+.modal-content .form-input-admin:focus{border-color:#0d9488;box-shadow:0 0 0 4px rgba(13,148,136,.12)}
+.modal-content .form-input-admin:disabled{background:#f8fafc;color:#64748b}
+.modal-content .form-input-admin::placeholder{color:#94a3b8}
+
+/* Buttons stay visible at the bottom of long forms */
+.modal-actions{position:sticky;bottom:0;z-index:2;background:#fff;margin:24px -28px -28px;padding:16px 28px;border-top:1px solid #f1f5f9;border-radius:0 0 16px 16px}
+.modal-actions .btn-admin{height:40px;padding:0 20px;border-radius:10px;font-weight:600}
+.modal-actions .btn-primary-admin{box-shadow:0 1px 2px rgba(13,148,136,.3)}
+
+/* Users form: locations an Admin / Sales Executive may work in */
+.location-checklist{display:flex;flex-wrap:wrap;gap:8px}
+.location-check{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #dbe2ea;border-radius:10px;cursor:pointer;font-size:.88rem;color:#334155;background:#fff}
+.location-check input{width:16px;height:16px;accent-color:#0d9488;margin:0}
+
+/* Tour inquiry Type: pill (+ who referred, for Reference) and the filter next to the search box. */
+.type-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; background: #f1f5f9; color: #334155; }
+.type-pill.type-website { background: #eff6ff; color: #1d4ed8; }
+.type-pill.type-whatsapp { background: #ecfdf5; color: #047857; }
+.type-pill.type-walkin { background: #fff7ed; color: #c2410c; }
+.type-pill.type-reference { background: #f5f3ff; color: #6d28d9; }
+.type-ref { display: block; margin-top: 3px; font-size: .75rem; color: #64748b; }
+.type-edit { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 2px; border-radius: 999px; cursor: pointer; }
+.type-pencil { color: #94a3b8; flex-shrink: 0; transition: color .15s; }
+.type-edit:hover .type-pencil, .type-edit:focus-visible .type-pencil { color: #0d9488; }
+.type-edit:hover .type-pill { box-shadow: 0 0 0 2px #ccfbf1; }
+.type-edit:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
+.type-pill.type-unset { background: #fff; color: #64748b; border: 1px dashed #cbd5e1; font-weight: 500; }
+.type-filter { margin-left: 10px; }
+/* Tour Inquiries / Complaints: Type and Location filters kept together between the search box and the page size. */
+.toolbar-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.toolbar-filters .type-filter { margin-left: 0; }
+/* Customers / Bookings / Quotations / Invoices / Payments: Location, Status and a date range (server-side filters). */
+.list-filters { gap: 12px; }
+.date-filter input { border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 8px; font-size: .82rem; color: #0f172a; background: #fff; }
+.date-filter input:disabled, .list-filters select:disabled { opacity: .6; }
+.btn-clear-filters { padding: 5px 12px; font-size: .8rem; }
+/* Invoices: the dates of the chosen period ("October 2026") next to the Issued choice. */
+.list-period-range { font-size: .8rem; color: #64748b; white-space: nowrap; margin-left: -4px; }
+/* A list that could not be loaded: the message and Retry instead of "No records found.". */
+.empty-state.list-error p { color: #b91c1c; margin-bottom: 12px; }
+.empty-state .btn-admin { margin: 0 auto; }
+/* Branch of a tour inquiry / complaint (no branch = .type-unset, "No branch"). */
+.type-pill.branch-pill { background: #f0fdfa; color: #0f766e; }
+.col-key-fullName { min-width: 130px; }
+
+/* Status column dropdown: a pill that shows the current status, coloured by it.
+   The select's own box is reset in styles.css (the admin-wide select style would otherwise draw over the pill). */
+.status-picker {
+  --sp-bg: #f8fafc; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #94a3b8;
+  position: relative; display: inline-flex; align-items: center; height: 30px;
+  background: var(--sp-bg); color: var(--sp-fg); border: 1px solid var(--sp-bd);
+  border-radius: 999px; transition: box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.status-picker::before {
+  content: ''; position: absolute; left: 12px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px;
+  border-radius: 50%; background: var(--sp-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 18%, transparent);
+  pointer-events: none;
+}
+.status-picker:hover { border-color: var(--sp-dot); }
+.status-picker:focus-within { border-color: var(--sp-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-dot) 22%, transparent); }
+.status-picker-chevron { position: absolute; right: 11px; top: 50%; margin-top: -6px; pointer-events: none; opacity: .7; }
+
+.status-picker.status-pending, .status-picker.status-new, .status-picker.status-open {
+  --sp-bg: #fffbeb; --sp-fg: #b45309; --sp-bd: #fde68a; --sp-dot: #f59e0b;
+}
+.status-picker.status-inprogress {
+  --sp-bg: #eff6ff; --sp-fg: #1d4ed8; --sp-bd: #bfdbfe; --sp-dot: #3b82f6;
+}
+.status-picker.status-confirmed, .status-picker.status-paid, .status-picker.status-resolved {
+  --sp-bg: #ecfdf5; --sp-fg: #047857; --sp-bd: #a7f3d0; --sp-dot: #10b981;
+}
+.status-picker.status-rejected, .status-picker.status-cancelled, .status-picker.status-failed {
+  --sp-bg: #fef2f2; --sp-fg: #b91c1c; --sp-bd: #fecaca; --sp-dot: #ef4444;
+}
+.status-picker.status-refunded {
+  --sp-bg: #f5f3ff; --sp-fg: #6d28d9; --sp-bd: #ddd6fe; --sp-dot: #8b5cf6;
+}
+.status-picker.status-noshow, .status-picker.status-closed {
+  --sp-bg: #f1f5f9; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #64748b;
+}
+
+/* Role pill (Users, super admin): same pill as the status dropdown, coloured by role */
+.status-picker.role-pick-super_admin { --sp-bg: #f5f3ff; --sp-fg: #6d28d9; --sp-bd: #ddd6fe; --sp-dot: #8b5cf6; }
+.status-picker.role-pick-admin { --sp-bg: #f0fdfa; --sp-fg: #0f766e; --sp-bd: #99f6e4; --sp-dot: #14b8a6; }
+.status-picker.role-pick-sales_executive { --sp-bg: #eff6ff; --sp-fg: #1d4ed8; --sp-bd: #bfdbfe; --sp-dot: #3b82f6; }
+.status-picker.role-pick-general { --sp-bg: #f8fafc; --sp-fg: #475569; --sp-bd: #e2e8f0; --sp-dot: #94a3b8; }
+.status-picker.role-pick-ceo { --sp-bg: #f1f5f9; --sp-fg: #0f172a; --sp-bd: #cbd5e1; --sp-dot: #0f766e; }
+.status-picker.role-pick-sales_manager { --sp-bg: #eef2ff; --sp-fg: #4338ca; --sp-bd: #c7d2fe; --sp-dot: #6366f1; }
+.status-picker.role-pick-access_officer { --sp-bg: #f0f9ff; --sp-fg: #0369a1; --sp-bd: #bae6fd; --sp-dot: #0ea5e9; }
+
+
+/* ===================== Responsive: phones, tablets, big screens =====================
+   Desktop keeps its look; below 1025px tables scroll inside their card instead of squeezing every column,
+   and on phones the header, toolbar, pagination and popups stack and get thumb-sized controls. */
+:host { display: block; min-width: 0; }
+.page-header { flex-wrap: wrap; }
+.page-header > div:first-child { flex: 1 1 220px; min-width: 0; }
+.header-actions { flex-wrap: wrap; }
+.header-actions .btn-admin { white-space: nowrap; }
+.search-box { min-width: 0; }
+.toolbar-right { flex-wrap: wrap; }
+
+@media (max-width: 1024px) {
+  /* One line per cell (long text keeps its two-line clamp at most 280px wide): the table scrolls sideways. */
+  .table-wrap > .admin-table { width: max-content; min-width: 100%; }
+  .table-wrap > .admin-table :is(th, td) { white-space: nowrap; }
+  .table-wrap > .admin-table .cell-text { white-space: normal; }
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 640px) {
+  .admin-page { padding: 16px; }
+  .page-header { margin-bottom: 16px; gap: 12px; }
+  .page-header h1 { font-size: 1.3rem; overflow-wrap: anywhere; }
+  .header-actions { width: 100%; }
+  .header-actions .btn-admin { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+  .admin-card { padding: 14px; border-radius: 10px; }
+  .card-toolbar { gap: 10px; }
+  .card-toolbar .search-box { flex: 1 1 100%; max-width: none; min-height: 44px; box-sizing: border-box; }
+  .search-box input { font-size: 16px; }
+  .toolbar-filters { width: 100%; gap: 10px; }
+  .toolbar-filters .page-size-wrap { flex: 1 1 140px; }
+  .toolbar-filters .page-size-wrap select { flex: 1; min-width: 0; }
+  .toolbar-filters .date-filter input { flex: 1; min-width: 0; min-height: 40px; font-size: 16px; }
+  .list-period-range { margin-left: 0; }
+  .toolbar-right { width: 100%; justify-content: space-between; }
+  .page-size-wrap select { min-height: 40px; font-size: 16px; }
+  .admin-pagination { justify-content: space-between; gap: 8px; }
+  .admin-pagination .btn-admin { min-height: 44px; }
+  .table-wrap > .admin-table .action-btn { width: 40px; height: 40px; }
+  .table-wrap > .admin-table td.actions-cell .btn-admin { height: 40px; }
+
+  /* Popups: fit the phone, scroll inside, buttons stay reachable. */
+  .modal-overlay { padding: 10px; }
+  .modal-content { padding: 20px 16px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
+  .modal-content h2 { font-size: 1.1rem; margin-bottom: 16px; padding-bottom: 12px; overflow-wrap: anywhere; }
+  .modal-close { top: 12px; right: 12px; width: 40px; height: 40px; }
+  .modal-actions { flex-wrap: wrap; margin: 20px -16px -20px; padding: 12px 16px; }
+  /* A sticky footer stops at the scroller's padding edge: no bottom padding, so nothing shows under it. */
+  .modal-content:not(.sheet-modal):has(.modal-actions) { padding-bottom: 0; }
+  .modal-content:not(.sheet-modal) .modal-actions { margin-bottom: 0; }
+  .modal-actions .btn-admin { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+  .modal-content .form-input-admin { font-size: 16px; min-height: 44px; }
+  .modal-content textarea.form-input-admin { min-height: 84px; }
+  .type-selector-pills { flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  /* Header bars, info strips and footers: rows wrap instead of running off the popup. */
+  .modal-content [style*="display: flex"]:not(button):not(a):not(label):not([style*="flex-direction: column"]) { flex-wrap: wrap; row-gap: 8px; }
+  /* ...except a header bar that ends with its close button: the title block shrinks and wraps instead. */
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)):not(button) { flex-wrap: nowrap; }
+  .modal-content [style*="display: flex"]:has(> button:last-child:not(.btn-admin)) > :first-child { min-width: 0; }
+  .modal-content :is(h1, h2, h3, h4, strong) { overflow-wrap: anywhere; }
+  .modal-content input:not([type=checkbox]):not([type=radio]), .modal-content select, .modal-content textarea { font-size: 16px; }
+}
+/* Invoices list: fits the page (tighter cells; Issued / Due and Status / Approval share a column); the invoice number
+   is never wrapped or cut. */
+.admin-table.compact-list th, .admin-table.compact-list td { padding-left: 8px; padding-right: 8px; }
+.admin-table td.col-key-invoiceNumber, .admin-table th.col-key-invoiceNumber { white-space: nowrap; }
+.admin-table td.col-key-invoiceNumber .cell-text { display: inline; -webkit-line-clamp: unset; max-width: none; overflow: visible; overflow-wrap: normal; }
+.admin-table .cell-sub { display: block; margin-top: 3px; font-size: .74rem; font-weight: 500; color: #64748b; white-space: nowrap; }
+.admin-table .cell-sub-warn { color: #b45309; font-weight: 600; }
+
+/* Tour Inquiries sub-tabs (same look as the customer detail page's tab strip). */
+.inq-tabs { display: flex; gap: 4px; margin: -8px -20px 16px; padding: 0 14px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; }
+.inq-tab { position: relative; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; border: none; background: none; padding: 12px 12px 13px; font-family: inherit; font-size: .88rem; font-weight: 600; color: #64748b; cursor: pointer; border-radius: 8px 8px 0 0; }
+.inq-tab:hover { color: #0f172a; background: #f8fafc; }
+.inq-tab:focus-visible { outline: 2px solid #0d9488; outline-offset: -2px; }
+.inq-tab.active { color: #0f766e; }
+.inq-tab.active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: #0d9488; }
+.inq-tab-count { font-size: .7rem; font-weight: 700; min-width: 20px; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; text-align: center; }
+.inq-tab.active .inq-tab-count { background: #ccfbf1; color: #0f766e; }
+@media (max-width: 640px) {
+  .inq-tabs { margin: -4px -14px 14px; padding: 0 8px; }
+  .inq-tab { min-height: 44px; padding: 12px 10px 13px; }
+}

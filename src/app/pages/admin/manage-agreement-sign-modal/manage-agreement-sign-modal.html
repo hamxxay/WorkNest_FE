@@ -1,0 +1,69 @@
+<div class="modal-overlay" (click)="closeSignAgreement.emit()">
+  <div class="modal-content" style="max-width:520px;width:100%;padding:0;overflow-y:auto;border-radius:12px"
+    (click)="$event.stopPropagation()">
+    <div
+      style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0;font-size:1.05rem;font-weight:700">Signed agreement received</h3>
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px">{{ ag.customerName || ag.CustomerName || 'Customer'
+          }} &middot; Agreement #{{ ag.id || ag.agreementId }}</div>
+      </div>
+      <button (click)="closeSignAgreement.emit()" title="Close" aria-label="Close"
+        style="background:none;border:none;color:#94a3b8;font-size:1.6rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+      <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">
+        Upload the scanned signed agreement and enter the date written on it. This creates the booking dated on that
+        day,
+        then issues the first invoice with the same date.
+      </p>
+      @if (customerCopyOnFile(ag)) {
+      <div
+        style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:8px;padding:10px 12px;font-size:0.82rem;line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        @if (eSignedAt(ag)) {
+        <span><strong>E-signed</strong> by {{ eSignedBy(ag) || 'the customer' }} on {{ eSignedAt(ag) | date:'d MMM y,
+          h:mm a' }}, but the booking was not created automatically. Check the quotation's space and dates, then
+          confirm.</span>
+        } @else {
+        <span>The customer uploaded the signed copy on {{ (ag.signedPdfUploadedAt || ag.SignedPdfUploadedAt) | date:'d
+          MMM y' }}. Check it before confirming.</span>
+        }
+        <button class="btn-admin btn-outline-admin" style="white-space:nowrap"
+          (click)="downloadSignedAgreementPdf.emit(ag.id || ag.agreementId)">View copy</button>
+      </div>
+      }
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
+        {{ customerCopyOnFile(ag) ? 'Replace with another scan (optional)' : 'Signed agreement (PDF, max 10 MB)' }}
+        <input type="file" accept="application/pdf" (change)="onSignFileChosen.emit($event)" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
+        Date on the signed agreement
+        <input type="date" [value]="signDate()" (input)="signDate.set($any($event.target).value)" [max]="todayIso()"
+          [min]="signMinDate(ag)" />
+      </label>
+      @if (signChallanAlreadyExpired()) {
+      <div
+        style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:0.8rem;line-height:1.5">
+        This date is more than 7 days ago, so the booking challan will already be expired. If it is not paid, door
+        access
+        will be suspended at the next hourly check.
+      </div>
+      }
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;font-weight:600;color:#334155">
+        Note (optional)
+        <textarea rows="2" [value]="signNote()" (input)="signNote.set($any($event.target).value)"
+          placeholder="e.g. Received by hand at reception"></textarea>
+      </label>
+    </div>
+    <div
+      style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn-admin btn-outline-admin" (click)="closeSignAgreement.emit()"
+        [disabled]="signingAgreement()">Cancel</button>
+      <button class="btn-admin btn-primary-admin" (click)="submitSignAgreement.emit()"
+        [disabled]="signingAgreement() || (!signFile() && !customerCopyOnFile(ag)) || !signDate()">
+        {{ signingAgreement() ? 'Creating booking…' : (customerCopyOnFile(ag) ? 'Verify & create booking' : 'Save &
+        create booking') }}
+      </button>
+    </div>
+  </div>
+</div>

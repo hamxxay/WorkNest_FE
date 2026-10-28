@@ -4,6 +4,7 @@ import { UnifiService } from '../../../../services/unifi.service';
 import { UnifiWifiAp, UnifiWifiRadio, UnifiWifiResponse } from '../../../../models/unifi.model';
 import { NetworkSsids } from '../network-ssids/network-ssids';
 import { AMBER, ChartBag, ExportKind, NET_SHARED, S1, ago, avg, errMsg, exportCard, exportPagePdf, fmt, hbar, hbarOptions, sum, timeLabel } from '../network-shared';
+import { NetworkSwitch } from '../gwn-switch/gwn-switch';
 
 /** Thresholds for flagging a radio — one place so the table and tiles agree. */
 const LIMITS = { busy: 60, interference: 30, retries: 10, experience: 70 };
@@ -24,7 +25,7 @@ function radioIssues(r: UnifiWifiRadio, sameChannel: number): [string, string][]
 @Component({
   selector: 'app-network-wifi',
   standalone: true,
-  imports: [RouterLink, NetworkSsids, ...NET_SHARED],
+  imports: [RouterLink, NetworkSsids, ...NET_SHARED, NetworkSwitch],
   templateUrl: './network-wifi.html',
   styleUrls: ['../network-shared.css', './network-wifi.css']
 })

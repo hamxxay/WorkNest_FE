@@ -1,4 +1,5 @@
 <div class="net-page" #page>
+  <app-network-switch />
   <div class="dash-header">
     <div>
       <h1>Internet</h1>
@@ -7,7 +8,7 @@
     <div class="dash-header-actions no-print">
       <span class="updated">@if (loading() && !isp()) { Loading… } @else { {{ updatedText() }} }</span>
       <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !isp()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
-      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh" aria-label="Refresh internet data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh internet data" aria-label="Refresh internet data"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
     </div>
   </div>
 

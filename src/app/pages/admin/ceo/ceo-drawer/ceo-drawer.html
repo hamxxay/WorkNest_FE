@@ -25,6 +25,10 @@
           }
         </ol>
       </nav>
+      <button type="button" class="nav-btn drawer-export" (click)="exportExcel()" [disabled]="!canExport()" title="This list as an Excel workbook" aria-label="Export this list to Excel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+        <span class="drawer-export-label">Export Excel</span>
+      </button>
       <button type="button" class="close-btn" (click)="close()" aria-label="Close (Escape)" title="Close (Esc)">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
@@ -39,14 +43,15 @@
     @if (current()?.breakdown?.subtitle; as sub) { <p class="drawer-sub">{{ sub }}</p> }
     @if (current()?.level?.kind === 'records' && current()?.status === 'ok') {
       <p class="drawer-sub">
-        @if (recordTotal() > recordShown()) { Showing the newest {{ count(recordShown()) }} of {{ count(recordTotal()) }} }
+        @if (recordTotal() > recordShown()) { Showing the {{ recordKind() === 'leases' ? 'soonest' : 'newest' }} {{ count(recordShown()) }} of {{ count(recordTotal()) }} }
         @else { {{ count(recordTotal()) }} record{{ recordTotal() === 1 ? '' : 's' }} }
+        @if (current()?.records?.summary; as sum) { · {{ sum }} }
         · view only
       </p>
     }
   </header>
 
-  <div class="drawer-body">
+  <div class="drawer-body" [class.is-records]="current()?.level?.kind === 'records' && current()?.status === 'ok'">
     @switch (current()?.status) {
       @case ('loading') {
         <div class="state-loading" aria-busy="true">
@@ -91,22 +96,27 @@
                     <th scope="col">{{ spec()?.rowLabel }}</th>
                     <th scope="col" class="num">{{ current()?.breakdown?.valueLabel }}</th>
                     @if (hasValue2()) { <th scope="col" class="num">{{ current()?.breakdown?.value2Label || 'Second value' }}</th> }
+                    @if (amountCol(); as a) { <th scope="col" class="num">{{ a.label }}</th> }
                     @if (hasCount()) { <th scope="col" class="num">Count</th> }
                     @if (spec()?.derived; as d) { <th scope="col" class="num">{{ d.label }}</th> }
                     @if (canOpenRows()) { <th scope="col" class="col-go"><span class="sr-only">Open</span></th> }
                   </tr>
                 </thead>
                 <tbody>
-                  @for (r of rows(); track r.key + r.label) {
+                  @for (r of rows(); track r.key + r.label; let i = $index) {
                     <tr [class.clickable]="!!r.key" (click)="openRow(r)">
                       <th scope="row">
                         @if (r.key) {
-                          <button type="button" class="row-btn" (click)="openRow(r); $event.stopPropagation()" [attr.aria-label]="'Open ' + r.label">{{ r.label }}</button>
+                          <button type="button" class="row-btn" (click)="openRow(r); $event.stopPropagation()" [attr.aria-label]="rowAction(r)">{{ r.label }}</button>
                         } @else { {{ r.label }} }
                         <span class="row-bar" aria-hidden="true"><span [style.width.%]="(r.value / maxValue()) * 100"></span></span>
+                        @if (secondaries()[i]; as alt) {
+                          <button type="button" class="alt-link" (click)="openSecondary(r); $event.stopPropagation()" [attr.aria-label]="'Open the ' + alt.label + ' at ' + r.label">{{ alt.label }}</button>
+                        }
                       </th>
                       <td class="num" [title]="fmtFull(r.value)">{{ fmt(r.value) }}</td>
                       @if (hasValue2()) { <td class="num" [title]="fmtFull2(r.value2)">{{ fmt2(r.value2) }}</td> }
+                      @if (amountCol(); as a) { <td class="num strong" [title]="fmtFull(a.of(r))">{{ fmt(a.of(r)) }}</td> }
                       @if (hasCount()) { <td class="num">{{ r.count === null ? '-' : count(r.count) }}</td> }
                       @if (spec()?.derived; as d) {
                         <td class="num">{{ derivedText(d.of(r)) }}</td>
@@ -125,6 +135,7 @@
                       <th scope="row">Total</th>
                       <td class="num" [title]="fmtFull(totals().value)">{{ fmt(totals().value) }}</td>
                       @if (hasValue2()) { <td class="num" [title]="fmtFull2(totals().value2)">{{ fmt2(totals().value2) }}</td> }
+                      @if (amountCol()) { <td class="num" [title]="fmtFull(amountTotal())">{{ fmt(amountTotal()) }}</td> }
                       @if (hasCount()) { <td class="num">{{ count(totals().count) }}</td> }
                       @if (spec()?.derived) { <td class="num">{{ derivedText(derivedTotal()) }}</td> }
                       @if (canOpenRows()) { <td class="col-go"></td> }
@@ -133,9 +144,16 @@
                 }
               </table>
             </div>
-            @if (canOpenRows()) { <p class="hint">Select a row to see the records behind it.</p> }
+            @if (canOpenRows()) { <p class="hint">{{ hintText() }}</p> }
           }
         } @else {
+          @if (related().length) {
+            <nav class="related" aria-label="Related lists">
+              @for (x of related(); track x.label) {
+                <button type="button" class="alt-link" (click)="openRelated(x)">{{ x.label }}</button>
+              }
+            </nav>
+          }
           @if (!recordShown()) {
             <div class="state-box">
               <span class="state-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
@@ -143,22 +161,67 @@
               <span>Nothing matches this selection.</span>
             </div>
           } @else {
+            @if (recordKind() === 'spaces') {
+              <div class="sp-bar">
+                @if (spaceMixed()) {
+                  <div class="seg" role="group" aria-label="Show spaces">
+                    <button type="button" [class.on]="spaceFilter() === 'all'" [attr.aria-pressed]="spaceFilter() === 'all'" (click)="setSpaceFilter('all')">All <span>{{ count(spaceStats().all) }}</span></button>
+                    <button type="button" [class.on]="spaceFilter() === 'occupied'" [attr.aria-pressed]="spaceFilter() === 'occupied'" (click)="setSpaceFilter('occupied')">Occupied <span>{{ count(spaceStats().occupied) }}</span></button>
+                    <button type="button" [class.on]="spaceFilter() === 'vacant'" [attr.aria-pressed]="spaceFilter() === 'vacant'" (click)="setSpaceFilter('vacant')">Vacant <span>{{ count(spaceStats().vacant) }}</span></button>
+                  </div>
+                }
+                <span class="sp-sum">
+                  @if (spaceMixed()) {
+                    {{ count(spaceStats().occupied) }} of {{ count(spaceStats().all) }} in use · {{ count(spaceStats().seatsInUse) }} seats taken
+                  } @else if (spaceStats().occupied) {
+                    {{ count(spaceStats().occupied) }} {{ spaceStats().occupied === 1 ? 'room' : 'rooms' }} in use · {{ count(spaceStats().seatsInUse) }} seats taken
+                  } @else { None of these {{ count(spaceStats().all) }} is in use }
+                </span>
+              </div>
+            }
             <div class="table-scroll">
               @switch (recordKind()) {
                 @case ('invoices') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th><th scope="col" class="num">Total</th><th scope="col" class="num">Balance</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Due</th>
+                      <th scope="col" class="num">{{ invoiceWindowed() ? 'Revenue' : 'Amount' }}</th>
+                      @if (invoiceDeposits()) { <th scope="col" class="num">Security deposit</th> }
+                      <th scope="col" class="num">{{ invoiceWindowed() ? 'Receivable' : 'Balance' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of invoiceRows(); track r.invoiceId || $index) {
                         <tr>
-                          <th scope="row"><strong>{{ r.invoiceNumber || '-' }}</strong><small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small></th>
-                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
+                          <th scope="row">
+                            <strong>{{ r.invoiceNumber || '-' }}</strong>
+                            @if (periodOf(r); as period) {
+                              <span class="rec-period">{{ period }}</span>
+                              @if (r.issuedOn) { <small>Issued {{ r.issuedOn | date:'d MMM y' }}</small> }
+                            } @else {
+                              <small>@if (r.issuedOn) { {{ r.issuedOn | date:'d MMM y' }} }</small>
+                            }
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                          </th>
+                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ placeOf(r) }}</small></td>
                           <td>
                             @if (r.dueOn) { {{ r.dueOn | date:'d MMM y' }} } @else { - }
                             @if (r.balance > 0 && (daysFrom(r.dueOn) ?? 0) < 0) { <small class="late">{{ -(daysFrom(r.dueOn) ?? 0) }}d overdue</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}<small [title]="fullMoney(r.paid) + ' paid'">{{ money(r.paid) }} paid</small></td>
-                          <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}</td>
+                          @if (r.receivable !== null && r.receivable !== undefined) {
+                            <!-- RC_05: a list with a period: the period's revenue / paid / receivable; the whole invoice below. -->
+                            <td class="num" [title]="fullMoney(r.billed ?? 0) + ' revenue in the period, without security deposits'">{{ money(r.billed ?? 0) }}<small [title]="fullMoney(r.collected ?? 0) + ' paid in the period'">{{ money(r.collected ?? 0) }} paid</small></td>
+                            @if (invoiceDeposits()) { <td class="num" [title]="r.deposit ? fullMoney(r.deposit) + ' security deposit, not in Revenue' : 'No security deposit'">@if (r.deposit) { {{ money(r.deposit) }} } @else { - }</td> }
+                            <td class="num" [class.strong]="r.receivable > 0" [title]="fullMoney(r.receivable) + ' left to pay for the period'">{{ money(r.receivable) }}
+                              @if (r.whtOpen) { <small [title]="fullMoney(r.whtOpen) + ' WHT withheld by the customer, not owed'">WHT {{ money(r.whtOpen) }}</small> }
+                              <small [title]="'Whole invoice: ' + fullMoney(r.total) + ' total, ' + fullMoney(r.paid) + ' paid, ' + fullMoney(r.balance) + ' owed'">Invoice {{ money(r.total) }} · {{ money(r.paid) }} paid</small>
+                            </td>
+                          } @else {
+                            <!-- The invoice without its security deposit; the deposit in its own column. -->
+                            <td class="num" [title]="fullMoney(r.total - (r.deposit ?? 0)) + ' without the security deposit'">{{ money(r.total - (r.deposit ?? 0)) }}</td>
+                            @if (invoiceDeposits()) { <td class="num" [title]="r.deposit ? fullMoney(r.deposit) + ' security deposit, not in Revenue' : 'No security deposit'">@if (r.deposit) { {{ money(r.deposit) }} } @else { - }</td> }
+                            <td class="num" [class.strong]="r.balance > 0" [title]="fullMoney(r.balance)">{{ money(r.balance) }}
+                              @if (r.wht) { <small [title]="fullMoney(r.wht) + ' withheld by the customer, not owed'">WHT {{ money(r.wht) }}</small> }
+                              <small [title]="'Whole invoice: ' + fullMoney(r.total) + ' total, ' + fullMoney(r.paid) + ' paid'">Invoice {{ money(r.total) }} · {{ money(r.paid) }} paid</small>
+                            </td>
+                          }
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }
@@ -166,17 +229,33 @@
                   </table>
                 }
                 @case ('spaces') {
-                  <table class="dr-table records">
-                    <thead><tr><th scope="col">Space</th><th scope="col">Location</th><th scope="col" class="num">Seats</th><th scope="col">Status</th><th scope="col">Customer</th><th scope="col">Booked until</th></tr></thead>
+                  <table class="dr-table records spaces">
+                    <thead><tr>
+                      <th scope="col">Space</th><th scope="col" class="num">Seats</th>
+                      @if (spaceMixed()) { <th scope="col">Status</th> }
+                      <th scope="col">Customer</th><th scope="col">Booked until</th>
+                    </tr></thead>
                     <tbody>
-                      @for (r of spaceRows(); track r.spaceId || $index) {
-                        <tr>
-                          <th scope="row"><strong>{{ r.name || '-' }}</strong><small>{{ r.spaceType }}</small></th>
-                          <td>{{ r.location || '-' }}</td>
+                      @for (r of spaceShown(); track r.spaceId || $index) {
+                        <tr [class.vacant]="!r.occupied">
+                          <th scope="row"><strong>{{ r.name || '-' }}</strong>@if (spaceSub(r); as sub) { <small>{{ sub }}</small> }</th>
                           <td class="num">{{ r.capacity ?? '-' }}</td>
-                          <td><span class="pill" [class]="'pill tone-' + (r.occupied ? 'ok' : 'neutral')">{{ r.occupied ? 'Occupied' : 'Vacant' }}</span></td>
-                          <td><span class="clip">{{ r.customer || '-' }}</span></td>
-                          <td>@if (r.bookingEndOn) { {{ r.bookingEndOn | date:'d MMM y' }} } @else { - }</td>
+                          @if (spaceMixed()) {
+                            <td><span class="pill" [class]="'pill tone-' + (r.occupied ? 'ok' : 'neutral')">{{ r.occupied ? 'Occupied' : 'Vacant' }}</span></td>
+                          }
+                          <td>
+                            @if (r.occupied) {
+                              <span class="clip wide" [title]="r.customer">{{ r.customer || 'Booked' }}</span>
+                              @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                            } @else { <span class="none">-</span> }
+                          </td>
+                          <td>
+                            @if (r.bookingEndOn) {
+                              {{ r.bookingEndOn | date:'d MMM y' }}
+                              @let d = daysFrom(r.bookingEndOn);
+                              @if (d !== null && d <= 60) { <small class="soon">{{ leaseDaysText(d) }}</small> }
+                            } @else { <span class="none">-</span> }
+                          </td>
                         </tr>
                       }
                     </tbody>
@@ -184,16 +263,24 @@
                 }
                 @case ('bookings') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Amount' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of bookingRows(); track r.bookingId || $index) {
                         <tr>
-                          <th scope="row"><strong class="clip">{{ r.customer || '-' }}</strong><small>Booking #{{ r.bookingId }}</small></th>
+                          <th scope="row">
+                            <strong class="clip">{{ r.customer || '-' }}</strong>
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                            @else { <small>Booking #{{ r.bookingId }}</small> }
+                          </th>
                           <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
                           <td>@if (r.startOn) { {{ r.startOn | date:'d MMM y' }} } @else { - }</td>
                           <td>@if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }</td>
-                          <td class="num" [title]="fullMoney(r.totalAmount)">{{ money(r.totalAmount) }}</td>
-                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
+                          @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
+                          @else { <td class="num" [title]="fullMoney(r.totalAmount)">{{ money(r.totalAmount) }}</td> }
+                          <td>
+                            <span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span>
+                            @if (r.seller) { <small>Sold by {{ r.seller }}</small> }
+                          </td>
                         </tr>
                       }
                     </tbody>
@@ -210,7 +297,7 @@
                             <span class="type-pill" [style.background]="typeStyle(r.type).bg" [style.color]="typeStyle(r.type).fg">{{ typeStyle(r.type).label }}</span>
                             @if (r.referenceName) { <small>{{ r.referenceName }}</small> }
                           </td>
-                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
+                          <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ (r.status || '').toLowerCase() === 'resolved' ? 'Tour Done' : (r.status || '-') }}</span></td>
                           <td>@if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} } @else { - }</td>
                           @if (inquiryFollowUp()) {
                             <td>
@@ -228,17 +315,71 @@
                 }
                 @case ('leases') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">Monthly rent</th></tr></thead>
+                    <thead><tr><th scope="col">Customer</th><th scope="col">Space</th><th scope="col">Ends</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Monthly rent' }}</th></tr></thead>
                     <tbody>
                       @for (r of leaseRows(); track r.bookingId || $index) {
                         <tr>
-                          <th scope="row"><strong class="clip">{{ r.customer || '-' }}</strong>@if (r.bookingId) { <small>Booking #{{ r.bookingId }}</small> }</th>
+                          <th scope="row">
+                            <strong class="clip">{{ r.customer || '-' }}</strong>
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                            @else if (r.bookingId) { <small>Booking #{{ r.bookingId }}</small> }
+                          </th>
                           <td><span class="clip">{{ r.space || '-' }}</span><small>{{ r.location }}</small></td>
                           <td>
                             @if (r.endOn) { {{ r.endOn | date:'d MMM y' }} } @else { - }
-                            @if (r.daysLeft !== null) { <small [class.late]="r.daysLeft <= 14">{{ r.daysLeft === 0 ? 'Ends today' : r.daysLeft + (r.daysLeft === 1 ? ' day left' : ' days left') }}</small> }
+                            @if (r.daysLeft !== null) { <small [class.late]="r.daysLeft <= 14">{{ leaseDaysText(r.daysLeft) }}</small> }
                           </td>
-                          <td class="num" [title]="fullMoney(r.monthlyAmount)">{{ money(r.monthlyAmount) }}</td>
+                          @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
+                          @else { <td class="num" [title]="fullMoney(r.monthlyAmount) + ' a month'">{{ money(r.monthlyAmount) }}</td> }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+                @case ('receipts') {
+                  <!-- CP_02: money received, by the day it came in -->
+                  <table class="dr-table records">
+                    <thead><tr><th scope="col">Received</th><th scope="col">Customer</th><th scope="col">Invoice</th><th scope="col">Method</th><th scope="col" class="num">Amount</th>@if (receiptDeposits()) { <th scope="col" class="num">Security deposit</th> }</tr></thead>
+                    <tbody>
+                      @for (r of receiptRows(); track r.kind + r.refId) {
+                        <tr>
+                          <th scope="row">
+                            <strong class="clip">{{ r.reference || '-' }}</strong>
+                            <small>@if (r.receivedOn) { {{ r.receivedOn | date:'d MMM y' }} · }{{ r.kind === 'payment' ? 'Payment' : 'Fee receipt' }}</small>
+                          </th>
+                          <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
+                          <td>
+                            {{ r.invoiceNumber || '-' }}
+                            @if (bookingLink(r.bookingId); as l) { <a class="rec-link" [routerLink]="l.path" [queryParams]="l.queryParams" title="Open this booking">Booking #{{ r.bookingId }}</a> }
+                          </td>
+                          <td><span class="clip">{{ r.method || '-' }}</span></td>
+                          <td class="num" [title]="fullMoney(r.amount)">{{ money(r.amount) }}</td>
+                          @if (receiptDeposits()) { <td class="num" [title]="r.deposit ? fullMoney(r.deposit) + ' of the amount is a security deposit' : 'No security deposit'">@if (r.deposit) { {{ money(r.deposit) }} } @else { - }</td> }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+                @case ('complaints') {
+                  <table class="dr-table records complaints">
+                    <thead><tr><th scope="col">Complaint</th><th scope="col">Customer</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Raised</th><th scope="col">Description</th></tr></thead>
+                    <tbody>
+                      @for (r of complaintRows(); track r.complaintId || $index) {
+                        <tr [class.hl]="highlight() !== null && r.complaintId === highlight()">
+                          <th scope="row"><strong>{{ r.complaintNo || '-' }}</strong><small>{{ r.source.toLowerCase() === 'whatsapp' ? 'WhatsApp' : 'Staff' }}</small></th>
+                          <td><span class="clip">{{ r.customerName || '-' }}</span>@if (r.phone) { <small>{{ r.phone }}</small> }</td>
+                          <td><span class="clip">{{ r.category || '-' }}</span><small>{{ r.branch || 'No branch' }}</small></td>
+                          <td>
+                            <span class="type-pill" [style.background]="complaintStyle(r.status).bg" [style.color]="complaintStyle(r.status).fg">{{ complaintStyle(r.status).label }}</span>
+                            @if (r.isFollowUp) { <small class="reopened">Reopened</small> }
+                          </td>
+                          <td>
+                            @if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} } @else { - }
+                            @if (r.ageDays !== null) {
+                              <small [class.late]="isActiveComplaint(r.status) && r.ageDays >= 7" [class.soon]="isActiveComplaint(r.status) && r.ageDays >= 3 && r.ageDays < 7">{{ ageText(r.ageDays) }}{{ r.ageDays > 0 ? ' old' : '' }}</small>
+                            }
+                          </td>
+                          <td><span class="desc" [title]="r.description">{{ r.description || '-' }}</span></td>
                         </tr>
                       }
                     </tbody>
@@ -246,14 +387,15 @@
                 }
                 @case ('quotations') {
                   <table class="dr-table records">
-                    <thead><tr><th scope="col">Quotation</th><th scope="col">Customer</th><th scope="col">Created by</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+                    <thead><tr><th scope="col">Quotation</th><th scope="col">Customer</th><th scope="col">Created by</th><th scope="col" class="num">{{ desks() ? 'Desks' : 'Total' }}</th><th scope="col">Status</th></tr></thead>
                     <tbody>
                       @for (r of quotationRows(); track r.quotationId || $index) {
                         <tr>
                           <th scope="row"><strong>{{ r.quotationNumber || '-' }}</strong><small>@if (r.createdOn) { {{ r.createdOn | date:'d MMM y' }} }</small></th>
                           <td><span class="clip">{{ r.customer || '-' }}</span><small>{{ r.location }}</small></td>
                           <td><span class="clip">{{ r.createdBy || '-' }}</span></td>
-                          <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}</td>
+                          @if (desks()) { <td class="num">{{ count(r.desks) }}</td> }
+                          @else { <td class="num" [title]="fullMoney(r.total)">{{ money(r.total) }}</td> }
                           <td><span class="pill" [class]="'pill tone-' + statusTone(r.status)">{{ r.status || '-' }}</span></td>
                         </tr>
                       }

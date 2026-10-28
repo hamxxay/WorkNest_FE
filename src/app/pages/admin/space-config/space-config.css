@@ -195,3 +195,11 @@ code.sc-code {
   .sc-filter-row { flex-direction: column; }
   .page-header { flex-direction: column; }
 }
+
+/* ===================== Responsive (phones) ===================== */
+:host { display: block; min-width: 0; }
+@media (max-width: 640px) {
+  .sc-filter-row { align-items: stretch; }
+  .sc-filter-group { min-width: 0; }
+  .sc-filter-group :is(input, select), .form-row-admin :is(input, select) { font-size: 16px; min-height: 44px; }
+}

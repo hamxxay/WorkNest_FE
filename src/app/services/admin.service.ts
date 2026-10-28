@@ -14,9 +14,11 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest } from '../models/admin.model';
+import { InquiryRef, inquiryPath } from '../utils/inquiry-ref';
+import { FilteredList, LIST_API_PATH, ListFilterParams, ListStatusOption, appendListFilters } from '../utils/list-filters';
+import { ApiResponse, User, Location, SpaceType, Space, Booking, Membership, Payment, Contact, GalleryImage, AnnouncementItem, CreateAnnouncementRequest, OccupiedSpaces } from '../models/admin.model';
 
 // Injectable service provided at the root level (singleton)
 @Injectable({ providedIn: 'root' })
@@ -121,7 +123,10 @@ export class AdminService {
 
   // ============= SPACE TYPE MANAGEMENT =============
 
-  /** Get paginated list of space types */
+  /**
+   * Get paginated list of space types (every location's). Each location has its own types: rows carry
+   * locationId / locationName (an older API leaves them out), and forms filter them by their location.
+   */
   getSpaceTypes(page?: number, limit?: number, search?: string): Observable<ApiResponse<SpaceType[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
@@ -131,7 +136,12 @@ export class AdminService {
     return this.http.get<ApiResponse<SpaceType[]>>(`${this.api}/spacetype${qs}`);
   }
 
-  /** Create space type */
+  /** Space categories (Id, Code, Label) for the Space Types form (GET api/spacetype/categories). */
+  getSpaceCategories(): Observable<ApiResponse<{ id: number; code: string; label: string }[]>> {
+    return this.http.get<ApiResponse<{ id: number; code: string; label: string }[]>>(`${this.api}/spacetype/categories`);
+  }
+
+  /** Create space type (body includes locationId: the location it belongs to) */
   createSpaceType(data: Partial<SpaceType>): Observable<ApiResponse<SpaceType>> {
     return this.http.post<ApiResponse<SpaceType>>(`${this.api}/spacetype`, data);
   }
@@ -190,12 +200,13 @@ export class AdminService {
   // ============= BOOKING MANAGEMENT =============
 
   /** Get paginated list of bookings */
-  getBookings(page?: number, limit?: number, search?: string, locationId?: number): Observable<ApiResponse<Booking[]>> {
+  getBookings(page?: number, limit?: number, search?: string, locationId?: number, filters?: ListFilterParams): Observable<ApiResponse<Booking[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Booking[]>>(`${this.api}/booking${qs}`);
   }
@@ -253,11 +264,12 @@ export class AdminService {
   getMembershipSummary(id: number): Observable<ApiResponse<any>> { return this.http.get<ApiResponse<any>>(`${this.api}/membership/${id}/summary`); }
 
   // Payments
-  getPayments(page?: number, limit?: number, search?: string): Observable<ApiResponse<Payment[]>> {
+  getPayments(page?: number, limit?: number, search?: string, filters?: ListFilterParams): Observable<ApiResponse<Payment[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Payment[]>>(`${this.api}/payment${qs}`);
   }
@@ -277,13 +289,14 @@ export class AdminService {
   // ============= INVOICE MANAGEMENT =============
 
   /** Get paginated list of invoices with optional type filter (1: Regular, 3: Security Deposit) */
-  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number): Observable<ApiResponse<any[]>> {
+  getInvoices(page?: number, limit?: number, search?: string, typeId?: number, locationId?: number, filters?: ListFilterParams): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (typeId != null && typeId > 0) params.set('typeId', String(typeId));
     if (locationId != null && locationId > 0) params.set('locationId', String(locationId));
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice${qs}`);
   }
@@ -311,6 +324,26 @@ export class AdminService {
   /** Create custom manual invoice */
   createCustomInvoice(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice`, data);
+  }
+
+  getApprovalQueue(locationId?: number): Observable<ApiResponse<any[]>> {
+    const qs = locationId ? `?locationId=${locationId}` : '';
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/invoice/approval-queue${qs}`);
+  }
+
+  recordInvoiceViewed(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/view`, {});
+  }
+
+  approveInvoice(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/approve`, {});
+  }
+
+  deleteUnapprovedInvoice(invoiceId: number): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/unapproved`);
+  }
+  revertInvoiceApproval(invoiceId: number, reason: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/revert-approval`, { reason });
   }
 
   sendInvoiceEmail(invoiceId: number): Observable<ApiResponse<any>> {
@@ -344,6 +377,14 @@ export class AdminService {
   }
 
   /** Get booking billing and security deposit summary */
+  /** Generate a recurring invoice for a booking (autoApproveAndSend=false sends it to Invoice Approvals) */
+  generateRecurringInvoice(bookingId: number, autoApproveAndSend: boolean = false, sendIfAlreadyExists: boolean = false): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.api}/booking/${bookingId}/generate-recurring-invoice`, {
+      autoApproveAndSend,
+      sendIfAlreadyExists
+    });
+  }
+
   getBookingBillingSummary(bookingId: number): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.api}/booking/${bookingId}/billing-summary`);
   }
@@ -360,22 +401,36 @@ export class AdminService {
 
 
   // Contact Messages
-  /** type: Website | WhatsApp | WalkIn | Reference (empty = all). */
-  getContacts(page?: number, limit?: number, search?: string, type?: string): Observable<ApiResponse<Contact[]>> {
+  /** type: Website | WhatsApp | WalkIn | Reference (empty = all). locationId: one branch (empty = every branch the user sees). */
+  /** category: 'tour' (default on the API when omitted) or 'general' (Simple Inquiries: WhatsApp free text). */
+  getContacts(page?: number, limit?: number, search?: string, type?: string, locationId?: number | null, category?: 'tour' | 'general'): Observable<ApiResponse<Contact[]>> {
       const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
     if (type) params.set('type', type);
+    if (locationId) params.set('locationId', String(locationId));
+    if (category) params.set('category', category);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<Contact[]>>(`${this.api}/contact${qs}`);
   }
-  updateContactStatus(id: number, statusId: number): Observable<ApiResponse<any>> { return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${id}/status`, { statusId }); }
+  /** Status of one inquiry, by its public id (or id + source: old rows can share an id, see utils/inquiry-ref). */
+  updateContactStatus(ref: InquiryRef, statusId: number): Observable<ApiResponse<any>> {
+    const path = inquiryPath(ref, 'status');
+    if (!path) return throwError(() => ({ error: { message: 'This inquiry could not be identified. Refresh the page and try again.' } }));
+    return this.http.patch<ApiResponse<any>>(`${this.api}/${path}`, { statusId });
+  }
   // Complaints (WhatsApp chatbot + entered by staff)
-  getComplaints(page?: number, limit?: number, search?: string): Observable<any> {
+  /** locationId: one branch (empty = every branch the user sees). */
+  getComplaints(page?: number, limit?: number, search?: string, locationId?: number | null): Observable<any> {
     const params: any = { page: page || 1, limit: limit || 10 };
     if (search) params.search = search;
+    if (locationId) params.locationId = locationId;
     return this.http.get<any>(`${this.api}/complaints`, { params });
+  }
+  /** Set or change a complaint's branch (a dbo.WN_Locations id; saved as its name in WN_Complaints.Branch). */
+  updateComplaintBranch(id: number, locationId: number): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/complaints/${id}/branch`, { locationId });
   }
   createComplaint(data: any): Observable<ApiResponse<any>> { return this.http.post<ApiResponse<any>>(`${this.api}/complaints`, data); }
   /** status: open | in_progress | resolved | closed. Resolved asks the customer on WhatsApp to confirm. */
@@ -383,19 +438,29 @@ export class AdminService {
     return this.http.patch<ApiResponse<any>>(`${this.api}/complaints/${id}/status`, { status });
   }
   /** Feedback on a tour inquiry: not_interested (reason) | future_prospect (followUpOn yyyy-MM-dd) | converted (quotationId). */
-  saveContactFeedback(id: number | string, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(String(id))}/feedback`, data);
+  saveContactFeedback(ref: InquiryRef, data: { outcome: string; reason?: string | null; followUpOn?: string | null; quotationId?: number | null }): Observable<ApiResponse<any>> {
+    const path = inquiryPath(ref, 'feedback');
+    if (!path) return throwError(() => ({ error: { message: 'This inquiry could not be identified. Refresh the page and try again.' } }));
+    return this.http.post<ApiResponse<any>>(`${this.api}/${path}`, data);
   }
   /** Tour inquiry entered by staff: Type WalkIn or Reference (referenceName empty = the staff member). */
   createTourInquiry(data: { fullName: string; email: string; phone?: string | null; message?: string | null;
-    inquiryType: 'WalkIn' | 'Reference'; referenceName?: string | null }): Observable<ApiResponse<any>> {
+    inquiryType: 'WalkIn' | 'Reference'; referenceName?: string | null; locationId?: number | null }): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/book-tour`, data);
+  }
+  /** Set or change an inquiry's branch (a dbo.WN_Locations id) by its public id. */
+  updateContactLocation(publicId: string, locationId: number): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(publicId)}/location`, { locationId });
   }
   /** Change an inquiry's Type (Website | WhatsApp | WalkIn | Reference) by its public id. */
   updateContactInquiryType(publicId: string, data: { inquiryType: string; referenceName?: string | null }): Observable<ApiResponse<any>> {
     return this.http.patch<ApiResponse<any>>(`${this.api}/contact/${encodeURIComponent(publicId)}/inquiry-type`, data);
   }
-  deleteContact(id: number): Observable<ApiResponse<any>> { return this.http.delete<ApiResponse<any>>(`${this.api}/contact/${id}`); }
+  deleteContact(ref: InquiryRef): Observable<ApiResponse<any>> {
+    const path = inquiryPath(ref, '');
+    if (!path) return throwError(() => ({ error: { message: 'This inquiry could not be identified. Refresh the page and try again.' } }));
+    return this.http.delete<ApiResponse<any>>(`${this.api}/${path}`);
+  }
 
   // Floors
   getFloors(locationId?: number): Observable<ApiResponse<any[]>> {
@@ -433,13 +498,23 @@ export class AdminService {
   }
 
   // Customers
-  getCustomers(page?: number, limit?: number, search?: string): Observable<ApiResponse<any[]>> {
+  getCustomers(page?: number, limit?: number, search?: string, filters?: ListFilterParams): Observable<ApiResponse<any[]>> {
     const params = new URLSearchParams();
     if (page != null) params.set('page', String(page));
     if (limit != null) params.set('limit', String(limit));
     if (search) params.set('search', search);
+    appendListFilters(params, filters);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this.http.get<ApiResponse<any[]>>(`${this.api}/customer${qs}`);
+  }
+
+  /** Choices of a list's Status filter, from the database (GET api/{list}/statuses): [{ value, label }]. */
+  getListStatusOptions(list: FilteredList): Observable<ListStatusOption[]> {
+    return this.http.get<ApiResponse<any[]>>(`${this.api}/${LIST_API_PATH[list]}/statuses`).pipe(
+      map(res => (Array.isArray(res?.data) ? res.data : [])
+        .map((o: any) => ({ value: String(o?.value ?? o?.Value ?? '').trim(), label: String(o?.label ?? o?.Label ?? '').trim() }))
+        .filter((o: ListStatusOption) => o.value !== '' && o.label !== ''))
+    );
   }
   searchCustomers(query: string): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.api}/customer/search?q=${encodeURIComponent(query)}`);
@@ -595,17 +670,29 @@ export class AdminService {
   }
   // Admin dashboard: headline numbers, 6-month trend, needs-attention lists (location-scoped by the API).
   // locationIds: total these locations (one or several); empty = all the user may see (API limits sales executives to theirs).
-  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+  // period 'custom': from / to (yyyy-MM-dd, both days included) are sent as the range; the other periods ignore them.
+  getDashboardOverview(locationId?: number | null, period: 'month' | 'quarter' | 'year' | 'custom' = 'month', locationIds: number[] = [],
+    from?: string | null, to?: string | null): Observable<any> {
     const params: any = { period };
     if (locationIds.length) params.locationIds = locationIds.join(',');
     else if (locationId) params.locationId = locationId;
+    if (period === 'custom' && from && to) { params.from = from; params.to = to; }
     return this.http.get<any>(`${this.api}/dashboard/overview`, { params });
+  }
+  // The rooms behind the overview's Occupancy card: every space in use right now (same rule and locations as the card).
+  getOccupiedSpaces(locationIds: number[] = [], locationId?: number | null): Observable<OccupiedSpaces> {
+    const params: any = {};
+    if (locationIds.length) params.locationIds = locationIds.join(',');
+    else if (locationId) params.locationId = locationId;
+    return this.http.get<OccupiedSpaces>(`${this.api}/dashboard/occupied-spaces`, { params });
   }
   // Role-based dashboard sections (sales executive: pipeline / inquiries / renewals / collections; admin: team &
   // service; super admin: also location comparison, staff, system health). Same location rules as the overview.
-  getRoleDashboard(period: 'month' | 'quarter' | 'year' = 'month', locationIds: number[] = []): Observable<any> {
+  getRoleDashboard(period: 'month' | 'quarter' | 'year' | 'custom' = 'month', locationIds: number[] = [],
+    from?: string | null, to?: string | null): Observable<any> {
     const params: any = { period };
     if (locationIds.length) params.locationIds = locationIds.join(',');
+    if (period === 'custom' && from && to) { params.from = from; params.to = to; }
     return this.http.get<any>(`${this.api}/dashboard/role`, { params });
   }
   // Revenue & occupancy forecast for the next N months (default 3) from current leases. Same location rules as the overview.

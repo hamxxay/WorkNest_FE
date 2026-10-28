@@ -116,7 +116,7 @@
 @if (showAuthPrompt) {
   <div class="modal-overlay" (click)="closeBookingModal()">
     <div class="modal-content modal-narrow" (click)="$event.stopPropagation()">
-      <button class="modal-close" (click)="closeBookingModal()">
+      <button class="modal-close" (click)="closeBookingModal()" title="Close" aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
       <div class="auth-prompt">
@@ -136,7 +136,7 @@
 @if (showBookingModal && selectedSpace && bookingForm) {
   <div class="modal-overlay">
     <div class="modal-content">
-      <button class="modal-close" (click)="closeBookingModal()">
+      <button class="modal-close" (click)="closeBookingModal()" title="Close" aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
 
@@ -164,7 +164,7 @@
 
         <div class="form-group">
           <label class="form-label">Start Date *</label>
-          <input type="date" class="form-input" formControlName="startDate" [min]="today" />
+          <input type="date" class="form-input" formControlName="startDate" />
           @if (bookingForm.get('startDate')?.invalid && bookingForm.get('startDate')?.touched) {
             <small class="form-error">Start date is required.</small>
           }
@@ -273,7 +273,7 @@
 @if (showTncModal) {
   <div class="modal-overlay" (click)="closeTncModal()">
     <div class="modal-content modal-narrow" (click)="$event.stopPropagation()" style="max-width:520px">
-      <button class="modal-close" (click)="closeTncModal()">
+      <button class="modal-close" (click)="closeTncModal()" title="Close" aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
       <h2 style="margin-bottom:.5rem">Terms &amp; Conditions</h2>

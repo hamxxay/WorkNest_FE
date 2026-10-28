@@ -1,11 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthResult, AuthService, EMAIL_NOT_VERIFIED, authFailureCode } from '../../services/auth.service';
+import { VerifyEmail } from '../../components/verify-email/verify-email';
+import { handOffToPublicSite } from '../../utils/public-site';
 
 @Component({
   selector: 'app-signup',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, VerifyEmail],
   templateUrl: './signup.html',
   styleUrl: './signup.css'
 })
@@ -20,6 +22,10 @@ export class Signup {
   error = signal('');
   success = signal('');
   socialLoading = signal<'google' | null>(null);
+  /** Set while the "Check your email" step is shown: the new account's email. */
+  verifyEmail = signal<string | null>(null);
+  /** The verification email went out with the sign-up (else the step sends it when it opens). */
+  verificationSent = signal(false);
   private readonly fallbackRedirect = '/';
 
   constructor(
@@ -60,9 +66,13 @@ export class Signup {
     this.authService.register(this.email, this.password, firstName, lastName).subscribe({
       next: (res) => {
         this.loading.set(false);
-        if (res.isSuccessful) {
-          this.success.set('Account created successfully! Redirecting to login...');
-          setTimeout(() => this.router.navigate(['/login']), 2000);
+        if (res.isSuccessful && !res.verificationRequired) {
+          // Signed in straight away (the API doesn't ask for a verified email).
+          this.router.navigateByUrl(this.getRedirectUrl());
+        } else if (res.isSuccessful) {
+          // The API accepts the account once its email is verified: show "Check your email".
+          this.verificationSent.set(res.emailSent);
+          this.verifyEmail.set(this.authService.pendingVerificationEmail() || this.email);
         } else {
           const msg = res.message || 'Registration failed.';
           alert(msg);
@@ -94,11 +104,38 @@ export class Signup {
       },
       error: (err) => {
         this.socialLoading.set(null);
+        if (authFailureCode(err) === EMAIL_NOT_VERIFIED && this.authService.pendingVerificationEmail()) {
+          this.verificationSent.set(false);
+          this.verifyEmail.set(this.authService.pendingVerificationEmail());
+          return;
+        }
         const msg = err.error?.message || 'Social sign-up failed. Please try again.';
         alert(msg);
         this.error.set(msg);
       }
     });
+  }
+
+  /** The email is verified and the API signed the user in: staff go to their page, customers to worknestpk.com. */
+  onEmailVerified(res: AuthResult) {
+    this.verifyEmail.set(null);
+    const staff = ['superadmin', 'admin', 'salesexecutive', 'receptionist', 'ceo', 'salesmanager', 'accessofficer', 'networkengineer'];
+    const isStaff = (res.data?.roles ?? []).some(r => staff.includes(String(r).toLowerCase().replace(/[\s_]/g, '')));
+    if (isStaff) {
+      this.router.navigateByUrl(this.authService.getPostLoginRedirect());
+      return;
+    }
+    this.success.set('Email verified. Taking you to worknestpk.com...');
+    handOffToPublicSite(this.authService, '/');
+  }
+
+  /** Left the "Check your email" step (signed out of Firebase); message = why (e.g. account turned off), else null. */
+  onVerificationBack(message: string | null) {
+    this.verifyEmail.set(null);
+    if (message) {
+      alert(message);
+      this.error.set(message);
+    }
   }
 
   private getRedirectUrl(): string {

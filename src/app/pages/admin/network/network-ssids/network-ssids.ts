@@ -41,9 +41,9 @@ export class NetworkSsids implements OnInit, OnDestroy {
   private auth = inject(AuthService);
 
   /** Speed limits are set by super admins only (the API enforces it too). */
-  readonly canLimitSpeed = this.auth.hasRole('super_admin');
+  readonly canLimitSpeed = this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
   /** Admins / super admins change access mode, name and blocking; sales executives only add / remove allowed devices. */
-  readonly canManage = this.auth.hasRole('admin') || this.auth.hasRole('super_admin');
+  readonly canManage = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('network_engineer');
 
   modeText(p: Policy): string {
     return p === 'allow' ? 'Allowed devices only' : p === 'deny' ? 'Block listed devices' : 'Normal';

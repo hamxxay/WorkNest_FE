@@ -11,7 +11,7 @@
     <div class="ms-filter-row">
       <div class="ms-filter-group">
         <label>Location *</label>
-        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onFilterChange()" [disabled]="!isSuperAdmin && !!userLocationId">
+        <select class="form-input-admin" [(ngModel)]="filterLocationId" (ngModelChange)="onLocationFilterChange()" [disabled]="!isSuperAdmin && !!userLocationId">
           @if (isSuperAdmin || !userLocationId) {
             <option value="">All Locations</option>
           }
@@ -24,10 +24,13 @@
         <label>Space Type</label>
         <select class="form-input-admin" [(ngModel)]="filterSpaceTypeId" (ngModelChange)="onFilterChange()">
           <option value="">All Types</option>
-          @for (st of spaceTypeOptions(); track st.v) {
+          @for (st of visibleSpaceTypeOptions; track st.v) {
             <option [value]="st.v.toString()">{{ st.l }}</option>
           }
         </select>
+        @if (spaceTypeFilterHint) {
+          <small class="ms-filter-hint">{{ spaceTypeFilterHint }}</small>
+        }
       </div>
       <div class="ms-filter-group">
         <label>Capacity</label>
@@ -206,8 +209,8 @@
                       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                         <span class="ms-booked-badge">Has Bookings</span>
                         <button type="button" class="btn-admin btn-outline-admin" style="padding:2px 8px;font-size:11px;color:#ef4444;border-color:#fca5a5;cursor:pointer"
-                          (click)="removeBookingsForSpace(s)" title="Cancel active bookings for this space">
-                          Remove Booking
+                          (click)="removeBookingsForSpace(s)" title="Cancel the open bookings of this space">
+                          Cancel Bookings
                         </button>
                       </div>
                     } @else {
@@ -216,7 +219,7 @@
                   </td>
                   <td style="text-align:right">
                     <button type="button" class="btn-admin btn-outline-admin" style="padding:4px 8px;color:#dc2626;border-color:rgba(220,38,38,.25);cursor:pointer"
-                      (click)="deleteSingleSpace(s)" title="Delete space {{ s.code }}">
+                      (click)="deleteSingleSpace(s)" title="Delete space {{ s.code }}" aria-label="Delete space {{ s.code }}">
                       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                     </button>
                   </td>

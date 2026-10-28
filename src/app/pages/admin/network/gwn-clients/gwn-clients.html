@@ -1,0 +1,303 @@
+<div class="net-page" #page>
+  <app-network-switch />
+  <div class="dash-header">
+    <div>
+      <h1>Network Clients</h1>
+      <p class="dash-meta"><span>Every device on the Grandstream network (F-7)</span><span class="dot-sep"></span><span>Auto-refresh every 30 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh clients" aria-label="Refresh clients"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error" role="alert"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (unavailable(); as msg) {
+    <section class="gwn-off">
+      <div class="gwn-off-icon"><net-icon name="wifi" [size]="22" /></div>
+      <h3>Grandstream is not available</h3>
+      <p>{{ msg }}</p>
+    </section>
+  } @else {
+    <section class="kpi-grid">
+      @if (stats(); as s) {
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Connected clients</span>
+          <span class="kpi-value">{{ fmt(s.total) }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">{{ bytes(s.total24) }} used this session</span></div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Wi-Fi</span>
+          <span class="kpi-value">{{ fmt(s.wifi) }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">2.4G <b>{{ s.b24 }}</b> · 5G <b>{{ s.b5 }}</b>@if (s.b6) { · 6G <b>{{ s.b6 }}</b> }</span></div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Wired</span>
+          <span class="kpi-value">{{ fmt(s.wired) }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">Via the router's LAN ports</span></div>
+        </div>
+        <div class="kpi-card" [class.tone-ok]="!s.weak" [class.tone-warn]="s.weak">
+          <span class="kpi-label">Weak signal</span>
+          <span class="kpi-value">{{ fmt(s.weak) }}</span>
+          <div class="kpi-foot">@if (s.weak) { <span class="trend warn">Below -75 dBm</span> } @else { <span class="trend good">All clients have good signal</span> }</div>
+        </div>
+        <div class="kpi-card" [class.tone-neutral]="!s.blocked" [class.tone-danger]="s.blocked">
+          <span class="kpi-label">Blocked</span>
+          <span class="kpi-value">{{ fmt(s.blocked) }}</span>
+          <div class="kpi-foot">@if (s.blocked) { <button class="link-btn" (click)="tab.set('live'); band.set('blocked')">Show blocked</button> } @else { <span class="kpi-sub">No blocked clients</span> }</div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Top data user</span>
+          <span class="kpi-value">{{ s.top ? bytes(s.top.total) : '–' }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">{{ s.top ? clientName(s.top) : '' }}</span></div>
+        </div>
+      } @else if (loading()) {
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+      }
+    </section>
+
+    <section class="ins-grid">
+      <article class="dash-panel span-8">
+        <div class="panel-head">
+          <div><h3>Clients per access point</h3><p class="panel-sub">Wi-Fi clients on each Grandstream access point, by band</p></div>
+          <net-export [chart]="true" label="Clients per access point" (picked)="exportChart($event, 'Clients per access point', cAps)" />
+        </div>
+        <div class="chart-box h-lg">
+          @if (!data()) { <div class="sk chart-sk"></div> }
+          @else if (!live().length) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="users" [size]="18" /></span><strong>No data yet</strong><span>No clients are connected.</span></div> }
+          <canvas #cAps role="img" aria-label="Bar chart of clients per access point"></canvas>
+        </div>
+      </article>
+      <article class="dash-panel span-4">
+        <div class="panel-head">
+          <div><h3>Wi-Fi signal quality</h3><p class="panel-sub">Poor &lt; -75 dBm · Excellent &gt; -55 dBm</p></div>
+          <net-export [chart]="true" label="Wi-Fi signal quality" (picked)="exportChart($event, 'Wi-Fi signal quality', cSignal)" />
+        </div>
+        <div class="chart-box h-lg">
+          @if (!data()) { <div class="sk chart-sk"></div> }
+          <canvas #cSignal role="img" aria-label="Bar chart of wireless clients by signal quality"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <section class="dash-panel">
+      <div class="panel-head">
+        <div>
+          <h3>{{ tab() === 'live' ? 'All clients' : 'Client history' }}</h3>
+          <p class="panel-sub">
+            @if (tab() === 'live') { {{ data() ? rows().length + ' of ' + live().length + ' connected clients' : 'Loading…' }} }
+            @else { {{ history() ? historyRows().length + ' of ' + history()!.length + ' clients seen' : 'Loading…' }} }
+          </p>
+        </div>
+        <div class="seg" role="tablist" aria-label="Live or history">
+          <button role="tab" [attr.aria-selected]="tab() === 'live'" [class.active]="tab() === 'live'" (click)="setTab('live')">Live</button>
+          <button role="tab" [attr.aria-selected]="tab() === 'history'" [class.active]="tab() === 'history'" (click)="setTab('history')">History</button>
+        </div>
+      </div>
+
+      @if (tab() === 'live') {
+        <div class="panel-head" style="margin-top:-4px">
+          <div class="panel-tools">
+            <input class="form-control search" type="search" placeholder="Search name, IP, MAC, maker…" aria-label="Search clients" [ngModel]="search()" (ngModelChange)="search.set($event)">
+            <div class="seg" role="group" aria-label="Band">
+              <button [class.active]="band() === ''" (click)="band.set('')">All</button>
+              <button [class.active]="band() === '2.4G'" (click)="band.set('2.4G')">2.4 GHz</button>
+              <button [class.active]="band() === '5G'" (click)="band.set('5G')">5 GHz</button>
+              @if ((stats()?.b6 || 0) > 0) { <button [class.active]="band() === '6G'" (click)="band.set('6G')">6 GHz</button> }
+              <button [class.active]="band() === 'wired'" (click)="band.set('wired')">Wired</button>
+              @if ((stats()?.blocked || 0) > 0) { <button [class.active]="band() === 'blocked'" (click)="band.set('blocked')">Blocked</button> }
+            </div>
+            <select class="form-control" aria-label="Wi-Fi network" [ngModel]="ssid()" (ngModelChange)="ssid.set($event)">
+              <option value="">All Wi-Fi networks</option>
+              @for (s of ssidOptions(); track s) { <option [value]="s">{{ s }}</option> }
+            </select>
+            <select class="form-control" aria-label="Access point" [ngModel]="ap()" (ngModelChange)="ap.set($event)">
+              <option value="">All access points</option>
+              @for (a of apOptions(); track a[0]) { <option [value]="a[0]">{{ a[1] }}</option> }
+            </select>
+            <net-export [table]="true" label="All clients" (picked)="exportClients($event)" />
+          </div>
+        </div>
+        <div class="table-container scroll">
+          <table class="clean-table" #clientsTable>
+            <thead><tr>
+              <th class="sortable" [attr.aria-sort]="ariaSort('name')" (click)="setSort('name')">Client<span class="sort-icon">{{ sortMark('name') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="ariaSort('conn')" (click)="setSort('conn')">Connection<span class="sort-icon">{{ sortMark('conn') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="ariaSort('ap')" (click)="setSort('ap')">Connected to<span class="sort-icon">{{ sortMark('ap') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="ariaSort('signal')" (click)="setSort('signal')">Signal<span class="sort-icon">{{ sortMark('signal') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="ariaSort('ip')" (click)="setSort('ip')">IP address<span class="sort-icon">{{ sortMark('ip') }}</span></th>
+              <th class="sortable num" [attr.aria-sort]="ariaSort('down')" (click)="setSort('down')">Download<span class="sort-icon">{{ sortMark('down') }}</span></th>
+              <th class="sortable num" [attr.aria-sort]="ariaSort('up')" (click)="setSort('up')">Upload<span class="sort-icon">{{ sortMark('up') }}</span></th>
+              <th class="sortable num" [attr.aria-sort]="ariaSort('total')" (click)="setSort('total')">Total<span class="sort-icon">{{ sortMark('total') }}</span></th>
+              <th class="sortable num" [attr.aria-sort]="ariaSort('uptime')" (click)="setSort('uptime')">Connected for<span class="sort-icon">{{ sortMark('uptime') }}</span></th>
+            </tr></thead>
+            <tbody>
+              @if (data()) {
+                @for (c of rows(); track c.mac) {
+                  <tr class="clickable" (click)="openClient(c, $event)">
+                    <td><div class="dev"><span class="dev-icon"><net-icon [name]="gwnClientIcon(c)" [size]="16" /></span>
+                      <div><div class="dev-name">{{ clientName(c) }}@if (c.blocked) { <span class="tag" style="background:#fee2e2;color:#b91c1c">Blocked</span> }</div>
+                        <div class="muted small">{{ c.manufacturer || c.os || c.mac }}</div></div></div></td>
+                    <td>
+                      @if (c.wired) { <span class="conn"><net-icon name="cable" [size]="14" />Wired</span> }
+                      @else { <span class="conn"><net-icon name="wifi" [size]="14" />{{ c.ssid || 'Wi-Fi' }} · {{ bandLabel(c.band) }}</span> }
+                    </td>
+                    <td>@if (c.apMac) { <a [routerLink]="['/admin/network/gwn/device', c.apMac]">{{ apName(c.apMac) }}</a> } @else { – }</td>
+                    <td>@if (c.wired) { <span class="muted">–</span> } @else { <net-signal [dbm]="c.rssi" /> }</td>
+                    <td class="mono">{{ c.ip || '–' }}</td>
+                    <td class="num">{{ bytes(c.download) }}</td>
+                    <td class="num">{{ bytes(c.upload) }}</td>
+                    <td class="num"><b>{{ bytes(c.total) }}</b></td>
+                    <td class="num">{{ c.connectedSeconds != null ? dur(c.connectedSeconds) : (c.connectedFor || '–') }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="9" class="empty-state">No clients match.</td></tr>
+                }
+              } @else if (loading()) {
+                @for (r of [1, 2, 3, 4, 5, 6, 7, 8]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8, 9]; track c) { <td><div class="sk sk-line" [style.width.%]="c === 1 ? 80 : 60"></div></td> }</tr> }
+              } @else {
+                <tr><td colspan="9" class="empty-state">Client data is unavailable right now.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="panel-head" style="margin-top:-4px">
+          <div class="panel-tools">
+            <input class="form-control search" type="search" placeholder="Search name, IP, MAC, Wi-Fi…" aria-label="Search client history" [ngModel]="hSearch()" (ngModelChange)="hSearch.set($event)">
+            <div class="seg" role="group" aria-label="History period">
+              @for (o of historyDaysOptions; track o.days) { <button [class.active]="historyDays() === o.days" (click)="setHistoryDays(o.days)">{{ o.label }}</button> }
+            </div>
+            <net-export [table]="true" label="Client history" (picked)="exportHistory($event)" />
+          </div>
+        </div>
+        @if (historyError()) { <div class="ov-error"><net-icon name="alert" [size]="16" />{{ historyError() }} <button class="link-btn" (click)="loadHistory()">Try again</button></div> }
+        <div class="table-container scroll">
+          <table class="clean-table" #historyTable>
+            <thead><tr>
+              <th class="sortable" [attr.aria-sort]="hAriaSort('name')" (click)="setHSort('name')">Client<span class="sort-icon">{{ hSortMark('name') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="hAriaSort('ip')" (click)="setHSort('ip')">IP address<span class="sort-icon">{{ hSortMark('ip') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="hAriaSort('ssid')" (click)="setHSort('ssid')">Wi-Fi<span class="sort-icon">{{ hSortMark('ssid') }}</span></th>
+              <th class="num">Download</th>
+              <th class="num">Upload</th>
+              <th class="sortable num" [attr.aria-sort]="hAriaSort('total')" (click)="setHSort('total')">Total<span class="sort-icon">{{ hSortMark('total') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="hAriaSort('first')" (click)="setHSort('first')">First seen<span class="sort-icon">{{ hSortMark('first') }}</span></th>
+              <th class="sortable" [attr.aria-sort]="hAriaSort('last')" (click)="setHSort('last')">Last seen<span class="sort-icon">{{ hSortMark('last') }}</span></th>
+            </tr></thead>
+            <tbody>
+              @if (history()) {
+                @for (c of historyRows(); track c.mac) {
+                  <tr class="clickable" (click)="openClient(c)">
+                    <td><div class="dev"><span class="dev-icon"><net-icon name="users" [size]="16" /></span>
+                      <div><div class="dev-name">{{ c.alias || c.name || c.mac }}</div><div class="muted small mono">{{ c.mac }}</div></div></div></td>
+                    <td class="mono">{{ c.ip || '–' }}</td>
+                    <td>{{ c.ssid || '–' }}</td>
+                    <td class="num">{{ bytes(c.download) }}</td>
+                    <td class="num">{{ bytes(c.upload) }}</td>
+                    <td class="num"><b>{{ bytes(c.total) }}</b></td>
+                    <td>{{ when(c.firstSeen) }}</td>
+                    <td>{{ when(c.lastSeen) }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="8" class="empty-state">No clients in this period.</td></tr>
+                }
+              } @else if (historyLoading()) {
+                @for (r of [1, 2, 3, 4, 5, 6]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8]; track c) { <td><div class="sk sk-line"></div></td> }</tr> }
+              } @else {
+                <tr><td colspan="8" class="empty-state">History is unavailable right now.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>
+
+<!-- Client drawer -->
+@if (openMac()) {
+  <div class="drawer-bg" (click)="closeDrawer()"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="client-name">
+    <button class="icon-btn drawer-close" (click)="closeDrawer()" title="Close" aria-label="Close"><net-icon name="close" [size]="16" /></button>
+    @if (client(); as c) {
+      <div class="hero">
+        <div class="hero-icon"><net-icon [name]="gwnClientIcon({ wired: !!c.wired, os: c.os ?? null, manufacturer: c.manufacturer ?? null, name: c.name })" [size]="24" /></div>
+        <div class="hero-main">
+          <h2 id="client-name">{{ c.alias || c.name || c.mac }}</h2>
+          <div class="hero-meta">
+            @if (c.online === false) { <span class="badge badge-muted">Not connected</span> } @else if (c.online) { <span class="badge badge-ok">Online</span> }
+            @if (c.blocked) { <span class="badge badge-bad">Blocked</span> }
+            @if (c.wired) { <span class="conn"><net-icon name="cable" [size]="13" />Wired</span> }
+            @else if (c.ssid) { <span class="conn"><net-icon name="wifi" [size]="13" />{{ c.ssid }}{{ c.band ? ' · ' + bandLabel(c.band) : '' }}</span> }
+          </div>
+          @if (canRename) {
+            @if (!renaming()) {
+              <div class="hero-actions">
+                <button class="btn-sm btn-outline" (click)="startRename(c)"><net-icon name="edit" [size]="12" />Rename</button>
+                @if (isSuperAdmin) {
+                  <button class="btn-sm" [class.btn-danger]="!c.blocked" [class.btn-outline]="c.blocked" (click)="askBlock(c)" [disabled]="blocking()">
+                    <net-icon name="lock" [size]="12" />{{ c.blocked ? 'Unblock' : 'Block' }}
+                  </button>
+                }
+              </div>
+            } @else {
+              <form class="rename" (submit)="$event.preventDefault(); saveRename(c)">
+                <input class="form-control" maxlength="100" aria-label="Client name" [ngModel]="renameValue()" (ngModelChange)="renameValue.set($event)" name="alias">
+                <button class="btn-sm btn-primary" type="submit" [disabled]="renameSaving()">{{ renameSaving() ? 'Saving…' : 'Save' }}</button>
+                <button class="btn-sm btn-outline" type="button" (click)="renaming.set(false)" [disabled]="renameSaving()">Cancel</button>
+              </form>
+              @if (renameError()) { <p class="crit small" style="margin:6px 0 0">{{ renameError() }}</p> }
+            }
+            @if (c.alias) { <p class="muted small" style="margin:6px 0 0">Custom name set in WorkNest. Save an empty name to reset.</p> }
+          }
+        </div>
+      </div>
+
+      <h4 class="drawer-h">Details</h4>
+      <dl class="facts">
+        @for (f of facts(); track f.k) { <div><dt>{{ f.k }}</dt><dd [class.mono]="f.mono">{{ f.v }}</dd></div> }
+        @if (c.apMac) { <div><dt>Connected to</dt><dd><a [routerLink]="['/admin/network/gwn/device', c.apMac]">{{ apName(c.apMac) }}</a></dd></div> }
+        @if (!c.wired && c.rssi != null) { <div><dt>Signal</dt><dd><net-signal [dbm]="c.rssi" /></dd></div> }
+      </dl>
+
+      <h4 class="drawer-h">Data usage</h4>
+      @if (usageError()) {
+        <p class="muted small">Usage history unavailable: {{ usageError() }}</p>
+      } @else {
+        <div class="head-stats usage-stats">
+          <div><span>Downloaded</span><strong>{{ usageStats()?.down ?? '…' }}</strong></div>
+          <div><span>Uploaded</span><strong>{{ usageStats()?.up ?? '…' }}</strong></div>
+          <div><span>Total</span><strong>{{ usageStats()?.total ?? '…' }}</strong></div>
+        </div>
+        <div class="seg" role="group" aria-label="Usage range" style="margin:12px 0 8px">
+          <button [class.active]="usageRange() === '2h'" (click)="setUsageRange('2h')">2 hours</button>
+          <button [class.active]="usageRange() === '1d'" (click)="setUsageRange('1d')">24 hours</button>
+          <button [class.active]="usageRange() === '1w'" (click)="setUsageRange('1w')">7 days</button>
+          <button [class.active]="usageRange() === '1m'" (click)="setUsageRange('1m')">30 days</button>
+        </div>
+        <div class="chart-box" style="height:190px">
+          @if (!usage()) { <div class="sk chart-sk"></div> }
+          @else if (!usage()!.times.length) { <div class="chart-empty"><strong>No data</strong><span>No traffic in this period.</span></div> }
+          <canvas #cUsage role="img" aria-label="Bar chart of this client's data usage"></canvas>
+        </div>
+      }
+    } @else {
+      <p class="muted">This client is no longer on the network.</p>
+    }
+  </aside>
+}
+
+@if (confirmBlock(); as b) {
+  <gwn-confirm
+    [title]="b.block ? 'Block ' + b.name + '?' : 'Unblock ' + b.name + '?'"
+    [text]="b.block ? 'This device (' + b.mac + ') is disconnected and cannot join any Wi-Fi network on F-7 until it is unblocked.' : 'This device (' + b.mac + ') can join the F-7 Wi-Fi again.'"
+    [note]="b.block ? 'The action is recorded with your name.' : ''"
+    [okLabel]="b.block ? 'Block device' : 'Unblock device'"
+    [busyLabel]="b.block ? 'Blocking…' : 'Unblocking…'"
+    [danger]="b.block"
+    [busy]="blocking()"
+    (confirm)="doBlock()"
+    (cancel)="confirmBlock.set(null)" />
+}

@@ -3,20 +3,45 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import {
-  SalesManagerService, SmDashboard, SmError, SmFunnelStage, SmInquiryMonth, SmLocation, SmMetric, SmPeriod, SmRecordKind
+  SalesManagerService, SmComplaintBranch, SmComplaintCategory, SmComplaints, SmDashboard, SmError, SmFunnelStage, SmInquiryMonth,
+  SmLocation, SmMetric, SmOldComplaint, SmPeriod, SmRecordKind
 } from '../../../services/sales-manager.service';
 import { CeoDrawer } from '../ceo/ceo-drawer/ceo-drawer';
+import { DashNetworkSection } from '../ceo/dash-network/dash-network';
+import { networkSheets } from '../ceo/dash-network/network-export';
 import {
-  AXIS_MONEY, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
-  applyChartDefaults, count, firstNameOf, fullMoney, greetingNow, inquiryTypeKey, money, monthLong, monthShort, pct,
-  periodWord, pointerOnHover, ratio, trend
+  COMPLAINT_STATUSES, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
+  Trend, applyChartDefaults, complaintStatusStyle, count, displayNameOf, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort,
+  pct, pointerOnHover, ratio, trend
 } from '../ceo/ceo-shared';
-import { SM_METRICS, SmDrillLevel } from './sales-manager-drill';
+import { SM_METRICS, SmDrillLevel, desks } from './sales-manager-drill';
+import { RangeEditor, periodTitleOf, periodWords, previousRange } from '../ceo/period-range';
+import { salesWorkbook } from './sales-manager-export';
+import type { DashRange } from '../../../services/dashboard-api';
+import { AutoRefresh } from '../../../utils/auto-refresh';
+import { exportPagePdf, fileDate, fileSlug } from '../../../utils/page-pdf';
+import { downloadXlsx } from '../../../utils/xlsx';
 
-type ChartKey = 'funnel' | 'inquiries' | 'revenue' | 'expiring';
+type ChartKey = 'funnel' | 'inquiries' | 'desks' | 'complaints';
+/** Charts drawn from GET api/sales-manager/dashboard (the complaints chart has its own endpoint). */
+const DASHBOARD_CHARTS: ChartKey[] = ['funnel', 'inquiries', 'desks'];
 
-/** Same y-axis width on the stacked revenue / expiring charts, so their months line up. */
-const Y_AXIS_WIDTH = (scale: any) => { scale.width = 52; };
+/**
+ * A KPI card; `unit` follows the figure in smaller type when the label does not say what it counts ("6 desks");
+ * `accent` colours the card's edge (a complaint status colour) instead of its tone.
+ */
+interface SmKpi extends DashKpi { unit?: string; accent?: string; }
+
+/** "+85", "-3", "0" (net desks). */
+function signed(n: number): string {
+  return n > 0 ? `+${count(n)}` : n < 0 ? `-${count(-n)}` : '0';
+}
+
+/** Change in desks vs the previous period ("12 desks" up / down). */
+function deskTrend(now: number, prev: number): Trend | null {
+  const t = trend(now, prev, 'n');
+  return t && t.dir !== 'flat' ? { ...t, text: desks(Math.abs(now - prev)) } : t;
+}
 
 /** The inquiry types of the stacked chart, in the Tour Inquiries order, with the month field each one reads. */
 const INQUIRY_SERIES: { key: string; field: Exclude<keyof SmInquiryMonth, 'month'> }[] = [
@@ -27,6 +52,12 @@ const INQUIRY_SERIES: { key: string; field: Exclude<keyof SmInquiryMonth, 'month
   { key: 'notset', field: 'notSet' }
 ];
 
+/** Desks booked & desks ending by month: teal for booked, amber for ending (as the lease pills). */
+const DESK_SERIES = [
+  { field: 'bookedDesks' as const, label: 'Desks booked', color: TEAL, hover: TEAL_DARK },
+  { field: 'endingDesks' as const, label: 'Desks ending', color: '#fcd34d', hover: '#f59e0b' }
+];
+
 /** Funnel chart series (counts): light to dark teal, as the funnel stages. */
 const FUNNEL_SERIES = [
   { field: 'quotations' as const, label: 'Quotations', color: '#99f6e4', hover: '#5eead4' },
@@ -34,16 +65,44 @@ const FUNNEL_SERIES = [
   { field: 'bookings' as const, label: 'Bookings', color: '#0f766e', hover: '#115e59' }
 ];
 
+/** Complaints by month: orange for raised (as Open), green for resolved (as Resolved). */
+const COMPLAINT_SERIES = [
+  { field: 'created' as const, label: 'Raised', color: '#fb923c', hover: '#ea580c' },
+  { field: 'resolved' as const, label: 'Resolved', color: '#10b981', hover: '#047857' }
+];
+
+/** The status bar's order: still to do first, then done. */
+const COMPLAINT_ORDER = [
+  { key: 'open', field: 'open' as const },
+  { key: 'in_progress', field: 'inProgress' as const },
+  { key: 'resolved', field: 'resolved' as const },
+  { key: 'closed', field: 'closed' as const }
+];
+
+/** "1 day", "1.5 days" (one decimal only when it matters). */
+function dayCount(n: number): string {
+  const v = Math.round(n * 10) / 10;
+  return v === 1 ? '1 day' : `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} days`;
+}
+
 /**
  * Sales dashboard (/admin/sales-manager): the Sales Manager's funnel, team, tour inquiries and renewals for this
- * month / quarter / year, all their locations or one (super admins: every location). Tour inquiries have no
- * location, so that section always covers every branch. Every chart and list drills down in the shared side
- * drawer (breakdown, then records). Read-only. Data: GET api/sales-manager/dashboard.
+ * month / quarter / year or a custom date range (compared with the same number of days before it), all their locations
+ * or one (super admins: every location). Reloads quietly every 5 minutes while the tab is visible (not while a drawer
+ * is open); Export PDF (the page as shown) and Export Excel (the figures behind it). Tour inquiries follow the
+ * same scope; those without a branch count under "All my locations" (as complaints do). Every chart and list
+ * drills down in the shared side drawer (breakdown, then records). Read-only, and no money anywhere: sales are
+ * counted in desks.
+ * The Complaints section (last) loads on its own from GET api/sales-manager/complaints, with the same period and
+ * location, so the rest of the page keeps working when only it fails.
+ * The Network section (UniFi, after it) loads on its own too, from GET api/sales-manager/network: the Wi-Fi / network
+ * picture of the manager's locations only (the API keeps them to their sites).
+ * Data: GET api/sales-manager/dashboard, GET api/sales-manager/complaints, GET api/sales-manager/network.
  */
 @Component({
   selector: 'app-sales-manager-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, DashNetworkSection],
   templateUrl: './sales-manager-dashboard.html',
   // Same look as the CEO dashboard: its stylesheet, plus the few sales-only pieces.
   styleUrls: ['../ceo/ceo-dashboard.css', './sales-manager-dashboard.css']
@@ -53,12 +112,12 @@ export class SalesManagerDashboard {
   private auth = inject(AuthService);
   private host = inject(ElementRef<HTMLElement>);
 
-  readonly money = money;
-  readonly fullMoney = fullMoney;
+  readonly desks = desks;
   readonly pct = pct;
   readonly count = count;
   readonly monthLong = monthLong;
   readonly ratio = ratio;
+  readonly complaintStyle = complaintStatusStyle;
   readonly isSuperAdmin = this.auth.hasRole('super_admin');
   /** "All my locations" for a manager; a super admin sees every location. */
   readonly allLabel = this.isSuperAdmin ? 'All locations' : 'All my locations';
@@ -67,7 +126,15 @@ export class SalesManagerDashboard {
     { key: 'month', label: 'This month' }, { key: 'quarter', label: 'Quarter' }, { key: 'year', label: 'Year' }
   ];
   period = signal<SmPeriod>('month');
+  /** The custom range (period custom); kept when another period is chosen, so Custom opens with it again. */
+  range = signal<DashRange | null>(null);
+  /** The range the requests use: only with period custom. */
+  activeRange = computed(() => (this.period() === 'custom' ? this.range() : null));
+  readonly rangeEditor = new RangeEditor();
   locationId = signal<number | null>(null);
+  /** Export running ('pdf' | 'xlsx'); null = none. */
+  exporting = signal<'pdf' | 'xlsx' | null>(null);
+  exportError = signal('');
 
   data = signal<SmDashboard | null>(null);
   /** First load (skeletons); later loads keep the current figures dimmed instead. */
@@ -85,7 +152,8 @@ export class SalesManagerDashboard {
     metrics: SM_METRICS,
     breakdown: (metric, params) => this.sm.getBreakdown(metric as SmMetric, params),
     records: (kind, params) => this.sm.getRecords(kind as SmRecordKind, params),
-    describeError: err => SalesManagerService.describeError(err)
+    describeError: err => SalesManagerService.describeError(err),
+    desks: true
   };
 
   /** Every location seen so far (the list stays complete while one location is selected). */
@@ -98,33 +166,59 @@ export class SalesManagerDashboard {
   private clock?: ReturnType<typeof setInterval>;
   private nowTick = signal(Date.now());
 
+  // Complaints: own request, own states (first load, refresh, error) and own selection key.
+  cmp = signal<SmComplaints | null>(null);
+  cmpLoading = signal(true);
+  cmpRefreshing = signal(false);
+  cmpError = signal<SmError | null>(null);
+  cmpUpdated = signal<Date | null>(null);
+  private cmpSub: Subscription | null = null;
+  private cmpKey = '';
+
+  /** Network section (UniFi): bumped by the refresh button / the auto refresh; it follows the location picker. */
+  networkReload = signal(0);
+  networkQuietReload = signal(0);
+  private networkSection = viewChild(DashNetworkSection);
+
   private funnelCanvas = viewChild<ElementRef<HTMLCanvasElement>>('funnelCanvas');
   private inquiriesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('inquiriesCanvas');
-  private revenueCanvas = viewChild<ElementRef<HTMLCanvasElement>>('revenueCanvas');
-  private expiringCanvas = viewChild<ElementRef<HTMLCanvasElement>>('expiringCanvas');
+  private desksCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desksCanvas');
+  private complaintsCanvas = viewChild<ElementRef<HTMLCanvasElement>>('complaintsCanvas');
+  /** What Export PDF prints: the sections under the header (complaints included). */
+  private exportRoot = viewChild<ElementRef<HTMLElement>>('exportRoot');
+
+  /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
+  private auto = new AutoRefresh({
+    run: () => { this.load(true); this.loadComplaints(true); this.networkQuietReload.update(n => n + 1); },
+    paused: () => !!this.drill() || this.rangeEditor.open() || !!this.exporting() || this.loading() || this.refreshing()
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.sub?.unsubscribe();
+      this.cmpSub?.unsubscribe();
       this.destroyCharts();
+      this.auto.stop();
       if (this.clock) clearInterval(this.clock);
     });
     this.clock = setInterval(() => this.nowTick.set(Date.now()), 30_000);
 
     effect(() => {
       this.period();
+      this.activeRange();
       this.locationId();
-      untracked(() => this.load());
+      untracked(() => { this.load(); this.loadComplaints(); });
     });
   }
 
   // ---------- loading ----------
 
-  load() {
+  /** quiet: the auto refresh (no dimming; the figures on screen stay until the new ones arrive). */
+  load(quiet = false) {
     this.sub?.unsubscribe();
-    if (this.data()) this.refreshing.set(true); else this.loading.set(true);
+    if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const key = this.selectionKey();
-    this.sub = this.sm.getDashboard(this.period(), this.locationId()).subscribe({
+    this.sub = this.sm.getDashboard(this.period(), this.locationId(), this.activeRange()).subscribe({
       next: d => {
         this.data.set(d);
         this.dataKey = key;
@@ -132,6 +226,7 @@ export class SalesManagerDashboard {
         this.loading.set(false);
         this.refreshing.set(false);
         this.lastUpdated.set(new Date());
+        this.auto.markFresh();
         if (d.locations.length) {
           const byId = new Map(this.knownLocations().map(l => [l.locationId, l]));
           d.locations.forEach(l => byId.set(l.locationId, l));
@@ -142,7 +237,7 @@ export class SalesManagerDashboard {
       error: (err: SmError) => {
         this.error.set(SalesManagerService.describeError(err));
         // Figures of another period / location would be misleading: keep them only for a plain refresh.
-        if (this.dataKey !== key) { this.data.set(null); this.dataKey = ''; this.destroyCharts(); }
+        if (this.dataKey !== key) { this.data.set(null); this.dataKey = ''; this.destroyCharts(DASHBOARD_CHARTS); }
         this.loading.set(false);
         this.refreshing.set(false);
       }
@@ -151,11 +246,124 @@ export class SalesManagerDashboard {
 
   /** Period + location the figures on screen belong to. */
   private dataKey = '';
-  private selectionKey(): string { return `${this.period()}|${this.locationId() ?? ''}`; }
+  private selectionKey(): string {
+    const r = this.activeRange();
+    return `${this.period()}|${r?.from ?? ''}|${r?.to ?? ''}|${this.locationId() ?? ''}`;
+  }
 
-  refresh() { this.load(); }
+  /** Complaints section: same period and location as the rest; a failure stays inside the section. */
+  loadComplaints(quiet = false) {
+    this.cmpSub?.unsubscribe();
+    if (!quiet) { if (this.cmp()) this.cmpRefreshing.set(true); else this.cmpLoading.set(true); }
+    const key = this.selectionKey();
+    this.cmpSub = this.sm.getComplaints(this.period(), this.locationId(), this.activeRange()).subscribe({
+      next: c => {
+        this.cmp.set(c);
+        this.cmpKey = key;
+        this.cmpError.set(null);
+        this.cmpLoading.set(false);
+        this.cmpRefreshing.set(false);
+        this.cmpUpdated.set(new Date());
+        setTimeout(() => this.renderComplaintsChart());
+      },
+      error: (err: SmError) => {
+        this.cmpError.set(SalesManagerService.describeComplaintsError(err));
+        if (this.cmpKey !== key) { this.cmp.set(null); this.cmpKey = ''; this.destroyCharts(['complaints']); }
+        this.cmpLoading.set(false);
+        this.cmpRefreshing.set(false);
+      }
+    });
+  }
 
-  setPeriod(p: SmPeriod) { if (p !== this.period()) this.period.set(p); }
+  refresh() { this.load(); this.loadComplaints(); this.networkReload.update(n => n + 1); }
+
+  setPeriod(p: SmPeriod) {
+    this.rangeEditor.close();
+    if (p !== this.period()) this.period.set(p);
+  }
+
+  /** "Custom": the From / To editor (with the range on screen, or the current period to today). */
+  openRange() {
+    if (this.rangeEditor.open()) { this.rangeEditor.close(); return; }
+    this.rangeEditor.show(this.period(), this.range());
+    setTimeout(() => (this.host.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#sm-range-from')?.focus());
+  }
+
+  applyRange(e: Event) {
+    e.preventDefault();
+    const r = this.rangeEditor.apply();
+    if (!r) return;
+    this.range.set(r);
+    this.period.set('custom');
+  }
+
+  closeRange() {
+    this.rangeEditor.close();
+    setTimeout(() => (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>('#sm-range-btn')?.focus());
+  }
+
+  // ---------- export ----------
+
+  canExport = computed(() => !!this.data() && !this.loading() && !this.exporting());
+
+  /** File name stem: "WorkNest-Sales-dashboard-1-Oct-15-Oct-2026-2026-10-19". */
+  private exportName(): string {
+    const loc = this.locationId() ? this.locationName() : '';
+    return `${fileSlug('WorkNest Sales dashboard', this.periodTitle(), loc)}-${fileDate()}`;
+  }
+
+  private exportMeta() {
+    const range = this.shownPeriod() === 'custom' ? this.shownRange() : null;
+    return {
+      periodTitle: this.periodTitle(),
+      range,
+      previousRange: range ? this.data()?.previousRange ?? previousRange(range) : null,
+      location: this.locationName(),
+      preparedBy: displayNameOf(this.auth.user()),
+      previousWords: this.words().last
+    };
+  }
+
+  /** Export PDF: the dashboard as it is on screen (charts included), A4 pages. */
+  async exportPdf() {
+    const el = this.exportRoot()?.nativeElement;
+    if (!el || !this.canExport()) return;
+    this.exporting.set('pdf');
+    this.exportError.set('');
+    try {
+      const meta = this.exportMeta();
+      await exportPagePdf(el, {
+        fileName: `${this.exportName()}.pdf`,
+        title: 'WorkNest Sales dashboard',
+        lines: [
+          meta.previousRange ? `${meta.periodTitle} (compared with ${meta.previousRange.from} to ${meta.previousRange.to})` : meta.periodTitle,
+          meta.location,
+          meta.preparedBy ? `Prepared by ${meta.preparedBy}` : ''
+        ],
+        hide: '.view-toggle, .kpi-go, .row-go, .net-seg'
+      });
+    } catch {
+      this.exportError.set('The PDF could not be made. Please try again.');
+    } finally {
+      this.exporting.set(null);
+    }
+  }
+
+  /** Export Excel: the KPIs, chart and table figures, one sheet per section (.xlsx). */
+  exportExcel() {
+    const d = this.data();
+    if (!d || !this.canExport()) return;
+    this.exporting.set('xlsx');
+    this.exportError.set('');
+    try {
+      const network = networkSheets(this.networkSection()?.data() ?? null);
+      downloadXlsx(`${this.exportName()}.xlsx`, [...salesWorkbook(d, this.cmp(), this.exportMeta()), ...network]);
+    } catch {
+      this.exportError.set('The Excel file could not be made. Please try again.');
+    } finally {
+      this.exporting.set(null);
+    }
+  }
 
   setLocation(value: string) {
     const id = Number(value);
@@ -177,16 +385,20 @@ export class SalesManagerDashboard {
 
   /** Labels follow the figures on screen (while a new period loads, the old figures keep their own words). */
   private shownPeriod = computed<SmPeriod>(() => this.data()?.period ?? this.period());
-  periodTitle = computed(() => this.data()?.periodLabel
-    || { month: 'This month', quarter: 'This quarter', year: 'This year' }[this.shownPeriod()]);
-  word = computed(() => periodWord(this.shownPeriod()));
+  private shownRange = computed(() => this.data()?.range ?? this.activeRange());
+  periodTitle = computed(() => this.data()?.periodLabel || periodTitleOf(this.shownPeriod(), this.shownRange()));
+  /** "this month" / "last month"; a custom range: "in this range" / "previous 15 days". */
+  words = computed(() => periodWords(this.shownPeriod(), this.shownRange()));
+  thisWord = computed(() => this.words().thisP);
 
-  updatedAgo = computed(() => {
-    const at = this.lastUpdated();
+  updatedAgo = computed(() => this.ago(this.lastUpdated()));
+
+  /** "just now", "5 min ago", "3:40 PM". */
+  private ago(at: Date | null): string {
     if (!at) return '';
     const mins = Math.floor((this.nowTick() - at.getTime()) / 60000);
     return mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  });
+  }
 
   // ---------- Sales funnel ----------
 
@@ -196,31 +408,32 @@ export class SalesManagerDashboard {
     return this.f()?.stages.find(s => s.stage.toLowerCase() === key)?.count ?? 0;
   }
 
-  funnelKpis = computed<DashKpi[]>(() => {
+  funnelKpis = computed<SmKpi[]>(() => {
     const f = this.f();
     if (!f) return [];
-    const w = this.word();
+    const w = this.words();
     const quotations = this.stageCount('quotations');
     const bookings = this.stageCount('bookings');
+    // Of this period's quotations, the ones booked (never above 100%).
     const rate = f.conversionRate;
     return [
       {
         key: 'conversion', label: 'Conversion', value: pct(rate),
-        sub: quotations ? `${count(bookings)} of ${count(quotations)} quotations booked` : 'No quotations yet',
+        sub: quotations ? `${count(f.quotationsBooked)} of ${count(quotations)} quotations booked` : 'No quotations yet',
         tone: quotations === 0 ? 'neutral' : rate >= 30 ? 'ok' : rate >= 15 ? 'neutral' : 'warn',
-        trend: trend(rate, f.conversionRatePrev, 'pts'), vs: `vs ${pct(f.conversionRatePrev)} last ${w}`,
+        trend: trend(rate, f.conversionRatePrev, 'pts'), vs: `vs ${pct(f.conversionRatePrev)} ${w.last}`,
         action: () => this.focusPanel('panel-funnel'), actionLabel: 'Show the sales funnel'
       },
       {
-        key: 'quoted', label: `Quoted this ${w}`, value: money(f.quotedValue), full: fullMoney(f.quotedValue),
+        key: 'quoted', label: `Desks quoted ${w.thisP}`, value: count(f.quotedDesks), full: desks(f.quotedDesks),
         sub: `${count(quotations)} quotation${quotations === 1 ? '' : 's'}`, tone: 'neutral',
         action: () => this.openRecords('Sales funnel', 'Quotations', 'quotations', { stage: 'quotations' }),
         actionLabel: 'Open the quotations'
       },
       {
-        key: 'booked', label: `Booked this ${w}`, value: money(f.bookedValue), full: fullMoney(f.bookedValue),
-        sub: `${money(f.bookedValuePrev)} last ${w}`, tone: 'neutral',
-        trend: trend(f.bookedValue, f.bookedValuePrev, '%'), vs: `vs last ${w}`,
+        key: 'booked', label: `Desks booked ${w.thisP}`, value: count(f.bookedDesks), full: desks(f.bookedDesks),
+        sub: `${count(bookings)} booking${bookings === 1 ? '' : 's'}`, tone: 'neutral',
+        trend: trend(f.bookedDesks, f.bookedDesksPrev, '%'), vs: `vs ${desks(f.bookedDesksPrev)} ${w.last}`,
         action: () => this.openRecords('Sales funnel', 'Bookings', 'bookings', {}), actionLabel: 'Open the bookings'
       }
     ];
@@ -247,7 +460,7 @@ export class SalesManagerDashboard {
     return {
       quotations: m.reduce((a, x) => a + x.quotations, 0),
       bookings: m.reduce((a, x) => a + x.bookings, 0),
-      value: m.reduce((a, x) => a + x.bookedValue, 0)
+      desks: m.reduce((a, x) => a + x.bookedDesks, 0)
     };
   });
   funnelTable = signal(false);
@@ -255,26 +468,30 @@ export class SalesManagerDashboard {
   // ---------- Team performance ----------
 
   t = computed(() => this.data()?.team ?? null);
-  /** Ranked by converted value (then conversions, then quotations). */
+  /** Ranked by desks sold (then conversions, then quotations, then name). */
   people = computed(() => [...(this.t()?.people ?? [])]
-    .sort((a, b) => b.convertedValue - a.convertedValue || b.converted - a.converted || b.quotations - a.quotations));
+    .sort((a, b) => b.desksSold - a.desksSold || b.converted - a.converted || b.quotations - a.quotations || a.name.localeCompare(b.name)));
   teamEmpty = computed(() => !(this.t()?.perLocation ?? []).length && !(this.t()?.people ?? []).length);
   teamFollowUps = computed(() => (this.t()?.people ?? []).reduce((a, p) => a + p.followUpsDue, 0));
 
-  // ---------- Tour inquiries (every branch) ----------
+  // ---------- Tour inquiries (the manager's locations; no branch = "All my locations" only) ----------
 
   q = computed(() => this.data()?.inquiries ?? null);
+  /** The note under the Tour inquiries heading: before the database update BR_02 the figures count every branch. */
+  inquiriesNote = computed(() => this.data()?.inquiriesAllBranches
+    ? 'Counts inquiries from every branch until database update BR_02 is run'
+    : `Inquiries without a branch show under ${this.allLabel}`);
 
-  inquiryKpis = computed<DashKpi[]>(() => {
+  inquiryKpis = computed<SmKpi[]>(() => {
     const q = this.q();
     if (!q) return [];
-    const w = this.word();
+    const w = this.words();
     const share = (n: number) => (q.total ? `${pct(ratio(n, q.total))} of inquiries` : 'No inquiries yet');
     return [
       {
-        key: 'total', label: `Tour inquiries this ${w}`, value: count(q.total),
-        sub: `${count(q.totalPrev)} last ${w}`, tone: 'neutral',
-        trend: trend(q.total, q.totalPrev, '%'), vs: `vs last ${w}`,
+        key: 'total', label: `Tour inquiries ${w.thisP}`, value: count(q.total),
+        sub: `${count(q.totalPrev)} ${w.last}`, tone: 'neutral',
+        trend: trend(q.total, q.totalPrev, '%'), vs: `vs ${w.last}`,
         action: () => this.openRecords('Tour inquiries', this.periodTitle(), 'inquiries', {}), actionLabel: 'Open the tour inquiries'
       },
       { key: 'followed', label: 'Followed up', value: count(q.followedUp), sub: share(q.followedUp), tone: 'neutral' },
@@ -309,47 +526,141 @@ export class SalesManagerDashboard {
     .sort((a, b) => b.followUpsDue - a.followUpsDue).slice(0, 5));
   followUpMax = computed(() => Math.max(1, ...this.peopleWithFollowUps().map(p => p.followUpsDue)));
 
-  // ---------- Renewals & revenue ----------
+  // ---------- Renewals & desks ----------
 
   r = computed(() => this.data()?.renewals ?? null);
-  /** Leases ending within 30 days. */
-  soon = computed(() => (this.r()?.expiring ?? []).filter(l => l.daysLeft <= 30));
 
-  renewalKpis = computed<DashKpi[]>(() => {
+  renewalKpis = computed<SmKpi[]>(() => {
     const r = this.r();
     if (!r) return [];
-    const w = this.word();
-    const soon = this.soon();
-    const soonValue = soon.reduce((a, l) => a + l.monthlyAmount, 0);
+    const w = this.words();
+    const leases = (n: number) => `${count(n)} lease${n === 1 ? '' : 's'}`;
     return [
       {
-        key: 'expiring', label: 'Leases expiring', value: count(r.expiringCount),
-        sub: r.expiringCount ? `${money(r.expiringMonthlyValue)} a month · next 90 days` : 'None in the next 90 days',
-        full: r.expiringCount ? `${fullMoney(r.expiringMonthlyValue)} a month` : '',
+        key: 'expiring', label: 'Desks ending in 90 days', value: count(r.expiringDesks), full: desks(r.expiringDesks),
+        sub: r.expiringCount ? leases(r.expiringCount) : 'No leases end in the next 90 days',
         tone: r.expiringCount ? 'warn' : 'ok',
         action: () => this.focusPanel('panel-expiring'), actionLabel: 'Show the expiring leases'
       },
       {
-        key: 'soon', label: 'Ending within 30 days', value: count(soon.length),
-        sub: soon.length ? `${money(soonValue)} a month` : 'None in the next 30 days',
-        tone: soon.length ? 'danger' : 'ok',
+        key: 'soon', label: 'Ending within 30 days', value: count(r.expiring30Desks),
+        unit: r.expiring30Desks === 1 ? 'desk' : 'desks', full: desks(r.expiring30Desks),
+        sub: r.expiring30Count ? leases(r.expiring30Count) : 'No leases end in the next 30 days',
+        tone: r.expiring30Count ? 'danger' : 'ok',
         action: () => this.focusPanel('panel-expiring'), actionLabel: 'Show the expiring leases'
       },
       {
-        key: 'revenue', label: `New-booking revenue this ${w}`, value: money(r.newBookingRevenue), full: fullMoney(r.newBookingRevenue),
-        sub: `${money(r.newBookingRevenuePrev)} last ${w}`, tone: 'neutral',
-        trend: trend(r.newBookingRevenue, r.newBookingRevenuePrev, '%'), vs: `vs last ${w}`,
-        action: () => this.focusPanel('panel-revenue'), actionLabel: 'Show the revenue chart'
+        key: 'net', label: `Net desks ${w.thisP}`, value: signed(r.netDesks), full: `${signed(r.netDesks)} desks`,
+        sub: `${count(r.bookedDesks)} booked, ${count(r.endedDesks)} ended`,
+        tone: r.netDesks < 0 ? 'warn' : 'neutral',
+        trend: deskTrend(r.netDesks, r.netDesksPrev), vs: `vs ${signed(r.netDesksPrev)} ${w.last}`,
+        action: () => this.focusPanel('panel-desks'), actionLabel: 'Show desks booked and ending by month'
       }
     ];
   });
 
-  revenueChartEmpty = computed(() => !(this.r()?.months ?? []).some(m => m.newBookingRevenue > 0 || m.expiring > 0));
+  desksChartEmpty = computed(() => !(this.r()?.months ?? []).some(m => m.bookedDesks > 0 || m.endingDesks > 0 || m.expiring > 0));
   renewTable = signal(false);
 
   daysText(d: number): string {
     return d <= 0 ? 'Ends today' : d === 1 ? '1 day left' : `${d} days left`;
   }
+
+  // ---------- Complaints ----------
+
+  /** Period words of the complaint figures on screen. */
+  cmpWords = computed(() => {
+    const c = this.cmp();
+    return c ? periodWords(c.period, c.range ?? this.activeRange()) : this.words();
+  });
+  cmpThisWord = computed(() => this.cmpWords().thisP);
+  cmpPeriodTitle = computed(() => this.cmp()?.periodLabel || this.periodTitle());
+  cmpUpdatedAgo = computed(() => this.ago(this.cmpUpdated()));
+
+  /** Every complaint in scope, whatever its status. */
+  cmpTotal = computed(() => {
+    const s = this.cmp()?.status;
+    return s ? s.open + s.inProgress + s.resolved + s.closed : 0;
+  });
+  /** Nothing at all to show: no complaints now, none in the period and none in the last 12 months. */
+  cmpEmpty = computed(() => {
+    const c = this.cmp();
+    if (!c) return true;
+    return this.cmpTotal() === 0 && c.newInPeriod === 0 && c.resolvedInPeriod === 0 && !c.byCategory.length
+      && !c.oldestActive.length && !c.months.some(m => m.created > 0 || m.resolved > 0);
+  });
+
+  cmpKpis = computed<SmKpi[]>(() => {
+    const c = this.cmp();
+    if (!c) return [];
+    const w = this.cmpWords();
+    const st = COMPLAINT_STATUSES;
+    return [
+      {
+        key: 'new', label: `New ${w.thisP}`, value: count(c.newInPeriod),
+        sub: c.reopenedInPeriod ? `${count(c.reopenedInPeriod)} reopened` : 'None reopened',
+        tone: 'neutral', trend: trend(c.newInPeriod, c.newInPeriodPrev, 'n', false), vs: `vs ${count(c.newInPeriodPrev)} ${w.last}`,
+        action: () => this.openComplaints(`New ${w.thisP}`, { status: 'new_period' }), actionLabel: `Open the complaints raised ${w.thisP}`
+      },
+      {
+        key: 'open', label: 'Open', value: count(c.status.open), sub: st['open'].hint,
+        tone: c.status.open ? 'warn' : 'ok', accent: st['open'].bar,
+        action: () => this.openComplaints('Open', { status: 'open' }), actionLabel: 'Open the open complaints'
+      },
+      {
+        key: 'progress', label: 'In progress', value: count(c.status.inProgress), sub: st['in_progress'].hint,
+        tone: 'neutral', accent: st['in_progress'].bar,
+        action: () => this.openComplaints('In progress', { status: 'in_progress' }), actionLabel: 'Open the complaints in progress'
+      },
+      {
+        key: 'resolved', label: `Resolved ${w.thisP}`, value: count(c.resolvedInPeriod),
+        sub: c.avgResolutionDays !== null ? `avg ${dayCount(c.avgResolutionDays)} to resolve`
+          : c.resolvedInPeriod ? 'Resolved or closed' : `None resolved ${w.thisP}`,
+        tone: c.resolvedInPeriod ? 'ok' : 'neutral', accent: st['resolved'].bar,
+        action: () => this.openComplaints(`Resolved ${w.thisP}`, { status: 'resolved_period' }), actionLabel: `Open the complaints resolved ${w.thisP}`
+      }
+    ];
+  });
+
+  /** Status bar segments and legend, in order (open, in progress, resolved, closed). */
+  cmpStatuses = computed(() => {
+    const s = this.cmp()?.status;
+    const total = this.cmpTotal();
+    return COMPLAINT_ORDER.map(o => {
+      const n = s ? s[o.field] : 0;
+      return { key: o.key, ...complaintStatusStyle(o.key), count: n, share: total ? (n / total) * 100 : 0 };
+    });
+  });
+
+  /** Bars of the category list: open + in progress, against the busiest category. */
+  cmpCategoryMax = computed(() => Math.max(1, ...(this.cmp()?.byCategory ?? []).map(c => c.open + c.inProgress)));
+  cmpCategoryLabel(c: SmComplaintCategory): string {
+    return `${c.category}: ${c.open} open, ${c.inProgress} in progress, ${c.total} new ${this.cmpThisWord()}. Open its complaints`;
+  }
+
+  /**
+   * By branch ('' = no branch, WhatsApp): worth showing when the complaints span more than one branch or include some
+   * without a branch (with one location chosen it would only repeat that branch).
+   */
+  cmpShowsBranches = computed(() => {
+    const b = this.cmp()?.byBranch ?? [];
+    return b.filter(x => x.branch).length > 1 || b.some(x => !x.branch);
+  });
+  /** Bars of the branch list: open + in progress, against the busiest branch. */
+  cmpBranchMax = computed(() => Math.max(1, ...(this.cmp()?.byBranch ?? []).map(b => b.open + b.inProgress)));
+  cmpBranchLabel(b: SmComplaintBranch): string {
+    return `${b.label}: ${b.open} open, ${b.inProgress} in progress, ${b.total} new ${this.cmpThisWord()}. Open its complaints`;
+  }
+
+  cmpChartEmpty = computed(() => !(this.cmp()?.months ?? []).some(m => m.created > 0 || m.resolved > 0));
+  cmpMonthTotals = computed(() => {
+    const m = this.cmp()?.months ?? [];
+    return { created: m.reduce((a, x) => a + x.created, 0), resolved: m.reduce((a, x) => a + x.resolved, 0) };
+  });
+  cmpTable = signal(false);
+
+  /** "Today", "1 day", "12 days". */
+  ageText(days: number): string { return days <= 0 ? 'Today' : days === 1 ? '1 day' : `${count(days)} days`; }
 
   // ---------- drill-down ----------
 
@@ -361,7 +672,11 @@ export class SalesManagerDashboard {
     this.openDrill(root, { kind: 'records', records: kind, params, crumb });
   }
 
-  closeDrill() { this.drill.set(null); }
+  closeDrill() {
+    this.drill.set(null);
+    // A refresh that waited for the drawer runs now.
+    this.auto.resume();
+  }
 
   /** A funnel stage: its records for the period. */
   openStage(stage: SmFunnelStage) {
@@ -400,14 +715,46 @@ export class SalesManagerDashboard {
       reason ? { outcome: 'not_interested', reason } : { outcome: 'not_interested' });
   }
 
-  openRevenueMonth(i: number) {
+  /** A month of the desks chart: desks booked and ending per location. */
+  openDesksMonth(i: number) {
     const m = this.r()?.months[i];
-    if (m) this.openDrill('New-booking revenue', { kind: 'breakdown', metric: 'revenue-month', params: { month: m.month }, crumb: monthLong(m.month) });
+    if (m) this.openDrill('Desks booked & ending', { kind: 'breakdown', metric: 'desks-month', params: { month: m.month }, crumb: monthLong(m.month) });
   }
 
   openRenewalsMonth(i: number) {
     const m = this.r()?.months[i];
     if (m) this.openDrill('Expiring leases', { kind: 'breakdown', metric: 'renewals-month', params: { month: m.month }, crumb: monthLong(m.month) });
+  }
+
+  /** Complaints records (GET api/sales-manager/records/complaints) with the contract's filters. */
+  openComplaints(crumb: string, params: Record<string, string | number>, highlight?: number) {
+    this.openDrill('Complaints', { kind: 'records', records: 'complaints', params, crumb, highlight });
+  }
+
+  openComplaintStatus(key: string) {
+    this.openComplaints(complaintStatusStyle(key).label, { status: key });
+  }
+
+  openComplaintCategory(category: string) {
+    this.openComplaints(category, { category });
+  }
+
+  /** A branch: every complaint of it (branch=none for the complaints without a branch). */
+  openComplaintBranch(b: SmComplaintBranch) {
+    this.openComplaints(b.label, { branch: b.branch || 'none' });
+  }
+
+  /** A month of the complaints chart: the complaints raised that month. */
+  openComplaintMonth(i: number) {
+    const m = this.cmp()?.months[i];
+    if (m) this.openComplaints(`Raised in ${monthLong(m.month)}`, { month: m.month });
+  }
+
+  /** An old complaint: the complaints with its status, category and branch, with it marked. */
+  openOldComplaint(c: SmOldComplaint) {
+    const branch = c.branch || 'none';
+    const crumb = `${complaintStatusStyle(c.status).label}: ${c.category} · ${c.branch || 'No branch'}`;
+    this.openComplaints(crumb, { status: c.status, category: c.category, branch }, c.complaintId || undefined);
   }
 
   /** KPI that points at a panel: scroll it into view and move focus there. */
@@ -430,7 +777,7 @@ export class SalesManagerDashboard {
     count: () => this.f()?.months.length ?? 0,
     describe: i => {
       const x = this.f()?.months[i];
-      return x ? `${monthLong(x.month)}: ${x.quotations} quotations, ${x.accepted} accepted, ${x.bookings} bookings worth ${fullMoney(x.bookedValue)}. Press Enter for the locations.` : '';
+      return x ? `${monthLong(x.month)}: ${x.quotations} quotations, ${x.accepted} accepted, ${x.bookings} bookings, ${desks(x.bookedDesks)} booked. Press Enter for the locations.` : '';
     },
     pick: i => this.openFunnelMonth(i),
     announce: t => this.chartAnnounce.set(t)
@@ -449,33 +796,38 @@ export class SalesManagerDashboard {
     announce: t => this.chartAnnounce.set(t)
   });
 
-  readonly revenueNav = new ChartKeyNav({
-    charts: () => [this.charts.get('revenue')],
+  readonly desksNav = new ChartKeyNav({
+    charts: () => [this.charts.get('desks')],
     count: () => this.r()?.months.length ?? 0,
     describe: i => {
       const x = this.r()?.months[i];
-      return x ? `${monthLong(x.month)}: new-booking revenue ${fullMoney(x.newBookingRevenue)}. Press Enter for the locations.` : '';
+      return x
+        ? `${monthLong(x.month)}: ${desks(x.bookedDesks)} booked, ${desks(x.endingDesks)} ending (${x.expiring} lease${x.expiring === 1 ? '' : 's'}). Press Enter for the locations.`
+        : '';
     },
-    pick: i => this.openRevenueMonth(i),
+    pick: i => this.openDesksMonth(i),
     announce: t => this.chartAnnounce.set(t)
   });
 
-  readonly expiringNav = new ChartKeyNav({
-    charts: () => [this.charts.get('expiring')],
-    count: () => this.r()?.months.length ?? 0,
+  readonly complaintsNav = new ChartKeyNav({
+    charts: () => [this.charts.get('complaints')],
+    count: () => this.cmp()?.months.length ?? 0,
     describe: i => {
-      const x = this.r()?.months[i];
-      return x ? `${monthLong(x.month)}: ${x.expiring} lease${x.expiring === 1 ? '' : 's'} ending. Press Enter for the locations.` : '';
+      const x = this.cmp()?.months[i];
+      return x ? `${monthLong(x.month)}: ${x.created} raised, ${x.resolved} resolved. Press Enter for the complaints raised that month.` : '';
     },
-    pick: i => this.openRenewalsMonth(i),
+    pick: i => this.openComplaintMonth(i),
     announce: t => this.chartAnnounce.set(t)
   });
 
   // ---------- charts: drawing ----------
 
-  private destroyCharts() {
-    this.charts.forEach(c => c.destroy());
-    this.charts.clear();
+  /** Destroys the given charts (all by default). */
+  private destroyCharts(keys?: ChartKey[]) {
+    for (const k of keys ?? [...this.charts.keys()]) {
+      this.charts.get(k)?.destroy();
+      this.charts.delete(k);
+    }
   }
 
   /** Creates a chart, or updates it in place (no flash) when it already sits on the same canvas. */
@@ -498,7 +850,7 @@ export class SalesManagerDashboard {
     applyChartDefaults();
     const xAxis = { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } };
 
-    // Funnel: quotations, accepted and bookings per month (one count axis; the booked value is in the tooltip).
+    // Funnel: quotations, accepted and bookings per month (one count axis; the desks booked are in the tooltip).
     const fm = d.funnel?.months ?? [];
     this.upsert('funnel', this.funnelChartEmpty() ? undefined : this.funnelCanvas(), {
       type: 'bar',
@@ -523,8 +875,8 @@ export class SalesManagerDashboard {
               footer: (items: any[]) => {
                 const x = fm[items[0]?.dataIndex];
                 if (!x) return '';
-                const conv = x.quotations > 0 ? ` · conversion ${pct(ratio(x.bookings, x.quotations))}` : '';
-                return `Booked ${fullMoney(x.bookedValue)}${conv}\nClick for locations`;
+                const conv = x.quotations > 0 ? ` · conversion ${pct(ratio(x.quotationsBooked, x.quotations))}` : '';
+                return `${desks(x.bookedDesks)} booked${conv}\nClick for locations`;
               }
             }
           }
@@ -571,60 +923,74 @@ export class SalesManagerDashboard {
       }
     });
 
-    // Renewals & revenue: new-booking revenue (PKR) above, leases ending (count) below, on one time axis.
+    // Renewals & desks: desks booked and desks ending per month, side by side (the next 3 months show what ends).
     const rm = d.renewals?.months ?? [];
-    const empty = this.revenueChartEmpty();
-    this.upsert('revenue', empty ? undefined : this.revenueCanvas(), {
+    this.upsert('desks', this.desksChartEmpty() ? undefined : this.desksCanvas(), {
       type: 'bar',
       data: {
         labels: rm.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{ label: 'New-booking revenue', data: rm.map(x => x.newBookingRevenue), backgroundColor: TEAL, hoverBackgroundColor: TEAL_DARK, borderRadius: 4, maxBarThickness: 22 }]
+        datasets: DESK_SERIES.map(s => ({
+          label: s.label, data: rm.map(x => x[s.field]), backgroundColor: s.color, hoverBackgroundColor: s.hover,
+          borderRadius: 4, maxBarThickness: 16, borderSkipped: 'start'
+        }))
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.openRevenueMonth(els[0].index); },
+        onClick: (_e: any, els: any[]) => { if (els.length) this.openDesksMonth(els[0].index); },
         plugins: {
-          legend: { display: false },
+          legend: LEGEND,
           tooltip: {
             ...TOOLTIP,
             callbacks: {
               title: (items: any[]) => monthLong(rm[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` New-booking revenue: ${fullMoney(c.parsed.y)}`,
-              footer: () => 'Click for locations'
+              label: (c: any) => ` ${c.dataset.label}: ${count(c.parsed.y)}`,
+              footer: (items: any[]) => {
+                const x = rm[items[0]?.dataIndex];
+                if (!x) return '';
+                return `${count(x.expiring)} lease${x.expiring === 1 ? '' : 's'} ending\nClick for locations`;
+              }
             }
           }
         },
-        scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { display: false } },
-          y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { ...AXIS_MONEY, maxTicksLimit: 5 } }
-        }
+        scales: { x: xAxis, y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8 } } }
       }
     });
-    this.upsert('expiring', empty ? undefined : this.expiringCanvas(), {
+  }
+
+  /** Complaints raised and resolved per month, side by side (its own data, drawn when it arrives). */
+  private renderComplaintsChart() {
+    const c = this.cmp();
+    const ref = c && !this.cmpEmpty() && !this.cmpChartEmpty() ? this.complaintsCanvas() : undefined;
+    applyChartDefaults();
+    const cm = c?.months ?? [];
+    this.upsert('complaints', ref, {
       type: 'bar',
       data: {
-        labels: rm.map((x, i) => monthShort(x.month, i === 0)),
-        datasets: [{ label: 'Leases ending', data: rm.map(x => x.expiring), backgroundColor: '#fcd34d', hoverBackgroundColor: '#f59e0b', borderRadius: 4, maxBarThickness: 22 }]
+        labels: cm.map((x, i) => monthShort(x.month, i === 0)),
+        datasets: COMPLAINT_SERIES.map(s => ({
+          label: s.label, data: cm.map(x => x[s.field]), backgroundColor: s.color, hoverBackgroundColor: s.hover,
+          borderRadius: 4, maxBarThickness: 16, borderSkipped: 'start'
+        }))
       },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         onHover: pointerOnHover,
-        onClick: (_e: any, els: any[]) => { if (els.length) this.openRenewalsMonth(els[0].index); },
+        onClick: (_e: any, els: any[]) => { if (els.length) this.openComplaintMonth(els[0].index); },
         plugins: {
-          legend: { display: false },
+          legend: LEGEND,
           tooltip: {
             ...TOOLTIP,
             callbacks: {
-              title: (items: any[]) => monthLong(rm[items[0]?.dataIndex]?.month ?? ''),
-              label: (c: any) => ` Leases ending: ${count(c.parsed.y)}`,
-              footer: () => 'Click for locations'
+              title: (items: any[]) => monthLong(cm[items[0]?.dataIndex]?.month ?? ''),
+              label: (ctx: any) => ` ${ctx.dataset.label}: ${count(ctx.parsed.y)}`,
+              footer: () => 'Click for the complaints raised that month'
             }
           }
         },
         scales: {
-          x: xAxis,
-          y: { beginAtZero: true, grid: GRID, border: { display: false }, afterFit: Y_AXIS_WIDTH, ticks: { precision: 0, padding: 8, maxTicksLimit: 4 } }
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+          y: { beginAtZero: true, grid: GRID, border: { display: false }, ticks: { precision: 0, padding: 8 } }
         }
       }
     });

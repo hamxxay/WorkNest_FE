@@ -1,0 +1,117 @@
+<div class="net-page" #page>
+  <app-network-switch />
+  <div class="dash-header">
+    <div>
+      <h1>Network Devices</h1>
+      <p class="dash-meta"><span>Every Grandstream router and access point at F-7</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh devices" aria-label="Refresh devices"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error" role="alert"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (unavailable(); as msg) {
+    <section class="gwn-off">
+      <div class="gwn-off-icon"><net-icon name="server" [size]="22" /></div>
+      <h3>Grandstream is not available</h3>
+      <p>{{ msg }}</p>
+    </section>
+  } @else {
+    <section class="kpi-grid four">
+      @if (stats(); as s) {
+        <div class="kpi-card" [class.tone-ok]="s.online === s.total" [class.tone-danger]="s.online !== s.total">
+          <span class="kpi-label">Devices online</span>
+          <span class="kpi-value">{{ s.online }}<small>/ {{ s.total }}</small></span>
+          <div class="kpi-foot">@if (s.online === s.total) { <span class="trend good">All online</span> } @else { <span class="trend bad">{{ s.total - s.online }} offline</span> }</div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Access points</span>
+          <span class="kpi-value">{{ s.apsOnline }}<small>/ {{ s.aps }}</small></span>
+          <div class="kpi-foot"><span class="kpi-sub">{{ fmt(s.apClients) }} clients</span></div>
+        </div>
+        <div class="kpi-card tone-neutral">
+          <span class="kpi-label">Data today</span>
+          <span class="kpi-value">{{ bytes(s.today) }}</span>
+          <div class="kpi-foot"><span class="kpi-sub">Through every device since midnight</span></div>
+        </div>
+        <div class="kpi-card" [class.tone-ok]="!s.updates" [class.tone-warn]="s.updates">
+          <span class="kpi-label">Firmware updates</span>
+          <span class="kpi-value">{{ fmt(s.updates) }}</span>
+          <div class="kpi-foot">@if (s.updates) { <span class="trend warn">Pending on {{ s.updates }} device{{ s.updates > 1 ? 's' : '' }}</span> } @else { <span class="trend good">All up to date</span> }</div>
+        </div>
+      } @else if (loading()) {
+        @for (i of [1, 2, 3, 4]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+      }
+    </section>
+
+    <section class="dash-panel">
+      <div class="panel-head">
+        <div><h3>Devices</h3><p class="panel-sub">{{ data() ? rows().length + ' of ' + data()!.length + ' devices' : 'Loading…' }}</p></div>
+        <div class="panel-tools">
+          <input class="form-control search" type="search" placeholder="Search name, model, IP, MAC…" aria-label="Search devices" [ngModel]="search()" (ngModelChange)="search.set($event)">
+          @if (types().length > 1) {
+            <div class="seg" role="group" aria-label="Device type">
+              <button [class.active]="dtype() === ''" (click)="dtype.set('')">All</button>
+              @for (t of types(); track t) { <button [class.active]="dtype() === t" (click)="dtype.set(t)">{{ t }}</button> }
+            </div>
+          }
+          <select class="form-control" aria-label="Status" [ngModel]="status()" (ngModelChange)="status.set($event)">
+            <option value="">All statuses</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="update">Update available</option>
+          </select>
+          <net-export [table]="true" label="Devices" (picked)="onExport($event)" />
+        </div>
+      </div>
+      <div class="table-container">
+        <table class="clean-table" #devTable>
+          <thead><tr>
+            <th class="sortable" [attr.aria-sort]="ariaSort('name')" (click)="setSort('name')">Device<span class="sort-icon">{{ sortMark('name') }}</span></th>
+            <th class="sortable" [attr.aria-sort]="ariaSort('status')" (click)="setSort('status')">Status<span class="sort-icon">{{ sortMark('status') }}</span></th>
+            <th class="sortable" [attr.aria-sort]="ariaSort('type')" (click)="setSort('type')">Type<span class="sort-icon">{{ sortMark('type') }}</span></th>
+            <th class="sortable num" [attr.aria-sort]="ariaSort('clients')" (click)="setSort('clients')">Clients<span class="sort-icon">{{ sortMark('clients') }}</span></th>
+            <th class="sortable" [attr.aria-sort]="ariaSort('ip')" (click)="setSort('ip')">IP address<span class="sort-icon">{{ sortMark('ip') }}</span></th>
+            <th>MAC address</th>
+            <th class="sortable num" [attr.aria-sort]="ariaSort('today')" (click)="setSort('today')">Data today<span class="sort-icon">{{ sortMark('today') }}</span></th>
+            <th class="sortable num" [attr.aria-sort]="ariaSort('memory')" (click)="setSort('memory')">Memory<span class="sort-icon">{{ sortMark('memory') }}</span></th>
+            <th class="sortable num" [attr.aria-sort]="ariaSort('temp')" (click)="setSort('temp')">Temp.<span class="sort-icon">{{ sortMark('temp') }}</span></th>
+            <th class="sortable" [attr.aria-sort]="ariaSort('firmware')" (click)="setSort('firmware')">Firmware<span class="sort-icon">{{ sortMark('firmware') }}</span></th>
+            <th class="sortable num" [attr.aria-sort]="ariaSort('uptime')" (click)="setSort('uptime')">Uptime<span class="sort-icon">{{ sortMark('uptime') }}</span></th>
+          </tr></thead>
+          <tbody>
+            @if (data()) {
+              @for (d of rows(); track d.mac) {
+                <tr class="clickable" (click)="open(d, $event)">
+                  <td><div class="dev"><span class="dev-icon"><net-icon [name]="gwnTypeIcon(d.type)" [size]="16" /></span>
+                    <div><div class="dev-name"><a [routerLink]="link(d)">{{ d.name }}</a></div><div class="muted small">{{ d.model }}</div></div></div></td>
+                  <td><span class="badge" [class.badge-ok]="d.status === 'online'" [class.badge-bad]="d.status !== 'online'">{{ d.status }}</span>
+                    @if (lastSeen(d)) { <div class="muted small">{{ lastSeen(d) }}</div> }</td>
+                  <td>{{ d.type || '–' }}</td>
+                  <td class="num">{{ fmt(d.clients) }}</td>
+                  <td class="mono">{{ d.ip || '–' }}@if (d.publicIp && d.publicIp !== d.ip) { <div class="muted small">WAN {{ d.publicIp }}</div> }</td>
+                  <td class="mono">{{ d.mac }}</td>
+                  <td class="num">{{ bytes(d.today?.total) }}</td>
+                  <td class="num">{{ pctText(d.memory) }}</td>
+                  <td class="num" [class.temp-hot]="isHot(d)" [title]="isHot(d) ? 'Running hot (' + HOT_C + ' °C or more)' : ''">{{ d.temperature != null ? fmt(d.temperature) + ' °C' : '–' }}</td>
+                  <td>{{ d.firmware || '–' }}@if (hasUpdate(d)) { <span class="tag" title="Update available">Update {{ d.latestFirmware }}</span> }</td>
+                  <td class="num">{{ uptime(d) }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="11" class="empty-state">No devices match.</td></tr>
+              }
+            } @else if (loading()) {
+              @for (r of [1, 2, 3, 4]; track r) { <tr>@for (c of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; track c) { <td><div class="sk sk-line" [style.width.%]="c === 1 ? 80 : 60"></div></td> }</tr> }
+            } @else {
+              <tr><td colspan="11" class="empty-state">No device data available.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>

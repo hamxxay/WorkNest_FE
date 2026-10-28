@@ -2,19 +2,26 @@ import {
   Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, input, output, signal, untracked, viewChild
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { Subscription } from 'rxjs';
+import { RouterLink } from '@angular/router';
+import { Subscription, map } from 'rxjs';
 import {
-  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoMetric, CeoParams,
-  CeoPeriod, CeoQuotationRecord, CeoRecordKind, CeoService, CeoSpaceRecord
+  CeoBreakdown, CeoBreakdownRow, CeoBookingRecord, CeoError, CeoInquiryRecord, CeoInvoiceRecord, CeoInvoiceTotals, CeoLeaseRecord, CeoLocalMetric,
+  CeoMetric, CeoParams, CeoPeriod, CeoQuotationRecord, CeoReceiptRecord, CeoRecordKind, CeoService, CeoSpaceRecord
 } from '../../../../services/ceo.service';
-import type { SmLeaseRecord } from '../../../../services/sales-manager.service';
+import type {
+  SmBookingRecord, SmComplaintRecord, SmLeaseRecord, SmQuotationRecord
+} from '../../../../services/sales-manager.service';
+import { DashRange, drillPeriodQuery } from '../../../../services/dashboard-api';
+import { XlsxCell, downloadXlsx } from '../../../../utils/xlsx';
+import { fileDate, fileSlug } from '../../../../utils/page-pdf';
 import {
   AGING_COLORS, AXIS_MONEY, Chart, DrillLevel, DrillMetricSpec, DrillRecords, DrillRequest, DrillSource, GRID, INQUIRY_TYPES,
-  LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, count, fullMoney,
-  inquiryTypeKey, money, pct, pointerOnHover, ratio, statusTone
+  LEGEND, SLATE_TRACK, TEAL, TEAL_DARK, TEAL_LIGHT, TEAL_LIGHT_HOVER, TOOLTIP, applyChartDefaults, complaintStatusStyle, count,
+  fullMoney, inquiryTypeKey, money, pct, pointerOnHover, ratio, statusTone
 } from '../ceo-shared';
 
 type AnyLevel = DrillLevel<string, string>;
+type SpaceFilter = 'all' | 'occupied' | 'vacant';
 
 interface Entry {
   uid: number;
@@ -27,13 +34,100 @@ interface Entry {
 
 /** Inquiry record; the Sales Manager API adds the follow-up date. */
 type InquiryRow = CeoInquiryRecord & { followUpOn?: string | null };
+/** Booking / quotation record: an amount from the CEO API, desks from the Sales Manager API. */
+type BookingRow = Omit<CeoBookingRecord, 'totalAmount'> & Partial<Pick<CeoBookingRecord, 'totalAmount'> & Pick<SmBookingRecord, 'desks'>>;
+type QuotationRow = Omit<CeoQuotationRecord, 'total'> & Partial<Pick<CeoQuotationRecord, 'total'> & Pick<SmQuotationRecord, 'desks'>>;
+/** Lease record: desks from the Sales Manager API, the monthly rent from the CEO API (records/leases). */
+type LeaseRow = Omit<SmLeaseRecord, 'desks'> & Partial<Pick<SmLeaseRecord, 'desks'> & Pick<CeoLeaseRecord, 'monthlyAmount'>>;
+/** Invoice record; the admin dashboard source adds its booking and space. */
+type InvoiceRow = CeoInvoiceRecord & { bookingId?: number | null; space?: string | null };
+/** Space record; the admin dashboard source adds the booking that holds it. */
+type SpaceRow = CeoSpaceRecord & { bookingId?: number | null };
+/** A link to another list about the same selection (DrillRecords.related). */
+type RelatedList = NonNullable<DrillRecords['related']>[number];
+
+/** "01 Nov 2026" from "yyyy-MM-dd" (no year: "01 Nov"); null when it is not a date. */
+function dayText(iso: string | null | undefined, withYear = true): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  if (isNaN(d.getTime())) return null;
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `${m[3]} ${month}${withYear ? ' ' + m[1] : ''}`;
+}
+
+/** An invoice's billing period: "01 Nov - 30 Nov 2026", "21 Oct 2026 - 31 Jan 2027", "From 01 Nov 2026"; null = none. */
+function billingPeriodText(start: string | null | undefined, end: string | null | undefined): string | null {
+  const from = dayText(start);
+  if (!from) return null;
+  const to = dayText(end);
+  if (!to) return `From ${from}`;
+  const sameYear = start!.slice(0, 4) === end!.slice(0, 4);
+  return `${sameYear ? dayText(start, false) : from} - ${to}`;
+}
+
+/**
+ * The line under an invoice list's title (CP_02): the totals of every invoice in it, as the dashboard counts them
+ * (revenue and paid without security deposits). A list with a period (RC_05 sends its receivable): receivable = the
+ * period's revenue - paid - the WHT customers withhold, as the Receivable card; else owed = what is left to pay on the
+ * whole invoices. Undefined = none sent.
+ */
+function invoiceSummary(t: CeoInvoiceTotals | null | undefined): string | undefined {
+  if (!t) return undefined;
+  if (t.receivable !== null && t.receivable !== undefined)
+    return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} · receivable ${fullMoney(Math.max(0, t.receivable))} (without security deposits and WHT withheld)`;
+  return `Revenue ${fullMoney(t.billed)} · paid ${fullMoney(t.collected)} (without security deposits) · owed ${fullMoney(t.balance)} (incl. security deposits)`;
+}
+
+/** Receivable of a revenue row (RC_05): revenue - paid - the WHT customers withhold (wht; 0 before RC_05), never below 0. */
+function receivableOf(r: CeoBreakdownRow): number {
+  return Math.max(0, r.value - (r.value2 ?? 0) - (r.wht ?? 0));
+}
+/** The Receivable column of the revenue breakdowns when they were opened from the Receivable card (status receivable). */
+function receivableColumn(p: CeoParams) {
+  return p['status'] === 'receivable' ? { label: 'Receivable', of: receivableOf } : null;
+}
 
 /** The CEO breakdowns: what their rows are, number format, and where a row leads (level 3). */
-const METRICS: Record<CeoMetric, DrillMetricSpec> = {
+const METRICS: Record<CeoMetric | CeoLocalMetric, DrillMetricSpec> = {
   'revenue': {
     rowLabel: 'Location', money: true, chart: 'grouped', vertical: false,
     derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'invoices', params: { month: p['month'], locationId: r.key }, crumb: r.label })
+    amount: receivableColumn,
+    // status: 'collected' when opened from Paid (CP_02: the invoices with something paid; the API's breakdown leaves
+    // it out, the invoices use it); 'receivable' from Receivable (RC_05: the invoices with something left to pay for the
+    // period). A custom period opens it with from / to instead of a month (the invoices whose billing period starts in
+    // that range, CP_01).
+    next: (p, r) => ({
+      kind: 'records', records: 'invoices',
+      params: { month: p['month'], from: p['from'], to: p['to'], locationId: r.key, status: p['status'] }, crumb: r.label
+    }),
+    nextLabel: (p, r) => p['status'] === 'collected' || p['status'] === 'paid' ? `Open the invoices of ${r.label} with payments`
+      : p['status'] === 'receivable' ? `Open the invoices of ${r.label} with something left to pay` : `Open the invoices of ${r.label}`
+  },
+  // ----- level 2 lists built from the dashboard's own figures (DrillLevel.local) -----
+  'revenue-months': {
+    rowLabel: 'Month', money: true, chart: 'grouped', vertical: true,
+    derived: { label: 'Rate', of: r => (r.value ? ratio(r.value2 ?? 0, r.value) : null) },
+    amount: receivableColumn,
+    next: (p, r) => ({ kind: 'breakdown', metric: 'revenue', params: { month: r.key, status: p['status'] }, crumb: r.label }),
+    nextLabel: (_p, r) => `Open ${r.label} by location`,
+    hint: () => 'Select a month for its locations.'
+  },
+  'aging-buckets': {
+    rowLabel: 'Days past due', money: true, chart: 'single', vertical: false,
+    next: (_p, r) => ({ kind: 'breakdown', metric: 'aging', params: { bucket: r.key }, crumb: r.label }),
+    nextLabel: (_p, r) => `Open ${r.label} by location`,
+    hint: () => 'Select a bucket for its locations.'
+  },
+  'occupancy-locations': {
+    rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
+    derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
+    // occupied: true when opened from the Occupancy KPI: only the occupied rooms, down to the list of spaces.
+    next: (p, r) => ({ kind: 'breakdown', metric: 'occupancy-location', params: { locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label} by space type` : `Open ${r.label} by space type`,
+    hint: () => 'Select a location for its space types.',
+    keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'aging': {
     rowLabel: 'Location', money: true, chart: 'single', vertical: false,
@@ -45,9 +139,28 @@ const METRICS: Record<CeoMetric, DrillMetricSpec> = {
     next: (p, r) => ({ kind: 'records', records: 'spaces', params: { spaceTypeId: p['spaceTypeId'], locationId: r.key }, crumb: r.label })
   },
   'occupancy-location': {
-    rowLabel: 'Space type', money: false, chart: 'stacked-occupancy', vertical: false,
+    rowLabel: 'Room category', money: false, chart: 'stacked-occupancy', vertical: false,
     derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
-    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { locationId: p['locationId'], spaceTypeId: r.key }, crumb: r.label })
+    // CP_02: rows per room category (key PrivateOffice | SharedSpace); before it per space type (numeric key).
+    next: (p, r) => ({
+      kind: 'records', records: 'spaces',
+      params: /^\d+$/.test(r.key)
+        ? { locationId: p['locationId'], spaceTypeId: r.key, occupied: p['occupied'] }
+        : { locationId: p['locationId'], category: r.key, occupied: p['occupied'] },
+      crumb: r.label
+    }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied ${r.label} rooms` : `Open ${r.label}`,
+    keep: (p, r) => !p['occupied'] || r.value > 0
+  },
+  // CP_02: one room category (Private Office / Shared Space) by location, rooms with a confirmed booking now; from the
+  // category's KPI card only the occupied rooms (occupied: true).
+  'occupancy-category': {
+    rowLabel: 'Location', money: false, chart: 'stacked-occupancy', vertical: false,
+    derived: { label: 'Occupancy', of: r => (r.value2 ? ratio(r.value, r.value2) : null) },
+    next: (p, r) => ({ kind: 'records', records: 'spaces', params: { category: p['category'], locationId: r.key, occupied: p['occupied'] }, crumb: r.label }),
+    nextLabel: (p, r) => p['occupied'] ? `Open the occupied rooms of ${r.label}` : `Open the rooms of ${r.label}`,
+    hint: () => 'Select a location for its rooms.',
+    keep: (p, r) => !p['occupied'] || r.value > 0
   },
   'bookings-month': {
     rowLabel: 'Location', money: false, chart: 'single', vertical: false,
@@ -66,7 +179,7 @@ const METRICS: Record<CeoMetric, DrillMetricSpec> = {
 
 const RECORD_TITLES: Record<string, string> = {
   invoices: 'Invoices', spaces: 'Spaces', bookings: 'Bookings', inquiries: 'Tour inquiries', quotations: 'Quotations',
-  leases: 'Expiring leases'
+  leases: 'Expiring leases', complaints: 'Complaints', receipts: 'Money received'
 };
 
 /**
@@ -77,7 +190,7 @@ const RECORD_TITLES: Record<string, string> = {
 @Component({
   selector: 'app-ceo-drawer',
   standalone: true,
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './ceo-drawer.html',
   styleUrl: './ceo-drawer.css'
 })
@@ -90,6 +203,8 @@ export class CeoDrawer {
   /** Where the levels come from; null = the CEO API. */
   source = input<DrillSource | null>(null);
   period = input<CeoPeriod>('month');
+  /** The dashboard's custom range (period custom); every level asks for the same range. */
+  range = input<DashRange | null>(null);
   /** The dashboard's location filter; a level's own locationId wins. */
   locationId = input<number | null>(null);
   closed = output<void>();
@@ -108,10 +223,12 @@ export class CeoDrawer {
   private readonly ceoSource: DrillSource = {
     metrics: METRICS,
     breakdown: (metric, params) => this.ceo.getBreakdown(metric as CeoMetric, params),
-    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params),
+    records: (kind, params) => this.ceo.getRecords(kind as CeoRecordKind, params).pipe(map(r => ({ ...r, summary: invoiceSummary(r.invoiceTotals) ?? r.summary }))),
     describeError: err => CeoService.describeError(err)
   };
   private src = computed<DrillSource>(() => this.source() ?? this.ceoSource);
+  /** Records count desks instead of amounts (Sales Manager). */
+  desks = computed(() => !!this.src().desks);
 
   spec = computed<DrillMetricSpec | null>(() => {
     const e = this.current();
@@ -152,9 +269,19 @@ export class CeoDrawer {
       });
     });
 
-    // Period or location changed under an open drawer: reload what is on screen.
+    // A level built from the dashboard's figures follows them (e.g. once the new period's figures arrive).
     effect(() => {
-      this.period(); this.locationId();
+      const e = this.current();
+      if (!e || e.level.kind !== 'breakdown' || !e.level.local) return;
+      const b = e.level.local();
+      untracked(() => {
+        if (e.status !== 'ok' || e.breakdown !== b) this.patch(e.uid, { status: 'ok', breakdown: b, error: undefined });
+      });
+    });
+
+    // Period, range or location changed under an open drawer: reload what is on screen.
+    effect(() => {
+      this.period(); this.range(); this.locationId();
       untracked(() => { const e = this.current(); if (e) this.load(e); });
     });
 
@@ -224,6 +351,19 @@ export class CeoDrawer {
     if (spec) this.push(spec.next(e.level.params, row));
   }
 
+  /** A related list offered above a records list (DrillRecords.related) -> that list. */
+  openRelated(x: RelatedList) {
+    if (this.current()?.level.kind === 'records') this.push(x.level);
+  }
+
+  /** The second list a level 2 row offers (its link under the row) -> level 3. */
+  openSecondary(row: CeoBreakdownRow) {
+    const e = this.current();
+    if (!e || e.level.kind !== 'breakdown' || !row.key) return;
+    const alt = this.src().metrics[e.level.metric]?.secondary?.(e.level.params, row);
+    if (alt) this.push(alt.level);
+  }
+
   private reset() {
     this.sub?.unsubscribe();
     this.destroyChart();
@@ -239,8 +379,13 @@ export class CeoDrawer {
   private load(entry: Entry) {
     this.sub?.unsubscribe();
     this.patch(entry.uid, { status: 'loading', error: undefined });
-    const params: CeoParams = { period: this.period(), locationId: this.locationId(), ...entry.level.params };
+    // The dashboard's period (a custom one as periodFrom / periodTo) and location; the level's own params win.
+    const params: CeoParams = { ...drillPeriodQuery(this.period(), this.range()), locationId: this.locationId(), ...entry.level.params };
     const src = this.src();
+    if (entry.level.kind === 'breakdown' && entry.level.local) {
+      this.patch(entry.uid, { status: 'ok', breakdown: entry.level.local() });
+      return;
+    }
     if (entry.level.kind === 'breakdown') {
       this.sub = src.breakdown(entry.level.metric, params).subscribe({
         next: b => this.patch(entry.uid, { status: 'ok', breakdown: b }),
@@ -260,22 +405,58 @@ export class CeoDrawer {
 
   // ---------- level 2 helpers ----------
 
-  rows = computed<CeoBreakdownRow[]>(() => this.current()?.breakdown?.rows ?? []);
+  rows = computed<CeoBreakdownRow[]>(() => {
+    const e = this.current();
+    const rows = e?.breakdown?.rows ?? [];
+    const keep = this.spec()?.keep;
+    return keep && e?.level.kind === 'breakdown' ? rows.filter(r => keep(e.level.params, r)) : rows;
+  });
   hasValue2 = computed(() => !!this.current()?.breakdown?.value2Label || this.rows().some(r => r.value2 !== null));
   hasCount = computed(() => this.rows().some(r => r.count !== null));
+  /** The extra amount column of this breakdown (e.g. Receivable), null = none. */
+  amountCol = computed(() => {
+    const e = this.current();
+    return e?.level.kind === 'breakdown' ? this.spec()?.amount?.(e.level.params) ?? null : null;
+  });
   canOpenRows = computed(() => this.rows().some(r => !!r.key));
+  /** The second list each row offers (same order as rows), null where none. */
+  secondaries = computed(() => {
+    const e = this.current();
+    const spec = this.spec();
+    if (!spec?.secondary || e?.level.kind !== 'breakdown') return this.rows().map(() => null);
+    const params = e.level.params;
+    return this.rows().map(r => (r.key ? spec.secondary!(params, r) : null));
+  });
+  /** The line under the table. */
+  hintText = computed(() => {
+    const e = this.current();
+    const spec = this.spec();
+    return spec?.hint && e?.level.kind === 'breakdown' ? spec.hint(e.level.params) : 'Select a row to see the records behind it.';
+  });
+  /** What a row opens, for screen readers. */
+  rowAction(r: CeoBreakdownRow): string {
+    const e = this.current();
+    const spec = this.spec();
+    return spec?.nextLabel && e?.level.kind === 'breakdown' ? spec.nextLabel(e.level.params, r) : 'Open ' + r.label;
+  }
   totals = computed(() => {
     const rows = this.rows();
     return {
       value: rows.reduce((a, r) => a + r.value, 0),
       value2: rows.reduce((a, r) => a + (r.value2 ?? 0), 0),
-      count: rows.reduce((a, r) => a + (r.count ?? 0), 0)
+      count: rows.reduce((a, r) => a + (r.count ?? 0), 0),
+      wht: rows.reduce((a, r) => a + (r.wht ?? 0), 0)
     };
   });
+  /** The extra amount column's total: the sum of its rows. */
+  amountTotal(): number | null {
+    const a = this.amountCol();
+    return a ? this.rows().reduce((t, r) => t + a.of(r), 0) : null;
+  }
   /** The two values are in different units (a count and an amount): only the first one sets the bar widths. */
   private mixedUnits = computed(() => {
     const s = this.spec();
-    return !!s && s.money2 !== undefined && s.money2 !== s.money;
+    return !!s && (!!s.separateUnits || (s.money2 !== undefined && s.money2 !== s.money));
   });
   /** Bar widths in the table, relative to the biggest row. */
   maxValue = computed(() => Math.max(1, ...this.rows().map(r => (this.mixedUnits() ? r.value : Math.max(r.value, r.value2 ?? 0)))));
@@ -312,14 +493,64 @@ export class CeoDrawer {
 
   // ---------- level 3 helpers ----------
 
-  invoiceRows = computed(() => this.recordsOf<CeoInvoiceRecord>('invoices'));
-  spaceRows = computed(() => this.recordsOf<CeoSpaceRecord>('spaces'));
-  bookingRows = computed(() => this.recordsOf<CeoBookingRecord>('bookings'));
+  /**
+   * RC_05: an invoice list with a period (the API sends each row's receivable): the rows show the period's revenue /
+   * paid / receivable, the whole invoice's total / paid / balance as a second line.
+   */
+  invoiceWindowed = computed(() => this.invoiceRows().some(r => r.receivable !== null && r.receivable !== undefined));
+
+  invoiceRows = computed(() => this.recordsOf<InvoiceRow>('invoices'));
+  /** A Security deposit column when any invoice in the list has one (kept out of the Revenue / Amount column). */
+  invoiceDeposits = computed(() => this.invoiceRows().some(r => !!r.deposit));
+  spaceRows = computed(() => this.recordsOf<SpaceRow>('spaces'));
+  bookingRows = computed(() => this.recordsOf<BookingRow>('bookings'));
   inquiryRows = computed(() => this.recordsOf<InquiryRow>('inquiries'));
-  quotationRows = computed(() => this.recordsOf<CeoQuotationRecord>('quotations'));
-  leaseRows = computed(() => this.recordsOf<SmLeaseRecord>('leases'));
+  quotationRows = computed(() => this.recordsOf<QuotationRow>('quotations'));
+  leaseRows = computed(() => this.recordsOf<LeaseRow>('leases'));
+  complaintRows = computed(() => this.recordsOf<SmComplaintRecord>('complaints'));
+  /** CP_02: fee receipts and payments (records/receipts). */
+  receiptRows = computed(() => this.recordsOf<CeoReceiptRecord>('receipts'));
+  /** RC_06: a Security deposit column when any receipt / payment in the list carries one (inside its amount). */
+  receiptDeposits = computed(() => this.receiptRows().some(r => !!r.deposit));
+  /** The record the level marks (e.g. the complaint selected on the dashboard); null = none. */
+  highlight = computed<number | null>(() => {
+    const e = this.current();
+    return e?.level.kind === 'records' ? e.level.highlight ?? null : null;
+  });
   /** Follow-up column on inquiry lists that carry a follow-up date (Sales Manager API). */
   inquiryFollowUp = computed(() => this.inquiryRows().some(r => !!r.followUpOn));
+
+  // Spaces: a filter (all / occupied / vacant) when the list has both, and no column that repeats one value on every
+  // row (the location or space type the list was opened for, or the status of an occupied-only list).
+  private spaceFilterOf = signal<{ uid: number; show: SpaceFilter }>({ uid: -1, show: 'all' });
+  spaceFilter = computed<SpaceFilter>(() => {
+    const f = this.spaceFilterOf();
+    return this.spaceMixed() && f.uid === this.current()?.uid ? f.show : 'all';
+  });
+  spaceStats = computed(() => {
+    const rows = this.spaceRows();
+    const occupied = rows.filter(r => r.occupied);
+    return {
+      all: rows.length, occupied: occupied.length, vacant: rows.length - occupied.length,
+      // CP_02: the seats sold of the confirmed bookings when the API sends them, else the rooms' seats.
+      seatsInUse: occupied.reduce((a, r) => a + (r.seatsSold ?? r.capacity ?? 0), 0)
+    };
+  });
+  spaceMixed = computed(() => this.spaceStats().occupied > 0 && this.spaceStats().vacant > 0);
+  spaceShown = computed(() => {
+    const show = this.spaceFilter();
+    return show === 'all' ? this.spaceRows() : this.spaceRows().filter(r => r.occupied === (show === 'occupied'));
+  });
+  spaceManyLocations = computed(() => new Set(this.spaceRows().map(r => r.location)).size > 1);
+  spaceManyTypes = computed(() => new Set(this.spaceRows().map(r => r.spaceType)).size > 1);
+  setSpaceFilter(show: SpaceFilter) {
+    const uid = this.current()?.uid;
+    if (uid !== undefined) this.spaceFilterOf.set({ uid, show });
+  }
+  /** The line under a space's name: its type and location, when the list has more than one. */
+  spaceSub(r: CeoSpaceRecord): string {
+    return [this.spaceManyTypes() ? r.spaceType : '', this.spaceManyLocations() ? r.location : ''].filter(Boolean).join(' · ');
+  }
 
   private recordsOf<T>(kind: string): T[] {
     const e = this.current();
@@ -331,9 +562,41 @@ export class CeoDrawer {
     return e?.level.kind === 'records' ? e.level.records : null;
   });
   recordTotal = computed(() => this.current()?.records?.total ?? 0);
+  /** Other lists about the same selection (links above the table), from the source; none on the CEO pages. */
+  related = computed<RelatedList[]>(() => {
+    const e = this.current();
+    return e?.level.kind === 'records' && e.status === 'ok' ? e.records?.related ?? [] : [];
+  });
+  /** Where a booking number links to (the source decides); null = plain text. */
+  bookingLink(bookingId: number | null | undefined) {
+    return bookingId ? this.src().bookingLink?.(bookingId) ?? null : null;
+  }
+  /** The billing period under an invoice number (CP_01); null = not sent: the list shows the issue date only. */
+  periodOf(r: InvoiceRow): string | null {
+    return billingPeriodText(r.periodStart, r.periodEnd);
+  }
+
+  /** The line under an invoice's customer: its space and location (the CEO records have only the location). */
+  placeOf(r: InvoiceRow): string {
+    return [r.space, r.location].filter(Boolean).join(' · ');
+  }
   recordShown = computed(() => this.current()?.records?.rows.length ?? 0);
 
   typeStyle(type: string) { return INQUIRY_TYPES[inquiryTypeKey(type)]; }
+  complaintStyle(status: string) { return complaintStatusStyle(status); }
+  /** Open or in progress (its age matters). */
+  isActiveComplaint(status: string): boolean { return status === 'open' || status === 'in_progress'; }
+  /** "Today", "1 day", "12 days". */
+  ageText(days: number | null): string {
+    return days === null ? '' : days <= 0 ? 'Today' : days === 1 ? '1 day' : `${count(days)} days`;
+  }
+
+  /** "Ends today", "1 day left", "12 days left", "Ended 3 days ago". */
+  leaseDaysText(days: number): string {
+    if (days === 0) return 'Ends today';
+    if (days < 0) return `Ended ${count(-days)} day${days === -1 ? '' : 's'} ago`;
+    return `${count(days)} day${days === 1 ? '' : 's'} left`;
+  }
 
   /** Whole days from today to an ISO date (negative = past). */
   daysFrom(date: string | null): number | null {
@@ -342,6 +605,81 @@ export class CeoDrawer {
     if (isNaN(d.getTime())) return null;
     const t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
     return Math.round((d.getTime() - t.getTime()) / 86400000);
+  }
+
+  // ---------- Excel: the level on screen ----------
+
+  canExport = computed(() => {
+    const e = this.current();
+    if (e?.status !== 'ok') return false;
+    return e.level.kind === 'breakdown' ? this.rows().length > 0 : (e.records?.rows.length ?? 0) > 0;
+  });
+
+  /**
+   * The breakdown (its rows with both values, the derived % and the count) or the records list (every field but the
+   * ids, as the API sends them) as an .xlsx; a second sheet says what it is.
+   */
+  exportExcel() {
+    const e = this.current();
+    if (!e || !this.canExport()) return;
+    let table: XlsxCell[][];
+    if (e.level.kind === 'breakdown' && e.breakdown) {
+      const spec = this.spec();
+      const b = e.breakdown;
+      const v2 = this.hasValue2(), cnt = this.hasCount(), derived = spec?.derived, amount = this.amountCol();
+      const unit = spec?.money ? ' (PKR)' : '';
+      const unit2 = (spec?.money2 ?? spec?.money) ? ' (PKR)' : '';
+      table = [
+        [spec?.rowLabel ?? 'Row', `${b.valueLabel}${unit}`, ...(v2 ? [`${b.value2Label || 'Second value'}${unit2}`] : []),
+          ...(amount ? [`${amount.label}${unit}`] : []), ...(derived ? [`${derived.label} (%)`] : []), ...(cnt ? ['Items'] : [])],
+        ...this.rows().map(r => {
+          const d = derived?.of(r);
+          return [r.label, r.value, ...(v2 ? [r.value2] : []), ...(amount ? [Math.round(amount.of(r) * 100) / 100] : []),
+            ...(derived ? [d === null || d === undefined ? null : Math.round(d * 10) / 10] : []),
+            ...(cnt ? [r.count] : [])];
+        })
+      ];
+    } else if (e.level.kind === 'records' && e.level.records === 'invoices') {
+      // Revenue and paid without the security deposit; the deposit and the whole invoice in their own columns.
+      const rows = this.invoiceRows();
+      const windowed = this.invoiceWindowed();
+      table = [
+        ['Invoice number', 'Customer', 'Location', 'Issued on', 'Period start', 'Period end', 'Due on',
+          'Revenue (without deposit)', 'Revenue paid', 'Security deposit', 'Invoice total', 'Invoice paid', 'Balance', 'WHT',
+          ...(windowed ? ['Receivable'] : []), 'Status'],
+        ...rows.map(r => [
+          r.invoiceNumber, r.customer, r.location, r.issuedOn, r.periodStart ?? null, r.periodEnd ?? null, r.dueOn,
+          r.billed ?? r.total - (r.deposit ?? 0), r.collected ?? null, r.deposit ?? 0, r.total, r.paid, r.balance, r.wht ?? 0,
+          ...(windowed ? [r.receivable ?? null] : []), r.status
+        ] as XlsxCell[])
+      ];
+    } else {
+      const list = (e.records?.rows ?? []) as Record<string, unknown>[];
+      const keys = Object.keys(list[0] ?? {}).filter(k => !/Id$/.test(k));
+      const head = (k: string) => {
+        const words = k.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+        return words.charAt(0).toUpperCase() + words.slice(1);
+      };
+      const cell = (v: unknown): XlsxCell =>
+        typeof v === 'boolean' ? (v ? 'Yes' : 'No') : typeof v === 'number' || typeof v === 'string' ? v : v === null || v === undefined ? null : String(v);
+      // A tour inquiry's stored "Resolved" reads "Tour Done", as on screen.
+      const inquiries = e.level.kind === 'records' && e.level.records === 'inquiries';
+      const value = (k: string, v: unknown) => inquiries && k === 'status' && String(v ?? '').toLowerCase() === 'resolved' ? 'Tour Done' : v;
+      table = [keys.map(head), ...list.map(r => keys.map(k => cell(value(k, r[k]))))];
+    }
+    const sub = e.breakdown?.subtitle;
+    const about: XlsxCell[][] = [
+      [this.title()],
+      ...(sub ? [[sub]] : []),
+      ['Path', this.crumbs().join(' / ')],
+      ...(e.level.kind === 'records' ? [['Rows', `${this.recordShown()} of ${this.recordTotal()}`]] : []),
+      ...(this.desks() ? [] : [['Money in PKR']]),
+      ['Generated', new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })]
+    ];
+    downloadXlsx(`${fileSlug('WorkNest', this.request()?.root ?? '', e.level.crumb)}-${fileDate()}.xlsx`, [
+      { name: e.level.kind === 'records' ? RECORD_TITLES[e.level.records] ?? 'Records' : 'Breakdown', rows: table },
+      { name: 'About', header: 0, rows: about }
+    ]);
   }
 
   // ---------- keyboard: Escape closes, Tab stays inside ----------
@@ -395,8 +733,9 @@ export class CeoDrawer {
       ];
     } else {
       const req = this.current()?.level;
-      let color = TEAL, hover = TEAL_DARK;
+      let color: string | string[] = TEAL, hover: string | string[] = TEAL_DARK;
       if (metric === 'aging' && req?.kind === 'breakdown') { color = AGING_COLORS[String(req.params['bucket'])] ?? TEAL; hover = color; }
+      if (metric === 'aging-buckets') { color = rows.map(r => AGING_COLORS[r.key] ?? TEAL); hover = color; }
       if (metric === 'inquiries-type' && req?.kind === 'breakdown') { color = INQUIRY_TYPES[inquiryTypeKey(String(req.params['type']))].fg; hover = color; }
       datasets = [{ label: data.valueLabel, data: rows.map(r => r.value), backgroundColor: color, hoverBackgroundColor: hover, borderRadius: 4, maxBarThickness: vertical ? 28 : 18 }];
     }

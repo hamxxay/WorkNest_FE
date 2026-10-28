@@ -2,6 +2,7 @@ import { Component, ElementRef, HostListener, computed, inject, input, output, s
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Chart, registerables } from 'chart.js';
 import { UnifiClientKind } from '../../../models/unifi.model';
+import { KeepInView } from '../../../components/keep-in-view/keep-in-view.directive';
 
 Chart.register(...registerables);
 
@@ -427,13 +428,13 @@ export class NetIcon {
 @Component({
   selector: 'net-export',
   standalone: true,
-  imports: [NetIcon],
+  imports: [NetIcon, KeepInView],
   template: `
-    <button type="button" class="nx-btn" title="Export" [attr.aria-label]="'Export ' + label()" aria-haspopup="menu" [attr.aria-expanded]="open()" (click)="open.set(!open())">
+    <button type="button" class="nx-btn" [title]="table() && chart() ? 'Export (Excel, CSV or image)' : table() ? 'Export (Excel or CSV)' : 'Export as an image'" [attr.aria-label]="'Export ' + label()" aria-haspopup="menu" [attr.aria-expanded]="open()" (click)="open.set(!open())">
       <net-icon name="download" [size]="15" />
     </button>
     @if (open()) {
-      <div class="nx-menu" role="menu">
+      <div class="nx-menu" role="menu" appKeepInView>
         @if (table()) {
           <button type="button" role="menuitem" (click)="pick('xls')">Excel (.xls)</button>
           <button type="button" role="menuitem" (click)="pick('csv')">CSV</button>

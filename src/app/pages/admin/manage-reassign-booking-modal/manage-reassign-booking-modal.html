@@ -1,0 +1,51 @@
+<div class="modal-overlay" (click)="closeReassignModal.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closeReassignModal.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Reassign Booking</h2>
+    <div class="user-detail-grid" style="margin-bottom: 1rem;">
+      <div class="user-line"><span>User</span><strong>{{ reassignBooking.userEmail }}</strong></div>
+      <div class="user-line"><span>Current Space</span><strong>{{ reassignBooking.spaceName }} ({{
+          reassignBooking.assignedSpaceCode }})</strong></div>
+      <div class="user-line"><span>Time</span><strong>{{ reassignBooking.startDateTime | date:'medium' }} - {{
+          reassignBooking.endDateTime | date:'medium' }}</strong></div>
+    </div>
+    @if (reassignError()) {
+    <div class="alert-admin alert-error-admin">{{ reassignError() }}</div>
+    }
+    @if (reassignLoading()) {
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading available spaces...</p>
+    </div>
+    } @else {
+    <form (ngSubmit)="submitReassignment.emit()">
+      <div class="form-group-admin">
+        <label>Reassign to Space:</label>
+        <select class="form-input-admin" [(ngModel)]="selectedNewSpace" name="newSpace" required>
+          <option value="">Select available space...</option>
+          @for (space of availableSpacesForReassign(); track space.id) {
+          <option [value]="space.id">{{ space.code }} - {{ space.name }} ({{ space.locationName }})</option>
+          }
+        </select>
+      </div>
+      @if (availableSpacesForReassign().length === 0) {
+      <p style="color: var(--error); font-size: 0.875rem; margin: 0.5rem 0;">No available spaces found for this time
+        slot and space type.</p>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeReassignModal.emit()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin"
+          [disabled]="!selectedNewSpace || reassignLoading() || availableSpacesForReassign().length === 0">
+          {{ reassignLoading() ? 'Reassigning...' : 'Reassign Space' }}
+        </button>
+      </div>
+    </form>
+    }
+  </div>
+</div>

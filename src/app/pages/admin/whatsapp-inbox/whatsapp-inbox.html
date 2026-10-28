@@ -2,12 +2,12 @@
   <div class="page-header">
     <div>
       <h2>WhatsApp Inbox</h2>
-      <p class="subtitle">Conversations with the WorkNest WhatsApp number. The bot answers automatically; you can reply here at any time.</p>
+      <p class="subtitle">Conversations with the WorkNest WhatsApp number. The bot answers automatically; {{ canSend ? 'you can reply here at any time.' : 'admins reply here when needed.' }}</p>
     </div>
     <div class="header-actions">
       <button class="btn btn-outline btn-sm" (click)="loadConversations()" [disabled]="loadingList()">{{ loadingList() ? 'Loading…' : 'Refresh' }}</button>
+      @if (canSend) {
       <button class="btn btn-outline btn-sm" (click)="showStart.set(true)">+ New Message</button>
-      @if (canBroadcast) {
       <button class="btn btn-primary btn-sm" (click)="showBroadcast.set(true)">Broadcast</button>
       }
     </div>
@@ -84,15 +84,33 @@
         }
       </div>
 
+      @if (canSend) {
       <footer class="wa-compose">
         <textarea class="wa-input" rows="2" [(ngModel)]="replyText" (keydown)="onReplyKey($event)" maxlength="4000"
           [placeholder]="c.inReplyWindow ? 'Type a reply… (Enter to send, Shift+Enter for a new line)' : 'Type a reply… it will be sent using the approved WhatsApp template'"></textarea>
         <button class="btn btn-primary" (click)="send()" [disabled]="sending() || !replyText.trim()">{{ sending() ? 'Sending…' : 'Send' }}</button>
       </footer>
       } @else {
+      <footer class="wa-compose wa-readonly">
+        @let waUrl = whatsAppUrl(c);
+        <span>Reply from your own WhatsApp:</span>
+        <a class="btn btn-sm wa-open" [class.disabled]="!waUrl" [attr.href]="waUrl || null" target="_blank" rel="noopener noreferrer"
+          [attr.aria-disabled]="!waUrl ? 'true' : null"
+          [title]="waUrl ? 'Open this chat in WhatsApp' : 'This contact has no valid phone number'"
+          [attr.aria-label]="'Message ' + (c.name || c.phoneNumber) + ' on WhatsApp'">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+            <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1" />
+          </svg>
+          Open in WhatsApp
+        </a>
+      </footer>
+      }
+      } @else {
       <div class="wa-placeholder">
         <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <p>Select a conversation to read and reply.</p>
+        <p>{{ canSend ? 'Select a conversation to read and reply.' : 'Select a conversation to read it.' }}</p>
       </div>
       }
     </section>

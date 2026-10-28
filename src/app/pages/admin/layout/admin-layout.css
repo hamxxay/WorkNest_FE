@@ -1,11 +1,14 @@
 :host {
   display: block;
   height: 100vh;
+  height: 100dvh;
 }
 
 .admin-shell {
   display: flex;
   height: 100vh;
+  /* Phones: the visible height (without the browser's address bar), so the end of a page is never hidden under it. */
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -58,6 +61,14 @@
 .admin-shell.collapsed .sidebar-logo-img {
   width: 28px;
   height: 24px;
+}
+
+/* Icons-only sidebar (64px): logo above the menu button, both centred (side by side the button was cut off). */
+.admin-shell.collapsed .sidebar-header {
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 0 10px;
 }
 
 .sidebar-toggle {
@@ -256,6 +267,11 @@
   flex: 1;
   overflow-y: auto;
   background: #f8fafc;
+  /* The scroll box is the containing block for absolutely positioned content. Without it such an element
+     (e.g. a dashboard's screen-reader live region at the end of the page) is placed against the page itself,
+     escapes this scroll box and makes the whole window scrollable: in Safari the sidebar and content
+     scroll away and leave a blank area. */
+  position: relative;
 }
 
 /* Sidebar user block: one tidy row — avatar, name + role, logout icon */
@@ -410,6 +426,21 @@
   }
 }
 
+@media (max-width: 480px) {
+  .page-unread-bar {
+    margin: 10px 12px 0;
+    padding: 10px 12px;
+    font-size: .82rem;
+  }
+  .page-unread-bar > span:not(.page-unread-dot) {
+    flex: 1;
+    min-width: 0;
+  }
+  .page-unread-bar button {
+    min-height: 36px;
+  }
+}
+
 /* Avatar + name open the user's own profile; logout stays a separate button */
 .sidebar-profile-link {
   display: flex;
@@ -444,3 +475,208 @@
   flex-direction: column;
   flex: none;
 }
+/* =====================================================================
+   Phones (< 768px, .phone set by the component): the sidebar is an off-canvas drawer with a backdrop,
+   opened from a slim top bar. Tablets keep the icons-only sidebar, desktop the full one.
+   ===================================================================== */
+.admin-main {
+  min-width: 0;
+}
+
+.mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 12px 0 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.mobile-menu-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.mobile-menu-btn:hover,
+.mobile-menu-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mobile-menu-btn:focus-visible,
+.sidebar-toggle:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 1px;
+}
+
+.mobile-menu-dot {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #0f172a;
+}
+
+.mobile-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  color: #0d9488;
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mobile-logo img {
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.mobile-user {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0d9488, #115e59);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1190;
+  background: rgba(15, 23, 42, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.nav-backdrop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.admin-shell.phone .sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1200;
+  width: min(280px, 86vw);
+  transform: translateX(-100%);
+  visibility: hidden;
+  /* hidden after the slide-out, so the closed drawer's links are not reachable with Tab */
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
+}
+
+.admin-shell.phone.nav-open .sidebar {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.25s ease;
+  box-shadow: 12px 0 40px rgba(2, 6, 23, 0.45);
+}
+
+/* "Scroll to" targets (e.g. a dashboard card opened from a KPI) stop below the sticky top bar. */
+.admin-shell.phone .admin-main {
+  scroll-padding-top: 64px;
+}
+
+/* The page behind the open drawer does not scroll. */
+.admin-shell.phone.nav-open .admin-main {
+  overflow: hidden;
+}
+
+/* Bigger touch targets in the drawer. */
+.admin-shell.phone .sidebar-toggle {
+  width: 44px;
+  height: 44px;
+  margin: -8px -8px -8px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+}
+
+.admin-shell.phone .nav-item {
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}
+
+.admin-shell.phone .sidebar-unread button {
+  min-height: 36px;
+}
+
+.admin-shell.phone .sidebar-user .sidebar-logout {
+  width: 44px;
+  height: 44px;
+}
+
+.admin-shell.phone .sidebar-footer {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell.phone .sidebar,
+  .admin-shell.phone.nav-open .sidebar,
+  .nav-backdrop {
+    transition: none;
+  }
+}
+
+/* ---------- CEO / Sales Manager: no sidebar, a slim top bar over their one dashboard ---------- */
+.focus-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+  background: #0f172a;
+  color: #e2e8f0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+.focus-logo { display: inline-flex; align-items: center; gap: 2px; color: #5eead4; font-weight: 700; font-size: 1.15rem; text-decoration: none; margin-right: auto; }
+.focus-logo img { display: block; }
+.focus-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.focus-avatar { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0d9488, #115e59); color: #fff; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+.focus-user-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.focus-user-name { font-size: 0.86rem; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.focus-user-role { font-size: 0.74rem; color: #94a3b8; }
+.focus-logout { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12); background: transparent; color: #e2e8f0; font: inherit; font-size: 0.84rem; cursor: pointer; }
+.focus-logout:hover { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+.focus-logout:focus-visible { outline: 2px solid #5eead4; outline-offset: 2px; }
+@media (max-width: 560px) {
+  .focus-user-text, .focus-logout-text { display: none; }
+  .focus-logout { padding: 0 9px; }
+}
+

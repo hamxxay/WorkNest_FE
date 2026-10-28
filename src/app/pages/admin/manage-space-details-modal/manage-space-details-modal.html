@@ -1,0 +1,54 @@
+<div class="modal-overlay" (click)="closeSpaceModal.emit()">
+  <div class="modal-content user-modal" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closeSpaceModal.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Space Details</h2>
+    @if (spaceSummaryLoading()) {
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+    } @else if (spaceSummaryError()) {
+    <div class="alert-admin alert-error-admin">{{ spaceSummaryError() }}</div>
+    } @else if (spaceSummary(); as s) {
+    <div class="user-detail-grid">
+      <div class="user-line"><span>Space</span><strong>{{ s.space?.name }} ({{ s.space?.code }})</strong></div>
+      <div class="user-line"><span>Location</span><strong>{{ s.space?.locationName }}</strong></div>
+      <div class="user-line"><span>Type</span><strong>{{ s.space?.spaceTypeName }}</strong></div>
+      <div class="user-line"><span>Capacity</span><strong>{{ s.space?.capacity ?? '—' }}</strong></div>
+      <div class="user-line"><span>Status</span><strong>{{ s.space?.status }}</strong></div>
+    </div>
+    <div class="history-section">
+      <h3>Reservation Summary</h3>
+      <div class="history-stats">
+        <div class="stat-card"><span>Total Bookings</span><strong>{{ s.stats?.totalBookings ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Confirmed</span><strong>{{ s.stats?.confirmedBookings ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Cancelled</span><strong>{{ s.stats?.cancelledBookings ?? 0 }}</strong></div>
+        <div class="stat-card"><span>Revenue</span><strong>PKR {{ (s.stats?.collectedRevenue ?? 0) | number:'1.0-0'
+            }}</strong></div>
+      </div>
+      <div class="history-list">
+        <h4>Recent Reservations</h4>
+        @if (s.recentReservations?.length) {
+        @for (r of s.recentReservations; track r.id) {
+        <div class="history-item">
+          <div><strong>#{{ r.id }} - {{ r.userEmail }}</strong>
+            <p>{{ r.startDateTime | date:'mediumDate' }} to {{ r.endDateTime | date:'mediumDate' }}</p>
+          </div>
+          <span class="status-badge" [class]="'status-' + (r.bookingStatus || '').toLowerCase()">{{ r.bookingStatus
+            }}</span>
+        </div>
+        }
+        } @else {
+        <p class="history-empty">No reservations found.</p>
+        }
+      </div>
+    </div>
+    }
+  </div>
+</div>

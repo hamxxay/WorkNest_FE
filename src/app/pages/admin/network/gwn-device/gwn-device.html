@@ -1,0 +1,202 @@
+<div class="net-page" #page>
+  <app-network-switch />
+  <a class="crumb no-print" routerLink="/admin/network/gwn/devices"><net-icon name="back" [size]="16" />All devices</a>
+
+  <div class="dash-header">
+    @if (data(); as d) {
+      <div class="hero">
+        <div class="hero-icon"><net-icon [name]="gwnTypeIcon(d.type)" [size]="26" /></div>
+        <div>
+          <h1>{{ d.name }} <span class="badge" [class.badge-ok]="d.status === 'online'" [class.badge-bad]="d.status !== 'online'">{{ d.status }}</span></h1>
+          <p class="dash-meta">
+            <span>{{ d.model }}{{ d.type ? ' · ' + d.type : '' }}</span><span class="dot-sep"></span>
+            <span class="mono">{{ d.ip || '–' }}</span><span class="dot-sep"></span>
+            <span class="mono">{{ d.mac }}</span><span class="dot-sep"></span>
+            <span>Firmware {{ d.firmware || '–' }}@if (hasUpdate()) { <span class="tag">Update {{ d.latestFirmware }}</span> }</span>
+          </p>
+        </div>
+      </div>
+    } @else if (loading()) {
+      <div class="hero"><div class="sk" style="width:52px;height:52px;border-radius:14px"></div><div style="flex:1"><div class="sk" style="height:24px;width:240px"></div><div class="sk sk-line" style="width:360px"></div></div></div>
+    } @else {
+      <div><h1>Device</h1><p class="dash-meta">{{ mac() ? 'This device could not be loaded.' : 'No device selected. Go back and pick a device.' }}</p></div>
+    }
+    <div class="dash-header-actions no-print">
+      <span class="updated">{{ updatedText() }}</span>
+      @if (isSuperAdmin && data()) {
+        <button class="btn-report danger" (click)="confirmReboot.set(true)" [disabled]="rebooting() || !online()" [title]="online() ? 'Restart this device' : 'The device is offline'"><net-icon name="refresh" [size]="16" />Reboot</button>
+      }
+      <button class="btn-report" (click)="exportPdf()" [disabled]="exporting() || !data()"><net-icon name="file" [size]="16" />{{ exporting() ? 'Exporting…' : 'Export PDF' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing() || !mac()" title="Refresh device" aria-label="Refresh device"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error" role="alert"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (data(); as d) {
+    <section class="kpi-grid">
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Clients</span>
+        <span class="kpi-value">{{ fmt(d.clients) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">Connected right now</span></div>
+        <net-sparkline [points]="clientSpark()" [format]="clientFmt" />
+      </div>
+      <div class="kpi-card" [class.tone-ok]="online()" [class.tone-danger]="!online()">
+        <span class="kpi-label">Uptime</span>
+        <span class="kpi-value">{{ online() ? dur(d.uptimeSeconds) : '–' }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ online() ? 'Online' : d.lastSeen ? 'Last seen ' + ago(d.lastSeen) : 'Offline' }}</span></div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Data today</span>
+        <span class="kpi-value">{{ bytes(d.today?.total) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">Down <b>{{ bytes(d.today?.download) }}</b> · Up <b>{{ bytes(d.today?.upload) }}</b></span></div>
+      </div>
+      <div class="kpi-card tone-neutral">
+        <span class="kpi-label">Total data</span>
+        <span class="kpi-value">{{ bytes(d.total) }}</span>
+        <div class="kpi-foot"><span class="kpi-sub">Down <b>{{ bytes(d.download) }}</b> · Up <b>{{ bytes(d.upload) }}</b></span></div>
+      </div>
+      <div class="kpi-card" [class.tone-ok]="(d.memory ?? 0) < 75" [class.tone-warn]="(d.memory ?? 0) >= 75 && (d.memory ?? 0) < 90" [class.tone-danger]="(d.memory ?? 0) >= 90">
+        <span class="kpi-label">Memory</span>
+        <span class="kpi-value">@if (d.memory != null) { {{ fmt(d.memory, 1) }}<small>%</small> } @else { – }</span>
+        @if (d.memory != null) { <div class="gauge" [class.hot]="d.memory >= 75" [class.crit]="d.memory >= 90"><span [style.width.%]="d.memory"></span></div> } @else { <div class="kpi-foot"><span class="kpi-sub">Not reported</span></div> }
+      </div>
+      <div class="kpi-card" [class.tone-neutral]="(d.temperature ?? 0) < 70" [class.tone-warn]="(d.temperature ?? 0) >= 70">
+        <span class="kpi-label">Temperature</span>
+        <span class="kpi-value">@if (d.temperature != null) { {{ fmt(d.temperature) }}<small>°C</small> } @else { – }</span>
+        <div class="kpi-foot"><span class="kpi-sub">{{ d.temperature != null ? (d.temperature >= 70 ? 'Running hot' : 'Normal') : 'Not reported' }}</span></div>
+      </div>
+    </section>
+  } @else if (loading()) {
+    <section class="kpi-grid">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="kpi-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-value"></div><div class="sk sk-line" style="width:70%"></div></div> }
+    </section>
+  }
+
+  <div [hidden]="!data()">
+    <div class="section-head">
+      <h3 class="section-title">Performance</h3>
+      <div class="seg no-print" role="group" aria-label="Time range">
+        @for (r of ranges; track r.key) { <button [class.active]="range() === r.key" (click)="setRange(r.key)">{{ r.label }}</button> }
+      </div>
+    </div>
+
+    <section class="ins-grid">
+      <article class="dash-panel span-8">
+        <div class="panel-head">
+          <div><h3>Traffic</h3><p class="panel-sub">{{ statsError() ? 'History unavailable: ' + statsError() : 'Mbps · ' + rangeName() }}</p></div>
+          <div class="panel-tools">
+            @if (trafficStats(); as s) {
+              <div class="head-stats">
+                <div><span>Downloaded</span><strong>{{ bytes(s.down) }}</strong></div>
+                <div><span>Uploaded</span><strong>{{ bytes(s.up) }}</strong></div>
+                <div><span>Peak down</span><strong>{{ bitRate(s.peak) }}</strong></div>
+              </div>
+            }
+            <net-export [chart]="true" label="Traffic" (picked)="exportChart($event, 'traffic', cTraffic)" />
+          </div>
+        </div>
+        <div class="chart-box h-lg">
+          @if (!stats()) { <div class="sk chart-sk"></div> }
+          @else if (!stats()!.times.length) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="activity" [size]="18" /></span><strong>No data yet</strong><span>No traffic history for this period.</span></div> }
+          <canvas #cTraffic role="img" aria-label="Line chart of this device's traffic"></canvas>
+        </div>
+      </article>
+      <article class="dash-panel span-4">
+        <div class="panel-head">
+          <div><h3>Clients over time</h3><p class="panel-sub">{{ rangeName() }}</p></div>
+          <net-export [chart]="true" label="Clients over time" (picked)="exportChart($event, 'clients over time', cClients)" />
+        </div>
+        <div class="chart-box h-lg">
+          @if (!stats()) { <div class="sk chart-sk"></div> }
+          @else if (!hasClientSeries()) { <div class="chart-empty"><span class="chart-empty-icon"><net-icon name="users" [size]="18" /></span><strong>No clients</strong><span>No clients in this period.</span></div> }
+          <canvas #cClients role="img" aria-label="Line chart of clients on this device"></canvas>
+        </div>
+      </article>
+    </section>
+
+    @if (data(); as d) {
+      @if (d.radios?.length) {
+        <section class="dash-panel">
+          <div class="panel-head">
+            <div><h3>Radios</h3><p class="panel-sub">Wi-Fi radios on this access point</p></div>
+            <net-export [table]="true" label="Radios" (picked)="exportTable($event, 'radios', radiosTable)" />
+          </div>
+          <div class="table-container">
+            <table class="clean-table" #radiosTable>
+              <thead><tr><th>Band</th><th class="num">Channel</th><th class="num">Clients</th><th class="num">TX power</th></tr></thead>
+              <tbody>
+                @for (r of d.radios; track $index) {
+                  <tr><td class="dev-name">{{ r.band }}</td><td class="num">{{ r.channel ?? '–' }}</td><td class="num">{{ fmt(r.clients) }}</td><td class="num">{{ r.power || '–' }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
+      <section class="ins-grid">
+        <article class="dash-panel span-8">
+          <div class="panel-head">
+            <div><h3>Connected clients</h3><p class="panel-sub">{{ clients().length }} on this device right now</p></div>
+            <div class="panel-tools">
+              <a class="link-btn no-print" routerLink="/admin/network/gwn/clients" [queryParams]="{ ap: d.mac }">Open in Clients</a>
+              <net-export [table]="true" label="Connected clients" (picked)="exportTable($event, 'clients', clientsTable)" />
+            </div>
+          </div>
+          <div class="table-container scroll">
+            <table class="clean-table" #clientsTable>
+              <thead><tr><th>Client</th><th>Wi-Fi</th><th>Signal</th><th>IP address</th><th class="num">Data used</th><th class="num">Connected for</th></tr></thead>
+              <tbody>
+                @for (c of clients(); track c.mac) {
+                  <tr>
+                    <td><div class="dev"><span class="dev-icon"><net-icon [name]="gwnClientIcon(c)" [size]="16" /></span>
+                      <div><div class="dev-name">{{ clientName(c) }}</div><div class="muted small">{{ c.manufacturer || c.mac }}</div></div></div></td>
+                    <td>{{ c.wired ? 'Wired' : (c.ssid || '–') + ' · ' + bandLabel(c.band) }}</td>
+                    <td>@if (c.wired) { <span class="muted">–</span> } @else { <net-signal [dbm]="c.rssi" /> }</td>
+                    <td class="mono">{{ c.ip || '–' }}</td>
+                    <td class="num">{{ bytes(c.total) }}</td>
+                    <td class="num">{{ c.connectedSeconds != null ? dur(c.connectedSeconds) : (c.connectedFor || '–') }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="6" class="empty-state">No clients connected to this device.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="dash-panel span-4">
+          <div class="panel-head">
+            <h3>Details</h3>
+            <net-export [table]="true" label="Details" (picked)="exportTable($event, 'details', infoTable)" />
+          </div>
+          <table class="clean-table" #infoTable hidden>
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody>@for (f of d.info; track f.key) { <tr><td>{{ f.label }}</td><td>{{ f.value }}</td></tr> }</tbody>
+          </table>
+          <dl class="facts">
+            <div><dt>Model</dt><dd>{{ d.model || '–' }}</dd></div>
+            <div><dt>MAC address</dt><dd class="mono">{{ d.mac }}</dd></div>
+            @if (d.publicIp) { <div><dt>Public (WAN) IP</dt><dd class="mono">{{ d.publicIp }}</dd></div> }
+            @if (d.ipv6) { <div><dt>IPv6</dt><dd class="mono">{{ d.ipv6 }}</dd></div> }
+            <div><dt>Firmware</dt><dd>{{ d.firmware || '–' }}{{ hasUpdate() ? ' (update ' + d.latestFirmware + ')' : ' (up to date)' }}</dd></div>
+            @if (d.firstSeen) { <div><dt>First seen</dt><dd>{{ ago(d.firstSeen) }}</dd></div> }
+            @for (f of d.info; track f.key) { <div><dt>{{ f.label }}</dt><dd>{{ f.value || '–' }}</dd></div> }
+          </dl>
+        </article>
+      </section>
+    }
+  </div>
+</div>
+
+@if (confirmReboot() && data(); as d) {
+  <gwn-confirm
+    [title]="'Reboot ' + d.name + '?'"
+    [text]="'The device restarts now. Its ' + d.clients + ' connected client' + (d.clients === 1 ? '' : 's') + ' lose Wi-Fi for about 2–3 minutes.'"
+    note="The action is recorded with your name."
+    okLabel="Reboot device"
+    busyLabel="Sending…"
+    [busy]="rebooting()"
+    (confirm)="doReboot()"
+    (cancel)="confirmReboot.set(false)" />
+}

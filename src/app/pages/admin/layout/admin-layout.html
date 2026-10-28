@@ -1,11 +1,20 @@
-﻿<div class="admin-shell" [class.collapsed]="sidebarCollapsed">
-  <aside class="sidebar">
+﻿<div class="admin-shell" [class.collapsed]="sidebarCollapsed" [class.phone]="isPhone()" [class.nav-open]="mobileNavOpen()" [class.focus-shell]="focusMode">
+  @if (!focusMode) {
+  <!-- Phones: the sidebar is a drawer that slides in over the page (menu button in the top bar); tablets: icons only;
+       desktop: full sidebar. -->
+  <aside class="sidebar" id="admin-sidebar" data-tooltip-placement="right" [attr.role]="isPhone() ? 'dialog' : null" [attr.aria-modal]="isPhone() && mobileNavOpen() ? 'true' : null"
+    [attr.aria-label]="isPhone() ? 'Menu' : null">
     <div class="sidebar-header">
-      <a [routerLink]="dashboardHome ?? '/'" class="sidebar-logo">
+      <a [routerLink]="dashboardHome ?? '/'" class="sidebar-logo" (click)="closeMobileNav()">
         <img src="images/Logo.png" alt="W" width="36" height="32" class="sidebar-logo-img" /><span class="logo-text">orkNest</span>
       </a>
-      <button class="sidebar-toggle" (click)="toggleSidebar()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/></svg>
+      <button #sidebarToggle class="sidebar-toggle" (click)="toggleSidebar()" [title]="isPhone() ? 'Close menu' : sidebarCollapsed ? 'Expand menu' : 'Collapse menu'"
+        [attr.aria-label]="isPhone() ? 'Close menu' : sidebarCollapsed ? 'Expand menu' : 'Collapse menu'">
+        @if (isPhone()) {
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/></svg>
+        }
       </button>
     </div>
     @if (!sidebarCollapsed && badgeTotal() > 0) {
@@ -18,7 +27,7 @@
       @for (g of menuGroups; track g.name) {
         @if (g.name) { <span class="nav-label">{{ g.name }}</span> } @else { <span class="nav-label">Overview</span> }
         @for (item of g.items; track item.route) {
-            <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/admin' || item.route === '/admin/network'}" class="nav-item" [attr.title]="sidebarCollapsed ? (badgeCount(item.route) > 0 ? item.label + ' (' + badgeCount(item.route) + ' waiting)' : item.label) : null">
+            <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/admin' || item.route === '/admin/network' || item.route === '/admin/network/gwn'}" class="nav-item" (click)="closeMobileNav()" [attr.title]="sidebarCollapsed ? (badgeCount(item.route) > 0 ? item.label + ' (' + badgeCount(item.route) + ' waiting)' : item.label) : null">
               <span class="nav-icon">
                 @switch (item.icon) {
                   @case ('ceo') {
@@ -26,6 +35,9 @@
                   }
                   @case ('sales-dash') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg>
+                  }
+                  @case ('access-officer') {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="16" x="3" y="4" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 9h2"/><path d="M15 13h2"/><path d="M6 16c.6-1.2 1.7-2 3-2s2.4.8 3 2"/></svg>
                   }
                   @case ('dashboard') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
@@ -93,6 +105,9 @@
                   @case ('whatsapp') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>
                   }
+                  @case ('message-template') {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/></svg>
+                  }
                   @case ('quotation-responses') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="m9 10 2 2 4-4"/></svg>
                   }
@@ -110,6 +125,9 @@
                   }
                   @case ('receipt') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-8"/><path d="M16 12h-8"/><path d="M13 16h-5"/></svg>
+                  }
+                  @case ('custom-invoice') {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h5"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h5"/><path d="M8 17h2"/><path d="M20.4 14.6a1.4 1.4 0 0 0-2-2L14 17v2h2z"/></svg>
                   }
                   @case ('login-history') {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
@@ -135,8 +153,8 @@
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">
-        @if (dashboardHome) {
-          <!-- A CEO / Sales Manager has no profile page: the card only shows who is signed in. -->
+        @if (dashboardHome && !isNetworkEngineer) {
+          <!-- A CEO / Sales Manager / Access Officer has no profile page: the card only shows who is signed in. -->
           <div class="sidebar-profile-link static" [attr.title]="sidebarCollapsed ? getUserName() + ' (' + roleLabel + ')' : null">
             <span class="sidebar-avatar">{{ getInitials() }}</span>
             <div class="sidebar-user-info">
@@ -145,8 +163,8 @@
             </div>
           </div>
         } @else {
-        <a routerLink="/admin/profile" routerLinkActive="active" class="sidebar-profile-link"
-          [attr.title]="sidebarCollapsed ? getUserName() + ' Â· ' + roleLabel + ' â€” My profile' : 'My profile'" aria-label="My profile">
+        <a routerLink="/admin/profile" routerLinkActive="active" class="sidebar-profile-link" (click)="closeMobileNav()"
+          [attr.title]="sidebarCollapsed ? getUserName() + ' · ' + roleLabel + ' — My profile' : 'My profile'" aria-label="My profile">
           <span class="sidebar-avatar">{{ getInitials() }}</span>
           <div class="sidebar-user-info">
             <span class="sidebar-user-name">{{ getUserName() }}</span>
@@ -160,7 +178,44 @@
       </div>
     </div>
   </aside>
-  <main class="admin-main">
+  @if (isPhone()) {
+    <div class="nav-backdrop" [class.show]="mobileNavOpen()" (click)="closeMobileNav()" aria-hidden="true"></div>
+  }
+  }
+  <main class="admin-main" #adminMain>
+    @if (focusMode) {
+      <!-- CEO / Sales Manager: their one dashboard fills the screen; this bar keeps who is signed in and Sign out. -->
+      <header class="focus-topbar">
+        <a [routerLink]="dashboardHome" class="focus-logo" title="Dashboard" aria-label="WorkNest dashboard">
+          <img src="images/Logo.png" alt="" width="30" height="26" /><span>orkNest</span>
+        </a>
+        <div class="focus-user" [attr.title]="getUserName() + ' (' + roleLabel + ')'">
+          <span class="focus-avatar" aria-hidden="true">{{ getInitials() }}</span>
+          <span class="focus-user-text">
+            <span class="focus-user-name">{{ getUserName() }}</span>
+            <span class="focus-user-role">{{ roleLabel }}</span>
+          </span>
+        </div>
+        <button type="button" class="focus-logout" (click)="logout()" title="Sign out" aria-label="Sign out">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span class="focus-logout-text">Sign out</span>
+        </button>
+      </header>
+    } @else if (isPhone()) {
+      <header class="mobile-topbar">
+        <button #menuButton type="button" class="mobile-menu-btn" (click)="openMobileNav()" title="Open menu" aria-label="Open menu"
+          aria-controls="admin-sidebar" [attr.aria-expanded]="mobileNavOpen()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/></svg>
+          @if (badgeTotal() > 0) {
+            <span class="mobile-menu-dot" role="img" [attr.aria-label]="(badgeTotal() > 99 ? '99+' : badgeTotal()) + ' waiting'"></span>
+          }
+        </button>
+        <a [routerLink]="dashboardHome ?? '/'" class="mobile-logo">
+          <img src="images/Logo.png" alt="W" width="30" height="26" /><span>orkNest</span>
+        </a>
+        <span class="mobile-user" [attr.title]="getUserName() + ' (' + roleLabel + ')'" aria-hidden="true">{{ getInitials() }}</span>
+      </header>
+    }
     @if (currentBadge(); as cb) {
       <div class="page-unread-bar" role="status">
         <span class="page-unread-dot" [class.urgent]="isUrgentBadge(cb.route)"></span>

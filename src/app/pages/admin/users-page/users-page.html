@@ -1,0 +1,578 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div>
+      <h1>{{ config().title }}</h1>
+      <p>Manage all {{ config().title.toLowerCase() }}</p>
+    </div>
+    <div class="header-actions">
+      @if (hasListFilters) {
+      <!-- Every row matching the search and the filters (all pages), as an .xlsx file. -->
+      <button type="button" class="btn-admin btn-outline-admin" (click)="exportExcel()" [disabled]="exporting()"
+        [attr.aria-busy]="exporting()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" x2="12" y1="15" y2="3" />
+        </svg>
+        @if (exporting()) {
+        Exporting{{ exportProgress() ? ' ' + exportProgress() : '' }}...
+        } @else {
+        Export Excel
+        }
+      </button>
+      }
+      @if (config().createFn) {
+      <button class="btn-admin btn-primary-admin" (click)="openCreate()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" x2="12" y1="5" y2="19" />
+          <line x1="5" x2="19" y1="12" y2="12" />
+        </svg>
+        {{ config().createLabel || 'Add New' }}
+      </button>
+      }
+    </div>
+  </div>
+
+  @if (success()) {
+  <div class="alert-admin alert-success-admin">{{ success() }}</div>
+  }
+
+  <div class="admin-card">
+    <div class="card-toolbar">
+      <div class="search-box">
+        <svg (click)="onSearchImmediate()" data-tooltip="Search now" style="cursor:pointer"
+          xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearch()"
+          (keyup.enter)="onSearchImmediate()" />
+        @if (searchQuery) {
+        <button (click)="clearSearch()" title="Clear search" aria-label="Clear search"
+          style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px">&times;</button>
+        }
+      </div>
+      @if (hasListFilters) {
+      <!-- Location / Status / date range: applied on the server with the search (back to page 1 on a change). -->
+      <div class="toolbar-filters list-filters">
+        @if (showBranchFilter) {
+        <!-- Only when the user sees more than one location (the API scopes the list to theirs). -->
+        <label class="page-size-wrap type-filter">
+          <span>Location</span>
+          <select [ngModel]="branchFilter" (ngModelChange)="onBranchFilter($event)" aria-label="Filter by location"
+            [disabled]="exporting()">
+            <option value="">All locations</option>
+            @for (b of itemBranches(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+            }
+          </select>
+        </label>
+        }
+        @if (listStatusOptions().length) {
+        <label class="page-size-wrap type-filter">
+          <span>Status</span>
+          <select [ngModel]="listStatusFilter" (ngModelChange)="onListStatusFilter($event)"
+            aria-label="Filter by status" [disabled]="exporting()">
+            <option value="">All statuses</option>
+            @for (o of listStatusOptions(); track o.value) {
+            <option [value]="o.value">{{ statusDisplay(o.label) }}</option>
+            }
+          </select>
+        </label>
+        }
+        @if (hasListPeriod) {
+        <!-- Invoices: opens on this month (issue date, Pakistan dates); a wider period fetches that range. -->
+        <label class="page-size-wrap type-filter">
+          <span>{{ listDateLabel }}</span>
+          <select [ngModel]="listPeriod" (ngModelChange)="onListPeriod($event)"
+            [attr.aria-label]="listDateLabel + ' period'" [disabled]="exporting()">
+            @for (o of listPeriodOptions; track o.value) {
+            <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        @if (listPeriodText) {
+        <span class="list-period-range">{{ listPeriodText }}</span>
+        }
+        }
+        @if (!hasListPeriod || listPeriod === 'custom') {
+        <label class="page-size-wrap type-filter date-filter">
+          <span>{{ hasListPeriod ? 'From' : listDateLabel + ' from' }}</span>
+          <input type="date" [ngModel]="listDateFrom" (ngModelChange)="onListDateFrom($event)"
+            [attr.max]="listDateTo || null" [attr.aria-label]="listDateLabel + ' from'" [disabled]="exporting()" />
+        </label>
+        <label class="page-size-wrap type-filter date-filter">
+          <span>to</span>
+          <input type="date" [ngModel]="listDateTo" (ngModelChange)="onListDateTo($event)"
+            [attr.min]="listDateFrom || null" [attr.aria-label]="listDateLabel + ' to'" [disabled]="exporting()" />
+        </label>
+        }
+        @if (listFiltersActive) {
+        <button type="button" class="btn-admin btn-outline-admin btn-clear-filters" (click)="clearListFilters()"
+          [disabled]="exporting()">Clear filters</button>
+        }
+      </div>
+      }
+      <div class="toolbar-right">
+        <label class="page-size-wrap">
+          <span>Show</span>
+          <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
+            @for (size of pageSizeOptions; track size) {
+            <option [value]="size">{{ size }}</option>
+            }
+          </select>
+        </label>
+        <span class="item-count">{{ totalCount() }} items</span>
+      </div>
+    </div>
+
+    @if (loading()) {
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+    } @else if (loadError()) {
+    <!-- The list could not be loaded: say so (not "No records found.") and offer Retry. -->
+    <div class="empty-state list-error" role="alert">
+      <p>{{ loadError() }}</p>
+      <button type="button" class="btn-admin btn-outline-admin" (click)="retryLoad()">Retry</button>
+    </div>
+    } @else if (filtered.length === 0) {
+    <div class="empty-state">
+      <p>{{ listEmptyText }}</p>
+      @if (listFiltersActive) {
+      <button type="button" class="btn-admin btn-outline-admin" (click)="clearListFilters()">Clear filters</button>
+      }
+    </div>
+    } @else {
+    <div class="table-wrap">
+      <table class="admin-table" [class.compact-list]="entity === 'invoices'">
+        <thead>
+          <tr>
+            @for (col of screenColumns(); track col.key) {
+            <th [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">{{ col.screenLabel || col.label }}</th>
+            }
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of filtered; track item.rowKey || item.bookingId || item.id || item.idGuid || $index) {
+          <tr [class.duplicate-row]="entity === 'spaces' && isDuplicate(item)">
+            @for (col of screenColumns(); track col.key) {
+            <td [class]="'col-' + (col.type || 'text') + ' col-key-' + col.key">
+              @if (col.type === 'image') {
+              <img [src]="item[col.key]" class="thumb" [alt]="item.title || ''" />
+              } @else if (canEditStatus(col)) {
+              <!-- Status is changed right here: the pill shows the current status and is coloured by it. -->
+              <span class="status-picker" [class]="'status-picker status-' + statusKey(getCellValue(item, col))">
+                <select
+                  (change)="changeStatus(item, $any($event.target).value, $any($event.target), currentStatusOption(item, col))"
+                  aria-label="Change status" [title]="'Change status'">
+                  @if (!currentStatusOption(item, col)) {
+                  <option value="" disabled selected>{{ getCellValue(item, col) || 'Not set' }}</option>
+                  }
+                  @for (s of config().statusOptions; track s) {
+                  <option [value]="s" [selected]="s === currentStatusOption(item, col)">{{ statusDisplay(s) }}</option>
+                  }
+                </select>
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+              } @else if (col.type === 'status' || col.type === 'booking-status' || col.type === 'invoice-status') {
+              <span class="status-badge"
+                [class]="'status-' + (getCellValue(item, col)?.toString() || '').toLowerCase().replace(' ', '-')">{{
+                getCellValue(item,
+                col) }}</span>
+              } @else if (col.type === 'approval-status') {
+              <span class="status-badge"
+                [style.background]="getCellValue(item, col) === 'Pending Approval' ? '#fef3c7' : '#dcfce7'"
+                [style.color]="getCellValue(item, col) === 'Pending Approval' ? '#92400e' : '#166534'"
+                [style.border]="getCellValue(item, col) === 'Pending Approval' ? '1px solid #fde68a' : '1px solid #bbf7d0'">
+                {{ getCellValue(item, col) }}
+              </span>
+              } @else if (col.type === 'boolean') {
+              <span class="bool-badge" [class.active]="item[col.key]">{{ item[col.key] ? 'Yes' : 'No' }}</span>
+              } @else if (col.type === 'date') {
+              {{ getCellValue(item, col) | date:'mediumDate' }}
+              } @else if (col.type === 'datetime') {
+              {{ getCellValue(item, col) | date:'short' }}
+              } @else if (col.type === 'currency') {
+              @if (!col.label.includes('(PKR)')) { PKR }{{ (getCellValue(item, col) || 0) | number:'1.0-0' }}
+              } @else if (col.type === 'space-prices') {
+              <span style="color:#0f172a;font-weight:600">{{ getSpaceDisplayPrice(item).display }}</span>
+              } @else if (col.type === 'roles') {
+              @for (r of item[col.key]; track r) {
+              <span class="role-tag">{{ r }}</span>
+              }
+              } @else if (col.type === 'role' && entity === 'users' && isSuperAdmin) {
+              <!-- Super admin: the role is changed right here; the pill shows the current role. -->
+              <span class="status-picker" [class]="'status-picker role-pick-' + getRoleClass(item[col.key])">
+                <select
+                  (change)="changeUserRole(item, $any($event.target).value, $any($event.target), getRoleClass(item[col.key]))"
+                  aria-label="Change role" title="Change role">
+                  @if (!isAssignableRole(item[col.key])) {
+                  <option value="" disabled selected>{{ getRoleLabel(item[col.key]) }}</option>
+                  }
+                  @for (r of assignableRoles; track r.v) {
+                  <option [value]="r.v" [selected]="r.v === getRoleClass(item[col.key])">{{ r.l }}</option>
+                  }
+                </select>
+                <svg class="status-picker-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+              } @else if (col.type === 'role') {
+              <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
+                }}</span>
+              } @else {
+              <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
+              }
+            </td>
+            }
+            <td class="actions-cell">
+              @if (entity === 'users') {
+              <!-- <button class="action-btn info" (click)="openUserFromUsers(item)" title="User Details">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21a8 8 0 1 0-16 0" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button> -->
+              }
+
+              @if (entity === 'quotation-responses' || item.isQuotationResponse || item.isQuotationDecline) {
+
+              <button class="action-btn info" (click)="previewQuotation(item.rawQuotationItem || item)"
+                title="View quotation and version history" aria-label="View quotation and version history">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              <button class="action-btn" (click)="createNextVersion(item.rawQuotationItem || item)"
+                title="Create a new version" aria-label="Create a new version"
+                style="background:#7c3aed;color:#fff;border:none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              }
+              @if (config().updateFn && config().fields && (entity !== 'users' || canEditUser(item))) {
+              <button class="action-btn edit" (click)="openEdit(item)" [title]="'Edit ' + rowNoun()"
+                [attr.aria-label]="'Edit ' + rowNoun()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </button>
+              }
+              @if (entity === 'users' && canLockOrDeleteUser(item)) {
+              <button class="action-btn" [class.deactivate]="item.isActive" [class.activate]="!item.isActive"
+                (click)="toggleActive(item)" [title]="item.isActive ? 'Deactivate user' : 'Activate user'"
+                [attr.aria-label]="item.isActive ? 'Deactivate user' : 'Activate user'">
+                @if (item.isActive) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+                </svg>
+                }
+              </button>
+              }
+              @if (config().deleteFn && (entity !== 'users' || canLockOrDeleteUser(item))) {
+              <button class="action-btn delete" (click)="deleteItem(item)" [title]="'Delete ' + rowNoun()"
+                [attr.aria-label]="'Delete ' + rowNoun()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+              </button>
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="admin-pagination">
+      <button class="btn-admin btn-outline-admin" (click)="prevPage()" [disabled]="!canPrev()">Previous</button>
+      <span>Page {{ page() }} of {{ totalPages() }}</span>
+      <button class="btn-admin btn-outline-admin" (click)="nextPage()" [disabled]="!canNext()">Next</button>
+    </div>
+    }
+  </div>
+</div>
+
+@if (showModal() && config().fields) {
+<div class="modal-overlay" (click)="closeModal()">
+  <div class="modal-content" [class.booking-modal]="entity === 'bookings'" (click)="$event.stopPropagation()">
+    <button class="modal-close" (click)="closeModal()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>{{ editItem ? 'Edit' : 'Create' }} {{ config().title }}</h2>
+    @if (error()) { <div class="alert-admin alert-error-admin">{{ error() }}</div> }
+    <form (ngSubmit)="save()">
+      @for (field of config().fields; track field.key) {
+      @if ((entity !== 'customers' || field.key !== 'company' || formData.customerType === 'Company')
+      && (entity !== 'contacts' || field.key !== 'referenceName' || formData.inquiryType === 'Reference')) {
+      <div class="form-group-admin">
+        <label>
+          {{ field.label }}
+          @if (field.required) {
+          <span style="color:#ef4444;font-weight:bold;margin-left:2px">*</span>
+          }
+        </label>
+        @if (field.key === 'cnicOrPassport' && formData.customerType !== 'Company') {
+        <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
+          #cnicFieldCtrl="ngModel" [maxlength]="cnicMaxLength" inputmode="numeric" placeholder="e.g. 35202-1234567-1"
+          (input)="onCnicFieldInput($event, formData, field.key)"
+          [class.input-invalid]="cnicFieldCtrl.touched && cnicError(formData[field.key])" />
+        @if (cnicFieldCtrl.touched && cnicError(formData[field.key]); as msg) {
+        <small class="field-error-text">{{ msg }}</small>
+        }
+        } @else if (isPhoneTextField(field)) {
+        <input class="form-input-admin" type="tel" [(ngModel)]="formData[field.key]" [name]="field.key"
+          #phoneFieldCtrl="ngModel" [maxlength]="phoneMaxLength" inputmode="tel" placeholder="e.g. 03001234567"
+          (input)="onPhoneFieldInput($event, formData, field.key)"
+          [class.input-invalid]="phoneFieldCtrl.touched && phoneError(formData[field.key], !!field.required)" />
+        @if (phoneFieldCtrl.touched && phoneError(formData[field.key], !!field.required); as msg) {
+        <small class="field-error-text">{{ msg }}</small>
+        }
+        } @else if (field.type === 'textarea') {
+        <textarea class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key" rows="3"></textarea>
+        } @else if (field.type === 'phone-split') {
+        <div class="phone-split-wrap" style="display:flex;gap:8px;align-items:center">
+          <select class="form-input-admin" [(ngModel)]="selectedCountryCode" name="selectedCountryCode"
+            style="width:125px;flex-shrink:0">
+            @for (c of countryCodeOptions; track c.v) {
+            <option [value]="c.v">{{ c.l }}</option>
+            }
+          </select>
+          <input class="form-input-admin" type="text" [(ngModel)]="formData[field.key]" [name]="field.key"
+            placeholder=" (e.g. 3001234567)" maxlength="11" inputmode="tel" (input)="onPhoneInput($event, field.key)"
+            style="flex:1" />
+        </div>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">Enter 10 digits (e.g. 3001234567).
+          Country code will be joined automatically.</small>
+        } @else if (field.type === 'price-with-unit') {
+        <div class="price-split-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:4px">
+              Price <span style="color:#ef4444">*</span>
+            </label>
+            <input class="form-input-admin" type="number" [(ngModel)]="formData['priceValue']" name="priceValue"
+              placeholder="e.g. 35000" min="1" step="any" required style="width:100%"
+              (input)="onPriceValueOrUnitChange()" />
+            @if (priceError()) {
+            <small style="color:#ef4444;font-size:0.75rem;margin-top:2px;display:block">{{ priceError() }}</small>
+            }
+          </div>
+          <div style="width:180px;flex-shrink:0">
+            <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:4px">
+              Price Type / Billing Unit <span style="color:#ef4444">*</span>
+            </label>
+            <select class="form-input-admin" [(ngModel)]="formData['priceUnit']" name="priceUnit" required
+              style="width:100%" (change)="onPriceValueOrUnitChange()">
+              <option value="month">Per Month</option>
+              <option value="day">Per Day</option>
+              <option value="hour">Per Hour</option>
+            </select>
+          </div>
+        </div>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:4px;display:block">
+          Configure the base rate amount and select the billing frequency (Per Month, Per Day, or Per Hour).
+        </small>
+        } @else if (field.type === 'floor-select') {
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
+          [disabled]="isLocationBound && field.key === 'locationId'">
+          <option value="">Select Floor...</option>
+          @for (opt of floorOptions(); track opt.v) {
+          <option [value]="opt.v">{{ opt.l }}</option>
+          }
+        </select>
+        @if (!floorOptions().length) {
+        <small style="color:var(--warning,#f59e0b)">Select a location first to load floors.</small>
+        }
+        } @else if (field.type === 'amenities-multicheck') {
+        <div class="amenities-check-grid">
+          @for (a of amenityOptions(); track a.id) {
+          <label class="checkbox-label">
+            <input type="checkbox" [checked]="isAmenitySelected(a.id)" (change)="toggleAmenity(a.id)" />
+            {{ a.name }}
+          </label>
+          }
+          @if (!amenityOptions().length) {
+          <small style="color:var(--warning,#f59e0b)">No amenities found in database.</small>
+          }
+        </div>
+        } @else if (field.type === 'deposit-account-select') {
+        @if (isPrivateOfficeSelected) {
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key">
+          <option value="">Select Account...</option>
+          @for (a of accountOptions(); track a.v) {
+          <option [value]="a.v">{{ a.l }}</option>
+          }
+        </select>
+        } @else {
+        <input class="form-input-admin" value="N/A — only for Private Office" disabled
+          style="background:#f1f5f9;color:#94a3b8" />
+        }
+        } @else if (field.type === 'user-location-select' && getRoleClass(formData['role']) === 'ceo') {
+        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations. A CEO sees the CEO dashboard for every
+          location, view only.</div>
+        } @else if (field.type === 'user-location-select' && !isLocationRole(formData['role'])) {
+        <div style="color:#64748b;font-size:0.85rem;padding:8px 0">All locations (only the {{ locationRoleNames }} roles
+          are limited to specific locations).</div>
+        } @else if (field.type === 'user-location-select') {
+        <div class="location-checklist">
+          @for (loc of assignableUserLocations; track loc.v) {
+          <label class="location-check">
+            <input type="checkbox" [checked]="isUserLocationChecked(loc.v)" [disabled]="userLocationLocked"
+              (change)="toggleUserLocation(loc.v, $any($event.target).checked)" />
+            <span>{{ loc.l }}</span>
+          </label>
+          } @empty {
+          <span style="color:#94a3b8;font-size:0.85rem">No locations available.</span>
+          }
+        </div>
+        <small style="color:#64748b;font-size:0.75rem;margin-top:2px;display:block">
+          @if (userLocationLocked) {
+          Your location. Users you add work here.
+          } @else if (isLocationBound) {
+          Tick one or more of your locations.
+          } @else {
+          Tick every location they may work in.
+          }
+        </small>
+        } @else if (field.type === 'space-type-select') {
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
+          (change)="onFieldChange(field.key)">
+          <option value="">Select...</option>
+          @for (opt of spaceTypeIdOptionsAt(formData['locationId']); track opt.v) {
+          <option [value]="opt.v">{{ opt.l }}</option>
+          }
+        </select>
+        @if (spaceTypeHintAt(formData['locationId'], spaceTypeIdOptionsAt(formData['locationId']).length); as hint) {
+        <small class="space-type-hint">{{ hint }}</small>
+        }
+        } @else if (field.type === 'select') {
+        <select class="form-input-admin" [(ngModel)]="formData[field.key]" [name]="field.key"
+          (change)="onFieldChange(field.key)">
+          <option value="">Select...</option>
+          @for (opt of field.options; track opt.v) {
+          <option [value]="opt.v">{{ opt.l }}</option>
+          }
+        </select>
+        @if (field.key === 'branchId' && branchesLoading()) {
+        <small style="color:#64748b">Loading branches...</small>
+        }
+        @if (field.key === 'branchId' && branchesError()) {
+        <small style="color:#ef4444">{{ branchesError() }}</small>
+        }
+        @if (field.key === 'cityId' && citiesLoading()) {
+        <small style="color:#64748b">Loading cities...</small>
+        }
+        @if (field.key === 'cityId' && citiesError()) {
+        <small style="color:#ef4444">{{ citiesError() }}</small>
+        }
+        } @else if (field.type === 'checkbox') {
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="formData[field.key]" [name]="field.key" />
+          {{ field.label }}
+        </label>
+        } @else if (field.type === 'password') {
+        <!-- new-password: the browser must not fill in the signed-in admin's own saved password here. -->
+        <input class="form-input-admin" type="password" [(ngModel)]="formData[field.key]" [name]="field.key"
+          autocomplete="new-password"
+          [placeholder]="editItem ? 'Leave blank to keep the current password' : 'At least 6 characters'" />
+        @if (editItem) {
+        <small class="field-hint-text">Type a new password only to change it. The user then signs in with it.</small>
+        }
+        } @else {
+        <input class="form-input-admin" [type]="field.type" [(ngModel)]="formData[field.key]" [name]="field.key" />
+        }
+      </div>
+      }
+      }
+      @if (showCustomInvoiceAccess) {
+      @let cia = ciAccess()!;
+      <div class="form-group-admin">
+        <label class="checkbox-label">
+          <input type="checkbox" name="ciAccess" [checked]="cia.value" [disabled]="cia.loading || !!cia.error"
+            (change)="setCustomInvoiceAccess($any($event.target).checked)" aria-describedby="ci-access-hint" />
+          Can create custom invoices
+        </label>
+        @if (cia.loading) {
+        <small class="field-hint-text" id="ci-access-hint">Checking their access...</small>
+        } @else if (cia.error) {
+        <small class="field-error-text" id="ci-access-hint">{{ cia.error }}</small>
+        } @else {
+        <small class="field-hint-text" id="ci-access-hint">Opens the Custom Invoice page for this admin. Saved
+          separately after
+          the other details; you are told if only this part fails.</small>
+        }
+      </div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : (editItem ? 'Update' : 'Create') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+@if (showDiscardConfirm()) {
+<div class="modal-overlay" style="z-index: 1050;" (click)="cancelDiscard()">
+  <div class="modal-content" style="max-width:400px; text-align:center; padding: 24px;"
+    (click)="$event.stopPropagation()">
+    <div
+      style="width:48px;height:48px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    </div>
+    <h3 style="margin:0 0 8px 0; font-size:1.15rem; font-weight:700; color:#0f172a;">{{ discardConfirmTitle }}</h3>
+    <p style="margin:0 0 20px 0; font-size:0.875rem; color:#64748b; line-height:1.5;">
+      {{ discardConfirmMessage }}
+    </p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button type="button" class="btn-admin btn-outline-admin" style="flex:1" (click)="cancelDiscard()">
+        Keep Editing
+      </button>
+      <button type="button" class="btn-admin" style="flex:1; background:#ef4444; color:#fff; border:none;"
+        (click)="confirmDiscard()">
+        Discard
+      </button>
+    </div>
+  </div>
+</div>
+}
+
