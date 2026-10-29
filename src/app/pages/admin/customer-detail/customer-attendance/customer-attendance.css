@@ -1,0 +1,55 @@
+/* Inside the customer detail tab body (customer-detail.css): same slate / teal look. */
+:host { display: block; }
+.ca-wrap { padding: 12px 22px 8px; }
+
+.ca-filters { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.ca-field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.ca-field.grow { flex: 1 1 200px; }
+.ca-field label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+.ca-field input, .ca-field select { height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 9px; font-family: inherit; font-size: 0.86rem; color: #0f172a; background: #fff; }
+.ca-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ca-btn { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 14px; border-radius: 9px; border: 1px solid #e2e8f0; background: #fff; color: #0f172a; font-family: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.ca-btn:hover:not(:disabled) { border-color: #0d9488; color: #0d9488; }
+.ca-btn.primary { background: #0d9488; border-color: #0d9488; color: #fff; }
+.ca-btn.primary:hover:not(:disabled) { background: #0f766e; color: #fff; }
+.ca-btn:disabled { opacity: 0.55; cursor: default; }
+.link-btn { background: none; border: none; color: #0d9488; font-weight: 600; cursor: pointer; padding: 4px 2px; font-family: inherit; font-size: 0.84rem; }
+
+.ca-error { margin: 0 0 12px; color: #b91c1c; font-size: 0.84rem; }
+.ca-muted { margin: 0; color: #64748b; font-size: 0.84rem; }
+.ca-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-radius: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.86rem; }
+.ca-notice.db { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.ca-notice span { flex: 1; min-width: 200px; }
+.ca-state { display: flex; align-items: center; gap: 10px; padding: 18px 0; color: #64748b; font-size: 0.84rem; }
+.ca-spinner { width: 18px; height: 18px; border: 2px solid #e2e8f0; border-top-color: #0d9488; border-radius: 50%; animation: ca-spin 0.8s linear infinite; }
+@keyframes ca-spin { to { transform: rotate(360deg); } }
+
+.ca-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid #eef2f6; }
+.ca-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ca-head h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+.ca-count { font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+
+.ca-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; border-radius: 10px; }
+.ca-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.ca-table th, .ca-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #f1f5f9; color: #334155; }
+.ca-table thead th { background: #f8fafc; color: #475569; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; border-bottom: 1px solid #e2e8f0; }
+.ca-table tbody tr:last-child td { border-bottom: none; }
+.ca-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ca-table .nw { white-space: nowrap; }
+.ca-table .name { font-weight: 600; color: #0f172a; }
+.ca-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.ca-tag { display: inline-block; margin-left: 4px; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; background: #ccfbf1; color: #0f766e; }
+.ca-tag.night { background: #e0e7ff; color: #4338ca; }
+.ca-pill { display: inline-flex; font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; background: #f1f5f9; color: #64748b; }
+.ca-pill.ok { background: #dcfce7; color: #166534; }
+
+@media (prefers-reduced-motion: reduce) { .ca-spinner { animation: none; } }
+
+@media (max-width: 760px) {
+  .ca-wrap { padding: 12px 16px 8px; }
+  .ca-field { flex: 1 1 140px; min-width: 0; }
+  .ca-field input, .ca-field select { height: 44px; font-size: 16px; }
+  .ca-actions { width: 100%; }
+  .ca-btn { flex: 1 1 0; height: 44px; }
+  .ca-table { width: max-content; min-width: 100%; }
+}

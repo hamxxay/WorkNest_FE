@@ -1,7 +1,7 @@
 import { Injectable, WritableSignal, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, from, of, throwError } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, map, switchMap, timeout } from 'rxjs/operators';
 import {
   AuthError,
   AuthProvider,
@@ -181,24 +181,7 @@ export class AuthService {
           const msg = res?.message || 'Invalid email or password.';
           return throwError(() => ({ error: { message: msg } }));
         }
-        const data = res.data ?? res;
-        const token = this.extractToken(res);
-        if (token) {
-          localStorage.setItem(this.tokenKey, token);
-        }
-        const roles = this.extractRoles(data, data?.role ? [data.role] : ['customer']);
-        const userInfo: UserInfo = {
-          email: data?.email || email,
-          userId: data?.id || data?.userId || '',
-          roles: roles.length ? roles : ['customer'],
-          displayName: String(data?.name ?? '').trim() || email.split('@')[0],
-          locationId: data?.locationId != null ? Number(data.locationId) : null,
-          locationIds: Array.isArray(data?.locationIds) && data.locationIds.length ? data.locationIds.map(Number) : this.tokenLocationIds(),
-          roleDisplayName: String(data?.roleDisplayName ?? '').trim() || undefined
-        };
-        localStorage.setItem(this.userKey, JSON.stringify(userInfo));
-        this.user.set(userInfo);
-        this.rolesVerified.set(true);
+        const userInfo = this.storeApiSession(res, email);
 
         if (isFirebaseConfigured && password && password.length >= 6) {
           signInWithEmailAndPassword(firebaseAuth, email, password)
@@ -217,6 +200,69 @@ export class AuthService {
         // A turned-off account (403 ACCOUNT_DISABLED) keeps its code so the page can tell it apart.
         const code = authFailureCode(err);
         return throwError(() => ({ status: err?.status, error: code ? { message: msg, code } : { message: msg } }));
+      })
+    );
+  }
+
+  /**
+   * Stores a successful API sign-in (auth/login body: token + user) as this browser's session, roles confirmed.
+   * Used by the WorkNest password sign-in and by the hand-over from worknestpk.com.
+   */
+  private storeApiSession(res: any, email: string): UserInfo {
+    const data = res.data ?? res;
+    const token = this.extractToken(res);
+    if (token) {
+      localStorage.setItem(this.tokenKey, token);
+    }
+    const roles = this.extractRoles(data, data?.role ? [data.role] : ['customer']);
+    const userInfo: UserInfo = {
+      email: data?.email || email,
+      userId: data?.id || data?.userId || '',
+      roles: roles.length ? roles : ['customer'],
+      displayName: String(data?.name ?? '').trim() || (data?.email || email).split('@')[0],
+      locationId: data?.locationId != null ? Number(data.locationId) : null,
+      locationIds: Array.isArray(data?.locationIds) && data.locationIds.length ? data.locationIds.map(Number) : this.tokenLocationIds(),
+      roleDisplayName: String(data?.roleDisplayName ?? '').trim() || undefined
+    };
+    localStorage.setItem(this.userKey, JSON.stringify(userInfo));
+    this.user.set(userInfo);
+    this.rolesVerified.set(true);
+    return userInfo;
+  }
+
+  /**
+   * Cross-site sign-in: a one-time code (single use, 60 seconds) for the signed-in user to open the other site
+   * (target 'web' = worknestpk.com). Null when there is no session or the API can't make one (e.g. 503 before the
+   * database update): the caller then sends the user to that site's sign-in page.
+   */
+  createHandoffCode$(target: 'cms' | 'web'): Observable<string | null> {
+    if (!this.getToken()) return of(null);
+    return this.http.post<any>(`${environment.apiUrl}/auth/handoff`, { target }).pipe(
+      timeout(8000),
+      map(res => (typeof res?.data?.code === 'string' && res.data.code) || null),
+      catchError(() => of(null))
+    );
+  }
+
+  /**
+   * Signs in with a code from worknestpk.com (/auth/handoff): any other session on this browser ends first, then the
+   * code is redeemed and stored exactly like a WorkNest password sign-in. The session has no Firebase sign-in (like
+   * the password fallback). Errors: the code expired, was used, or the user is not staff.
+   */
+  redeemHandoff$(code: string): Observable<AuthResult> {
+    const signedIn = !!this.getToken() || !!firebaseAuth?.currentUser || !!localStorage.getItem(this.userKey);
+    return (signedIn ? this.logout$() : of(null)).pipe(
+      switchMap(() => this.http.post<any>(`${environment.apiUrl}/auth/handoff/redeem`, { code, target: 'cms' })),
+      map(res => {
+        if (!res || res.isSuccessful === false || !this.extractToken(res)) {
+          throw { error: { message: res?.message || 'This sign-in link has expired. Please sign in.' } };
+        }
+        const data = this.storeApiSession(res, res?.data?.email || '');
+        return { isSuccessful: true, message: res.message || 'Login successful.', data };
+      }),
+      catchError(err => {
+        this.clearSession();
+        return throwError(() => ({ status: err?.status, error: { message: err?.error?.message || 'This sign-in link has expired. Please sign in.' } }));
       })
     );
   }
@@ -466,14 +512,11 @@ export class AuthService {
   /**
    * Signs out: first ends the API session (POST auth/logout, so the server revokes this token), then signs out
    * of Firebase and clears the stored session. The API call never blocks sign-out: errors are ignored and it
-   * waits for the reply at most LOGOUT_API_WAIT_MS.
-   *
-   * keepApiSession: only for the hand-over to worknestpk.com (login page), which passes this same token on to
-   * the public site; revoking it there would sign the customer straight out again.
+   * waits for the reply at most LOGOUT_API_WAIT_MS. (The hand-over to worknestpk.com signs out fully too: the site
+   * gets a new session of its own from a one-time code, never this token.)
    */
-  logout$(options: { keepApiSession?: boolean } = {}): Observable<any> {
-    const endApiSession$ = options.keepApiSession ? of(null) : this.endApiSession$();
-    return endApiSession$.pipe(switchMap(() => this.endLocalSession$()));
+  logout$(): Observable<any> {
+    return this.endApiSession$().pipe(switchMap(() => this.endLocalSession$()));
   }
 
   /**

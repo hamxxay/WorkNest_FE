@@ -1,0 +1,48 @@
+:host { display: block; min-width: 0; }
+
+.att-block + .att-block { margin-top: 18px; }
+.att-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.att-head h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+.att-count { font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+.att-range { margin-left: auto; font-size: 0.8rem; color: #64748b; }
+
+.att-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; border-radius: 10px; }
+.att-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.att-table th, .att-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
+.att-table thead th { background: #f8fafc; color: #475569; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; border-bottom: 1px solid #e2e8f0; }
+.att-table tbody tr:last-child td { border-bottom: none; }
+.att-table tbody tr:hover td { background: #f8fbfb; }
+.att-table td { color: #334155; }
+.att-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.att-table .nw { white-space: nowrap; }
+.att-table .name { font-weight: 600; color: #0f172a; min-width: 140px; }
+.att-table .name small { display: block; margin-top: 2px; font-size: 0.72rem; font-weight: 500; color: #94a3b8; }
+.att-table .strong { font-weight: 700; color: #0f172a; }
+.att-table .extras { font-size: 0.78rem; color: #475569; }
+.att-table td.ok { color: #15803d; }
+.att-table td.warn { color: #b45309; font-weight: 700; }
+.att-table td.half { color: #c2410c; font-weight: 700; }
+.att-table td.miss { color: #be123c; font-weight: 700; }
+.att-table td.bad { color: #b91c1c; font-weight: 700; }
+
+.next-day { display: inline-block; margin-left: 3px; font-size: 0.66rem; font-weight: 700; color: #6366f1; vertical-align: super; }
+
+/* Status colours: Present green, Late amber, Half day orange, Missing out rose, Absent red, Holiday / Off day grey, Pending blue. */
+.att-badge { display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.st-present { background: #dcfce7; color: #166534; }
+.st-late { background: #fef3c7; color: #92400e; }
+.st-halfday { background: #ffedd5; color: #c2410c; }
+.st-missingout { background: #ffe4e6; color: #be123c; }
+.st-absent { background: #fee2e2; color: #b91c1c; }
+.st-holiday, .st-offday { background: #f1f5f9; color: #475569; }
+.st-pending { background: #dbeafe; color: #1d4ed8; }
+.att-flag { margin-left: 4px; font-size: 0.7rem; color: #64748b; font-style: italic; }
+
+.att-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 26px 16px; color: #64748b; font-size: 0.84rem; border: 1px dashed #e2e8f0; border-radius: 10px; }
+.att-empty strong { color: #0f172a; font-size: 0.9rem; }
+
+@media (max-width: 760px) {
+  .att-range { margin-left: 0; flex-basis: 100%; }
+  .att-table { width: max-content; min-width: 100%; }
+  .att-table th, .att-table td { padding: 9px 10px; }
+}

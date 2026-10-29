@@ -11,6 +11,43 @@ export interface HikDevice {
   locationName?: string | null;
 }
 
+/** One machine for the add / edit form (admin, super admin). The API never returns the password. */
+export interface HikDeviceDetail extends HikDevice {
+  host: string;
+  /** Failover IP / host, tried when the first one does not answer. */
+  host2?: string | null;
+  port: number;
+  useHttps: boolean;
+  username?: string | null;
+  model?: string | null;
+  serial?: string | null;
+}
+
+/** A machine group; a group starting with "Entrance" marks entrance doors. */
+export interface HikDeviceGroup {
+  id: number;
+  name: string;
+  isEntrance: boolean;
+  machines: number;
+}
+
+/** Body of add / edit machine. Edit: an empty password keeps the saved one. */
+export interface HikDeviceSaveRequest {
+  name: string;
+  host: string;
+  host2?: string | null;
+  port?: number | null;
+  useHttps: boolean;
+  username: string;
+  password?: string | null;
+  /** Area / label, e.g. "Entrance" or "Room 313". */
+  location?: string | null;
+  grp?: string | null;
+  /** Room number the machine opens (e.g. "313"); empty for entrance / common doors. */
+  code?: string | null;
+  locationId: number | null;
+}
+
 export interface HikDeviceUserValid {
   enable?: boolean;
   beginTime?: string;

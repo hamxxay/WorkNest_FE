@@ -86,6 +86,8 @@ export const routes: Routes = [
       // Background service switches (turn a server job on / off): super admin only.
       { path: 'services', loadComponent: () => import('./pages/admin/services/services').then(m => m.ServicesPage), canActivate: [superAdminGuard] },
       { path: 'reports/security-deposits', loadComponent: () => import('./pages/admin/reports/security-deposit-report/security-deposit-report').then(m => m.SecurityDepositReportComponent), canActivate: [adminGuard] },
+      // Customer attendance (from the room machines' scans): read-only report, att/CONTRACT.md.
+      { path: 'reports/attendance', loadComponent: () => import('./pages/admin/reports/attendance-report/attendance-report').then(m => m.AttendanceReportComponent), canActivate: [adminGuard] },
     ]
   },
 

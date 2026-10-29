@@ -151,6 +151,24 @@
           </dd>
         </div>
         <div><dt>Customer since</dt><dd>{{ p.createdAt ? (p.createdAt | date:'d MMM y') : '-' }}</dd></div>
+        <div>
+          <dt id="cd-att-label">Attendance</dt>
+          <dd>
+            @if (attStatusLoading() && !attStatus()) { <span class="sk sk-line w60 inline-sk"></span> }
+            @else if (attStatus(); as st) {
+            <span class="att-switch-row">
+              <button type="button" role="switch" class="att-switch" [class.on]="st.enabled" [attr.aria-checked]="st.enabled"
+                aria-labelledby="cd-att-label" [disabled]="!canToggleAttendance || attSaving()" (click)="toggleAttendance()"
+                [title]="canToggleAttendance ? (st.enabled ? 'Turn attendance off' : 'Turn attendance on') : 'Only an admin can change this'">
+                <span class="att-knob"></span>
+              </button>
+              <span [class]="'pill tone-' + (st.enabled ? 'ok' : 'muted')">{{ attSaving() ? 'Saving...' : st.enabled ? 'Enabled' : 'Disabled' }}</span>
+            </span>
+            } @else if (attStatusError(); as err) {
+            <span class="att-err" [title]="err.message">{{ err.notInstalled ? 'Not installed yet' : 'Not available' }}</span>
+            }
+          </dd>
+        </div>
         <div class="wide"><dt>Address</dt><dd>{{ p.address || '-' }}</dd></div>
         @if (p.notes) { <div class="wide"><dt>Notes</dt><dd class="notes">{{ p.notes }}</dd></div> }
       </dl>
@@ -476,6 +494,11 @@
       </div>
       <ng-container *ngTemplateOutlet="showMore; context: { key: 'agreements', total: overview()!.agreements.length }" />
       }
+      }
+
+      <!-- Attendance (report, shifts, holidays, employees: loads when the tab opens) -->
+      @case ('attendance') {
+      <app-customer-attendance [customerId]="customerId()" />
       }
 
       <!-- Activity -->

@@ -1,0 +1,116 @@
+<div class="inq-overlay" (click)="close()">
+  <div class="inq-modal machine-modal" role="dialog" aria-modal="true" aria-labelledby="machineModalTitle" (click)="$event.stopPropagation()">
+    <div class="inq-head">
+      <span class="inq-head-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="2" width="14" height="20" rx="2" /><circle cx="12" cy="9" r="3" /><path d="M9 16h6" />
+        </svg>
+      </span>
+      <div>
+        <h2 id="machineModalTitle">{{ isEdit ? 'Edit machine' : 'Add machine' }}</h2>
+        <p>{{ isEdit ? (device()?.name || 'Access machine') : 'A Hikvision access machine (door terminal).' }}
+          @if (device()?.model) { · {{ device()?.model }} }
+          @if (device()?.serial) { · S/N {{ device()?.serial }} }
+        </p>
+      </div>
+      <button type="button" class="inq-close" (click)="close()" [disabled]="saving()" title="Close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+      </button>
+    </div>
+
+    @if (loading()) {
+    <div class="inq-body"><p class="inq-lead">Loading the machine…</p></div>
+    } @else {
+    <form class="inq-body" (ngSubmit)="save()" id="machineForm" autocomplete="off">
+      <div class="inq-section">Machine</div>
+      <div class="inq-grid">
+        <div class="inq-field">
+          <label for="mName">Name <span class="req">*</span></label>
+          <input id="mName" class="form-input-admin" name="name" [(ngModel)]="form.name" maxlength="100" placeholder="e.g. Room 313" required />
+        </div>
+        <div class="inq-field">
+          <label for="mLocation">Location <span class="req">*</span></label>
+          <select id="mLocation" class="form-input-admin" name="locationId" [(ngModel)]="form.locationId" required>
+            <option [ngValue]="null" disabled>Pick a location</option>
+            @for (l of locations; track l.id) { <option [ngValue]="l.id">{{ l.name }}</option> }
+            @if (form.locationId && !hasLocationOption(form.locationId)) {
+            <option [ngValue]="form.locationId">{{ device()?.locationName || 'Location ' + form.locationId }}</option>
+            }
+          </select>
+        </div>
+        <div class="inq-field">
+          <label for="mArea">Area / label</label>
+          <input id="mArea" class="form-input-admin" name="location" [(ngModel)]="form.location" maxlength="128" placeholder="e.g. Entrance, Room 313" />
+        </div>
+        <div class="inq-field">
+          <label for="mCode">Room code</label>
+          <input id="mCode" class="form-input-admin" name="code" [(ngModel)]="form.code" maxlength="64" placeholder="e.g. 313" inputmode="numeric" />
+        </div>
+        <span class="inq-hint inq-span">Room code: the room number this machine opens, e.g. 313 — used to match booked rooms; leave empty for entrance / common doors.</span>
+        <div class="inq-field inq-span">
+          <label for="mGroup">Group</label>
+          <select id="mGroup" class="form-input-admin" name="groupChoice" [ngModel]="groupChoice" (ngModelChange)="onGroupChange($event)">
+            <option value="">No group</option>
+            @for (g of groups(); track g.id) { <option [value]="g.name">{{ g.name }}{{ g.isEntrance ? ' (entrance doors)' : '' }}</option> }
+            @if (groupChoice && groupChoice !== newGroup && !hasGroup(groupChoice)) { <option [value]="groupChoice">{{ groupChoice }}</option> }
+            <option [value]="newGroup">+ New group</option>
+          </select>
+          @if (groupChoice === newGroup) {
+          <input class="form-input-admin" name="newGroupName" [(ngModel)]="newGroupName" maxlength="64" placeholder="New group name, e.g. Entrance B" aria-label="New group name" />
+          }
+          <span class="inq-hint">A group whose name starts with "Entrance" marks entrance machines (every member gets them).</span>
+        </div>
+      </div>
+
+      <div class="inq-section">Connection</div>
+      <div class="inq-grid">
+        <div class="inq-field">
+          <label for="mHost">IP / host <span class="req">*</span></label>
+          <input id="mHost" class="form-input-admin" name="host" [(ngModel)]="form.host" maxlength="64" placeholder="e.g. 119.152.199.51" autocapitalize="off" spellcheck="false" required />
+        </div>
+        <div class="inq-field">
+          <label for="mHost2">Failover IP</label>
+          <input id="mHost2" class="form-input-admin" name="host2" [(ngModel)]="form.host2" maxlength="128" placeholder="Optional" autocapitalize="off" spellcheck="false" />
+        </div>
+        <div class="inq-field">
+          <label for="mPort">Port</label>
+          <input id="mPort" class="form-input-admin" name="port" [(ngModel)]="portText" inputmode="numeric" maxlength="5" [placeholder]="defaultPort" />
+        </div>
+        <label class="https-toggle">
+          <input type="checkbox" name="useHttps" [(ngModel)]="form.useHttps" /> Use HTTPS
+        </label>
+        <div class="inq-field">
+          <label for="mUser">Username <span class="req">*</span></label>
+          <input id="mUser" class="form-input-admin" name="username" [(ngModel)]="form.username" maxlength="64" autocapitalize="off" spellcheck="false" autocomplete="off" required />
+        </div>
+        <div class="inq-field">
+          <label for="mPass">Password @if (!isEdit) { <span class="req">*</span> }</label>
+          <div class="pass-row">
+            <input id="mPass" class="form-input-admin" name="password" [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="form.password"
+              maxlength="128" autocomplete="new-password" [placeholder]="isEdit ? 'Leave empty to keep the saved one' : ''" />
+            <button type="button" class="btn-admin btn-outline-admin" (click)="showPassword.set(!showPassword())"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">{{ showPassword() ? 'Hide' : 'Show' }}</button>
+          </div>
+        </div>
+      </div>
+
+      @if (testResult(); as t) {
+      <p class="inq-note" [class.warn]="!t.online">{{ t.text }}</p>
+      }
+      @if (error()) { <p class="inq-error" role="alert">{{ error() }}</p> }
+      @if (!isEdit) { <p class="inq-hint">The machine is tested right after it is saved; an offline machine is still added.</p> }
+    </form>
+    }
+
+    <div class="inq-foot">
+      @if (isEdit) {
+      <button type="button" class="inq-link inq-foot-start" (click)="testConnection()" [disabled]="testing() || saving() || loading()"
+        title="Connect to the saved machine now (save first to test changed settings)">{{ testing() ? 'Testing…' : 'Test connection' }}</button>
+      }
+      <button type="button" class="btn-admin btn-outline-admin" (click)="close()" [disabled]="saving()">Cancel</button>
+      <button type="submit" form="machineForm" class="btn-admin btn-primary-admin" [disabled]="saving() || loading()">
+        {{ saving() ? 'Saving…' : (isEdit ? 'Save' : 'Add machine') }}
+      </button>
+    </div>
+  </div>
+</div>

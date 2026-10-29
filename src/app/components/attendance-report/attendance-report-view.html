@@ -1,0 +1,87 @@
+@let r = report();
+<section class="att-block" aria-labelledby="att-summary-h">
+  <div class="att-head">
+    <h3 id="att-summary-h">Summary by person</h3>
+    <span class="att-count">{{ summary().length }}</span>
+  </div>
+  @if (!summary().length) {
+  <div class="att-empty"><strong>No one to show</strong><span>No employee of this customer has attendance in this period.</span></div>
+  } @else {
+  <div class="att-scroll">
+    <table class="att-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="num">Present</th>
+          <th class="num">Late</th>
+          <th class="num">Half day</th>
+          <th class="num">Missing out</th>
+          <th class="num">Absent</th>
+          <th class="num">Holidays</th>
+          <th class="num">Off days</th>
+          <th class="num">Worked</th>
+          <th class="num">Overtime</th>
+          <th class="num">Late total</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of summary(); track s.personId) {
+        <tr>
+          <td class="name">{{ s.name || '-' }}</td>
+          <td class="num ok">{{ s.present }}</td>
+          <td class="num" [class.warn]="s.late > 0">{{ s.late }}</td>
+          <td class="num" [class.half]="s.halfDay > 0">{{ s.halfDay }}</td>
+          <td class="num" [class.miss]="s.missingOut > 0">{{ s.missingOut }}</td>
+          <td class="num" [class.bad]="s.absent > 0">{{ s.absent }}</td>
+          <td class="num">{{ s.holidays }}</td>
+          <td class="num">{{ s.offDays }}</td>
+          <td class="num strong">{{ hours(s.workedMinutes) }}</td>
+          <td class="num">{{ s.overtimeMinutes > 0 ? hours(s.overtimeMinutes) : '-' }}</td>
+          <td class="num">{{ s.lateMinutes > 0 ? minutes(s.lateMinutes) : '-' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+</section>
+
+<section class="att-block" aria-labelledby="att-daily-h">
+  <div class="att-head">
+    <h3 id="att-daily-h">Daily attendance</h3>
+    <span class="att-count">{{ days().length }}</span>
+    <span class="att-range">{{ r.from | date:'d MMM y' }} - {{ r.to | date:'d MMM y' }}</span>
+  </div>
+  @if (!days().length) {
+  <div class="att-empty"><strong>No attendance in this period</strong><span>Days show here once employees scan on their room's machine.</span></div>
+  } @else {
+  <div class="att-scroll">
+    <table class="att-table">
+      <thead>
+        <tr><th>Name</th><th>Date</th><th>Shift</th><th>In</th><th>Out</th><th class="num">Hours</th><th>Status</th><th>Late / Early / Overtime</th></tr>
+      </thead>
+      <tbody>
+        @for (d of days(); track trackDay(d)) {
+        <tr>
+          <td class="name">{{ d.name || '-' }}@if (d.room) { <small>{{ d.room }}</small> }</td>
+          <td class="nw">{{ d.date | date:'EEE, d MMM y' }}</td>
+          <td>{{ d.shiftName || '-' }}</td>
+          <td class="nw">{{ d.checkIn ? time(d.checkIn) : '-' }}</td>
+          <td class="nw">
+            {{ d.checkOut ? time(d.checkOut) : '-' }}
+            @if (nextDay(d)) { <span class="next-day" title="Next day">+1</span> }
+          </td>
+          <td class="num">{{ hours(d.workedMinutes) }}</td>
+          <td class="nw">
+            <span [class]="badge(d)">{{ label(d.status) }}</span>
+            @if (d.onHoliday) { <span class="att-flag">on holiday</span> }
+            @else if (d.onOffDay) { <span class="att-flag">on off day</span> }
+          </td>
+          <td class="nw extras">{{ extras(d) || '-' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+</section>

@@ -1,5 +1,5 @@
 import { handOffToPublicSite, publicSiteUrl } from '../../utils/public-site';
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthResult, AuthService, EMAIL_NOT_VERIFIED, authFailureCode } from '../../services/auth.service';
@@ -11,7 +11,7 @@ import { VerifyEmail } from '../../components/verify-email/verify-email';
   templateUrl: './login.html',
   styleUrl: './login.css'
 })
-export class Login {
+export class Login implements OnInit {
   email = '';
   password = '';
   showPassword = false;
@@ -35,6 +35,13 @@ export class Login {
     private router: Router,
     private route: ActivatedRoute
   ) {}
+
+  ngOnInit(): void {
+    // Came from worknestpk.com (/auth/handoff) with a sign-in link that had expired or was already used.
+    if (this.route.snapshot.queryParamMap.get('handoff') === 'expired') {
+      this.error.set('Your sign-in from worknestpk.com has expired. Please sign in again.');
+    }
+  }
 
   onSubmit() {
     if (!this.email || !this.password) {
@@ -176,18 +183,21 @@ export class Login {
   }
 
   /**
-   * Customers use worknestpk.com: hand the session over (they arrive there signed in) and end it here.
-   * The token goes after '#', which the browser never sends to a server; the site removes it on arrival.
+   * Customers use worknestpk.com: they are sent there signed in (one-time code, see handOffToPublicSite) and signed
+   * out here, as the CMS has always refused customers.
    */
   private sendCustomerToPublicSite() {
     this.error.set('This portal is for WorkNest staff. Taking you to worknestpk.com...');
     handOffToPublicSite(this.authService, this.customerLandingPath());
   }
 
-  /** A customer page asked for in ?redirect= (My Bookings / Payments / Agreements), otherwise the home page. */
+  /**
+   * A customer page asked for in ?redirect= (My Bookings / Payments / Agreements), otherwise My Bookings (where
+   * worknestpk.com sends a customer after signing in).
+   */
   private customerLandingPath(): string {
     const redirect = this.route.snapshot.queryParamMap.get('redirect') || '';
-    return /^\/my-[a-z-]+(\?.*)?$/.test(redirect) ? redirect : '/';
+    return /^\/my-[a-z-]+(\?.*)?$/.test(redirect) ? redirect : '/my-bookings';
   }
 
   private getRoleBasedRedirect(user?: any): string {

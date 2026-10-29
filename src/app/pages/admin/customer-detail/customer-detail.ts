@@ -8,8 +8,11 @@ import {
   TimelineEvent, TimelineKind, describeSectionError, humanize
 } from '../../../services/customer-detail.service';
 import { ToastService } from '../../../services/toast.service';
+import { AuthService } from '../../../services/auth.service';
+import { AttendanceError, AttendanceService, AttendanceStatus, describeAttendanceError } from '../../../services/attendance.service';
+import { CustomerAttendance } from './customer-attendance/customer-attendance';
 
-type TabKey = 'bookings' | 'quotations' | 'invoices' | 'payments' | 'agreements' | 'activity';
+type TabKey = 'bookings' | 'quotations' | 'invoices' | 'payments' | 'agreements' | 'activity' | 'attendance';
 
 /** One paged list (invoices, quotations) with its own loading / error state. */
 interface PagedState<T> {
@@ -29,17 +32,20 @@ const RECENT_EVENTS = 5;
  * bookings, quotations, invoices, payments (fee receipts, payments, security deposits), agreements and activity.
  * Every section loads and fails on its own (see CustomerDetailService). Read-only: changes are made on the
  * existing pages (bookings, quotations, invoices, receipts), which the rows link to where they can be opened.
+ * The one exception is the Attendance switch (admin / super admin): attendance for the customer's employees on or off.
  */
 @Component({
   selector: 'app-customer-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe, NgTemplateOutlet],
+  imports: [RouterLink, DatePipe, DecimalPipe, NgTemplateOutlet, CustomerAttendance],
   templateUrl: './customer-detail.html',
   styleUrl: './customer-detail.css'
 })
 export class CustomerDetail {
   private svc = inject(CustomerDetailService);
   private toast = inject(ToastService);
+  private attendance = inject(AttendanceService);
+  private auth = inject(AuthService);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
 
@@ -58,6 +64,13 @@ export class CustomerDetail {
 
   invoices = signal<PagedState<CustomerInvoice>>({ loading: true, error: null, data: null });
   quotations = signal<PagedState<CustomerQuotation>>({ loading: true, error: null, data: null });
+
+  /** Attendance switch: every staff member sees it, only admins / super admins change it (the API checks too). */
+  attStatus = signal<AttendanceStatus | null>(null);
+  attStatusLoading = signal(true);
+  attStatusError = signal<AttendanceError | null>(null);
+  attSaving = signal(false);
+  readonly canToggleAttendance = this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('sales_executive');
 
   tab = signal<TabKey>('bookings');
   /** Lists opened in full ("Show all"). */
@@ -86,7 +99,8 @@ export class CustomerDetail {
       { key: 'invoices', label: 'Invoices', count: inv ? inv.total : null },
       { key: 'payments', label: 'Payments', count: this.paymentsCount() },
       { key: 'agreements', label: 'Agreements', count: o ? o.agreements.length : null },
-      { key: 'activity', label: 'Activity', count: o ? o.timeline.length : null }
+      { key: 'activity', label: 'Activity', count: o ? o.timeline.length : null },
+      { key: 'attendance', label: 'Attendance', count: null }
     ];
     return list;
   });
@@ -123,6 +137,7 @@ export class CustomerDetail {
     // Another customer: nothing of the previous one may stay on screen.
     this.profile.set(null);
     this.overview.set(null);
+    this.attStatus.set(null);
     this.invoices.set({ loading: true, error: null, data: null });
     this.quotations.set({ loading: true, error: null, data: null });
     if (!id) {
@@ -134,6 +149,7 @@ export class CustomerDetail {
     this.loadOverview();
     this.loadInvoices(1);
     this.loadQuotations(1);
+    this.loadAttendanceStatus();
   }
 
   loadProfile() {
@@ -179,6 +195,33 @@ export class CustomerDetail {
     this.loadOverview();
     this.loadInvoices(this.invoices().data?.page ?? 1);
     this.loadQuotations(this.quotations().data?.page ?? 1);
+    this.loadAttendanceStatus();
+  }
+
+  loadAttendanceStatus() {
+    this.attStatusLoading.set(true);
+    this.attStatusError.set(null);
+    this.subs.push(this.attendance.getStatus(this.customerId()).subscribe({
+      next: st => { this.attStatus.set(st); this.attStatusLoading.set(false); },
+      error: e => { this.attStatus.set(null); this.attStatusError.set(describeAttendanceError(e)); this.attStatusLoading.set(false); }
+    }));
+  }
+
+  toggleAttendance() {
+    const current = this.attStatus();
+    if (!this.canToggleAttendance || !current || this.attSaving()) return;
+    const enabled = !current.enabled;
+    this.attSaving.set(true);
+    this.subs.push(this.attendance.setEnabled(this.customerId(), enabled).subscribe({
+      next: st => {
+        this.attStatus.set({ ...current, ...st, enabled: st.enabled });
+        this.attSaving.set(false);
+        this.toast.success(st.enabled
+          ? 'Attendance is on: the customer now sees it in the app and web portal.'
+          : 'Attendance is off: the customer no longer sees it.');
+      },
+      error: e => { this.attSaving.set(false); this.toast.error(describeAttendanceError(e).message); }
+    }));
   }
 
   // ---------- paging / lists ----------

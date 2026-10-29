@@ -28,6 +28,7 @@ import {
 import { XlsxCellType, buildXlsx, downloadBlob } from '../../../utils/xlsx-table';
 import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, spaceTypesAt, spaceTypesByLocation, spaceTypesHaveLocations, toLocationId } from '../../../utils/space-types';
 import * as pricing from '../../../utils/manage-pricing.utils';
+import { AttendanceService, describeAttendanceError } from '../../../services/attendance.service';
 
 /** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
 interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
@@ -3586,6 +3587,10 @@ export abstract class ManageBase implements OnInit {
     if (this.entity === 'complaints') { this.openAddComplaint(); return; }
     this.editItem = null; this.formData = {}; this.error.set(''); this.showModal.set(true);
     if (this.entity === 'users') this.config.set(this.buildConfig(this.entity)); // full form again (role, location)
+    if (this.entity === 'customers' && this.custAttendance()) {
+      this.custAttendance.set(null); // no attendance checkbox on a new customer
+      this.config.set(this.buildConfig(this.entity));
+    }
     this.selectedAmenityIds = [];
     const boundLoc = this.userLocationId;
     if (this.isLocationBound && boundLoc) {
@@ -3957,6 +3962,7 @@ export abstract class ManageBase implements OnInit {
     }
     this.selectedAmenityIds = [];
     if (this.entity === 'customers') {
+      this.loadCustomerAttendance(item);
       this.formData.customerType = (item.customerType === 'Company' || (item.company && item.company.trim() && item.company.toLowerCase() !== 'individual'))
         ? 'Company'
         : 'Individual';
@@ -4126,6 +4132,48 @@ export abstract class ManageBase implements OnInit {
       error: err => this.showError(
         `The user was saved, but custom invoice access was not changed: ${customInvoiceErrorMessage(err, 'please try again.')}`,
         'Custom invoice access')
+    });
+  }
+
+  /**
+   * Customers (edit): "Attendance enabled" checkbox for admins and sales executives. Read from
+   * GET admin/customers/{id}/attendance/status and saved on its own (PUT .../attendance) after the customer is saved.
+   * Left out of the form when it can't be read (not installed yet, or a customer outside the staff member's locations).
+   */
+  private attendanceSvc = inject(AttendanceService);
+  private readonly custAttendance = signal<{ customerId: number; original: boolean } | null>(null);
+  private get canToggleAttendance(): boolean {
+    return this.auth.hasRole('admin') || this.auth.hasRole('super_admin') || this.auth.hasRole('sales_executive');
+  }
+
+  private loadCustomerAttendance(item: any): void {
+    this.custAttendance.set(null);
+    const customerId = [item?.id, item?.Id, item?.customerId].map(Number).find(n => Number.isInteger(n) && n > 0) ?? 0;
+    if (!customerId || !this.canToggleAttendance) return;
+    this.attendanceSvc.getStatus(customerId).subscribe({
+      next: st => {
+        if (this.entity !== 'customers' || !this.editItem) return;
+        this.custAttendance.set({ customerId, original: st.enabled });
+        this.formData.attendanceEnabled = st.enabled;
+        this.config.set(this.buildConfig(this.entity));
+      },
+      error: () => {}
+    });
+  }
+
+  /** After the customer is saved: saves a changed "Attendance enabled" (its own call; a failure is reported). */
+  private saveCustomerAttendance(): void {
+    const a = this.custAttendance();
+    const value = this.formData.attendanceEnabled === true;
+    this.custAttendance.set(null);
+    this.config.set(this.buildConfig(this.entity));
+    if (!a || value === a.original) return;
+    this.attendanceSvc.setEnabled(a.customerId, value).subscribe({
+      next: st => this.showSuccess(st.enabled
+        ? 'Attendance is on: the customer now sees it in the app and web portal.'
+        : 'Attendance is off: the customer no longer sees it.', 'Attendance'),
+      error: err => this.showError(
+        `The customer was saved, but attendance was not changed: ${describeAttendanceError(err).message}`, 'Attendance')
     });
   }
 
@@ -4440,6 +4488,7 @@ export abstract class ManageBase implements OnInit {
         this.saving.set(false);
         this.showModal.set(false);
         if (this.entity === 'users' && this.editItem) this.saveCustomInvoiceAccess();
+        if (this.entity === 'customers' && this.editItem) this.saveCustomerAttendance();
         this.success.set(this.entity === 'spaces' ? 'Space pricing updated successfully.' : (this.editItem ? 'Updated successfully.' : 'Created successfully.'));
         setTimeout(() => this.success.set(''), 3000);
 
@@ -4919,6 +4968,9 @@ export abstract class ManageBase implements OnInit {
           { key: 'cityId', label: 'City', type: 'select', options: this.cityOptions() },
           { key: 'cnicOrPassport', label: 'CNIC / Passport', type: 'text' },
           { key: 'notes', label: 'Notes', type: 'textarea' },
+          ...(this.custAttendance()
+            ? [{ key: 'attendanceEnabled', label: 'Attendance enabled (customer sees attendance in the app and web portal)', type: 'checkbox' }]
+            : []),
         ],
         // Location / Status / Created filters (listFilterParams) are applied on the server.
         getFn: (p, l, s) => this.admin.getCustomers(p, l, s, this.listFilterParams()),
