@@ -232,7 +232,7 @@ export class CustomInvoiceService {
 
   getSpaces(locationId: number): Observable<CiSpace[]> {
     const params = new HttpParams().set('locationId', String(locationId));
-    return this.http.get<ApiResponse<unknown>>(`/spaces`, { params }).pipe(
+    return this.http.get<ApiResponse<unknown>>(`${this.baseUrl}/spaces`, { params }).pipe(
       map(res => list(unwrap(res, "Spaces couldn't be loaded. Please try again.")).map(r => {
         const o = obj(r);
         const spaceId = num(o?.['spaceId']);
