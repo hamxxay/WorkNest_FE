@@ -56,7 +56,7 @@ interface SpaceConfig {
 }
 
 const CATEGORY_CODE_MAP: Record<string, string> = {
-  'Shared':  'SharedSpace',
+  'Shared': 'SharedSpace',
   'Private': 'PrivateOffice',
   'Meeting': 'MeetingRoom',
 };
@@ -104,16 +104,16 @@ function toLocalDate(d: Date): string {
   styleUrl: './booking.css'
 })
 export class Booking implements OnInit {
-  searchQuery          = signal('');
-  workspaceType        = signal('');
-  locationFilter       = signal('');
-  categoryFilter       = signal<'Meeting' | 'Shared' | 'Private' | ''>('');
+  searchQuery = signal('');
+  workspaceType = signal('');
+  locationFilter = signal('');
+  categoryFilter = signal<'Meeting' | 'Shared' | 'Private' | ''>('');
   privateCapacityFilter = signal<number | null>(null);
-  loading              = signal(true);
-  bookingSuccess       = signal('');
-  bookingError         = signal('');
+  loading = signal(true);
+  bookingSuccess = signal('');
+  bookingError = signal('');
 
-  workspaces  = signal<Workspace[]>([]);
+  workspaces = signal<Workspace[]>([]);
   spaceConfig = signal<SpaceConfig[]>([]);
   spaceTypeMap = new Map<number, string>(); // spaceTypeId → name from DB
 
@@ -136,10 +136,10 @@ export class Booking implements OnInit {
   });
 
   filteredWorkspaces = computed(() => {
-    const query    = this.workspaceType().toLowerCase();
-    const search   = this.searchQuery().toLowerCase().trim();
+    const query = this.workspaceType().toLowerCase();
+    const search = this.searchQuery().toLowerCase().trim();
     const location = this.locationFilter().toLowerCase();
-    const cat      = this.categoryFilter();
+    const cat = this.categoryFilter();
     const capFilter = this.privateCapacityFilter();
     return this.workspaces().filter(ws => {
       const matchSearch = !search ||
@@ -149,10 +149,10 @@ export class Booking implements OnInit {
         (ws.companyName || '').toLowerCase().includes(search) ||
         (ws.code || '').toLowerCase().includes(search) ||
         (ws.floor || '').toLowerCase().includes(search);
-      const matchType     = !query    || (ws.spaceTypeName || '').toLowerCase().includes(query);
+      const matchType = !query || (ws.spaceTypeName || '').toLowerCase().includes(query);
       const matchLocation = !location || (ws.locationName || '').toLowerCase() === location;
-      const matchCat      = !cat      || getCategory(ws.spaceTypeName) === cat;
-      const matchCap      = !capFilter || cat !== 'Private' || ws.capacity === capFilter;
+      const matchCat = !cat || getCategory(ws.spaceTypeName) === cat;
+      const matchCap = !capFilter || cat !== 'Private' || ws.capacity === capFilter;
       return matchSearch && matchType && matchLocation && matchCat && matchCap;
     });
   });
@@ -197,16 +197,16 @@ export class Booking implements OnInit {
         const caps = [...new Set(spaces.map(s => s.capacity).filter(c => c > 0))].sort((a, b) => a - b);
         return {
           spaceTypeId,
-          spaceTypeName:    spaces[0].spaceTypeName,
-          capacity:         spaces[0].capacity,
-          price:            (spaces[0] as any).price || (spaces[0] as any).seatPrice || 0,
-          billingPeriodId:  spaces[0].billingPeriodId || 4,
-          amenities:        spaces[0].amenities,
-          imageUrl:         spaces[0].imageUrl,
+          spaceTypeName: spaces[0].spaceTypeName,
+          capacity: spaces[0].capacity,
+          price: (spaces[0] as any).price || (spaces[0] as any).seatPrice || 0,
+          billingPeriodId: spaces[0].billingPeriodId || 4,
+          amenities: spaces[0].amenities,
+          imageUrl: spaces[0].imageUrl,
           spaces,
-          availableCount:   spaces.filter(s => s.status === 'Available').length,
-          expanded:         false,
-          capacities:       caps,
+          availableCount: spaces.filter(s => s.status === 'Available').length,
+          expanded: false,
+          capacities: caps,
           selectedCapacity: caps.length ? caps[0] : null,
         };
       })
@@ -216,18 +216,18 @@ export class Booking implements OnInit {
   capacityGroups = computed<any[]>(() => []);
 
   // T&C modal state
-  showTncModal      = false;
-  tncAcceptEnabled  = false;
+  showTncModal = false;
+  tncAcceptEnabled = false;
   private pendingBookingSubmit = false;
 
   // Modal state
-  showBookingModal  = false;
-  showAuthPrompt    = false;
+  showBookingModal = false;
+  showAuthPrompt = false;
   selectedSpace: Workspace | null = null;
-  bookingCategory   = '';          // 'Shared' | 'Private' | 'Meeting'
+  bookingCategory = '';          // 'Shared' | 'Private' | 'Meeting'
   bookingForm!: FormGroup;
   availabilityLoading = signal(false);
-  availableCount      = signal(0);
+  availableCount = signal(0);
   isSpaceFull = computed(() => this.availableCount() === 0 && !this.availabilityLoading());
   availableCapacities: number[] = [];
 
@@ -246,7 +246,7 @@ export class Booking implements OnInit {
     private adminService: AdminService,
     private router: Router,
     private route: ActivatedRoute
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.pendingTypeFilter = this.route.snapshot.queryParamMap.get('type') ?? '';
@@ -310,7 +310,7 @@ export class Booking implements OnInit {
 
   // ── Form helpers ──────────────────────────────────────────────────────────
 
-  get isShared()  { return this.bookingCategory === 'Shared';  }
+  get isShared() { return this.bookingCategory === 'Shared'; }
   get isPrivate() { return this.bookingCategory === 'Private'; }
   get isMeeting() { return this.bookingCategory === 'Meeting'; }
 
@@ -328,22 +328,22 @@ export class Booking implements OnInit {
     if (this.isShared) {
       this.bookingForm = this.fb.group({
         startDate: ['', Validators.required],
-        months:    [1, [Validators.required, Validators.min(1), this.positiveInt]],
-        notes:     [''],
+        months: [1, [Validators.required, Validators.min(1), this.positiveInt]],
+        notes: [''],
       });
     } else if (this.isMeeting) {
       this.bookingForm = this.fb.group({
         startDate: ['', Validators.required],
-        capacity:  [null, Validators.required],
-        notes:     [''],
+        capacity: [null, Validators.required],
+        notes: [''],
       });
     } else {
       // Private — monthly
       this.bookingForm = this.fb.group({
         startDate: ['', Validators.required],
-        months:    [1, [Validators.required, Validators.min(1), this.positiveInt]],
-        capacity:  [null, Validators.required],
-        notes:     [''],
+        months: [1, [Validators.required, Validators.min(1), this.positiveInt]],
+        capacity: [null, Validators.required],
+        notes: [''],
       });
     }
 
@@ -396,8 +396,8 @@ export class Booking implements OnInit {
     const [closeH] = (this.closingTime || '20:00').split(':').map(Number);
     this.meetingSlots = [];
     for (let h = openH; h < closeH; h++) {
-      const start = `${String(h).padStart(2,'0')}:00`;
-      const end   = `${String(h + 1).padStart(2,'0')}:00`;
+      const start = `${String(h).padStart(2, '0')}:00`;
+      const end = `${String(h + 1).padStart(2, '0')}:00`;
       this.meetingSlots.push({ label: `${start} – ${end}`, start, end, isLocked: false });
     }
     this.checkLockedSlots(date);
@@ -406,15 +406,15 @@ export class Booking implements OnInit {
   private checkLockedSlots(date: string) {
     if (!date || !this.meetingSlots.length) return;
 
-    const targetSpaceId   = this.selectedSpace?.id ? String(this.selectedSpace.id) : '';
+    const targetSpaceId = this.selectedSpace?.id ? String(this.selectedSpace.id) : '';
     const targetSpaceGuid = this.selectedSpace?.idGuid ? String(this.selectedSpace.idGuid) : '';
     const targetSpaceTypeId = this.selectedSpace?.spaceTypeId ? Number(this.selectedSpace.spaceTypeId) : 0;
 
     this.meetingSlots.forEach(slot => {
       const slotStartStr = `${date}T${slot.start}:00`;
-      const slotEndStr   = `${date}T${slot.end}:00`;
+      const slotEndStr = `${date}T${slot.end}:00`;
       const slotStart = new Date(slotStartStr).getTime();
-      const slotEnd   = new Date(slotEndStr).getTime();
+      const slotEnd = new Date(slotEndStr).getTime();
 
       // Check overlap against existing active bookings
       const isBookedInDB = this.existingBookings.some((b: any) => {
@@ -422,17 +422,17 @@ export class Booking implements OnInit {
         if (status === 'cancelled' || status === 'rejected' || status === 'expired') return false;
 
         const bStartStr = b.startDateTime || b.startOn || b.startDate;
-        const bEndStr   = b.endDateTime   || b.endOn   || b.endDate;
+        const bEndStr = b.endDateTime || b.endOn || b.endDate;
         if (!bStartStr || !bEndStr) return false;
 
         const bStart = new Date(bStartStr).getTime();
-        const bEnd   = new Date(bEndStr).getTime();
+        const bEnd = new Date(bEndStr).getTime();
         if (isNaN(bStart) || isNaN(bEnd)) return false;
 
         const overlaps = (bStart < slotEnd) && (bEnd > slotStart);
         if (!overlaps) return false;
 
-        const bSpaceId   = String(b.spaceId ?? b.spaceIdGuid ?? '');
+        const bSpaceId = String(b.spaceId ?? b.spaceIdGuid ?? '');
         const bSpaceGuid = String(b.spaceIdGuid ?? b.spacePublicId ?? b.publicId ?? '');
         const bSpaceCode = String(b.spaceCode ?? b.code ?? '').toLowerCase();
         const targetCode = String(this.selectedSpace?.code ?? '').toLowerCase();
@@ -519,7 +519,7 @@ export class Booking implements OnInit {
       const sorted = Array.from(slots).sort();
       const start = new Date(`${f.startDate}T${sorted[0]}:00`);
       const lastHour = +sorted[sorted.length - 1].split(':')[0] + 1;
-      const end = new Date(`${f.startDate}T${String(lastHour).padStart(2,'0')}:00:00`);
+      const end = new Date(`${f.startDate}T${String(lastHour).padStart(2, '0')}:00:00`);
       return [start, end];
     } else if (this.isShared) {
       const start = new Date(`${f.startDate}T00:00:00`);
@@ -568,8 +568,8 @@ export class Booking implements OnInit {
 
   openBookingModal(ws: Workspace, preselectedCapacity?: number | null) {
     if (!this.authService.isAuthenticated()) { this.showAuthPrompt = true; return; }
-    this.selectedSpace     = ws;
-    this.bookingCategory   = getCategory(ws.spaceTypeName);
+    this.selectedSpace = ws;
+    this.bookingCategory = getCategory(ws.spaceTypeName);
     this.bookingSuccess.set('');
     this.bookingError.set('');
     this.availableCount.set(0);
@@ -590,8 +590,8 @@ export class Booking implements OnInit {
 
   closeBookingModal() {
     this.showBookingModal = false;
-    this.showAuthPrompt  = false;
-    this.selectedSpace   = null;
+    this.showAuthPrompt = false;
+    this.selectedSpace = null;
     this.closeTncModal();
   }
 
@@ -626,7 +626,7 @@ export class Booking implements OnInit {
       const [openH, openM] = this.openingTime.split(':').map(Number);
       const [closeH, closeM] = this.closingTime.split(':').map(Number);
       const startMins = start.getHours() * 60 + start.getMinutes();
-      const endMins   = end.getHours()   * 60 + end.getMinutes();
+      const endMins = end.getHours() * 60 + end.getMinutes();
       if (startMins < openH * 60 + openM || endMins > closeH * 60 + closeM) {
         const msg = `Booking must be between ${this.openingTime} and ${this.closingTime}.`;
         alert(msg);
@@ -667,7 +667,7 @@ export class Booking implements OnInit {
     let billingMonths = 1;
     const contractMonths = +(this.bookingForm?.value?.months ?? 1);
     if (this.isPrivate) {
-      const capacity  = +(this.bookingForm?.value?.capacity ?? 1);
+      const capacity = +(this.bookingForm?.value?.capacity ?? 1);
       billingMonths = Math.min(contractMonths, 3);
       base = seatPrice * capacity * billingMonths;
     } else if (this.isShared) {
@@ -679,8 +679,8 @@ export class Booking implements OnInit {
     }
     const deposit = this.isPrivate
       ? (this.selectedSpace.securityDeposit > 0
-          ? this.selectedSpace.securityDeposit
-          : +(this.spaceConfig().find(c => c.spaceCategory === 'Private')?.securityDeposit ?? 0))
+        ? this.selectedSpace.securityDeposit
+        : 2 * seatPrice * (+(this.bookingForm?.value?.capacity ?? 1)))
       : 0;
     return { base, billingMonths, contractMonths, percent: 0, discountAmount: 0, final: base, securityDeposit: deposit, total: base + deposit };
   }
@@ -721,8 +721,8 @@ export class Booking implements OnInit {
       const [openH, openM] = this.openingTime.split(':').map(Number);
       const [closeH, closeM] = this.closingTime.split(':').map(Number);
       const startMins = start.getHours() * 60 + start.getMinutes();
-      const endMins   = end.getHours()   * 60 + end.getMinutes();
-      const openMins  = openH  * 60 + openM;
+      const endMins = end.getHours() * 60 + end.getMinutes();
+      const openMins = openH * 60 + openM;
       const closeMins = closeH * 60 + closeM;
       if (startMins < openMins || endMins > closeMins) {
         this.bookingError.set(`Booking must be between ${this.openingTime} and ${this.closingTime}.`);
@@ -730,39 +730,39 @@ export class Booking implements OnInit {
       }
     }
 
-    const breakdown     = this.getPriceBreakdown();
-    const cap           = this.bookingForm.value.capacity ? +this.bookingForm.value.capacity : undefined;
+    const breakdown = this.getPriceBreakdown();
+    const cap = this.bookingForm.value.capacity ? +this.bookingForm.value.capacity : undefined;
     const spaceTypeName = this.selectedSpace!.spaceTypeName;
 
     // Close modal first but keep selectedSpace reference via local var
     this.showBookingModal = false;
-    this.showAuthPrompt  = false;
+    this.showAuthPrompt = false;
 
     this.router.navigate(['/checkout'], {
       state: {
         pendingBooking: {
-          spaceCategory:   this.bookingCategory,
-          categoryCode:    CATEGORY_CODE_MAP[this.bookingCategory] ?? this.bookingCategory,
-          spaceName:       `${spaceTypeName} (Auto-assigned)`,
-          startDateTime:   toLocalDateTime(start),
-          startOn:         toLocalDateTime(start),
-          endDateTime:     toLocalDateTime(end),
-          endOn:           toLocalDateTime(end),
-          totalAmount:     breakdown?.total ?? 0,
-          rentAmount:      breakdown?.final ?? 0,
-          baseAmount:      breakdown?.base ?? 0,
+          spaceCategory: this.bookingCategory,
+          categoryCode: CATEGORY_CODE_MAP[this.bookingCategory] ?? this.bookingCategory,
+          spaceName: `${spaceTypeName} (Auto-assigned)`,
+          startDateTime: toLocalDateTime(start),
+          startOn: toLocalDateTime(start),
+          endDateTime: toLocalDateTime(end),
+          endOn: toLocalDateTime(end),
+          totalAmount: breakdown?.total ?? 0,
+          rentAmount: breakdown?.final ?? 0,
+          baseAmount: breakdown?.base ?? 0,
           currentCycleAmount: breakdown?.final ?? 0,
-          firstCycleRent:  breakdown?.final ?? 0,
+          firstCycleRent: breakdown?.final ?? 0,
           securityDeposit: breakdown?.securityDeposit ?? 0,
-          months:          (this.isPrivate || this.isShared) ? (+this.bookingForm.value.months || 1) : undefined,
+          months: (this.isPrivate || this.isShared) ? (+this.bookingForm.value.months || 1) : undefined,
           billingPeriodMonths: (this.isPrivate || this.isShared) ? (breakdown?.billingMonths ?? 3) : undefined,
-          price:           this.selectedSpace?.price ?? 0,
-          notes:           this.bookingForm.value.notes || null,
-          capacity:        cap,
+          price: this.selectedSpace?.price ?? 0,
+          notes: this.bookingForm.value.notes || null,
+          capacity: cap,
           // The booking stays at the location of the card the customer chose.
-          locationId:      this.selectedSpace?.locationId || null,
-          locationName:    this.selectedSpace?.locationName || null,
-          smartBooking:    true,
+          locationId: this.selectedSpace?.locationId || null,
+          locationName: this.selectedSpace?.locationName || null,
+          smartBooking: true,
         }
       }
     }).then(() => { this.selectedSpace = null; });
@@ -773,26 +773,26 @@ export class Booking implements OnInit {
   private normalizeWorkspaces(res: any): Workspace[] {
     const source = Array.isArray(res) ? res
       : Array.isArray(res?.data) ? res.data
-      : Array.isArray(res?.data?.items) ? res.data.items
-      : Array.isArray(res?.items) ? res.items : [];
+        : Array.isArray(res?.data?.items) ? res.data.items
+          : Array.isArray(res?.items) ? res.items : [];
     return source.map((ws: any, i: number) => ({
-      id:            Number(ws.id ?? ws.Id ?? 0) || (i + 1),
-      idGuid:        ws.publicId || ws.PublicId || '',
-      name:          ws.name || ws.Name || `Workspace ${i + 1}`,
-      locationName:  ws.locationName || ws.LocationName || 'Unknown',
-      locationId:    Number(ws.locationId ?? ws.LocationId ?? 0) || 0,
-      companyName:   ws.companyName  || ws.CompanyName  || '',
-      spaceTypeId:   Number(ws.spaceTypeId ?? ws.SpaceTypeId ?? 0),
+      id: Number(ws.id ?? ws.Id ?? 0) || (i + 1),
+      idGuid: ws.publicId || ws.PublicId || '',
+      name: ws.name || ws.Name || `Workspace ${i + 1}`,
+      locationName: ws.locationName || ws.LocationName || 'Unknown',
+      locationId: Number(ws.locationId ?? ws.LocationId ?? 0) || 0,
+      companyName: ws.companyName || ws.CompanyName || '',
+      spaceTypeId: Number(ws.spaceTypeId ?? ws.SpaceTypeId ?? 0),
       spaceTypeName: this.spaceTypeMap.get(Number(ws.spaceTypeId ?? ws.SpaceTypeId ?? 0)) || toDisplayName(ws.spaceTypeName || ws.SpaceTypeName || 'Workspace'),
-      capacity:      Number(ws.capacity ?? ws.Capacity ?? 0),
-      amenities:     typeof ws.amenities === 'string' ? ws.amenities : (Array.isArray(ws.amenities) ? ws.amenities.join(', ') : ''),
-      pricePerDay:      Number(ws.seatPrice ?? ws.SeatPrice ?? 0),
-      pricePerHour:     Number(ws.seatPrice ?? ws.SeatPrice ?? 0),
-      securityDeposit:  Number(ws.securityDeposit ?? ws.SecurityDeposit ?? ws.depositAmount ?? ws.DepositAmount ?? 0),
-      status:        'Available',
-      imageUrl:      ws.imageUrl || ws.ImageUrl || 'images/spaces/modern-office.jpg',
-      floor:         ws.floorName || ws.FloorName || ws.floor || '-',
-      code:          ws.code || ws.Code || '',
+      capacity: Number(ws.capacity ?? ws.Capacity ?? 0),
+      amenities: typeof ws.amenities === 'string' ? ws.amenities : (Array.isArray(ws.amenities) ? ws.amenities.join(', ') : ''),
+      pricePerDay: Number(ws.seatPrice ?? ws.SeatPrice ?? 0),
+      pricePerHour: Number(ws.seatPrice ?? ws.SeatPrice ?? 0),
+      securityDeposit: Number(ws.securityDeposit ?? ws.SecurityDeposit ?? ws.depositAmount ?? ws.DepositAmount ?? 0),
+      status: 'Available',
+      imageUrl: ws.imageUrl || ws.ImageUrl || 'images/spaces/modern-office.jpg',
+      floor: ws.floorName || ws.FloorName || ws.floor || '-',
+      code: ws.code || ws.Code || '',
     }));
   }
 }
