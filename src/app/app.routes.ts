@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from './guards/admin.guard';
+import { adminGuard, accessMachinesGuard } from './guards/admin.guard';
 import { superAdminGuard } from './guards/super-admin.guard';
 import { ceoGuard } from './guards/ceo.guard';
 import { salesManagerGuard } from './guards/sales-manager.guard';
@@ -71,6 +71,8 @@ export const routes: Routes = [
       { path: 'network/device/:mac', loadComponent: () => import('./pages/admin/network/network-device/network-device').then(m => m.NetworkDevice), canActivate: [adminGuard] },
       { path: 'network/internet', loadComponent: () => import('./pages/admin/network/network-internet/network-internet').then(m => m.NetworkInternet), canActivate: [adminGuard] },
       { path: 'network/wifi', loadComponent: () => import('./pages/admin/network/network-wifi/network-wifi').then(m => m.NetworkWifi), canActivate: [adminGuard] },
+      // Access-control machines (super admin: all; network engineer: their locations). Admins / sales executives are sent back.
+      { path: 'network/access-machines', loadComponent: () => import('./pages/admin/network/access-machines/access-machines').then(m => m.AccessMachinesPage), canActivate: [adminGuard, accessMachinesGuard] },
       // Grandstream GWN network (F-7): same guard as the UniFi pages; the API limits it to staff of the network's locations.
       { path: 'network/gwn', loadComponent: () => import('./pages/admin/network/gwn-overview/gwn-overview').then(m => m.GwnOverviewPage), canActivate: [adminGuard] },
       { path: 'network/gwn/clients', loadComponent: () => import('./pages/admin/network/gwn-clients/gwn-clients').then(m => m.GwnClientsPage), canActivate: [adminGuard] },

@@ -5,7 +5,7 @@ import { environment } from '../../environments/environment';
 import {
   HikDevice, HikRosterResponse, HikDeviceUser,
   HikAccessDashboard, HikAccessEvent, HikSyncActivity, HikAccessAnalytics, HikUserAnalytics,
-  HikStaff, HikTag, HikStaffResult, HikDeviceDetail, HikDeviceGroup, HikDeviceSaveRequest
+  HikStaff, HikTag, HikStaffResult, HikDeviceDetail, HikDeviceGroup, HikDeviceSaveRequest, NetworkAccessMachine
 } from '../models/hik-device.model';
 
 @Injectable({
@@ -68,6 +68,22 @@ export class HikDeviceService {
   /** "Test all": tests every machine and saves online / offline. */
   testAllDevices(): Observable<any> {
     return this.http.post<any>(`${this.api}/hik/devices/test-all`, {});
+  }
+
+  // ---- Network > Access Machines (super admin, network engineer; a network engineer gets their locations' machines only) ----
+
+  getNetworkAccessMachines(): Observable<{ data: NetworkAccessMachine[] }> {
+    return this.http.get<{ data: NetworkAccessMachine[] }>(`${this.api}/network/access-machines`);
+  }
+
+  /** Connects to one machine now and saves online / offline, model and serial; returns the refreshed machine. */
+  testNetworkAccessMachine(id: number): Observable<{ message?: string; data: { machine: NetworkAccessMachine; error?: string | null } }> {
+    return this.http.post<any>(`${this.api}/network/access-machines/${id}/test`, {});
+  }
+
+  /** Tests every machine the user may see. */
+  testAllNetworkAccessMachines(): Observable<{ message?: string; data: { id: number; name: string; online: boolean; error?: string | null }[] }> {
+    return this.http.post<any>(`${this.api}/network/access-machines/test-all`, {});
   }
 
   getDevices(location?: string): Observable<HikDevice[]> {

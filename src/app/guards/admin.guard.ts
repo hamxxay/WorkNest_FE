@@ -69,6 +69,7 @@ export const NETWORK_ENGINEER_ROUTES: string[] = [
   '/admin/network/devices',
   '/admin/network/internet',
   '/admin/network/wifi',
+  '/admin/network/access-machines',
   '/admin/profile'
 ];
 
@@ -77,6 +78,9 @@ export function isNetworkEngineerUrl(url: string): boolean {
   const path = url.split(/[?#]/)[0];
   return NETWORK_ENGINEER_ROUTES.some(p => path === p || path.startsWith(p + '/'));
 }
+
+/** Network > Access Machines: super admin and network engineer only (admins and sales executives are refused). */
+export const ACCESS_MACHINES_ROUTE = '/admin/network/access-machines';
 
 export const ACCESS_OFFICER_HOME = '/admin/access';
 
@@ -142,4 +146,11 @@ export const adminGuard: CanActivateFn & CanActivateChildFn = (_route, state) =>
   return auth.verifyRoles$().pipe(
     map(verified => verified ? decide() : router.createUrlTree(['/unauthorized']))
   );
+};
+
+/** Route guard of Network > Access Machines; the API checks the role again. Sits after adminGuard, which confirmed the roles. */
+export const accessMachinesGuard: CanActivateFn = () => {
+  const router = inject(Router);
+  const auth = inject(AuthService);
+  return auth.hasRole('super_admin') || auth.hasRole('network_engineer') ? true : router.createUrlTree(['/admin/network']);
 };

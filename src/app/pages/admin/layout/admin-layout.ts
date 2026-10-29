@@ -12,7 +12,7 @@ import { CustomInvoiceService } from '../../../services/custom-invoice.service';
 import {
   ACCESS_OFFICER_HOME, CEO_HOME, SALES_EXECUTIVE_ROUTES, SALES_MANAGER_HOME, isAccessOfficerUrl, isCeoUrl, isSalesExecutiveUrl,
   isSalesManagerUrl
-, NETWORK_ENGINEER_HOME, isNetworkEngineerUrl } from '../../../guards/admin.guard';
+, NETWORK_ENGINEER_HOME, isNetworkEngineerUrl, ACCESS_MACHINES_ROUTE } from '../../../guards/admin.guard';
 import { roleLabelFor } from '../../../utils/constants';
 
 @Component({
@@ -132,6 +132,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     { route: '/admin/network/devices', group: 'Network',  label: 'Devices',          icon: 'net-devices'     },
     { route: '/admin/network/internet', group: 'Network', label: 'Internet',         icon: 'net-internet'    },
     { route: '/admin/network/wifi', group: 'Network',     label: 'Wi-Fi',            icon: 'net-wifi'        },
+    { route: ACCESS_MACHINES_ROUTE, group: 'Network', label: 'Access Machines', icon: 'access-dashboard', machinesOnly: true },
     { route: '/admin/challan-validity', group: 'Finance', label: 'Challan Validity', icon: 'challan', superAdminOnly: true },
       { route: '/admin/audit-log', group: 'Administration', label: 'Audit Log', icon: 'audit', superAdminOnly: true },
     { route: '/admin/login-history', group: 'Administration', label: 'Login History', icon: 'login-history', superAdminOnly: true },
@@ -322,12 +323,12 @@ export class AdminLayout implements OnInit, OnDestroy {
       return this.menuItems
         .filter((i: any) => i.group === 'Network')
         .map((i: any) => {
-          if (!onGwn || i.route === '/admin/network/internet') return i;
+          if (!onGwn || i.route === '/admin/network/internet' || i.route === ACCESS_MACHINES_ROUTE) return i;
           return { ...i, route: counterpart(i.route, 'gwn') };
         });
     }
 
-    const items = this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin)
+    const items = this.menuItems.filter((i: any) => (!i.superAdminOnly || this.isSuperAdmin) && (!i.adminOnly || this.isAdmin) && (!i.machinesOnly || this.isSuperAdmin)
       && (!i.customInvoiceOnly || this.customInvoiceAllowed())
       && (i.group !== 'Network' || this.networkAllowed()));
     // On the Grandstream (F-7) pages, or for staff who only see Grandstream, the Network links open its pages
@@ -336,7 +337,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     if (!gwnMode) return items;
     return items
       .filter((i: any) => i.route !== '/admin/network/internet')
-      .map((i: any) => (i.group === 'Network' ? { ...i, route: counterpart(i.route, 'gwn') } : i));
+      .map((i: any) => (i.group === 'Network' && i.route !== ACCESS_MACHINES_ROUTE ? { ...i, route: counterpart(i.route, 'gwn') } : i));
   }
 
   /**
@@ -378,7 +379,7 @@ export class AdminLayout implements OnInit, OnDestroy {
     const path = this.router.url.split(/[?#]/)[0];
     if (!path.startsWith('/admin/network')) return;
     // Internet is always accessible to Network Engineer
-    if (path === '/admin/network/internet') return;
+    if (path === '/admin/network/internet' || path === ACCESS_MACHINES_ROUTE) return;
     const onGwn = path.startsWith('/admin/network/gwn');
     if (!onGwn && !this.unifiAllowed() && this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'gwn'));
     else if (onGwn && this.unifiAllowed() && !this.gwnAllowed()) this.router.navigateByUrl(counterpart(path, 'unifi'));

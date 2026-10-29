@@ -272,3 +272,24 @@ export interface HikStaffResult {
   /** E.g. "Saved on 3 of 3 machines · 1 offline (queued)" (fingerprint / face / card enrollment). */
   summary?: string | null;
 }
+
+/** One machine on the Network > Access Machines tab (super admin, network engineer). The API never returns credentials. */
+export interface NetworkAccessMachine {
+  id: number;
+  name: string;
+  /** Room number the machine opens; empty for entrance / common doors. */
+  code?: string | null;
+  /** Machine group name, e.g. "Entrance" or "Rooms". */
+  groupName?: string | null;
+  locationId?: number | null;
+  locationName?: string | null;
+  host: string;
+  /** Failover IP / host. */
+  host2?: string | null;
+  port: number;
+  model?: string | null;
+  serial?: string | null;
+  online: boolean;
+  /** Terminal-local wall-clock "YYYY-MM-DDTHH:mm:ss"; null = never reached. */
+  lastSeen?: string | null;
+}

@@ -1,0 +1,82 @@
+<div class="net-page">
+  <div class="dash-header">
+    <div>
+      <h1>Access Machines</h1>
+      <p class="dash-meta"><span>Hikvision door machines</span><span class="dot-sep"></span><span>Auto-refresh every 60 s</span></p>
+    </div>
+    <div class="dash-header-actions no-print">
+      <span class="updated">@if (loading() && !data()) { Loading… } @else { {{ updatedText() }} }</span>
+      <button class="btn-report" (click)="testAll()" [disabled]="testingAll() || !data()?.length"><net-icon name="refresh" [size]="16" />{{ testingAll() ? 'Testing…' : 'Test all' }}</button>
+      <button class="icon-btn" (click)="refresh()" [disabled]="refreshing()" title="Refresh machines" aria-label="Refresh machines"><span [class.spin]="refreshing()"><net-icon name="refresh" [size]="16" /></span></button>
+    </div>
+  </div>
+
+  @if (error()) { <div class="ov-error" role="alert"><net-icon name="alert" [size]="16" />{{ error() }}</div> }
+
+  @if (offline().length) {
+    <div class="am-banner" role="alert">
+      <net-icon name="alert" [size]="16" />
+      <div>
+        <strong>{{ offline().length }} machine{{ offline().length > 1 ? 's' : '' }} offline</strong>
+        <ul>@for (m of offline(); track m.id) { <li>{{ bannerText(m) }}</li> }</ul>
+      </div>
+    </div>
+  }
+
+  <section class="dash-panel">
+    <div class="panel-head">
+      <div><h3>Machines</h3><p class="panel-sub">{{ data() ? stats().online + ' of ' + stats().total + ' online' : 'Loading…' }}</p></div>
+      <div class="panel-tools">
+        <input class="form-control search" type="search" placeholder="Search name, IP, room…" aria-label="Search machines" [ngModel]="search()" (ngModelChange)="search.set($event)">
+        @if (locations().length > 1) {
+          <select class="form-control" aria-label="Location" [ngModel]="location()" (ngModelChange)="location.set($event)">
+            <option value="">All locations</option>
+            @for (l of locations(); track l) { <option [value]="l">{{ l }}</option> }
+          </select>
+        }
+        <select class="form-control" aria-label="Status" [ngModel]="status()" (ngModelChange)="status.set($event)">
+          <option value="">All statuses</option>
+          <option value="online">Online</option>
+          <option value="offline">Offline</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  @if (groups().length) {
+    <section class="am-card">
+      <div class="am-table-wrap">
+        <table class="am-table">
+          <thead><tr>
+            <th>Machine</th><th>Location</th><th>Status</th><th>Group</th><th>Address</th><th>Model</th><th class="text-right no-print">Test</th>
+          </tr></thead>
+          <tbody>
+            @for (g of groups(); track g.name) {
+              @for (m of g.items; track m.id) {
+                <tr [class.offline-row]="!m.online">
+                  <td><div class="am-name">{{ m.name }}</div>@if (m.code) { <div class="am-subtext">Room {{ m.code }}</div> }</td>
+                  <td>{{ g.name }}</td>
+                  <td><span class="am-status" [class.on]="m.online" [class.off]="!m.online">{{ m.online ? 'Online' : 'Offline' }}</span>
+                    @if (!m.online) { <div class="am-subtext">{{ lastSeen(m) }}</div> }</td>
+                  <td>{{ m.groupName || '—' }}</td>
+                  <td><div class="mono">{{ m.host || '—' }}{{ m.port ? ':' + m.port : '' }}</div>
+                    @if (m.host2) { <div class="am-subtext mono" title="Failover IP">Failover {{ m.host2 }}</div> }</td>
+                  <td><div>{{ m.model || '—' }}</div>@if (m.serial) { <div class="am-subtext mono am-wrap" title="Serial">{{ m.serial }}</div> }</td>
+                  <td class="text-right no-print">
+                    <button type="button" class="am-btn-icon" (click)="test(m)" [disabled]="testing().has(m.id) || testingAll()"
+                      [title]="testing().has(m.id) ? 'Testing…' : 'Test connection'" [attr.aria-label]="'Test ' + m.name">
+                      <span [class.spin]="testing().has(m.id)"><net-icon name="refresh" [size]="15" /></span>
+                    </button>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  } @else {
+    @if (data()) { <div class="empty-state">No machines match.</div> }
+    @else if (loading()) { <div class="empty-state">Loading…</div> }
+  }
+</div>
