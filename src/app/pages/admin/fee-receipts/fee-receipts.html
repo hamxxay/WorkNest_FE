@@ -556,6 +556,7 @@
                     <td>
                       <div class="cell-customer">
                         <span class="cust-name">{{ r.customerName }}</span>
+                        @if (r.customerCompanyName && r.customerCompanyName !== '-' && r.customerCompanyName.toLowerCase() !== 'individual') { <span class="cust-code">{{ r.customerCompanyName }}</span> }
                         <span class="cust-code">{{ r.customerCode }}</span>
                       </div>
                     </td>

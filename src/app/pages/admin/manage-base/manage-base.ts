@@ -3209,6 +3209,21 @@ export abstract class ManageBase implements OnInit {
   prevPage() { if (this.canPrev()) { this.page.update(p => p - 1); this.load(); } }
   nextPage() { if (this.canNext()) { this.page.update(p => p + 1); this.load(); } }
 
+  /** Company name shown under the customer name in the Customer column (same as the invoice approvals page). */
+  customerCompany(item: any, col: ColDef): string {
+    if (!item || !col) return '';
+    const isCustomerCol = col.key === 'customerName' || (this.entity === 'bookings' && col.key === 'userEmail');
+    if (!isCustomerCol) return '';
+    const name = String(this.getCellValue(item, col) ?? '').trim().toLowerCase();
+    // Bookings/quotations/receipts expose the Customer table's Company column as CustomerCompany; invoices/agreements as CompanyName.
+    // (On bookings "companyName" is the tenant company, so it is never used there.)
+    const raw = item.customerCompany ?? item.CustomerCompany ?? item.customerCompanyName ?? item.CustomerCompanyName
+      ?? (this.entity === 'bookings' ? '' : (item.companyName || item.CompanyName || ''));
+    const comp = String(raw || '').trim();
+    if (!comp || comp === '-' || comp.toLowerCase() === 'individual') return '';
+    return comp.toLowerCase() !== name ? comp : '';
+  }
+
   getCellValue(item: any, col: ColDef): any {
     if (!item) return '';
 

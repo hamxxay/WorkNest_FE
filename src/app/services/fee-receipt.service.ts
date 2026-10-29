@@ -19,6 +19,7 @@ export interface UnpaidInvoiceDto {
   invoiceTypeName: string;
   customerIdGuid: string;
   customerName: string;
+  customerCompanyName?: string;
   customerCode: string;
   customerEmail: string;
   customerPhone: string;
@@ -90,6 +91,7 @@ export interface FeeReceiptListItemDto {
   receiptDate: string;
   customerIdGuid: string;
   customerName: string;
+  customerCompanyName?: string;
   customerCode: string;
   invoiceIdGuid: string;
   invoiceNumber: string;
@@ -178,6 +180,7 @@ function mapReceipt(r: any): FeeReceiptDetailDto {
     receiptDate: r.receiptDate ?? '',
     customerIdGuid: r.customerIdGUID ?? '',
     customerName: r.customerName ?? '',
+    customerCompanyName: r.customerCompany ?? r.customerCompanyName ?? '',
     customerCode: r.customerCode ?? '',
     invoiceIdGuid: r.invoiceIdGUID ?? '',
     invoiceNumber: r.invoiceNumber ?? '',
@@ -258,6 +261,7 @@ export class FeeReceiptService {
             invoiceTypeName: invoiceTypeLabel(invoiceTypeId, whtAmount),
             customerIdGuid: r.customerIdGUID ?? '',
             customerName: custName,
+            customerCompanyName: r.customerCompany ?? r.customerCompanyName ?? '',
             customerCode: custCode,
             customerEmail: r.customerEmail ?? '',
             customerPhone: r.customerPhone ?? '',

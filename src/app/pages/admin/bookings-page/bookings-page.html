@@ -233,6 +233,11 @@
               } @else if (col.type === 'role') {
               <span class="role-badge" [class]="'role-' + getRoleClass(item[col.key])">{{ getRoleLabel(item[col.key])
                 }}</span>
+              } @else if (customerCompany(item, col)) {
+              <div class="customer-info">
+                <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
+                <span class="cust-company" style="display:block;font-size:12px;color:#64748b">{{ customerCompany(item, col) }}</span>
+              </div>
               } @else {
               <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
               }
