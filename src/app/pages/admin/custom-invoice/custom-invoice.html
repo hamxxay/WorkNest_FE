@@ -257,6 +257,26 @@
                         <span class="ci-hint">The invoice and its voucher are booked to this location.</span>
                       }
                     </div>
+                    @if (locationId()) {
+                      <div class="ci-field ci-field-narrow">
+                        <label class="ci-label" for="ci-space">Space (optional)</label>
+                        @if (spacesError()) {
+                          <div class="ci-inline-error" role="alert">
+                            <span>{{ spacesError() }}</span>
+                            <button type="button" class="ci-btn ci-btn-link" (click)="loadSpaces(locationId()!)">Try again</button>
+                          </div>
+                        } @else {
+                          <select id="ci-space" class="ci-input" [disabled]="spacesLoading()"
+                            (change)="onSpaceChange($any($event.target).value)">
+                            <option value="" [selected]="spaceId() === null">{{ spacesLoading() ? 'Loading spaces' : 'No space' }}</option>
+                            @for (sp of spaces(); track sp.spaceId) {
+                              <option [value]="sp.spaceId" [selected]="spaceId() === sp.spaceId">{{ sp.label }}</option>
+                            }
+                          </select>
+                          <span class="ci-hint">Assign this invoice to a space of the location.</span>
+                        }
+                      </div>
+                    }
                   }
 
                   @if (booking(); as b) {
@@ -602,6 +622,7 @@
           <div><dt>Customer</dt><dd>{{ customer()?.name }}@if (customer()?.code) { ({{ customer()?.code }})}</dd></div>
           <div><dt>Booking</dt><dd>{{ booking() ? (booking()!.label || booking()!.spaceName) : 'No booking' }}</dd></div>
           <div><dt>Location</dt><dd>{{ effectiveLocationName() || '-' }}</dd></div>
+          <div><dt>Space</dt><dd>{{ spaceName() || '-' }}</dd></div>
           <div><dt>Period</dt><dd>{{ periodText() }}</dd></div>
           <div><dt>Issue / due</dt><dd>{{ dayText(issuedOn()) }} / {{ dayText(dueOn()) }}</dd></div>
           <div><dt>Ledger</dt><dd>{{ lines().length }} lines, PKR {{ debitTotal() | number:'1.2-2' }} each side</dd></div>

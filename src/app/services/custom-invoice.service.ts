@@ -13,6 +13,7 @@ import { ApiResponse } from '../models/admin.model';
 //   GET  api/custom-invoices/bookings?userId=       -> that customer's bookings
 //   GET  api/custom-invoices/replaceable?bookingId= -> unpaid invoices of the booking that may be replaced
 //   GET  api/custom-invoices/locations              -> locations (for an invoice without a booking)
+//   GET  api/custom-invoices/spaces?locationId=     -> spaces of a location (optional assignment)
 //   GET  api/custom-invoices/ledger-defaults?locationId=&date= -> default accounts of the location
 //   GET  api/custom-invoices/accounts?search=       -> accounts for the ledger lines
 //   POST api/custom-invoices                        -> creates the invoice and posts its voucher
@@ -47,6 +48,7 @@ export interface CiCustomer {
 
 export interface CiBooking {
   bookingId: number;
+  spaceId: number | null;
   label: string;
   spaceName: string;
   locationId: number;
@@ -54,6 +56,14 @@ export interface CiBooking {
   startOn: string | null;
   endOn: string | null;
   status: string;
+}
+
+export interface CiSpace {
+  spaceId: number;
+  code: string;
+  name: string;
+  label: string;
+  locationId: number;
 }
 
 export interface CiReplaceableInvoice {
@@ -89,6 +99,8 @@ export interface CreateCustomInvoiceRequest {
   userId: number;
   bookingId: number | null;
   locationId: number;
+  /** Optional: the space (WN_Spaces.Id) the invoice is assigned to. */
+  spaceId: number | null;
   replaceInvoiceId: number | null;
   /** yyyy-MM-dd */
   issuedOn: string;
@@ -215,6 +227,19 @@ export class CustomInvoiceService {
         const id = num(o?.['id']);
         return id > 0 ? { id, name: str(o?.['name']) || `Location ${id}` } : null;
       }).filter((x): x is CiLocation => x !== null))
+    );
+  }
+
+  getSpaces(locationId: number): Observable<CiSpace[]> {
+    const params = new HttpParams().set('locationId', String(locationId));
+    return this.http.get<ApiResponse<unknown>>(`/spaces`, { params }).pipe(
+      map(res => list(unwrap(res, "Spaces couldn't be loaded. Please try again.")).map(r => {
+        const o = obj(r);
+        const spaceId = num(o?.['spaceId']);
+        if (!(spaceId > 0)) return null;
+        const name = str(o?.['name']), code = str(o?.['code']);
+        return { spaceId, code, name, label: str(o?.['label']) || name || code || `Space ${spaceId}`, locationId: num(o?.['locationId']) };
+      }).filter((x): x is CiSpace => x !== null))
     );
   }
 
@@ -371,6 +396,7 @@ function toBooking(v: unknown): CiBooking | null {
   if (!(bookingId > 0)) return null;
   return {
     bookingId,
+    spaceId: num(o?.['spaceId']) > 0 ? num(o?.['spaceId']) : null,
     label: str(o?.['label']),
     spaceName: str(o?.['spaceName']),
     locationId: num(o?.['locationId']),

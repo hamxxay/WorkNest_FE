@@ -6,7 +6,7 @@ import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
 import {
-  CiAccount, CiBooking, CiCustomer, CiLedgerDefaults, CiLocation, CiRecentItem, CiReplaceableInvoice, CreateCustomInvoiceRequest,
+  CiAccount, CiBooking, CiCustomer, CiLedgerDefaults, CiLocation, CiRecentItem, CiReplaceableInvoice, CiSpace, CreateCustomInvoiceRequest,
   CreateCustomInvoiceResult, CustomInvoiceAccessMe, CustomInvoiceService, customInvoiceErrorMessage
 } from '../../../services/custom-invoice.service';
 import { AuthService } from '../../../services/auth.service';
@@ -156,6 +156,17 @@ export class CustomInvoicePage implements OnInit {
   readonly locationsLoading = signal(false);
   readonly locationsError = signal('');
   readonly locationId = signal<number | null>(null);
+  /** Optional space of the chosen location (only when there is no booking; a booking brings its own space). */
+  readonly spaces = signal<CiSpace[]>([]);
+  readonly spacesLoading = signal(false);
+  readonly spacesError = signal('');
+  readonly spaceId = signal<number | null>(null);
+  readonly spaceName = computed(() => {
+    const b = this.booking();
+    if (b) return b.spaceName;
+    const id = this.spaceId();
+    return this.spaces().find(s => s.spaceId === id)?.label ?? '';
+  });
   readonly effectiveLocationId = computed<number | null>(() => {
     const b = this.booking();
     if (b) return b.locationId > 0 ? b.locationId : null;
@@ -489,6 +500,9 @@ export class CustomInvoicePage implements OnInit {
     this.bookingChoice.set(null);
     this.bookingsError.set('');
     this.locationId.set(null);
+    this.spaces.set([]);
+    this.spaceId.set(null);
+    this.spacesError.set('');
     this.replaceable.set([]);
     this.replaceId.set(null);
     this.replaceableError.set('');
@@ -525,6 +539,7 @@ export class CustomInvoicePage implements OnInit {
     this.replaceId.set(null);
     this.replaceable.set([]);
     this.replaceableError.set('');
+    this.spaceId.set(null);
     if (choice === 'none') {
       if (this.locations().length === 0 && !this.locationsLoading()) this.loadLocations();
     } else {
@@ -539,7 +554,10 @@ export class CustomInvoicePage implements OnInit {
       next: list => {
         this.locations.set(list);
         this.locationsLoading.set(false);
-        if (list.length === 1 && this.locationId() === null) this.locationId.set(list[0].id);
+        if (list.length === 1 && this.locationId() === null) {
+          this.locationId.set(list[0].id);
+          this.loadSpaces(list[0].id);
+        }
       },
       error: err => {
         this.locationsLoading.set(false);
@@ -551,6 +569,32 @@ export class CustomInvoicePage implements OnInit {
   onLocationChange(value: string): void {
     const id = Number(value);
     this.locationId.set(id > 0 ? id : null);
+    this.spaceId.set(null);
+    this.spaces.set([]);
+    this.spacesError.set('');
+    if (id > 0) this.loadSpaces(id);
+  }
+
+  loadSpaces(locationId: number): void {
+    this.spacesLoading.set(true);
+    this.spacesError.set('');
+    this.api.getSpaces(locationId).subscribe({
+      next: list => {
+        if (this.locationId() !== locationId) return;
+        this.spaces.set(list);
+        this.spacesLoading.set(false);
+      },
+      error: err => {
+        if (this.locationId() !== locationId) return;
+        this.spacesLoading.set(false);
+        this.spacesError.set(customInvoiceErrorMessage(err, "Spaces couldn't be loaded."));
+      }
+    });
+  }
+
+  onSpaceChange(value: string): void {
+    const id = Number(value);
+    this.spaceId.set(id > 0 ? id : null);
   }
 
   loadReplaceable(bookingId: number): void {
@@ -741,6 +785,7 @@ export class CustomInvoicePage implements OnInit {
       userId: c.userId,
       bookingId: b?.bookingId ?? null,
       locationId: loc,
+      spaceId: b ? (b.spaceId ?? null) : this.spaceId(),
       replaceInvoiceId: b ? this.replaceId() : null,
       issuedOn: this.issuedOn(),
       dueOn: this.dueOn(),
