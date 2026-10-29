@@ -462,13 +462,13 @@ select.form-control {
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 12px 18px;
+  padding: 12px 14px;
   border-bottom: 1.5px solid #e2e8f0;
   white-space: nowrap;
 }
 
 .admin-table.login-table td {
-  padding: 13px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid #f1f5f9;
   color: #1e293b;
   vertical-align: middle;
@@ -504,8 +504,13 @@ select.form-control {
 }
 
 .cell-email {
-  max-width: 260px;
+  max-width: 300px;
 }
+
+.cell-event {
+  line-height: 1.9;
+}
+.cell-event .badge { margin-right: 6px; }
 
 .user-chip {
   display: inline-flex;
@@ -532,8 +537,7 @@ select.form-control {
   font-weight: 500;
   color: #0f172a;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .badge {
@@ -593,8 +597,10 @@ select.form-control {
 }
 
 .cell-device {
-  max-width: 280px;
+  max-width: 340px;
 }
+
+.cell-ip { margin-top: 4px; }
 
 .device-summary {
   display: inline-flex;
@@ -602,9 +608,7 @@ select.form-control {
   gap: 8px;
   color: #475569;
   font-size: 0.8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   max-width: 100%;
 }
 

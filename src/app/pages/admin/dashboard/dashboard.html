@@ -663,7 +663,7 @@
     </div>
     } @else {
     <div class="table-container" [class.is-busy]="inventoryBusy()" [attr.aria-busy]="inventoryBusy()">
-      <table class="clean-table">
+      <table class="clean-table inv-table">
         <thead>
           <tr>
             <th (click)="toggleSort('spaceCode')" class="sortable">
@@ -702,6 +702,7 @@
               <span class="space-title">{{ sp.spaceCode }}</span>
               <span class="space-subtitle" *ngIf="sp.spaceName && sp.spaceName !== sp.spaceCode">{{ sp.spaceName
                 }}</span>
+              <span class="space-subtitle space-meta">{{ sp.locationName }} · {{ sp.spaceTypeName }} · {{ sp.capacity }} seats</span>
             </td>
             <td><span class="location-badge-sm">{{ sp.locationName }}</span></td>
             <td><span class="type-tag">{{ sp.spaceTypeName }}</span></td>

@@ -137,6 +137,7 @@ export class AdminLayout implements OnInit, OnDestroy {
       { route: '/admin/audit-log', group: 'Administration', label: 'Audit Log', icon: 'audit', superAdminOnly: true },
     { route: '/admin/login-history', group: 'Administration', label: 'Login History', icon: 'login-history', superAdminOnly: true },
     { route: '/admin/services', group: 'Administration', label: 'Services', icon: 'net-devices', superAdminOnly: true },
+    { route: '/admin/network-alerts', group: 'Administration', label: 'Network Alerts', icon: 'net-internet', superAdminOnly: true },
     { route: '/admin/message-templates', group: 'Administration', label: 'Message Templates', icon: 'message-template', adminOnly: true },
     { route: '/admin/lease-templates', group: 'Administration', label: 'Lease Templates', icon: 'challan', superAdminOnly: true },
     { route: '/admin/reports/security-deposits', group: 'Finance', label: 'Security Deposit Report', icon: 'reports' },

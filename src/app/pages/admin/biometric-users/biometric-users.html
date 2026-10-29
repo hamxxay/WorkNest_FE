@@ -215,22 +215,22 @@
       <table class="bio-table">
         <thead>
           <tr>
-            <th style="width: 100px;">Emp #</th>
+            <th class="bio-fold">Emp #</th>
             <th>Member Name</th>
-            <th style="width: 160px;">CNIC</th>
-            <th style="width: 190px;">Booked Room</th>
-            <th style="width: 100px;">Role</th>
-            <th style="width: 170px;">Machines</th>
-            <th style="width: 150px;">Valid Until</th>
-            <th style="width: 180px;">Credentials</th>
-            <th style="width: 70px; text-align: right;">Action</th>
+            <th class="bio-fold">CNIC</th>
+            <th>Booked Room</th>
+            <th>Role</th>
+            <th>Machines</th>
+            <th>Valid Until</th>
+            <th>Credentials</th>
+            <th style="text-align: right;">Action</th>
           </tr>
         </thead>
         <tbody>
           @for (m of paginatedMembers(); track m.key) {
           <tr class="bio-row" (click)="openUserDetails(m)">
             <!-- Emp # -->
-            <td>
+            <td class="bio-fold">
               <span class="bio-mono-pill"
                 (click)="$event.stopPropagation(); copyToClipboard(m.employeeNo, 'Employee No')">
                 {{ m.employeeNo }}
@@ -245,12 +245,24 @@
                 </div>
                 <div class="bio-user-info">
                   <span class="bio-name">{{ m.name }}</span>
+                  <!-- Emp # and CNIC fold under the name on desktop so the table fits the page -->
+                  <div class="bio-sub">
+                    <span class="bio-mono-pill"
+                      (click)="$event.stopPropagation(); copyToClipboard(m.employeeNo, 'Employee No')">
+                      {{ m.employeeNo }}
+                    </span>
+                    @if (m.cnic) {
+                    <span class="bio-cnic mono" (click)="$event.stopPropagation(); copyToClipboard(m.cnic, 'CNIC')">
+                      {{ m.cnic }}
+                    </span>
+                    }
+                  </div>
                 </div>
               </div>
             </td>
 
             <!-- CNIC -->
-            <td>
+            <td class="bio-fold">
               @if (m.cnic) {
               <span class="bio-cnic mono" (click)="$event.stopPropagation(); copyToClipboard(m.cnic, 'CNIC')">
                 {{ m.cnic }}

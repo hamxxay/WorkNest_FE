@@ -1,5 +1,6 @@
 /* All clients: keep the type on one line ("Access control"). */
 .type-cell { white-space: nowrap; }
+@media (min-width: 761px) { .type-cell { white-space: normal; } }
 
 /* Client details drawer */
 .drawer-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; }

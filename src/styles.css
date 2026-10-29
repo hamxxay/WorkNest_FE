@@ -690,16 +690,40 @@ textarea.has-error,
 .admin-shell .admin-table :is(td, th):is(.col-key-email, .col-key-phone, .col-key-phoneNumber) { white-space: nowrap; }
 .admin-shell .admin-table td:is(.col-key-email, .col-key-phone, .col-key-phoneNumber) { color: #475569; }
 
-/* Actions: one tidy row, right-aligned. */
-.admin-shell .admin-table .actions-col { text-align: right; }
+/* Actions: one tidy row, left-aligned so the first button lines up in every row (rows have 3 or 4 buttons). */
+.admin-shell .admin-table .actions-col { text-align: left; }
 .admin-shell .admin-table .actions-cell {
   white-space: nowrap;
-  text-align: right;
+  text-align: left;
 }
-.admin-shell .admin-table .actions-cell > * { vertical-align: middle; margin-left: 6px; }
+.admin-shell .admin-table .actions-cell > * { vertical-align: middle; margin-left: 0; margin-right: 6px; }
 .admin-shell .admin-table .actions-cell .action-btn { display: inline-flex; width: 32px; height: 32px; border-radius: 8px; }
 .admin-shell .admin-table .actions-cell .status-select { height: 32px; border-radius: 8px; padding: 0 8px; font-size: .78rem; }
 .admin-shell .admin-table .actions-cell .btn-admin { height: 32px; border-radius: 8px; }
+
+/* Desktop (1025px and wider): list tables fit the page, no sideways scroll. Text cells wrap, secondary values sit as a
+   small grey sub-line under the main value (.cell-sub); statuses, money, dates, codes and the action buttons stay on one line.
+   Phones and tablets keep the scrolling rules in manage-list.css. */
+@media (min-width: 1025px) {
+  .admin-shell table.admin-table th { padding: 11px 12px; white-space: normal; }
+  .admin-shell table.admin-table td { padding: 12px; }
+  .admin-shell .admin-table .cell-text {
+    display: block;
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: break-word;
+    -webkit-line-clamp: unset;
+  }
+  .admin-shell .admin-table :is(td, th):is(.col-key-email, .col-key-customerEmail, .col-key-userEmail) { white-space: normal; overflow-wrap: anywhere; }
+  .admin-shell .admin-table :is(td, th):is(.col-key-code, .col-key-challanNumber, .col-key-quotationNumber, .col-key-invoiceNumber, .col-key-complaintNo, .col-key-bookingId, .col-key-capacity) { white-space: nowrap; }
+  .admin-shell .admin-table :is(th).actions-col { white-space: nowrap; }
+  .admin-shell .admin-table .cell-sub { white-space: normal; overflow-wrap: anywhere; }
+  /* Action buttons: one row; with five or more they wrap into rows of four (a button is never cut). */
+  .admin-shell .admin-table td.actions-cell { display: table-cell; white-space: nowrap; }
+  .admin-shell .admin-table td.actions-cell:has(> :nth-child(5)) { white-space: normal; width: 200px; min-width: 200px; line-height: 1; }
+  .admin-shell .admin-table td.actions-cell:has(> :nth-child(5)) > * { margin-top: 3px; margin-bottom: 3px; }
+}
 
 /* Status pills (any page): neutral by default, coloured by meaning. */
 .admin-shell .status-badge {

@@ -146,15 +146,15 @@
           </div>
           <div class="table-container scroll">
             <table class="clean-table" #clientsTable>
-              <thead><tr><th>Client</th><th>Wi-Fi</th><th>Signal</th><th>IP address</th><th class="num">Data used</th><th class="num">Connected for</th></tr></thead>
+              <thead><tr><th>Client</th><th>Wi-Fi</th><th>Signal</th><th class="fold-always">IP address</th><th class="num">Data used</th><th class="num">Connected for</th></tr></thead>
               <tbody>
                 @for (c of clients(); track c.mac) {
                   <tr>
                     <td><div class="dev"><span class="dev-icon"><net-icon [name]="gwnClientIcon(c)" [size]="16" /></span>
-                      <div><div class="dev-name">{{ clientName(c) }}</div><div class="muted small">{{ c.manufacturer || c.mac }}</div></div></div></td>
+                      <div><div class="dev-name">{{ clientName(c) }}</div><div class="muted small">{{ c.manufacturer || c.mac }}</div><div class="muted small mono sub-fold">{{ c.ip || '–' }}</div></div></div></td>
                     <td>{{ c.wired ? 'Wired' : (c.ssid || '–') + ' · ' + bandLabel(c.band) }}</td>
                     <td>@if (c.wired) { <span class="muted">–</span> } @else { <net-signal [dbm]="c.rssi" /> }</td>
-                    <td class="mono">{{ c.ip || '–' }}</td>
+                    <td class="mono fold-always">{{ c.ip || '–' }}</td>
                     <td class="num">{{ bytes(c.total) }}</td>
                     <td class="num">{{ c.connectedSeconds != null ? dur(c.connectedSeconds) : (c.connectedFor || '–') }}</td>
                   </tr>

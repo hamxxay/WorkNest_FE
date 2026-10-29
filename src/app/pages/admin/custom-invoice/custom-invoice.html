@@ -80,33 +80,38 @@
                 <table class="ci-table">
                   <thead>
                     <tr>
-                      <th scope="col">Invoice</th>
+                      <th scope="col">Invoice / Voucher</th>
                       <th scope="col">Customer</th>
                       <th scope="col">Booking</th>
                       <th scope="col" class="num">Total (PKR)</th>
-                      <th scope="col">Issued</th>
+                      <th scope="col">Issued / By</th>
                       <th scope="col">Status</th>
                       <th scope="col">Reason</th>
-                      <th scope="col">Created by</th>
-                      <th scope="col">Voucher</th>
-                      <th scope="col">Replaced</th>
                     </tr>
                   </thead>
                   <tbody>
                     @for (r of recent(); track r.invoiceId) {
                       <tr>
-                        <td data-label="Invoice"><strong class="ci-mono">{{ r.invoiceNumber || '-' }}</strong></td>
+                        <td data-label="Invoice">
+                          <div class="ci-stack">
+                            <strong class="ci-mono">{{ r.invoiceNumber || '-' }}</strong>
+                            @if (r.voucherCode) { <span class="ci-sub ci-mono">Voucher {{ r.voucherCode }}</span> }
+                            @if (r.replacedInvoiceNumber) { <span class="ci-sub ci-mono">Replaces {{ r.replacedInvoiceNumber }}</span> }
+                          </div>
+                        </td>
                         <td data-label="Customer">{{ r.customerName || '-' }}</td>
                         <td data-label="Booking">{{ r.bookingLabel || 'No booking' }}</td>
                         <td data-label="Total (PKR)" class="num"><span class="ci-mono">{{ r.grandTotal | number:'1.2-2' }}</span></td>
-                        <td data-label="Issued">{{ dayText(r.issuedOn) || '-' }}</td>
+                        <td data-label="Issued">
+                          <div class="ci-stack">
+                            <span>{{ dayText(r.issuedOn) || '-' }}</span>
+                            @if (r.createdBy) { <span class="ci-sub">by {{ r.createdBy }}</span> }
+                          </div>
+                        </td>
                         <td data-label="Status">
                           @if (r.statusLabel) { <span [class]="'status-badge ' + statusClass(r.statusLabel)">{{ r.statusLabel }}</span> } @else { - }
                         </td>
                         <td data-label="Reason" class="ci-reason-cell">{{ r.reason || '-' }}</td>
-                        <td data-label="Created by">{{ r.createdBy || '-' }}</td>
-                        <td data-label="Voucher"><span class="ci-mono">{{ r.voucherCode || '-' }}</span></td>
-                        <td data-label="Replaced"><span class="ci-mono">{{ r.replacedInvoiceNumber || '-' }}</span></td>
                       </tr>
                     }
                   </tbody>

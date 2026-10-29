@@ -960,17 +960,22 @@
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid #e2e8f0;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .fr-table td {
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid #f1f5f9;
   color: #0f172a;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.fr-table td.wrap-cell {
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .fr-table tr:hover td {
@@ -1425,6 +1430,8 @@
 
 .amount-cell .amount-left {
   display: block;
+  white-space: normal;
+  max-width: 150px;
   margin-top: 2px;
   font-size: 0.72rem;
   font-weight: 600;

@@ -117,8 +117,8 @@ a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .table-scroll.dim { opacity: .55; pointer-events: none; }
 .rtable { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .rtable th, .rtable td { text-align: left; vertical-align: top; }
-.rtable thead th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 10px 14px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
-.rtable tbody td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; font-weight: 500; }
+.rtable thead th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 10px 10px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+.rtable tbody td { padding: 11px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; font-weight: 500; overflow-wrap: break-word; }
 .rtable thead th:first-child, .rtable tbody td:first-child { padding-left: 22px; }
 .rtable thead th:last-child, .rtable tbody td:last-child { padding-right: 22px; }
 .rtable tbody tr:last-child td { border-bottom: none; }

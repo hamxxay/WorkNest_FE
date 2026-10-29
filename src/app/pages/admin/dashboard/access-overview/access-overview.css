@@ -85,3 +85,10 @@
   .ac-modal-actions .ac-btn { flex: 1; }
   .ac-field input, .ac-field textarea { font-size: 16px; }
 }
+
+/* fit-to-page (desktop): long reasons / e-mails wrap, buttons keep one line */
+@media (min-width: 761px) {
+  .ac-table td { overflow-wrap: anywhere; }
+  .ac-table td.reason { max-width: 280px; }
+  .ac-table .right { overflow-wrap: normal; }
+}

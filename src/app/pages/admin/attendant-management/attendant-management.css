@@ -142,3 +142,17 @@ textarea.form-control { resize: vertical; font-family: inherit; }
   .mode-toggle { flex-wrap: wrap; }
   .mode-toggle .pill { min-height: 40px; }
 }
+
+/* ===================== Fit-to-page tables (desktop, side-by-side layout) ===================== */
+.am-sub, .am-sub-inline { display: none; }
+@media (min-width: 1101px) {
+  .am-fold { display: none; }
+  .am-sub { display: block; font-size: 0.74rem; color: #64748b; margin-top: 2px; }
+  .am-sub-inline { display: block; font-size: 0.74rem; color: #64748b; margin-top: 2px; }
+  .data-table th, .data-table td { padding: 0.6rem 0.5rem; overflow-wrap: anywhere; }
+  .data-table th { overflow-wrap: normal; }
+  .challan-table th, .challan-table td { padding: 0.5rem 0.5rem; white-space: normal; }
+  .challan-table td.text-end, .challan-table td:nth-child(n+4) { white-space: nowrap; }
+  .challan-table .am-sub { white-space: normal; overflow-wrap: break-word; }
+  .action-group { max-width: 110px; }
+}

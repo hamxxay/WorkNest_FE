@@ -248,8 +248,8 @@
 .table-wrap { overflow-x: auto; }
 
 .audit-table { font-size: 0.85rem; }
-.audit-table th { padding: 11px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.audit-table td { padding: 12px 16px; }
+.audit-table th { padding: 11px 12px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.audit-table td { padding: 12px 12px; }
 
 .audit-row { cursor: pointer; transition: background 0.12s; }
 .audit-row:hover { background: #f8fafc; }
@@ -280,7 +280,7 @@
 .badge-delete { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
 .badge-neutral { background: var(--al-line-soft); color: var(--al-muted); border-color: var(--al-line); }
 
-.col-record { white-space: nowrap; }
+.col-record { white-space: normal; overflow-wrap: break-word; }
 .record-name { font-weight: 600; color: var(--al-ink); }
 .record-id { margin-left: 6px; font-family: var(--al-mono); font-size: 0.78rem; color: var(--al-faint); }
 
@@ -305,7 +305,8 @@
 
 .by-email {
   display: inline-block;
-  max-width: 300px;
+  max-width: 220px;
+  vertical-align: middle;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--al-text);
@@ -579,9 +580,14 @@
   word-break: break-word;
 }
 
-/* Narrow screens: drop the Source column and shorten emails so the table fits without scrolling. */
-@media (max-width: 1100px) {
+/* Source shows as its own column on wide screens and as a small pill under "Changed by" below 1440px, so the table
+   fits the page without scrolling. */
+.by-source { display: none; margin: 3px 0 0 32px; }
+@media (max-width: 1439.98px) {
   .col-source { display: none; }
+  .by-source { display: table; }
+}
+@media (max-width: 1100px) {
   .by-email { max-width: 190px; }
 }
 

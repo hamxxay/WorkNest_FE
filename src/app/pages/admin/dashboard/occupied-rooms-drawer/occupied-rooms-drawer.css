@@ -107,6 +107,16 @@
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+/* fit the 1040px drawer (no sideways scroll on desktop): room, location, type and tenant wrap; dates, status and booking stay on one line */
+@media (min-width: 768px) {
+  .dr-table thead th { padding: 11px 8px; }
+  .dr-table tbody th, .dr-table tbody td { padding: 10px 8px; }
+  .dr-table thead th:first-child, .dr-table tbody th { padding-left: 14px; }
+  .dr-table thead th:last-child, .dr-table tbody td:last-child { padding-right: 14px; }
+  .dr-table tbody th, .dr-table tbody td:nth-child(2), .dr-table tbody td:nth-child(3), .dr-table tbody td:nth-child(5) { white-space: normal; overflow-wrap: break-word; }
+  .dr-table .clip { max-width: 170px; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: break-word; }
+}
+
 /* ---------- phones: full width, bigger targets; the table scrolls sideways inside its card ---------- */
 @media (max-width: 640px) {
   .drawer { width: 100vw; }

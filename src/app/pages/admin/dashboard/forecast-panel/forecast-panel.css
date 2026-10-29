@@ -66,3 +66,15 @@
   .occ-track.rent { flex-basis: 70px; }
   .occ { min-width: 140px; }
 }
+
+/* fit the page on desktop: tighter cells, bars shrink, headers and sub-lines wrap (about 760px of table in a ~950px panel) */
+@media (min-width: 768px) {
+  .cmp-table th { padding: 10px 12px; white-space: normal; line-height: 1.3; }
+  .cmp-table td { padding: 12px 12px; }
+  .cmp-table th:first-child, .cmp-table td:first-child { padding-left: 22px; }
+  .cmp-table th:last-child, .cmp-table td:last-child { padding-right: 22px; }
+  .cmp-table small { white-space: normal; }
+  .occ { min-width: 0; gap: 8px; }
+  .occ-track { flex: 0 1 70px; min-width: 24px; }
+  .occ-track.rent { flex-basis: 80px; }
+}

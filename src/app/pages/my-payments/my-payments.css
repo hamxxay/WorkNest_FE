@@ -512,3 +512,14 @@
   #user-challan-printable { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; }
   [data-challan-actions] { display: none !important; }
 }
+
+/* fit the page on desktop: tighter cells, space / method / challan no. wrap; amounts, dates and badges stay on one line */
+@media (min-width: 769px) {
+  .payments-table th { padding: 12px 10px; }
+  .payments-table td { padding: 14px 10px; }
+  .payments-table th:first-child, .payments-table td:first-child { padding-left: 16px; }
+  .payments-table th:last-child, .payments-table td:last-child { padding-right: 16px; }
+  .payments-table td:nth-child(3), .payments-table td:nth-child(6) { overflow-wrap: break-word; }
+  .payments-table .cell-ref { overflow-wrap: anywhere; }
+  .payments-table .cell-amount, .payments-table .cell-date, .payments-table .cell-id, .payments-table .status-badge, .payments-table .btn-challan { white-space: nowrap; }
+}

@@ -94,30 +94,35 @@
         <table class="report-table">
           <thead>
             <tr>
-              <th>Customer Code</th>
-              <th>Customer Name</th>
-              <th>Company</th>
+              <th>Customer</th>
               <th class="text-right">Count</th>
               <th class="text-right">Total Received</th>
               <th class="text-right">Total Released</th>
               <th class="text-right">Total Forfeited</th>
-              <th class="text-right">Balance Held</th>
-              <th>Last Held Date</th>
+              <th class="text-right">Balance Held / Last Held</th>
               <th class="text-center">Action</th>
             </tr>
           </thead>
           <tbody>
             @for (row of summaries(); track row.customerId) {
               <tr>
-                <td><span class="code-badge">{{ row.customerCode }}</span></td>
-                <td class="font-medium">{{ row.customerName }}</td>
-                <td>{{ row.company || '-' }}</td>
+                <td class="wrap-cell">
+                  <div class="cell-stack">
+                    <span class="font-medium">{{ row.customerName }}</span>
+                    <span><span class="code-badge">{{ row.customerCode }}</span></span>
+                    <span class="sub-line">{{ row.company || '-' }}</span>
+                  </div>
+                </td>
                 <td class="text-right">{{ row.depositCount }}</td>
                 <td class="text-right">{{ row.totalReceived | currency:'PKR ':'symbol':'1.0-2' }}</td>
                 <td class="text-right text-success">{{ row.totalReleased | currency:'PKR ':'symbol':'1.0-2' }}</td>
                 <td class="text-right text-danger">{{ row.totalForfeited | currency:'PKR ':'symbol':'1.0-2' }}</td>
-                <td class="text-right font-bold text-warning">{{ row.balanceHeld | currency:'PKR ':'symbol':'1.0-2' }}</td>
-                <td>{{ row.lastHeldOn ? (row.lastHeldOn | date:'yyyy-MM-dd') : '-' }}</td>
+                <td class="text-right">
+                  <div class="cell-stack cell-stack-right">
+                    <span class="font-bold text-warning">{{ row.balanceHeld | currency:'PKR ':'symbol':'1.0-2' }}</span>
+                    <span class="sub-line">{{ row.lastHeldOn ? (row.lastHeldOn | date:'yyyy-MM-dd') : '-' }}</span>
+                  </div>
+                </td>
                 <td class="text-center">
                   <button class="btn btn-xs btn-outline" (click)="viewDetails(row)">
                     View
@@ -128,13 +133,13 @@
           </tbody>
           <tfoot>
             <tr class="totals-row">
-              <td colspan="3"><strong>TOTALS</strong></td>
+              <td><strong>TOTALS</strong></td>
               <td class="text-right"><strong>{{ totalCount }}</strong></td>
               <td class="text-right"><strong>{{ totalReceived | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
               <td class="text-right text-success"><strong>{{ totalReleased | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
               <td class="text-right text-danger"><strong>{{ totalForfeited | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
               <td class="text-right text-warning"><strong>{{ totalBalanceHeld | currency:'PKR ':'symbol':'1.0-2' }}</strong></td>
-              <td colspan="2"></td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -178,14 +183,10 @@
             <table class="report-table">
               <thead>
                 <tr>
-                  <th>Deposit ID</th>
-                  <th>Booking ID</th>
-                  <th>Invoice Ref No</th>
+                  <th>Deposit / Booking / Invoice Ref</th>
                   <th class="text-right">Amount</th>
                   <th>State</th>
-                  <th>Held Date</th>
-                  <th>Released Date</th>
-                  <th>Forfeited Date</th>
+                  <th>Held / Released / Forfeited</th>
                   <th>Forfeit Reason</th>
                   <th>Notes</th>
                 </tr>
@@ -193,20 +194,28 @@
               <tbody>
                 @for (d of customerDetails(); track d.id) {
                   <tr>
-                    <td>#{{ d.id }}</td>
-                    <td>#{{ d.bookingId }}</td>
-                    <td>{{ d.refNo || '-' }}</td>
+                    <td>
+                      <div class="cell-stack">
+                        <span>#{{ d.id }}</span>
+                        <span class="sub-line">Booking #{{ d.bookingId }}</span>
+                        <span class="sub-line">Ref {{ d.refNo || '-' }}</span>
+                      </div>
+                    </td>
                     <td class="text-right font-medium">{{ d.amount | currency:'PKR ':'symbol':'1.0-2' }}</td>
                     <td>
                       <span class="status-badge" [ngClass]="'status-' + d.state.toLowerCase()">
                         {{ d.state }}
                       </span>
                     </td>
-                    <td>{{ d.heldOn | date:'yyyy-MM-dd' }}</td>
-                    <td>{{ d.releasedOn ? (d.releasedOn | date:'yyyy-MM-dd') : '-' }}</td>
-                    <td>{{ d.forfeitedOn ? (d.forfeitedOn | date:'yyyy-MM-dd') : '-' }}</td>
-                    <td>{{ d.forfeitReason || '-' }}</td>
-                    <td>{{ d.notes || '-' }}</td>
+                    <td>
+                      <div class="cell-stack">
+                        <span>Held {{ d.heldOn | date:'yyyy-MM-dd' }}</span>
+                        <span class="sub-line">Released {{ d.releasedOn ? (d.releasedOn | date:'yyyy-MM-dd') : '-' }}</span>
+                        <span class="sub-line">Forfeited {{ d.forfeitedOn ? (d.forfeitedOn | date:'yyyy-MM-dd') : '-' }}</span>
+                      </div>
+                    </td>
+                    <td class="wrap-cell">{{ d.forfeitReason || '-' }}</td>
+                    <td class="wrap-cell">{{ d.notes || '-' }}</td>
                   </tr>
                 }
               </tbody>

@@ -1,4 +1,5 @@
 import { WhtInvoiceFields } from '../../../components/wht-invoice-fields/wht-invoice-fields';
+import { formatDate } from '@angular/common';
 import { Directive, signal, OnInit, computed, inject, HostListener, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminService } from '../../../services/admin.service';
@@ -30,8 +31,9 @@ import { spaceCategoryCode, spaceTypeHint, spaceTypeLabel, spaceTypeLocationId, 
 import * as pricing from '../../../utils/manage-pricing.utils';
 import { AttendanceService, describeAttendanceError } from '../../../services/attendance.service';
 
-/** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen). */
-interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; }
+/** screenLabel: the list's header when it differs from the export's; hideOnScreen: in the Excel export only (shown inside another column on screen).
+ * subOf: the key of the list column this one is shown under, as a small grey sub-line (subLabel = its prefix); the export keeps it as its own column. */
+interface ColDef { key: string; label: string; type?: string; screenLabel?: string; hideOnScreen?: boolean; subOf?: string; subLabel?: string; }
 interface FieldDef { key: string; label: string; type: string; options?: { v: any; l: string }[]; required?: boolean; }
 
 interface EntityConfig {
@@ -55,7 +57,20 @@ export abstract class ManageBase implements OnInit {
   entity = '';
   readonly config = signal<EntityConfig>({ title: '', columns: [], getFn: () => of({ data: [], total: 0 }) });
   /** The list's columns on screen (the export uses every column of the config). */
-  readonly screenColumns = computed(() => this.config().columns.filter(c => !c.hideOnScreen));
+  readonly screenColumns = computed(() => this.config().columns.filter(c => !c.hideOnScreen && !c.subOf));
+  /** Columns shown as sub-lines under the list column `key` (see ColDef.subOf). */
+  subCols(key: string): ColDef[] { return this.config().columns.filter(c => c.subOf === key); }
+  /** The sub-line text for a merged column ('' when the row has no value, so no empty line shows). */
+  subText(item: any, col: ColDef): string {
+    const v = this.getCellValue(item, col);
+    if (v === null || v === undefined || v === '' || v === '-') return '';
+    let text: string;
+    if (col.type === 'date') text = formatDate(v, 'mediumDate', 'en-US');
+    else if (col.type === 'datetime') text = formatDate(v, 'short', 'en-US');
+    else if (col.type === 'currency') text = (col.label.includes('(PKR)') ? '' : 'PKR ') + Math.round(Number(v) || 0).toLocaleString('en-US');
+    else text = String(v);
+    return (col.subLabel ?? '') + text;
+  }
 
   loading = signal(true);
   /** Set when the list could not be loaded: shown with a Retry button instead of "No records found.". */
@@ -4945,15 +4960,15 @@ export abstract class ManageBase implements OnInit {
       case 'customers': return {
         title: 'Customers',
         columns: [
-          { key: 'code', label: 'Code' },
-          { key: 'customerType', label: 'Type' },
+          { key: 'code', label: 'Code', subOf: 'fullName' },
+          { key: 'customerType', label: 'Type', subOf: 'fullName' },
           { key: 'fullName', label: 'Name' },
           { key: 'company', label: 'Company' },
-          { key: 'ntn', label: 'NTN' },
+          { key: 'ntn', label: 'NTN', subOf: 'company', subLabel: 'NTN ' },
           { key: 'email', label: 'Email' },
-          { key: 'phoneNumber', label: 'Phone' },
+          { key: 'phoneNumber', label: 'Phone', subOf: 'email' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
-          { key: 'createdAt', label: 'Created', type: 'date' },
+          { key: 'createdAt', label: 'Created', type: 'date', subOf: 'isActive', subLabel: 'Created ' },
         ],
         fields: [
           { key: 'firstName', label: 'First Name', type: 'text', required: true },
@@ -4984,11 +4999,11 @@ export abstract class ManageBase implements OnInit {
         columns: [
           { key: 'email', label: 'Email' },
           { key: 'name', label: 'Name' },
-          { key: 'phone', label: 'Phone' },
+          { key: 'phone', label: 'Phone', subOf: 'email' },
           { key: 'role', label: 'Role', type: 'role' },
           { key: 'locationName', label: 'Location' },
           { key: 'isActive', label: 'Active', type: 'boolean' },
-          { key: 'createdAt', label: 'Created', type: 'date' },
+          { key: 'createdAt', label: 'Created', type: 'date', subOf: 'isActive', subLabel: 'Created ' },
         ],
         fields: [
           { key: 'name', label: 'Full Name', type: 'text', required: true },
@@ -5016,11 +5031,11 @@ export abstract class ManageBase implements OnInit {
         title: 'Locations',
         columns: [
           { key: 'name', label: 'Name' },
-          { key: 'branchName', label: 'Branch' },
+          { key: 'branchName', label: 'Branch', subOf: 'name' },
           { key: 'cityName', label: 'City' },
           { key: 'address', label: 'Address' },
           { key: 'openingTime', label: 'Opens' },
-          { key: 'closingTime', label: 'Closes' },
+          { key: 'closingTime', label: 'Closes', subOf: 'openingTime', subLabel: 'Closes ' },
           { key: 'status', label: 'Active', type: 'boolean' },
         ],
         fields: [
@@ -5042,7 +5057,7 @@ export abstract class ManageBase implements OnInit {
         columns: [
           { key: 'name', label: 'Name' },
           { key: 'locationName', label: 'Location' },
-          { key: 'categoryLabel', label: 'Category' },
+          { key: 'categoryLabel', label: 'Category', subOf: 'name' },
           { key: 'capacity', label: 'Capacity' },
           { key: 'hourlyAllowed', label: 'Hourly', type: 'boolean' },
           { key: 'status', label: 'Active', type: 'boolean' },
@@ -5072,9 +5087,9 @@ export abstract class ManageBase implements OnInit {
         title: 'Spaces',
         columns: [
           { key: 'name', label: 'Name' },
-          { key: 'code', label: 'Code' },
+          { key: 'code', label: 'Code', subOf: 'name' },
           { key: 'locationName', label: 'Location' },
-          { key: 'spaceTypeName', label: 'Type' },
+          { key: 'spaceTypeName', label: 'Type', subOf: 'locationName' },
           { key: 'capacity', label: 'Capacity' },
           { key: 'price', label: 'Price', type: 'space-prices' },
           { key: 'status', label: 'Status', type: 'status' },
@@ -5112,11 +5127,11 @@ export abstract class ManageBase implements OnInit {
         title: 'Bookings',
         columns: [
           { key: 'userEmail', label: 'Customer / User' },
-          { key: 'spaceName', label: 'Space' },
+          { key: 'spaceName', label: 'Space', subOf: 'userEmail' },
           { key: 'startOn', label: 'Start Date', type: 'datetime' },
-          { key: 'endOn', label: 'End Date', type: 'datetime' },
+          { key: 'endOn', label: 'End Date', type: 'datetime', subOf: 'startOn', subLabel: 'Ends ' },
           { key: 'totalAmount', label: 'Amount (PKR)', type: 'currency' },
-          { key: 'challanNumber', label: 'Challan' },
+          { key: 'challanNumber', label: 'Challan', subOf: 'totalAmount', subLabel: 'Challan ' },
           { key: 'bookingStatusLabel', label: 'Status', type: 'booking-status' },
         ],
         fields: [
@@ -5140,13 +5155,13 @@ export abstract class ManageBase implements OnInit {
         columns: [
           { key: 'bookingId', label: 'Booking #' },
           { key: 'userEmail', label: 'User / Customer' },
-          { key: 'spaceName', label: 'Booked Space' },
-          { key: 'amountType', label: 'Amount Type' },
+          { key: 'spaceName', label: 'Booked Space', subOf: 'userEmail' },
+          { key: 'amountType', label: 'Amount Type', subOf: 'amount' },
           { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'currency' },
           { key: 'paymentMethod', label: 'Method' },
-          { key: 'challanNumber', label: 'Challan / Ref' },
+          { key: 'challanNumber', label: 'Challan / Ref', subOf: 'paymentMethod', subLabel: 'Ref ' },
           { key: 'paymentStatus', label: 'Status', type: 'status' },
-          { key: 'paidAt', label: 'Date', type: 'date' },
+          { key: 'paidAt', label: 'Date', type: 'date', subOf: 'paymentStatus' },
         ],
         fields: [
           { key: 'amount', label: this.lbl('Payment', 'amount'), type: 'number' },
@@ -5170,14 +5185,14 @@ export abstract class ManageBase implements OnInit {
         columns: [
           { key: 'complaintNo', label: 'Complaint #' },
           { key: 'customerName', label: 'Customer' },
-          { key: 'phoneNumber', label: 'Phone' },
+          { key: 'phoneNumber', label: 'Phone', subOf: 'customerName' },
           { key: 'branch', label: 'Branch' },
           { key: 'category', label: 'Category' },
           { key: 'description', label: 'Description' },
-          { key: 'sourceLabel', label: 'Source' },
-          { key: 'replyLabel', label: 'Customer Reply' },
+          { key: 'sourceLabel', label: 'Source', subOf: 'category', subLabel: 'Source: ' },
+          { key: 'replyLabel', label: 'Customer Reply', subOf: 'category', subLabel: 'Reply: ' },
           { key: 'status', label: 'Status', type: 'status' },
-          { key: 'createdOn', label: 'Date', type: 'date' },
+          { key: 'createdOn', label: 'Date', type: 'date', subOf: 'status' },
         ],
         // Staff can add a complaint received by phone, walk-in or email. Add Complaint opens its own popup
         // (openAddComplaint); these fields give its category choices and createFn is what it saves with.
@@ -5206,15 +5221,15 @@ export abstract class ManageBase implements OnInit {
         title: 'Tour Inquiries',
         columns: [
           { key: 'fullName', label: 'Name' },
-          { key: 'company', label: 'Company' },
+          { key: 'company', label: 'Company', subOf: 'fullName' },
           { key: 'email', label: 'Email' },
-          { key: 'phone', label: 'Phone' },
+          { key: 'phone', label: 'Phone', subOf: 'email' },
           { key: 'inquiryType', label: 'Type' },   // replaces Subject (always "Book Tour" here); other subjects show under the Type
           { key: 'locationName', label: 'Location' },
           { key: 'message', label: 'Message' },
-          { key: 'feedback', label: 'Feedback' },
+          { key: 'feedback', label: 'Feedback', subOf: 'message', subLabel: 'Feedback: ' },
           { key: 'status', label: 'Status', type: 'status' },
-          { key: 'createdAt', label: 'Date', type: 'date' },
+          { key: 'createdAt', label: 'Date', type: 'date', subOf: 'status' },
         ],
         // Add Inquiry opens its own form (openAddInquiry); createFn is what it saves with.
         fields: [
@@ -5240,13 +5255,13 @@ export abstract class ManageBase implements OnInit {
         title: 'Quotation Responses',
         columns: [
           { key: 'quotationNumber', label: 'Quotation #' },
-          { key: 'version', label: 'Ver' },
+          { key: 'version', label: 'Ver', subOf: 'quotationNumber', subLabel: 'Ver ' },
           { key: 'fullName', label: 'Customer' },
-          { key: 'email', label: 'Email' },
-          { key: 'phone', label: 'Phone' },
+          { key: 'email', label: 'Email', subOf: 'fullName' },
+          { key: 'phone', label: 'Phone', subOf: 'fullName' },
           { key: 'responseType', label: 'Response', type: 'status' },
           { key: 'note', label: 'Note / Feedback' },
-          { key: 'respondedDate', label: 'Date', type: 'date' },
+          { key: 'respondedDate', label: 'Date', type: 'date', subOf: 'responseType' },
         ],
         getFn: (p, l, s) => this.quotationSvc.getQuotationResponses(p, l, s),
       };
@@ -5277,13 +5292,13 @@ export abstract class ManageBase implements OnInit {
         columns: [
           { key: 'quotationNumber', label: 'Quotation #' },
           { key: 'customerName', label: 'Customer' },
-          { key: 'customerEmail', label: 'Email' },
+          { key: 'customerEmail', label: 'Email', subOf: 'customerName' },
           { key: 'spaceName', label: 'Space' },
           { key: 'totalAmount', label: 'Total (PKR)', type: 'currency' },
           { key: 'validUntil', label: 'Valid Until', type: 'date' },
-          { key: 'versionNumber', label: 'Version' },
+          { key: 'versionNumber', label: 'Version', subOf: 'quotationNumber', subLabel: 'Version ' },
           { key: 'status', label: 'Status', type: 'status' },
-          { key: 'createdAt', label: 'Created', type: 'date' },
+          { key: 'createdAt', label: 'Created', type: 'date', subOf: 'status', subLabel: 'Created ' },
         ],
         getFn: (p, l, s) => {
           // The API limits location-bound staff to every location they're assigned to; the Location filter narrows it.
@@ -5297,13 +5312,13 @@ export abstract class ManageBase implements OnInit {
           { key: 'invoiceNumber', label: 'Invoice #' },
           { key: 'customerName', label: 'Customer / User' },
           { key: 'spaceName', label: 'Space' },
-          { key: 'billingPeriodDisplay', label: 'Rent Period' },
+          { key: 'billingPeriodDisplay', label: 'Rent Period', subOf: 'spaceName' },
           // On screen Issued / Due and Status / Approval share a column each, so the list fits without scrolling.
           { key: 'issuedOn', label: 'Issued On', type: 'date', screenLabel: 'Issued / Due' },
           { key: 'dueOn', label: 'Due On', type: 'date', hideOnScreen: true },
           { key: 'grandTotal', label: 'Total (PKR)', type: 'currency' },
-          { key: 'paidTotal', label: 'Paid (PKR)', type: 'currency' },
-          { key: 'balanceDue', label: 'Balance (PKR)', type: 'currency' },
+          { key: 'paidTotal', label: 'Paid (PKR)', type: 'currency', subOf: 'grandTotal', subLabel: 'Paid ' },
+          { key: 'balanceDue', label: 'Balance (PKR)', type: 'currency', subOf: 'grandTotal', subLabel: 'Balance ' },
           { key: 'statusLabel', label: 'Status', type: 'invoice-status' },
           { key: 'approvalStatus', label: 'Approval', type: 'approval-status', hideOnScreen: true },
         ],
@@ -5318,16 +5333,16 @@ export abstract class ManageBase implements OnInit {
         columns: [
           { key: 'quotationNumber', label: 'Quotation #' },
           { key: 'customerName', label: 'Customer / Signatory' },
-          { key: 'customerEmail', label: 'Email' },
+          { key: 'customerEmail', label: 'Email', subOf: 'customerName' },
           { key: 'spaceName', label: 'Space' },
-          { key: 'entityType', label: 'Type' },
+          { key: 'entityType', label: 'Type', subOf: 'spaceName' },
           { key: 'feeAmount', label: 'Monthly Fee (PKR)', type: 'currency' },
-          { key: 'securityDeposit', label: 'Security Deposit (PKR)', type: 'currency' },
+          { key: 'securityDeposit', label: 'Security Deposit (PKR)', type: 'currency', subOf: 'feeAmount', subLabel: 'Deposit ' },
           { key: 'contractStartDate', label: 'Start Date', type: 'date' },
-          { key: 'contractEndDate', label: 'End Date', type: 'date' },
-          { key: 'signedPdfUploadedAt', label: 'Signed Copy', type: 'date' },
+          { key: 'contractEndDate', label: 'End Date', type: 'date', subOf: 'contractStartDate', subLabel: 'Ends ' },
+          { key: 'signedPdfUploadedAt', label: 'Signed Copy', type: 'date', subOf: 'status', subLabel: 'Signed ' },
           { key: 'status', label: 'Status', type: 'status' },
-          { key: 'createdOn', label: 'Sent Date', type: 'date' },
+          { key: 'createdOn', label: 'Sent Date', type: 'date', subOf: 'status', subLabel: 'Sent ' },
         ],
         getFn: (p, l, s) => {
           return this.agreementSvc.getAgreements(p, l, s);

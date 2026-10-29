@@ -123,13 +123,13 @@
           } @else {
             <div class="table-container scroll">
               <table class="clean-table">
-                <thead><tr><th>Device</th><th>MAC</th><th>IP</th><th>Access point</th><th>Signal</th><th>Band</th><th class="num">Action</th></tr></thead>
+                <thead><tr><th>Device</th><th>MAC</th><th class="fold-always">IP</th><th>Access point</th><th>Signal</th><th>Band</th><th class="num">Action</th></tr></thead>
                 <tbody>
                   @for (c of clients(); track c.mac) {
                     <tr>
-                      <td><strong>{{ c.name }}</strong>@if (c.vendor) { <div class="muted small">{{ c.vendor }}</div> }</td>
+                      <td><strong>{{ c.name }}</strong>@if (c.vendor) { <div class="muted small">{{ c.vendor }}</div> }<div class="muted small mono sub-fold">{{ c.ip || '—' }}</div></td>
                       <td class="mono">{{ c.macDisplay }}@if (c.privateMac) { <span class="tag" title="The phone uses a random (private) MAC for this network; it can change if the device forgets the network.">Private</span> }</td>
-                      <td class="mono">{{ c.ip || '—' }}</td>
+                      <td class="mono fold-always">{{ c.ip || '—' }}</td>
                       <td>{{ c.uplinkName || '—' }}</td>
                       <td><net-signal [dbm]="c.signal" /></td>
                       <td>{{ c.band || '—' }}</td>

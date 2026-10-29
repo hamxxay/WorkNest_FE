@@ -1058,3 +1058,14 @@
   .bio-modal-close { min-width: 44px; min-height: 44px; }
   .bio-modal-footer { flex-wrap: wrap; }
 }
+
+/* ===================== Fit-to-page table (desktop) ===================== */
+.bio-sub { display: none; }
+@media (min-width: 769px) {
+  .bio-table th.bio-fold, .bio-table td.bio-fold { display: none; }
+  .bio-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px; }
+  .bio-table th { padding: 11px 10px; white-space: normal; }
+  .bio-table td { padding: 11px 10px; }
+  .bio-name { overflow-wrap: break-word; }
+  .bio-booked-customer { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+}

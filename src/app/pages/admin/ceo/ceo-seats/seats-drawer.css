@@ -9,3 +9,10 @@
 .dr-table .strong-cell { color: var(--text-primary, #0f172a); font-weight: 700; }
 .shift-part { display: block; white-space: nowrap; }
 .dr-table small.free { color: #b45309; font-weight: 600; }
+/* nine columns in a 780px drawer: headers and shift lines wrap, tighter padding, so the table fits without a sideways scroll */
+.dr-table.records.seats thead th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+.dr-table.records.seats thead th, .dr-table.records.seats tbody th, .dr-table.records.seats tbody td,
+.dr-table.records.seats tfoot th, .dr-table.records.seats tfoot td { padding-left: 6px; padding-right: 6px; }
+.dr-table.records.seats thead th:first-child, .dr-table.records.seats tbody th, .dr-table.records.seats tfoot th { padding-left: 12px; }
+.dr-table.records.seats thead th:last-child, .dr-table.records.seats tbody td:last-child, .dr-table.records.seats tfoot td:last-child { padding-right: 12px; }
+.dr-table.records.seats .shift-part { white-space: normal; }

@@ -206,22 +206,21 @@
   background: #f8fafc;
   color: #475569;
   font-weight: 600;
-  padding: 12px 16px;
+  padding: 12px 12px;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
 }
 
 .queue-table td {
-  padding: 14px 16px;
+  padding: 12px 12px;
+  overflow-wrap: break-word;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
 }
 
-/* Invoice #, rent period and due date stay on one line (they wrapped into 2-3 lines); the table scrolls sideways on
-   narrow screens instead. */
-.queue-table td:nth-child(1),
-.queue-table td:nth-child(4),
-.queue-table td:nth-child(5) {
+/* Invoice # / due date stay on one line; customer, space and rent period wrap so the table fits the page on desktop
+   (it still scrolls sideways on narrow screens). */
+.queue-table td:nth-child(1) {
   white-space: nowrap;
 }
 

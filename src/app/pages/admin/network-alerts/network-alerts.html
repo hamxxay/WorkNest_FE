@@ -1,0 +1,115 @@
+<div class="admin-page na-page">
+  <div class="page-header">
+    <div>
+      <span class="page-eyebrow">Administration</span>
+      <h1>Network Alerts</h1>
+      <p>Each location's recipients get one e-mail when an access machine, the internet line or a network device has been down for 5 minutes, a reminder every 6 hours while it stays down, and one when it is back.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn-admin btn-outline-admin" (click)="refresh()" [disabled]="loading() || logLoading()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Recipients -->
+  <section class="admin-card na-card">
+    <div class="na-card-head">
+      <h2>Recipients</h2>
+      <form class="na-add" (ngSubmit)="add()" autocomplete="off">
+        <select class="na-input" name="location" aria-label="Location" [ngModel]="newLocationId()" (ngModelChange)="newLocationId.set($event)">
+          <option [ngValue]="null">Location…</option>
+          @for (l of locations(); track l.id) { <option [ngValue]="l.id">{{ l.name }}</option> }
+        </select>
+        <input class="na-input na-email" type="email" name="email" placeholder="name@example.com" aria-label="E-mail address"
+          [ngModel]="newEmail()" (ngModelChange)="newEmail.set($event)">
+        <button type="submit" class="btn-admin btn-primary-admin" [disabled]="adding()">{{ adding() ? 'Adding…' : 'Add' }}</button>
+      </form>
+    </div>
+    @if (formError()) { <p class="na-error" role="alert">{{ formError() }}</p> }
+
+    @if (loadError()) {
+      <div class="na-state" role="alert">
+        <strong>The recipients couldn't be loaded</strong>
+        <span>{{ loadError() }}</span>
+        <button type="button" class="btn-admin btn-outline-admin" (click)="load()" [disabled]="loading()">Try again</button>
+      </div>
+    } @else if (loading() && recipients().length === 0) {
+      <div class="na-state">Loading…</div>
+    } @else {
+      <div class="na-table-wrap">
+        <table class="na-table">
+          <thead>
+            <tr><th>E-mail</th><th class="na-col-active">Active</th><th class="na-col-added">Added</th><th class="na-col-actions"></th></tr>
+          </thead>
+          <tbody>
+            @for (g of groups(); track g.id) {
+              <tr class="na-group">
+                <td colspan="3">
+                  <strong>{{ g.name }}</strong>
+                  <span class="na-group-count">{{ g.recipients.length === 0 ? 'no recipients' : g.activeCount + ' of ' + g.recipients.length + ' active' }}</span>
+                </td>
+                <td class="na-col-actions">
+                  <button type="button" class="btn-admin btn-outline-admin na-btn-sm" (click)="sendTest(g)"
+                    [disabled]="g.activeCount === 0 || testingLocation() !== null"
+                    [title]="g.activeCount === 0 ? 'Add or turn on a recipient first' : 'E-mail a test message to the active recipients of ' + g.name">
+                    {{ testingLocation() === g.id ? 'Sending…' : 'Send test email' }}
+                  </button>
+                </td>
+              </tr>
+              @for (r of g.recipients; track r.id) {
+                <tr [class.na-off]="!r.isActive">
+                  <td class="na-wrap">{{ r.email }}</td>
+                  <td class="na-col-active">
+                    <button type="button" class="na-switch" role="switch" [class.on]="r.isActive" [attr.aria-checked]="r.isActive"
+                      [attr.aria-label]="(r.isActive ? 'Turn off ' : 'Turn on ') + r.email" [disabled]="busyIds().has(r.id)" (click)="toggle(r)"><i></i></button>
+                  </td>
+                  <td class="na-col-added">{{ r.createdOn | date:'d MMM y':'+0500' }}</td>
+                  <td class="na-col-actions">
+                    <button type="button" class="btn-admin na-btn-sm" [class.na-danger]="confirmRemoveId() === r.id" [class.btn-outline-admin]="confirmRemoveId() !== r.id"
+                      [disabled]="busyIds().has(r.id)" (click)="remove(r)" (blur)="confirmRemoveId.set(null)">
+                      {{ confirmRemoveId() === r.id ? 'Confirm remove' : 'Remove' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            } @empty {
+              <tr><td colspan="4" class="na-empty">No locations.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <!-- Recent alerts -->
+  <section class="admin-card na-card">
+    <div class="na-card-head"><h2>Recent alerts</h2><span class="na-sub">Last 50 e-mails sent (Pakistan time)</span></div>
+    @if (logError()) {
+      <div class="na-state" role="alert"><strong>The recent alerts couldn't be loaded</strong><span>{{ logError() }}</span></div>
+    } @else if (logLoading() && log().length === 0) {
+      <div class="na-state">Loading…</div>
+    } @else if (log().length === 0) {
+      <div class="na-state">No alert has been sent yet.</div>
+    } @else {
+      <div class="na-table-wrap">
+        <table class="na-table na-log">
+          <thead><tr><th class="na-col-time">Time</th><th class="na-col-loc">Location</th><th>Alert</th><th class="na-col-to">Sent to</th></tr></thead>
+          <tbody>
+            @for (row of log(); track row.id) {
+              <tr>
+                <td class="na-col-time">{{ row.sentAt | date:'d MMM y, HH:mm':'+0500' }}</td>
+                <td class="na-col-loc">{{ row.locationName }}</td>
+                <td class="na-wrap">
+                  <span class="na-kind" [attr.data-kind]="row.kind">{{ kindLabel(row.kind) }}</span>
+                  <span class="na-subject">{{ row.subject }}</span>
+                  @if (row.summary && row.kind !== 'test') { <span class="na-summary">{{ row.summary }}</span> }
+                  @if (row.status === 'Held') { <span class="na-summary">Held: Email Sending was off, it waits in Pending emails.</span> }
+                </td>
+                <td class="na-col-to na-wrap">{{ row.recipients }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

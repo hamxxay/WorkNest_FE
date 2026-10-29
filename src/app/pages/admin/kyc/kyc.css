@@ -614,3 +614,9 @@
   .modal-footer .btn { flex: 1 1 auto; justify-content: center; min-height: 44px; }
   .btn-close { min-width: 44px; min-height: 44px; }
 }
+
+/* Desktop: tighter cells and wrapping headers so the KYC tables (list, documents, versions) fit with no sideways scroll. */
+@media (min-width: 1025px) {
+  .data-table th { padding: 11px 12px; white-space: normal; }
+  .data-table td { padding: 11px 12px; overflow-wrap: anywhere; }
+}

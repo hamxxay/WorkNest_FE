@@ -78,3 +78,15 @@
 }
 /* Popups without a header bar (enrolment): the title gets the header's top spacing instead of touching the edge. */
 .modal-card > h3:first-child { margin: 0 0 0.75rem; padding-top: 1.25rem; }
+
+/* ===================== Fit-to-page table (desktop) ===================== */
+@media (min-width: 761px) {
+  .data-table td { white-space: normal; }
+  .data-table td .badge, .data-table td .access-toggle, .data-table td:nth-child(5) { white-space: nowrap; }
+  .data-table th { white-space: normal; padding: 0.6rem 0.5rem; }
+  .data-table td { padding: 0.65rem 0.5rem; }
+  .person-name { max-width: none; overflow: visible; text-overflow: clip; }
+  .chips { flex-wrap: wrap; }
+  .creds span { display: block; margin-right: 0; white-space: nowrap; }
+  .action-group { flex-wrap: wrap; max-width: 210px; }
+}

@@ -535,12 +535,9 @@
             <table class="fr-table">
               <thead>
                 <tr>
-                  <th>Receipt Code</th>
-                  <th>Receipt Date</th>
-                  <th>Month</th>
-                  <th>Customer</th>
-                  <th>Invoice #</th>
-                  <th>Location</th>
+                  <th>Receipt Code / Invoice #</th>
+                  <th>Receipt Date / Month</th>
+                  <th>Customer / Location</th>
                   <th>Amount (PKR)</th>
                   <th>Payment Type & Account</th>
                   <th>Status</th>
@@ -550,25 +547,33 @@
               <tbody>
                 @for (r of receipts(); track r.id) {
                   <tr [class.voided-row]="r.status === 0">
-                    <td class="mono font-bold">{{ r.code }}</td>
-                    <td>{{ r.receiptDate | date:'mediumDate' }}</td>
-                    <td>{{ monthLabel(r) }}</td>
                     <td>
+                      <div class="cell-acc">
+                        <span class="mono font-bold">{{ r.code }}</span>
+                        <span class="sub-acc mono">{{ r.invoiceNumber }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="cell-acc">
+                        <span>{{ r.receiptDate | date:'mediumDate' }}</span>
+                        <span class="sub-acc">{{ monthLabel(r) }}</span>
+                      </div>
+                    </td>
+                    <td class="wrap-cell">
                       <div class="cell-customer">
                         <span class="cust-name">{{ r.customerName }}</span>
                         @if (r.customerCompanyName && r.customerCompanyName !== '-' && r.customerCompanyName.toLowerCase() !== 'individual') { <span class="cust-code">{{ r.customerCompanyName }}</span> }
                         <span class="cust-code">{{ r.customerCode }}</span>
+                        <span class="sub-acc">{{ r.locationName || '—' }}</span>
                       </div>
                     </td>
-                    <td class="mono">{{ r.invoiceNumber }}</td>
-                    <td>{{ r.locationName || '—' }}</td>
                     <td class="mono font-bold amount-cell">
                       PKR {{ r.amountPaid | number:'1.2-2' }}
                       @if (r.balanceAfter) {
                         <small class="amount-left" [title]="'Left on the invoice after this receipt (of PKR ' + (r.invoiceTotal | number:'1.2-2') + ')'">Balance after PKR {{ r.balanceAfter | number:'1.2-2' }}</small>
                       }
                     </td>
-                    <td>
+                    <td class="wrap-cell">
                       <div class="cell-acc">
                         <span class="pay-type">{{ r.paymentType }}</span>
                         <span class="sub-acc">{{ r.accountTitle }}</span>

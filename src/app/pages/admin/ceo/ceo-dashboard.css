@@ -333,6 +333,25 @@ button:focus-visible, .chart-nav:focus-visible, select:focus-visible { outline: 
 .table-panel .panel-head, .table-panel .empty { margin: 8px var(--ceo-panel-pad) 16px; }
 .table-panel .cmp-table thead th:first-child, .table-panel .cmp-table tbody th { padding-left: var(--ceo-panel-pad); }
 .table-panel .cmp-table thead th:last-child, .table-panel .cmp-table tbody td:last-child { padding-right: var(--ceo-panel-pad); }
+/* fit the page (no sideways scroll on desktop): names and sub-lines wrap, headers wrap, bars shrink; badges, amounts and dates keep one line */
+@media (min-width: 768px) {
+  .cmp-table thead th { white-space: normal; overflow-wrap: break-word; line-height: 1.3; vertical-align: bottom; }
+  .cmp-table thead th.col-go { white-space: nowrap; }
+  .cmp-table tbody th { white-space: normal; overflow-wrap: break-word; }
+  .cmp-table .clip { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; max-width: 200px; }
+  .cmp-table small, .cmp-table .pending-note, .cmp-table .disc-sub { white-space: normal; overflow-wrap: break-word; }
+  .cmp-table thead th { padding-left: 8px; padding-right: 8px; }
+  .cmp-table tbody th, .cmp-table tbody td { padding-left: 8px; padding-right: 8px; }
+  .cmp-table.compact thead th { padding: 8px 6px; }
+  .cmp-table.compact tbody th, .cmp-table.compact tbody td { padding: 10px 6px; }
+  .cmp-table .mini-bar { min-width: 0; gap: 6px; }
+  .cmp-table .mini-bar > :last-child:not(.mini-track) { min-width: 0; white-space: nowrap; }
+  .cmp-table .mini-track { flex: 0 1 36px; min-width: 20px; }
+  .cmp-table.compact .mini-track { flex-basis: 36px; }
+  .cmp-table .revenue-bar { min-width: 0; }
+  .table-panel .cmp-table thead th:first-child, .table-panel .cmp-table tbody th { padding-left: var(--ceo-panel-pad); }
+  .table-panel .cmp-table thead th:last-child, .table-panel .cmp-table tbody td:last-child { padding-right: var(--ceo-panel-pad); }
+}
 .person { display: flex; align-items: center; gap: 12px; }
 .person-avatar { width: 32px; height: 32px; background: #f0fdfa; color: #0f766e; box-shadow: inset 0 0 0 1px #ccfbf1; font-weight: 600; font-size: 0.8rem; }
 .person-main { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }

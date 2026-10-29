@@ -257,6 +257,9 @@
               } @else {
               <span class="cell-text" [title]="getCellValue(item, col) ?? ''">{{ getCellValue(item, col) }}</span>
               }
+              @for (sub of subCols(col.key); track sub.key) {
+              @if (subText(item, sub); as subValue) { <small class="cell-sub" [title]="sub.label">{{ subValue }}</small> }
+              }
             </td>
             }
             <td class="actions-cell">

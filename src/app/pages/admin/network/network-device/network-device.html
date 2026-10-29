@@ -236,13 +236,13 @@
           </div>
           <div class="table-container">
             <table class="clean-table" #clientsTable>
-              <thead><tr><th>Client</th><th>IP address</th><th>Signal</th><th class="num">Data used</th><th class="num">Connected for</th></tr></thead>
+              <thead><tr><th>Client</th><th class="fold-always">IP address</th><th>Signal</th><th class="num">Data used</th><th class="num">Connected for</th></tr></thead>
               <tbody>
                 @for (c of clients(); track c.mac) {
                   <tr>
                     <td><div class="dev"><span class="dev-icon" [title]="c.kindLabel"><net-icon [name]="clientIcon(c.kind)" [size]="16" /></span>
-                      <div><div class="dev-name">{{ c.name }}</div><div class="muted small">{{ c.wired ? 'Wired' + (c.port != null ? ' · Port ' + c.port : '') : c.ssid + ' · ' + c.band }}</div></div></div></td>
-                    <td class="mono">{{ c.ip || '–' }}</td>
+                      <div><div class="dev-name">{{ c.name }}</div><div class="muted small">{{ c.wired ? 'Wired' + (c.port != null ? ' · Port ' + c.port : '') : c.ssid + ' · ' + c.band }}</div><div class="muted small mono sub-fold">{{ c.ip || '–' }}</div></div></div></td>
+                    <td class="mono fold-always">{{ c.ip || '–' }}</td>
                     <td>@if (c.wired) { <span class="muted">–</span> } @else { <net-signal [dbm]="c.signal" /> }</td>
                     <td class="num">{{ bytes(c.dataBytes) }}</td>
                     <td class="num">{{ dur(c.uptime) }}</td>

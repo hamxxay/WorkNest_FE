@@ -458,7 +458,7 @@
       <div class="table-scroll">
         <table class="rtable">
           <thead>
-            <tr><th>Agreement</th><th>Space</th><th>Sent</th><th>Signed</th><th class="num">Fee</th><th class="num">Deposit</th><th>Status</th><th class="col-act"><span class="sr-only">Actions</span></th></tr>
+            <tr><th>Agreement</th><th>Space</th><th>Sent / Signed</th><th class="num">Fee</th><th class="num">Deposit</th><th>Status</th><th class="col-act"><span class="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
             @for (a of visible(overview()!.agreements, 'agreements'); track a.id) {
@@ -468,8 +468,7 @@
                 @if (a.quotationNumber) { <small>{{ a.quotationNumber }}{{ a.quotationVersion ? ' v' + a.quotationVersion : '' }}</small> }
               </td>
               <td data-label="Space">{{ a.spaceName || '-' }}@if (a.locationName) { <small>{{ a.locationName }}</small> }</td>
-              <td data-label="Sent" class="nw">{{ a.sentAt ? (a.sentAt | date:'d MMM y') : '-' }}</td>
-              <td data-label="Signed" class="nw">{{ a.signedDate ? (a.signedDate | date:'d MMM y') : '-' }}</td>
+              <td data-label="Sent / Signed" class="nw">{{ a.sentAt ? (a.sentAt | date:'d MMM y') : '-' }}<small>Signed {{ a.signedDate ? (a.signedDate | date:'d MMM y') : '-' }}</small></td>
               <td data-label="Fee" class="num">{{ money(a.feeAmount) }}</td>
               <td data-label="Deposit" class="num">{{ money(a.securityDeposit) }}</td>
               <td data-label="Status"><span [class]="'pill tone-' + tone(a.status)">{{ a.status ? humanize(a.status) : '-' }}</span></td>

@@ -127,11 +127,10 @@
       <table class="queue-table">
         <thead>
           <tr>
-            <th>Invoice #</th>
+            <th>Invoice # / Due Date</th>
             <th>Customer / Company</th>
             <th>Space & Location</th>
             <th>Rent Period</th>
-            <th>Due Date</th>
             <th>Total (PKR)</th>
             <th>Review Status</th>
             <th class="text-right">Action</th>
@@ -140,8 +139,11 @@
         <tbody>
           @for (item of filteredQueue(); track (item.id || item.Id)) {
             <tr class="queue-row" (click)="openReview(item)">
-              <td class="font-bold text-primary">
-                {{ item.invoiceNumber || item.InvoiceNumber || ('INV-' + (item.id || item.Id)) }}
+              <td>
+                <div class="customer-info">
+                  <span class="font-bold text-primary">{{ item.invoiceNumber || item.InvoiceNumber || ('INV-' + (item.id || item.Id)) }}</span>
+                  <span class="cust-company">Due {{ (item.dueOn || item.DueOn) | date:'MMM d, y' }}</span>
+                </div>
               </td>
               <td>
                 <div class="customer-info">
@@ -164,7 +166,6 @@
                   <span class="text-muted">N/A</span>
                 }
               </td>
-              <td>{{ (item.dueOn || item.DueOn) | date:'MMM d, y' }}</td>
               <td class="amount-cell">
                 PKR {{ (item.grandTotal || item.GrandTotal || 0) | number:'1.0-0' }}
               </td>

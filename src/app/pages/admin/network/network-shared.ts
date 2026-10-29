@@ -274,11 +274,21 @@ const today = () => {
 export const exportName = (title: string, ext: string) => `network-${slug(title)}-${today()}.${ext}`;
 
 /** A table as rows of plain text — what is on screen, without icons; cells marked .no-export are skipped. */
+/** Cell text for exports; sub-lines that only repeat a folded column are left out so every original column exports once. */
+function cellText(c: HTMLElement): string {
+  const subs = Array.from(c.querySelectorAll<HTMLElement>('.sub-fold, .sub-lo'));
+  const prev = subs.map(e => e.style.display);
+  subs.forEach(e => (e.style.display = 'none'));
+  const text = c.innerText.replace(/\s+/g, ' ').trim();
+  subs.forEach((e, i) => (e.style.display = prev[i]));
+  return text;
+}
+
 export function tableRows(table: HTMLTableElement): string[][] {
   return Array.from(table.querySelectorAll('tr'))
     .map(tr => Array.from(tr.children)
       .filter(c => !c.classList.contains('no-export'))
-      .map(c => (c as HTMLElement).innerText.replace(/\s+/g, ' ').trim()))
+      .map(c => cellText(c as HTMLElement)))
     .filter(r => r.some(Boolean));
 }
 

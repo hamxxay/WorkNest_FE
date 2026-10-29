@@ -163,10 +163,10 @@
               <thead>
                 <tr>
                   <th>Challan / Invoice</th>
-                  <th>Type</th>
-                  <th>Period</th>
+                  <th class="am-fold">Type</th>
+                  <th class="am-fold">Period</th>
                   <th>Issued</th>
-                  <th>Due / Valid until</th>
+                  <th class="am-fold">Due / Valid until</th>
                   <th class="text-end">Total</th>
                   <th class="text-end">Paid</th>
                   <th class="text-end">Balance</th>
@@ -176,11 +176,13 @@
               <tbody>
                 @for (ch of challans().challans; track ch.id) {
                 <tr [class.row-overdue]="ch.isOverdue">
-                  <td><strong>{{ ch.invoiceNumber || ('#' + ch.id) }}</strong></td>
-                  <td>{{ ch.type }}</td>
-                  <td>{{ ch.periodStart && ch.periodEnd ? ch.periodStart + ' → ' + ch.periodEnd : '—' }}</td>
-                  <td>{{ ch.issuedOn || '—' }}</td>
-                  <td>{{ ch.dueOn || '—' }}</td>
+                  <td><strong>{{ ch.invoiceNumber || ('#' + ch.id) }}</strong>
+                    <div class="am-sub">{{ ch.type }}</div>
+                    <div class="am-sub">{{ ch.periodStart && ch.periodEnd ? ch.periodStart + ' → ' + ch.periodEnd : '—' }}</div></td>
+                  <td class="am-fold">{{ ch.type }}</td>
+                  <td class="am-fold">{{ ch.periodStart && ch.periodEnd ? ch.periodStart + ' → ' + ch.periodEnd : '—' }}</td>
+                  <td>{{ ch.issuedOn || '—' }}<div class="am-sub">Due {{ ch.dueOn || '—' }}</div></td>
+                  <td class="am-fold">{{ ch.dueOn || '—' }}</td>
                   <td class="text-end">{{ ch.grandTotal | number:'1.0-0' }}</td>
                   <td class="text-end">{{ ch.paidTotal | number:'1.0-0' }}</td>
                   <td class="text-end">{{ ch.balanceDue | number:'1.0-0' }}</td>
@@ -251,7 +253,7 @@
           <thead>
             <tr>
               <th>User Name</th>
-              <th>CNIC / Passport</th>
+              <th class="am-fold">CNIC / Passport</th>
               <th>Contact</th>
               <th>Surcharge</th>
               <th>Access Status</th>
@@ -264,6 +266,7 @@
               <td>
                 <strong>{{ a.name }}</strong><br>
                 <small class="text-muted">{{ a.personGuid.substring(0, 8) }}...</small>
+                <small class="am-sub-inline">{{ a.idType }}: {{ a.idNumber }}</small>
                 @if (a.machineId) {
                 <small class="emp-no">Machine ID {{ a.machineId }}</small>
                 }
@@ -277,7 +280,7 @@
                 <small class="queued-tag" title="Waiting for offline machine(s) to reconnect">{{ a.hikPendingOps }} machine(s) pending sync</small>
                 }
               </td>
-              <td>{{ a.idType }}: {{ a.idNumber }}</td>
+              <td class="am-fold">{{ a.idType }}: {{ a.idNumber }}</td>
               <td><div>Email: {{ a.email || '—' }}</div><div>Phone: {{ a.phone || '—' }}</div></td>
               <td>
                 @if (a.isOverCapacity) {

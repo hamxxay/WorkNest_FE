@@ -73,10 +73,10 @@
           <thead><tr>
             <th class="sortable" [attr.aria-sort]="ariaSort('name')" (click)="setSort('name')">Device<span class="sort-icon">{{ sortMark('name') }}</span></th>
             <th class="sortable" [attr.aria-sort]="ariaSort('status')" (click)="setSort('status')">Status<span class="sort-icon">{{ sortMark('status') }}</span></th>
-            <th class="sortable" [attr.aria-sort]="ariaSort('type')" (click)="setSort('type')">Type<span class="sort-icon">{{ sortMark('type') }}</span></th>
+            <th class="sortable fold-lo" [attr.aria-sort]="ariaSort('type')" (click)="setSort('type')">Type<span class="sort-icon">{{ sortMark('type') }}</span></th>
             <th class="sortable num" [attr.aria-sort]="ariaSort('clients')" (click)="setSort('clients')">Clients<span class="sort-icon">{{ sortMark('clients') }}</span></th>
             <th class="sortable" [attr.aria-sort]="ariaSort('ip')" (click)="setSort('ip')">IP address<span class="sort-icon">{{ sortMark('ip') }}</span></th>
-            <th>MAC address</th>
+            <th class="fold-always">MAC address</th>
             <th class="sortable num" [attr.aria-sort]="ariaSort('today')" (click)="setSort('today')">Data today<span class="sort-icon">{{ sortMark('today') }}</span></th>
             <th class="sortable num" [attr.aria-sort]="ariaSort('memory')" (click)="setSort('memory')">Memory<span class="sort-icon">{{ sortMark('memory') }}</span></th>
             <th class="sortable num" [attr.aria-sort]="ariaSort('temp')" (click)="setSort('temp')">Temp.<span class="sort-icon">{{ sortMark('temp') }}</span></th>
@@ -88,13 +88,13 @@
               @for (d of rows(); track d.mac) {
                 <tr class="clickable" (click)="open(d, $event)">
                   <td><div class="dev"><span class="dev-icon"><net-icon [name]="gwnTypeIcon(d.type)" [size]="16" /></span>
-                    <div><div class="dev-name"><a [routerLink]="link(d)">{{ d.name }}</a></div><div class="muted small">{{ d.model }}</div></div></div></td>
+                    <div><div class="dev-name"><a [routerLink]="link(d)">{{ d.name }}</a></div><div class="muted small">{{ d.model }}</div><div class="muted small sub-lo">{{ d.type || '–' }}</div></div></div></td>
                   <td><span class="badge" [class.badge-ok]="d.status === 'online'" [class.badge-bad]="d.status !== 'online'">{{ d.status }}</span>
                     @if (lastSeen(d)) { <div class="muted small">{{ lastSeen(d) }}</div> }</td>
-                  <td>{{ d.type || '–' }}</td>
+                  <td class="fold-lo">{{ d.type || '–' }}</td>
                   <td class="num">{{ fmt(d.clients) }}</td>
-                  <td class="mono">{{ d.ip || '–' }}@if (d.publicIp && d.publicIp !== d.ip) { <div class="muted small">WAN {{ d.publicIp }}</div> }</td>
-                  <td class="mono">{{ d.mac }}</td>
+                  <td class="mono">{{ d.ip || '–' }}<div class="muted small sub-fold">{{ d.mac }}</div>@if (d.publicIp && d.publicIp !== d.ip) { <div class="muted small">WAN {{ d.publicIp }}</div> }</td>
+                  <td class="mono fold-always">{{ d.mac }}</td>
                   <td class="num">{{ bytes(d.today?.total) }}</td>
                   <td class="num">{{ pctText(d.memory) }}</td>
                   <td class="num" [class.temp-hot]="isHot(d)" [title]="isHot(d) ? 'Running hot (' + HOT_C + ' °C or more)' : ''">{{ d.temperature != null ? fmt(d.temperature) + ' °C' : '–' }}</td>

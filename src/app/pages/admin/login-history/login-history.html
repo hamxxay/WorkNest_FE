@@ -140,10 +140,8 @@
             <tr>
               <th>When</th>
               <th>Email</th>
-              <th>Event</th>
-              <th>Reason</th>
-              <th>IP Address</th>
-              <th>Browser / Device</th>
+              <th>Event / Reason</th>
+              <th>Browser / Device / IP</th>
             </tr>
           </thead>
           <tbody>
@@ -161,26 +159,22 @@
                     <span class="user-email">{{ item.email || 'Unknown' }}</span>
                   </div>
                 </td>
-                <td>
+                <td class="cell-event">
                   <span class="badge" [class]="getEventBadgeClass(item.eventType)">
                     {{ item.eventType }}
                   </span>
-                </td>
-                <td>
                   @if (item.failureReason) {
                     <span class="reason-pill">{{ item.failureReason }}</span>
                   } @else {
                     <span class="text-dim">&mdash;</span>
                   }
                 </td>
-                <td class="cell-ip">
-                  <code>{{ item.ipAddress || '&mdash;' }}</code>
-                </td>
                 <td class="cell-device">
                   <div class="device-summary" [attr.title]="item.userAgent || 'Unknown User Agent'">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                     <span>{{ item.deviceSummary }}</span>
                   </div>
+                  <div class="cell-ip"><code>{{ item.ipAddress || '&mdash;' }}</code></div>
                 </td>
               </tr>
             }

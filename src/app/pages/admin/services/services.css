@@ -321,7 +321,7 @@
 .ob-table-wrap { overflow-x: auto; }
 .ob-table-wrap.dim { opacity: 0.6; }
 .ob-table td small { display: block; color: var(--sv-muted); font-size: 0.76rem; margin-top: 2px; }
-.ob-subject { display: block; color: var(--sv-ink); font-weight: 600; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-subject { display: block; color: var(--sv-ink); font-weight: 600; max-width: 360px; white-space: normal; overflow-wrap: break-word; }
 .ob-to { max-width: 220px; overflow-wrap: anywhere; }
 .ob-nowrap { white-space: nowrap; color: var(--sv-text); }
 .ob-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; background: var(--sv-line-soft); color: var(--sv-text); }
@@ -329,7 +329,7 @@
 .ob-status[data-status="Sent"] { background: #ecfdf5; color: #047857; }
 .ob-status[data-status="Failed"] { background: #fef2f2; color: #b91c1c; }
 .ob-status[data-status="Discarded"] { background: #f1f5f9; color: #64748b; }
-.ob-table small.ob-error { color: #b91c1c; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-table small.ob-error { color: #b91c1c; max-width: 260px; white-space: normal; overflow-wrap: break-word; }
 .ob-actions { white-space: nowrap; text-align: right; }
 .ob-actions-col { width: 1%; }
 .ob-btn { padding: 4px 10px; font-size: 0.8rem; }

@@ -230,3 +230,23 @@ select.form-control { -webkit-appearance: none; appearance: none; padding-right:
   .facts > div { flex-wrap: wrap; gap: 4px 16px; }
   .facts dd { overflow-wrap: anywhere; }
 }
+
+/* ---------- fit-to-page tables (desktop): wrap text, tighter cells, secondary columns fold into a sub-line ----------
+   .fold-always / .fold-lo mark the folded <th>/<td> (kept in the DOM for exports); .sub-fold / .sub-lo are the
+   matching sub-lines inside the primary cell. .fold-lo only folds below 1440px. */
+.sub-fold, .sub-lo { display: none; }
+@media (min-width: 761px) {
+  .clean-table th { white-space: normal; padding: 10px 9px; }
+  .clean-table td { padding: 10px 9px; overflow-wrap: break-word; }
+  .clean-table td.mono, .clean-table td.num, .clean-table td .badge { white-space: nowrap; }
+  .clean-table .conn { white-space: normal; }
+  .exp .gauge { width: 40px; }
+  .mini-bar { min-width: 90px; }
+  .clean-table td .tag { display: flex; width: fit-content; margin: 3px 0 0; }
+  .clean-table .fold-always { display: none; }
+  .clean-table .sub-fold { display: block; margin-top: 2px; }
+}
+@media (min-width: 761px) and (max-width: 1439px) {
+  .clean-table .fold-lo { display: none; }
+  .clean-table .sub-lo { display: block; margin-top: 2px; }
+}

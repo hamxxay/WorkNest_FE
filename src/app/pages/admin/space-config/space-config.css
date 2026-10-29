@@ -60,6 +60,8 @@
 .admin-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; color: #0f172a; vertical-align: middle; }
 .admin-table tr:last-child td { border-bottom: none; }
 .admin-table tr:hover td { background: #f8fafc; }
+.sc-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.sc-sub { font-size: .76rem; color: #64748b; }
 .actions-col  { width: 1%; white-space: nowrap; }
 .actions-cell { display: flex; align-items: center; gap: 6px; }
 

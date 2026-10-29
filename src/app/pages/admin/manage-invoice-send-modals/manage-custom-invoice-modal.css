@@ -2,6 +2,7 @@
 .admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
 .admin-table th{text-align:left;padding:10px 12px;color:#64748b;font-weight:500;font-size:.78rem;border-bottom:2px solid #e2e8f0;background:#f8fafc;white-space:nowrap}
 .admin-table td{padding:12px;border-bottom:1px solid #f1f5f9;color:#0f172a;vertical-align:middle}
+.admin-table th,.admin-table td{padding-left:8px;padding-right:8px}
 .action-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;transition:all .15s;font-size:14px}
 .action-btn.delete{color:#ef4444}.action-btn.delete:hover{background:rgba(239,68,68,.08);border-color:#ef4444}
 .btn-admin{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s}

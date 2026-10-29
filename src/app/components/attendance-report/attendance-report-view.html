@@ -72,12 +72,12 @@
             @if (nextDay(d)) { <span class="next-day" title="Next day">+1</span> }
           </td>
           <td class="num">{{ hours(d.workedMinutes) }}</td>
-          <td class="nw">
+          <td>
             <span [class]="badge(d)">{{ label(d.status) }}</span>
             @if (d.onHoliday) { <span class="att-flag">on holiday</span> }
             @else if (d.onOffDay) { <span class="att-flag">on off day</span> }
           </td>
-          <td class="nw extras">{{ extras(d) || '-' }}</td>
+          <td class="extras">{{ extras(d) || '-' }}</td>
         </tr>
         }
       </tbody>

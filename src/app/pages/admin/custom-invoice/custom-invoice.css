@@ -190,6 +190,9 @@
 .ci-table td { padding: 11px 12px; vertical-align: top; border-bottom: 1px solid var(--ci-line-soft); color: var(--ci-ink); }
 .ci-table tbody tr:last-child td { border-bottom: none; }
 .ci-table .ci-mono { white-space: nowrap; }
+.ci-table .ci-stack { display: flex; flex-direction: column; gap: 2px; }
+.ci-table .ci-sub { font-size: .74rem; color: var(--ci-muted); }
+.ci-table td { overflow-wrap: break-word; }
 .ci-reason-cell { min-width: 200px; max-width: 320px; white-space: normal; overflow-wrap: anywhere; color: var(--ci-text); }
 .ci-pager { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 22px;
   border-top: 1px solid var(--ci-line-soft); font-size: .82rem; color: var(--ci-muted); }
@@ -256,4 +259,5 @@
   .ci-table td { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0 !important; border: none !important; text-align: right; }
   .ci-table td::before { content: attr(data-label); flex: 0 0 auto; color: var(--ci-muted); font-size: .76rem; font-weight: 600; text-align: left; }
   .ci-reason-cell { max-width: none; }
+  .ci-table .ci-stack { align-items: flex-end; }
 }

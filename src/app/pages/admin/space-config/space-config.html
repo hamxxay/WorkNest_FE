@@ -59,13 +59,10 @@
           <tr>
             <th>Location</th>
             <th>Space Type</th>
-            <th>Prefix</th>
-            <th>Start Code</th>
+            <th>Prefix / Start Code</th>
             <th>Quantity</th>
-            <th>Opens</th>
-            <th>Closes</th>
-            <th>Price/Month</th>
-            <th>Deposit</th>
+            <th>Opens / Closes</th>
+            <th>Price/Month / Deposit</th>
             <th class="actions-col">Actions</th>
           </tr>
         </thead>
@@ -74,14 +71,25 @@
           <tr>
             <td><strong>{{ cfg.locationName || '—' }}</strong></td>
             <td>{{ cfg.spaceTypeName || cfg.spaceCategory }}</td>
-            <td><code class="sc-code">{{ cfg.codePrefix }}</code></td>
-            <td><code class="sc-code">{{ cfg.minCode }}</code></td>
+            <td>
+              <div class="sc-stack">
+                <code class="sc-code">{{ cfg.codePrefix }}</code>
+                <code class="sc-code">{{ cfg.minCode }}</code>
+              </div>
+            </td>
             <td>{{ cfg.totalSpaces }}</td>
-            <td>{{ cfg.openingTime }}</td>
-            <td>{{ cfg.closingTime }}</td>
-            <td>{{ cfg.price ? ('PKR ' + (cfg.price | number:'1.0-0') + ' / ' + (cfg.billingPeriodLabel || 'Month')) :
-              '—' }}</td>
-            <td>{{ cfg.securityDeposit ? ('PKR ' + (cfg.securityDeposit | number:'1.0-0')) : '—' }}</td>
+            <td>
+              <div class="sc-stack">
+                <span>{{ cfg.openingTime }}</span>
+                <span class="sc-sub">{{ cfg.closingTime }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="sc-stack">
+                <span>{{ cfg.price ? ('PKR ' + (cfg.price | number:'1.0-0') + ' / ' + (cfg.billingPeriodLabel || 'Month')) : '—' }}</span>
+                <span class="sc-sub">Deposit {{ cfg.securityDeposit ? ('PKR ' + (cfg.securityDeposit | number:'1.0-0')) : '—' }}</span>
+              </div>
+            </td>
             <td class="actions-cell">
               <button class="action-btn edit" (click)="openEdit(cfg)" title="Edit space configuration" aria-label="Edit space configuration">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"

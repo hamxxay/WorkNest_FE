@@ -145,3 +145,10 @@ select.form-control { -webkit-appearance: none; appearance: none; padding-right:
   .close-btn { width: 44px; height: 44px; flex: none; margin: -10px -10px 0 0; }
   .grid-2 > .card > .chart-box { min-height: 220px; }
 }
+
+/* ---------- fit-to-page tables (desktop): names and long text wrap instead of forcing a horizontal scroll ---------- */
+@media (min-width: 761px) {
+  .data-table td { overflow-wrap: break-word; }
+  .data-table .person-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+  .data-table .method, .data-table .badge { white-space: nowrap; }
+}
