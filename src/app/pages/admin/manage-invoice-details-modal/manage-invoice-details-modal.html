@@ -139,6 +139,11 @@
           <polyline points="7 10 12 15 17 10" />
           <line x1="12" y1="15" x2="12" y2="3" />
         </svg>Download PDF</button>
+            @if (canEditIssueDate) {
+      <button class="btn-admin" (click)="openEditIssueDate.emit(inv)"
+        style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600">
+        Edit Issue Date</button>
+      }
       @if (canRevertInvoiceApproval) {
       <button class="btn-admin" (click)="openRevertApproval.emit(inv)"
         style="background:#b45309;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:0.82rem;font-weight:600">

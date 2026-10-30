@@ -7911,6 +7911,11 @@ export abstract class ManageBase implements OnInit {
   }
 
   // Revert approval (super admin): Approved -> Pending Approval
+  readonly editIssueDateInvoice = signal<any>(null);
+  readonly editIssueDateValue = signal('');
+  readonly editIssueDateReason = signal('');
+  readonly editIssueDateSaving = signal(false);
+  readonly editIssueDateError = signal('');
   readonly revertApprovalInvoice = signal<any>(null);
   readonly revertApprovalReason = signal('');
   readonly revertApprovalSaving = signal(false);
@@ -7985,7 +7990,85 @@ export abstract class ManageBase implements OnInit {
     });
   }
 
-  // Record Manual Payment
+  canEditInvoiceIssueDate(inv: any): boolean {
+    if (!this.isSuperAdmin || !inv) return false;
+    if (inv.isDeleted || inv.IsDeleted || Number(inv.statusId ?? inv.StatusId) === 40 || Number(inv.statusId ?? inv.StatusId) === 86) return false;
+    const status = String(this.getCellValue(inv, { key: 'statusLabel', label: 'Status' }) || '').toLowerCase();
+    if (status === 'cancelled' || status === 'deleted') return false;
+    return true;
+  }
+
+  openEditIssueDate(inv: any) {
+    if (!this.canEditInvoiceIssueDate(inv)) return;
+    const rawDate = inv.issuedOn ?? inv.IssuedOn ?? inv.createdOn ?? inv.createdAt;
+    let dateStr = '';
+    if (rawDate) {
+      if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+        dateStr = rawDate.substring(0, 10);
+      } else {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toISOString().split('T')[0];
+        }
+      }
+    }
+    if (!dateStr) dateStr = this.today;
+    this.editIssueDateValue.set(dateStr);
+    this.editIssueDateReason.set('');
+    this.editIssueDateError.set('');
+    this.editIssueDateSaving.set(false);
+    this.editIssueDateInvoice.set(inv);
+  }
+
+  closeEditIssueDate() {
+    if (this.editIssueDateSaving()) return;
+    this.editIssueDateInvoice.set(null);
+  }
+
+  submitEditIssueDate() {
+    const inv = this.editIssueDateInvoice();
+    const id = inv?.id ?? inv?.Id ?? inv?.invoiceId ?? inv?.InvoiceId;
+    const newDate = this.editIssueDateValue()?.trim();
+    const reason = this.editIssueDateReason()?.trim();
+    if (!id || !newDate || !reason || reason.length > 500 || this.editIssueDateSaving()) return;
+    if (reason.length < 5) {
+      this.editIssueDateError.set('Reason must be at least 5 characters long.');
+      return;
+    }
+    this.editIssueDateSaving.set(true);
+    this.editIssueDateError.set('');
+    this.admin.updateInvoiceIssueDate(id, newDate, reason).subscribe({
+      next: (res: any) => {
+        this.editIssueDateSaving.set(false);
+        if (res && res.isSuccessful === false) {
+          this.editIssueDateError.set(res?.message || 'Could not update invoice issue date.');
+          return;
+        }
+        const num = res?.data?.invoiceNumber || inv.invoiceNumber || inv.InvoiceNumber || ('INV-' + id);
+        this.editIssueDateInvoice.set(null);
+        this.showSuccess(`Issue date updated for ${num}`);
+        inv.issuedOn = newDate;
+        if ('IssuedOn' in inv) inv.IssuedOn = newDate;
+        this.load();
+        const open = this.selectedInvoiceDetails();
+        const openId = open?.id ?? open?.Id ?? open?.invoiceId ?? open?.InvoiceId;
+        if (open && openId === id) {
+          this.admin.getInvoiceDetails(id).subscribe({
+            next: (d: any) => {
+              const fresh = d?.data ?? d;
+              if (fresh) this.selectedInvoiceDetails.set(fresh);
+            }
+          });
+        }
+      },
+      error: (err: any) => {
+        this.editIssueDateSaving.set(false);
+        this.editIssueDateError.set(err?.error?.message || err?.error?.ErrorMessage || err?.message || 'Could not update invoice issue date.');
+      }
+    });
+  }
+
+    // Record Manual Payment
   openRecordPaymentModal(invoice: any) {
     this.recordPaymentFormData = {
       invoiceId: invoice.id,

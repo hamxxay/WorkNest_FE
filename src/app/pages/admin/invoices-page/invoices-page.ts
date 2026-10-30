@@ -5,6 +5,7 @@ import { ManageBookingDetailsModal } from '../manage-booking-details-modal/manag
 import { ManageInvoiceDetailsModal } from '../manage-invoice-details-modal/manage-invoice-details-modal';
 import { ManageRecordPaymentModal } from '../manage-record-payment-modal/manage-record-payment-modal';
 import { ManageRevertApprovalModal } from '../manage-revert-approval-modal/manage-revert-approval-modal';
+import { ManageEditIssueDateModal } from '../manage-edit-issue-date-modal/manage-edit-issue-date-modal';
 import { ManageInitialInvoicePreviewModal } from '../manage-invoice-send-modals/manage-initial-invoice-preview-modal';
 import { ManageCustomInvoiceModal } from '../manage-invoice-send-modals/manage-custom-invoice-modal';
 import { ManageQuickCustomerModal } from '../manage-quick-customer-modal/manage-quick-customer-modal';
@@ -17,7 +18,7 @@ import { ManageBase } from '../manage-base/manage-base';
 @Component({
   selector: 'app-invoices-page',
   imports: [CommonModule, FormsModule, DatePipe, ManageBookingDetailsModal, ManageInvoiceDetailsModal,
-    ManageRecordPaymentModal, ManageRevertApprovalModal, ManageInitialInvoicePreviewModal, ManageCustomInvoiceModal,
+    ManageRecordPaymentModal, ManageRevertApprovalModal, ManageEditIssueDateModal, ManageInitialInvoicePreviewModal, ManageCustomInvoiceModal,
     ManageQuickCustomerModal, ManageBookingChallanModal, ManageBookingFormModal],
   templateUrl: './invoices-page.html',
   // Shared popup look first, so the page's own colour classes (.src-*, .out-*) override its defaults.

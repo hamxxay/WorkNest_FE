@@ -16,10 +16,13 @@ export class ManageInvoiceDetailsModal {
   @Input() spaceCellValue: any;
   /** Manage.canRevertInvoiceApproval(inv). */
   @Input() canRevertInvoiceApproval = false;
+  /** Manage.canEditInvoiceIssueDate(inv). */
+  @Input() canEditIssueDate = false;
   @Input({ required: true }) sendingInvoiceEmailId!: Signal<number | null>;
   @Output() closeInvoiceDetails = new EventEmitter<void>();
   @Output() sendInvoiceEmail = new EventEmitter<any>();
   @Output() downloadStatementPdf = new EventEmitter<any>();
   @Output() openRevertApproval = new EventEmitter<any>();
+  @Output() openEditIssueDate = new EventEmitter<any>();
   @Output() openRecordPaymentModal = new EventEmitter<any>();
 }

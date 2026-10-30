@@ -342,6 +342,10 @@ export class AdminService {
   deleteUnapprovedInvoice(invoiceId: number): Observable<ApiResponse<any>> {
     return this.http.delete<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/unapproved`);
   }
+  updateInvoiceIssueDate(invoiceId: number, newIssueDate: string, reason: string): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.api}/invoices/${invoiceId}/issue-date`, { newIssueDate, reason });
+  }
+
   revertInvoiceApproval(invoiceId: number, reason: string): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.api}/invoice/${invoiceId}/revert-approval`, { reason });
   }

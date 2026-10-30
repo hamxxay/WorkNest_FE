@@ -1,0 +1,50 @@
+<div class="modal-overlay" (click)="closeEditIssueDate.emit()" style="z-index:1100">
+  <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;width:100%;">
+    <button class="modal-close" (click)="closeEditIssueDate.emit()" title="Close" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+    <h2>Edit Invoice Issue Date</h2>
+    <div class="user-detail-grid" style="margin-bottom: 1rem;">
+      <div class="user-line"><span>Invoice</span><strong>{{ rinv.invoiceNumber || rinv.InvoiceNumber || ('INV-' + (rinv.id || rinv.Id)) }}</strong></div>
+      <div class="user-line"><span>Customer</span><strong>{{ getCellValue(rinv, { key: 'customerName', label: 'Customer' }) }}</strong></div>
+      <div class="user-line"><span>Current Issue Date</span><strong>{{ (rinv.issuedOn || rinv.IssuedOn || rinv.createdOn || rinv.createdAt) | date:'mediumDate' }}</strong></div>
+      <div class="user-line"><span>Due Date</span><strong>{{ (rinv.dueOn || rinv.DueOn) | date:'mediumDate' }}</strong></div>
+    </div>
+    <ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.82rem;color:#6366f1;line-height:1.5">
+      <li>Only Super Admin can update the invoice issue date.</li>
+      <li>Related Voucher and CustomerLedger dates will be synced automatically.</li>
+      <li>Due date remains unchanged.</li>
+    </ul>
+    @if (editIssueDateError()) {
+    <div class="alert-admin alert-error-admin" style="margin-bottom: 1rem;">{{ editIssueDateError() }}</div>
+    }
+    <form (ngSubmit)="submitEditIssueDate.emit()">
+      <div class="form-group-admin" style="margin-bottom: 1rem;">
+        <label for="newIssueDate">New Issue Date <span style="color:#dc2626">*</span></label>
+        <input type="date" id="newIssueDate" class="form-input-admin" name="newIssueDate"
+          [value]="editIssueDateValue()" (input)="editIssueDateValue.set($any($event.target).value)"
+          [disabled]="editIssueDateSaving()" required />
+      </div>
+      <div class="form-group-admin">
+        <label for="editIssueReason">Reason <span style="color:#dc2626">*</span></label>
+        <textarea id="editIssueReason" class="form-input-admin" rows="3" maxlength="500" name="editIssueReason"
+          [value]="editIssueDateReason()" (input)="editIssueDateReason.set($any($event.target).value)"
+          [disabled]="editIssueDateSaving()" placeholder="Why is this invoice issue date being updated?"></textarea>
+        <small style="display:block;text-align:right;color:#64748b;font-size:.75rem">{{ editIssueDateReason().length }} / 500</small>
+      </div>
+      <div class="modal-actions" style="margin-top: 1.25rem;">
+        <button type="button" class="btn-admin btn-outline-admin" (click)="closeEditIssueDate.emit()"
+          [disabled]="editIssueDateSaving()">Cancel</button>
+        <button type="submit" class="btn-admin btn-primary-admin"
+          [disabled]="editIssueDateSaving() || !editIssueDateValue() || !editIssueDateReason().trim()">
+          {{ editIssueDateSaving() ? 'Saving...' : 'Save Issue Date' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+

@@ -1,0 +1,16 @@
+/* Scoped tweaks for Edit Issue Date modal */
+.user-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  border-bottom: 1px dashed #e2e8f0;
+}
+.user-line span {
+  color: #64748b;
+}
+.user-line strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
