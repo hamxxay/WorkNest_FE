@@ -6,7 +6,7 @@ import {
   DashError, DashErrorWording, DashParams, DashRange, arr, capPct, conversionOf, describeDashboardError, getDashboardData, isMonth, num,
   numOrNull, obj, percent, periodOf, periodQuery, quotationsBookedOf, rangeOf, str, strOrNull
 } from './dashboard-api';
-import { CeoBreakdown, CeoInquiryRecord, CeoPeriod } from './ceo.service';
+import { CeoBreakdown, CeoInquiryRecord, CeoMoney, CeoPeriod, CeoRooms, toCeoMoney, toCeoRooms } from './ceo.service';
 
 // ============================================================
 // Sales Manager dashboard API (GET api/sales-manager/*, read-only). Shared contract with the API and the
@@ -25,6 +25,15 @@ export type SmParams = DashParams;
 export type SmError = DashError;
 
 export interface SmLocation { locationId: number; name: string; }
+
+// ---------- Money (Invoiced, Receivable, Overdue) ----------
+export interface SmMoneyResponse {
+  period: SmPeriod;
+  periodLabel: string;
+  from?: string | null;
+  to?: string | null;
+  money: CeoMoney | null;
+}
 
 // ---------- Sales funnel ----------
 export interface SmFunnelStage { stage: string; label: string; count: number; }
@@ -321,6 +330,26 @@ export class SalesManagerService {
    * GET api/sales-manager/complaints: the Complaints section (same period and location filter as the dashboard).
    * null when the API sent nothing. A 503 means the complaints update (SM_03) is missing.
    */
+  /** GET api/sales-manager/money: money figures (invoiced, receivable, overdue) for the manager's locations. */
+  getMoney(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<SmMoneyResponse> {
+    return this.get(`${this.api}/sales-manager/money`, { ...periodQuery(period, range), locationId }).pipe(
+      map(d => ({
+        period: periodOf<SmPeriod>(d?.period, period),
+        periodLabel: str(d?.periodLabel),
+        from: strOrNull(d?.from),
+        to: strOrNull(d?.to),
+        money: toCeoMoney(d?.money)
+      }))
+    );
+  }
+
+  /** GET api/sales-manager/rooms: room map and pricing report for the manager's locations. */
+  getRooms(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<CeoRooms> {
+    return this.get(`${this.api}/sales-manager/rooms`, { ...periodQuery(period, range), locationId }).pipe(
+      map(d => toCeoRooms(d, period))
+    );
+  }
+
   getComplaints(period: SmPeriod, locationId: number | null, range: DashRange | null = null): Observable<SmComplaints | null> {
     return this.get(`${this.api}/sales-manager/complaints`, { ...periodQuery(period, range), locationId },
       err => SalesManagerService.describeComplaintsError(err))

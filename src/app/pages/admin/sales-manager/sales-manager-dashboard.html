@@ -169,6 +169,32 @@
 
     <div class="sections" [class.is-refreshing]="refreshing()" [attr.aria-busy]="refreshing()">
 
+      <!-- ===================== INVOICING & RECEIVABLES ===================== -->
+      <section class="dash-section" aria-labelledby="sm-h-invoicing">
+        <div class="section-title">
+          <h2 id="sm-h-invoicing">Invoicing &amp; receivables</h2>
+          <span>Invoiced, receivable and overdue · {{ periodTitle() }}</span>
+        </div>
+        @if (moneyLoading() && !m()) {
+          <div class="kpi-grid kpi-3">
+            @for (i of [1,2,3]; track i) {
+              <div class="kpi-card skeleton-card"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
+            }
+          </div>
+        } @else if (moneyError() && !m()) {
+          <div class="dash-panel section-empty" role="alert">
+            <span class="chart-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>
+            <strong>Could not load invoicing figures</strong>
+            <span>{{ moneyError()!.message }}</span>
+            <button type="button" class="link-btn" (click)="loadMoney()">Try again</button>
+          </div>
+        } @else if (m()) {
+          <div class="kpi-grid kpi-3">
+            @for (k of moneyKpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
+          </div>
+        }
+      </section>
+
       <!-- ===================== SALES FUNNEL ===================== -->
       <section class="dash-section" aria-labelledby="sm-h-funnel">
         <div class="section-title">
@@ -613,6 +639,10 @@
     </div>
   }
 
+
+  <!-- ===================== ROOM MAP (own endpoint, bound to manager's locations) ===================== -->
+  <app-ceo-rooms [period]="period()" [range]="activeRange()" [locationId]="locationId()"
+    [reload]="roomsReload()" [quietReload]="roomsQuietReload()" [mapOnly]="true" source="sales-manager" />
 
   <!-- ===================== COMPLAINTS (own endpoint: a failure here leaves the rest alone) ===================== -->
   <section class="dash-section cmp-section" aria-labelledby="sm-h-cmp" [class.is-refreshing]="cmpRefreshing()" [attr.aria-busy]="cmpLoading() || cmpRefreshing()">

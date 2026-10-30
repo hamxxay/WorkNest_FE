@@ -4,6 +4,7 @@ import {
 } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Subscription } from 'rxjs';
+import { SalesManagerService } from '../../../../services/sales-manager.service';
 import {
   CEO_SHIFTS, CeoError, CeoPeriod, CeoPricing, CeoRoomCategory, CeoRooms, CeoService, roomCategoryOf
 } from '../../../../services/ceo.service';
@@ -53,6 +54,7 @@ const AXIS_PX = 44;
 })
 export class CeoRoomsSection {
   private ceo = inject(CeoService);
+  private sm = inject(SalesManagerService);
   private host = inject(ElementRef<HTMLElement>);
   private injector = inject(Injector);
 
@@ -64,6 +66,8 @@ export class CeoRoomsSection {
   reload = input(0);
   /** Bumped by the dashboard's auto refresh: reload without dimming the section (selection and filters stay). */
   quietReload = input(0);
+  source = input<'ceo' | 'sales-manager'>('ceo');
+  mapOnly = input(false);
 
   readonly money = money;
   readonly fullMoney = fullMoney;
@@ -126,8 +130,11 @@ export class CeoRoomsSection {
     if (!quiet) { if (this.data()) this.refreshing.set(true); else this.loading.set(true); }
     const range = this.period() === 'custom' ? this.range() : null;
     const key = `${this.period()}|${range?.from ?? ''}|${range?.to ?? ''}|${this.locationId() ?? ''}`;
-    this.sub = this.ceo.getRooms(this.period(), this.locationId(), range).subscribe({
-      next: d => {
+    const req$ = this.source() === 'sales-manager'
+      ? this.sm.getRooms(this.period(), this.locationId(), range)
+      : this.ceo.getRooms(this.period(), this.locationId(), range);
+    this.sub = req$.subscribe({
+      next: (d: CeoRooms) => {
         this.data.set(d);
         this.dataKey = key;
         this.error.set(null);
@@ -414,6 +421,7 @@ export class CeoRoomsSection {
   }
 
   private renderCharts() {
+    if (this.mapOnly()) { this.destroyCharts(); return; }
     const d = this.data();
     const mixCanvas = this.mixCanvas();
     const offCanvas = this.offCanvas();

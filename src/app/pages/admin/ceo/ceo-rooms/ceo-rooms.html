@@ -1,7 +1,7 @@
 <!-- ===================== ROOMS ===================== -->
 <section class="dash-section" aria-labelledby="ceo-h-rooms">
   <div class="section-title">
-    <h2 id="ceo-h-rooms">Rooms</h2>
+    <h2 id="ceo-h-rooms">{{ mapOnly() ? "Room map" : "Rooms" }}</h2>
     <span>Private offices and shared spaces: occupancy and price against list · {{ periodTitle() }}</span>
   </div>
 
@@ -33,6 +33,12 @@
   </ng-template>
 
   @if (loading()) {
+    @if (mapOnly()) {
+      <div class="dash-panel map-panel skeleton-card" aria-hidden="true" style="min-height: 280px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+        <span class="sk sk-line w40"></span>
+        <span class="sk sk-block" style="height: 200px;"></span>
+      </div>
+    } @else {
     <div class="kpi-grid kpi-rooms" aria-hidden="true">
       @for (i of [1,2,3,4,5]; track i) {
         <div class="kpi-card skeleton-card" [class.kpi-cat]="i <= 2"><span class="sk sk-line w40"></span><span class="sk sk-value"></span><span class="sk sk-line w70"></span></div>
@@ -42,6 +48,7 @@
       <div class="dash-panel span-4 full-md"><span class="sk sk-line w60"></span><span class="sk sk-block"></span></div>
       <div class="dash-panel span-8"><span class="sk sk-line w40"></span><span class="sk sk-block"></span></div>
     </div>
+    }
   } @else if (error() && !data()) {
     <div class="dash-panel section-empty" role="alert">
       <span class="chart-empty-icon" [class.db]="error()!.needsDbUpdate">
@@ -71,6 +78,7 @@
       }
 
       <div class="rooms-body" [class.is-refreshing]="refreshing()" [attr.aria-busy]="refreshing()">
+        @if (!mapOnly()) {
         <div [class]="'kpi-grid ' + kpiLayout()">
           @for (k of kpis(); track k.key) { <ng-container *ngTemplateOutlet="kpiCard; context: { $implicit: k }" /> }
         </div>
@@ -202,6 +210,8 @@
           </div>
 
         </div>
+
+        }
 
         <!-- Room map: every room as a tile, coloured by how it was sold; a card with the chosen room -->
         <div class="dash-panel map-panel focus-target" id="panel-rooms-map" tabindex="-1">

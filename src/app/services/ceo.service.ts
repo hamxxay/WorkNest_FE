@@ -636,6 +636,33 @@ function ratioPct(part: number, whole: number): number {
  * out, and the summary filled from the rooms where it is missing. available: false (database update CEO_02 not
  * run) keeps only the message.
  */
+export function toCeoMoney(m: any): CeoMoney | null {
+  if (!m) return null;
+  return {
+    invoiced: num(m.invoiced), invoicedPrev: num(m.invoicedPrev),
+    collected: num(m.collected), collectedPrev: num(m.collectedPrev),
+    whtOpen: numOrNull(m.whtOpen), whtOpenPrev: numOrNull(m.whtOpen) === null ? null : num(m.whtOpenPrev),
+    outstanding: num(m.outstanding), outstandingCount: num(m.outstandingCount),
+    overdue: num(m.overdue), overdueCount: num(m.overdueCount),
+    billedInAdvance: numOrNull(m.billedInAdvance),
+    billedInAdvanceCount: numOrNull(m.billedInAdvance) === null ? null : num(m.billedInAdvanceCount),
+    securityDeposits: numOrNull(m.securityDeposits),
+    securityDepositsPrev: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsPrev),
+    securityDepositsCount: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsCount),
+    collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
+    months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected), whtOpen: numOrNull(x.whtOpen) }))
+      .filter(x => /^\d{4}-\d{2}/.test(x.month)),
+    aging: arr(m.aging, (x: any) => ({ bucket: str(x.bucket), label: str(x.label) || str(x.bucket), amount: num(x.amount), count: num(x.count), deposits: numOrNull(x.deposits) })),
+    topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) })),
+    received: numOrNull(m.received), receivedPrev: numOrNull(m.received) === null ? null : num(m.receivedPrev),
+    receivedCount: numOrNull(m.received) === null ? null : num(m.receivedCount),
+    receivedCountPrev: numOrNull(m.received) === null ? null : num(m.receivedCountPrev),
+    receivedSeries: numOrNull(m.received) === null || !Array.isArray(m.receivedSeries) ? null
+      : arr(m.receivedSeries, (x: any): CeoReceivedMonth => ({ month: str(x.month), received: num(x.received), count: num(x.count) }))
+          .filter(x => /^\d{4}-\d{2}/.test(x.month))
+  };
+}
+
 export function toCeoRooms(raw: unknown, period: CeoPeriod): CeoRooms {
   const d = obj(raw);
   const head = {
@@ -794,30 +821,7 @@ export class CeoService {
     const s = obj(d.sales);
     const t = obj(d.team);
 
-    const money: CeoMoney | null = m && {
-      invoiced: num(m.invoiced), invoicedPrev: num(m.invoicedPrev),
-      collected: num(m.collected), collectedPrev: num(m.collectedPrev),
-      whtOpen: numOrNull(m.whtOpen), whtOpenPrev: numOrNull(m.whtOpen) === null ? null : num(m.whtOpenPrev),
-      outstanding: num(m.outstanding), outstandingCount: num(m.outstandingCount),
-      overdue: num(m.overdue), overdueCount: num(m.overdueCount),
-      billedInAdvance: numOrNull(m.billedInAdvance),
-      billedInAdvanceCount: numOrNull(m.billedInAdvance) === null ? null : num(m.billedInAdvanceCount),
-      securityDeposits: numOrNull(m.securityDeposits),
-      securityDepositsPrev: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsPrev),
-      securityDepositsCount: numOrNull(m.securityDeposits) === null ? null : num(m.securityDepositsCount),
-      collectionRate: percent(m.collectionRate, num(m.collected), num(m.invoiced)),
-      months: arr(m.months, (x: any) => ({ month: str(x.month), invoiced: num(x.invoiced), collected: num(x.collected), whtOpen: numOrNull(x.whtOpen) }))
-        .filter(x => /^\d{4}-\d{2}/.test(x.month)),
-      aging: arr(m.aging, (x: any) => ({ bucket: str(x.bucket), label: str(x.label) || str(x.bucket), amount: num(x.amount), count: num(x.count), deposits: numOrNull(x.deposits) })),
-      topCustomers: arr(m.topCustomers, (x: any) => ({ customerId: num(x.customerId), name: str(x.name) || 'Customer', amount: num(x.amount), invoices: num(x.invoices) })),
-      // CP_02: money received (null before the database update)
-      received: numOrNull(m.received), receivedPrev: numOrNull(m.received) === null ? null : num(m.receivedPrev),
-      receivedCount: numOrNull(m.received) === null ? null : num(m.receivedCount),
-      receivedCountPrev: numOrNull(m.received) === null ? null : num(m.receivedCountPrev),
-      receivedSeries: numOrNull(m.received) === null || !Array.isArray(m.receivedSeries) ? null
-        : arr(m.receivedSeries, (x: any): CeoReceivedMonth => ({ month: str(x.month), received: num(x.received), count: num(x.count) }))
-            .filter(x => /^\d{4}-\d{2}/.test(x.month))
-    };
+    const money = toCeoMoney(m);
 
     const leasesExpiring = arr(o?.leasesExpiring, (x: any): CeoLeaseExpiring => ({
       bookingId: num(x.bookingId), customer: str(x.customer) || 'Customer', space: str(x.space), location: str(x.location),

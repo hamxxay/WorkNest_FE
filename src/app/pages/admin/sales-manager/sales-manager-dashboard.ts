@@ -11,10 +11,12 @@ import { DashNetworkSection } from '../ceo/dash-network/dash-network';
 import { networkSheets } from '../ceo/dash-network/network-export';
 import {
   COMPLAINT_STATUSES, Chart, ChartKeyNav, DashKpi, DrillRequest, DrillSource, GRID, INQUIRY_TYPES, LEGEND, TEAL, TEAL_DARK, TOOLTIP,
-  Trend, applyChartDefaults, complaintStatusStyle, count, displayNameOf, firstNameOf, greetingNow, inquiryTypeKey, monthLong, monthShort,
-  pct, pointerOnHover, ratio, trend
+  Trend, applyChartDefaults, complaintStatusStyle, count, displayNameOf, firstNameOf, fullMoney, greetingNow, inquiryTypeKey, monthLong, monthShort,
+  money, pct, pointerOnHover, ratio, trend
 } from '../ceo/ceo-shared';
 import { SM_METRICS, SmDrillLevel, desks } from './sales-manager-drill';
+import { CeoRoomsSection } from '../ceo/ceo-rooms/ceo-rooms';
+import type { CeoMoney } from '../../../services/ceo.service';
 import { RangeEditor, periodTitleOf, periodWords, previousRange } from '../ceo/period-range';
 import { salesWorkbook } from './sales-manager-export';
 import type { DashRange } from '../../../services/dashboard-api';
@@ -102,7 +104,7 @@ function dayCount(n: number): string {
 @Component({
   selector: 'app-sales-manager-dashboard',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, DashNetworkSection],
+  imports: [DatePipe, NgTemplateOutlet, CeoDrawer, DashNetworkSection, CeoRoomsSection],
   templateUrl: './sales-manager-dashboard.html',
   // Same look as the CEO dashboard: its stylesheet, plus the few sales-only pieces.
   styleUrls: ['../ceo/ceo-dashboard.css', './sales-manager-dashboard.css']
@@ -189,7 +191,7 @@ export class SalesManagerDashboard {
 
   /** Every 5 minutes while the tab is visible; waits while a drawer, the range editor or an export is open. */
   private auto = new AutoRefresh({
-    run: () => { this.load(true); this.loadComplaints(true); this.networkQuietReload.update(n => n + 1); },
+    run: () => { this.load(true); this.loadComplaints(true); this.loadMoney(true); this.networkQuietReload.update(n => n + 1); this.roomsQuietReload.update(n => n + 1); },
     paused: () => !!this.drill() || this.rangeEditor.open() || !!this.exporting() || this.loading() || this.refreshing()
   });
 
@@ -197,6 +199,7 @@ export class SalesManagerDashboard {
     inject(DestroyRef).onDestroy(() => {
       this.sub?.unsubscribe();
       this.cmpSub?.unsubscribe();
+      this.moneySub?.unsubscribe();
       this.destroyCharts();
       this.auto.stop();
       if (this.clock) clearInterval(this.clock);
@@ -207,7 +210,84 @@ export class SalesManagerDashboard {
       this.period();
       this.activeRange();
       this.locationId();
-      untracked(() => { this.load(); this.loadComplaints(); });
+      untracked(() => { this.load(); this.loadComplaints(); this.loadMoney(); });
+    });
+  }
+
+  // ---------- Invoicing & receivables ----------
+  moneyData = signal<CeoMoney | null>(null);
+  moneyLoading = signal(true);
+  moneyRefreshing = signal(false);
+  moneyError = signal<SmError | null>(null);
+  private moneySub?: Subscription;
+
+  roomsReload = signal(0);
+  roomsQuietReload = signal(0);
+
+  m = computed(() => this.moneyData());
+
+  moneyKpis = computed<SmKpi[]>(() => {
+    const m = this.m();
+    if (!m) return [];
+    const w = this.words();
+    const receivable = Math.max(0, m.invoiced - m.collected - (m.whtOpen ?? 0));
+    const receivablePrev = Math.max(0, m.invoicedPrev - m.collectedPrev - (m.whtOpenPrev ?? 0));
+
+    return [
+      {
+        key: 'invoiced',
+        label: `Invoiced ${w.thisP}`,
+        value: money(m.invoiced),
+        full: fullMoney(m.invoiced),
+        sub: `${money(m.invoicedPrev)} ${w.last}`,
+        tone: 'neutral',
+        trend: trend(m.invoiced, m.invoicedPrev, '%'),
+        vs: `vs ${w.last}`,
+        hint: 'By billing period, without security deposits'
+      },
+      {
+        key: 'receivable',
+        label: `Receivable ${w.thisP}`,
+        value: money(receivable),
+        full: fullMoney(receivable),
+        sub: m.invoiced > 0 ? `of ${money(m.invoiced)} invoiced` : 'No invoiced revenue yet',
+        tone: receivable > 0 ? 'neutral' : 'ok',
+        trend: trend(receivable, receivablePrev, '%', false),
+        vs: `vs ${w.last}`,
+        hint: m.whtOpen != null
+          ? 'Invoiced less paid and less the WHT customers withhold, for this period\'s billing'
+          : 'Invoiced less paid, for this period\'s billing'
+      },
+      {
+        key: 'overdue',
+        label: 'Overdue',
+        value: money(m.overdue),
+        full: fullMoney(m.overdue),
+        sub: m.overdueCount ? `${count(m.overdueCount)} past due date` : 'Nothing overdue',
+        tone: m.overdueCount ? 'danger' : 'ok',
+        hint: 'Unpaid invoices past their due date, as of today, including security deposits'
+      }
+    ];
+  });
+
+  loadMoney(quiet = false) {
+    this.moneySub?.unsubscribe();
+    if (!quiet) {
+      if (this.moneyData()) this.moneyRefreshing.set(true);
+      else this.moneyLoading.set(true);
+    }
+    this.moneySub = this.sm.getMoney(this.period(), this.locationId(), this.activeRange()).subscribe({
+      next: res => {
+        this.moneyData.set(res.money);
+        this.moneyError.set(null);
+        this.moneyLoading.set(false);
+        this.moneyRefreshing.set(false);
+      },
+      error: (err: SmError) => {
+        this.moneyError.set(SalesManagerService.describeError(err));
+        this.moneyLoading.set(false);
+        this.moneyRefreshing.set(false);
+      }
     });
   }
 
@@ -254,6 +334,7 @@ export class SalesManagerDashboard {
   /** Complaints section: same period and location as the rest; a failure stays inside the section. */
   loadComplaints(quiet = false) {
     this.cmpSub?.unsubscribe();
+      this.moneySub?.unsubscribe();
     if (!quiet) { if (this.cmp()) this.cmpRefreshing.set(true); else this.cmpLoading.set(true); }
     const key = this.selectionKey();
     this.cmpSub = this.sm.getComplaints(this.period(), this.locationId(), this.activeRange()).subscribe({
@@ -275,7 +356,7 @@ export class SalesManagerDashboard {
     });
   }
 
-  refresh() { this.load(); this.loadComplaints(); this.networkReload.update(n => n + 1); }
+  refresh() { this.load(); this.loadComplaints(); this.loadMoney(); this.networkReload.update(n => n + 1); this.roomsReload.update(n => n + 1); }
 
   setPeriod(p: SmPeriod) {
     this.rangeEditor.close();
